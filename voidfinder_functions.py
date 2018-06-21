@@ -55,7 +55,7 @@ def in_mask(coordinates, survey_mask, r_limits):
 
     r = np.linalg.norm(to_vector(coordinates))
     ra = np.arctan(coordinates['y']/coordinates['x'])*RtoD
-    dec = np.arcsin(coordinates['z']/coordinates['r'])*RtoD
+    dec = np.arcsin(coordinates['z']/r)*RtoD
 
     if (coordinates['x'] < 0) and (coordinates['y'] != 0):
         ra += 180.
