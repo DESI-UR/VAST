@@ -273,13 +273,13 @@ n_holes = 0
 empty_indices = np.where(ngal == 0)
 
 # Go through each empty cell in the grid
-for empty_cell in xrange(len(empty_indices)):
+for empty_cell in xrange(len(empty_indices[0])):
     # Retrieve empty cell indices
     i = empty_indices[0][empty_cell]
     j = empty_indices[1][empty_cell]
     k = empty_indices[2][empty_cell]
 
-    print 'Looking in empty cell', empty_cell, 'of', len(empty_indices)
+    print 'Looking in empty cell', empty_cell, 'of', len(empty_indices[0])
 
     # Calculate center coordinates of cell
     hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
