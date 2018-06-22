@@ -27,16 +27,17 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
     # Conver the galaxy coordinates to grid indices
     mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
 
-    for igal in xrange(len(galaxy_coords)): # Change to range() for python 3
+    for igal in range(len(galaxy_coords)): # Change to range() for python 3
         # Increase the number of galaxies in corresponding cell in ngal
+        #print('gal num:',igal)
         ngal[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]] += 1
-
+        #print(ngal[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]])
         # Store the index of the last galaxy that was saved in corresponding cell 
         linklist[igal] = chainlist[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]]
 
         # Store the index of current galaxy in corresponding cell
         chainlist[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]] = igal
-
+    #print('ngal sum',np.sum(ngal))
     return mesh_indices, ngal, chainlist, linklist
 
 ################################################################################
@@ -46,6 +47,8 @@ def in_mask(coordinates, survey_mask, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
     '''
+    RtoD = 180./np.pi
+    dec_offset = -90
 
     # Convert coordinates to table if not already
     if not isinstance(coordinates, Table):

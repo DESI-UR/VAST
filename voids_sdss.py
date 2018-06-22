@@ -16,6 +16,9 @@ from sklearn import neighbors
 from voidfinder_functions import mesh_galaxies, in_mask, in_survey
 from table_functions import add_row, subtract_row, to_vector, to_array
 
+from avsepcalc import av_sep_calc
+from mag_cutoff_function import mag_cut, field_gal_cut
+
 
 ################################################################################
 #
@@ -25,14 +28,14 @@ from table_functions import add_row, subtract_row, to_vector, to_array
 
 
 # Input file names
-in_filename = 'SDSSdr7/vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'SDSSdr7/cbpdr7mask.dat' # File format: RA, dec
+in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
-out1_filename = 'SDSSdr7/out1_vollim_dr7_cbp_102709.dat' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = 'SDSSdr7/out2_vollim_dr7_cbp_102709.dat' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-out3_filename = 'SDSSdr7/out3_vollim_dr7_cbp_102709.dat' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-voidgals_filename = 'SDSSdr7/vollim_voidgals_dr7_cbp_102709.dat' # List of the void galaxies: x, y, z, void region #
+out1_filename = 'out1_vollim_dr7_cbp_102709.dat' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = 'out2_vollim_dr7_cbp_102709.dat' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out3_filename = 'out3_vollim_dr7_cbp_102709.dat' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
+voidgals_filename = 'vollim_voidgals_dr7_cbp_102709.dat' # List of the void galaxies: x, y, z, void region #
 
 
 ################################################################################
@@ -40,7 +43,7 @@ voidgals_filename = 'SDSSdr7/vollim_voidgals_dr7_cbp_102709.dat' # List of the v
 #   INITIALIZATIONS
 #
 ################################################################################
-print 'Initializations'
+print('Initializations')
 
 ngrid = 128       # Number of grid cells
 maskra = 360
@@ -58,7 +61,7 @@ dr = 1. # Distance to shift the hole centers
 
 frac = 0.1
 
-print 'Number of grid cells is', ngrid, dl, box, ioff2
+print('Number of grid cells is', ngrid, dl, box, ioff2)
 
 # Constants
 c = 3e5
@@ -71,36 +74,48 @@ RtoD = 180./np.pi
 #   OPEN FILES
 #
 ################################################################################
-print 'Opening files'
+print('Opening files')
 
 infile = Table.read(in_filename, format='ascii.commented_header')
+infile = mag_cut(infile,-20)
 xin = infile['Rgal']*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 yin = infile['Rgal']*np.sin(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 zin = infile['Rgal']*np.sin(infile['dec']*DtoR)
 coord_in_table = Table([xin, yin, zin], names=['x','y','z'])
-coord_min_table = min(coord_in_table)
-coord_max_table = max(coord_in_table)
+#coord_min_table = np.amin(coord_in_table)
+#coord_max_table = np.amax(coord_in_table)
+
+coord_min_x = [min(coord_in_table['x'])]
+coord_min_y = [min(coord_in_table['y'])]
+coord_min_z = [min(coord_in_table['z'])]
+
+coord_max_x = [max(coord_in_table['x'])]
+coord_max_y = [max(coord_in_table['y'])]
+coord_max_z = [max(coord_in_table['z'])]
+
+coord_min_table = Table([coord_min_x,coord_min_y,coord_min_z],names=('x','y','z'))
+coord_max_table = Table([coord_max_x,coord_max_y,coord_max_z],names=('x','y','z'))
 
 N_gal = len(infile)
 
-print 'x:', coord_min_table['x'], coord_max_table['x']
-print 'y:', coord_min_table['y'], coord_max_table['y']
-print 'z:', coord_min_table['z'], coord_max_table['z']
-print 'There are', N_gal, 'galaxies in this simulation.'
+print('x:', coord_min_table['x'], coord_max_table['x'])
+print('y:', coord_min_table['y'], coord_max_table['y'])
+print('z:', coord_min_table['z'], coord_max_table['z'])
+print('There are', N_gal, 'galaxies in this simulation.')
 
 # Convert coord_in, coord_min, coord_max tables to numpy arrays
 coord_in = to_array(coord_in_table)
 coord_min = to_vector(coord_min_table)
 coord_max = to_vector(coord_max_table)
 
-print 'Reading mask'
+print('Reading mask')
 
 maskfile = Table.read(mask_filename, format='ascii.commented_header')
 mask = np.zeros((maskra, maskdec))
 mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
 vol = len(maskfile)
 
-print 'Read mask'
+print('Read mask')
 
 ################################################################################
 #
@@ -109,26 +124,28 @@ print 'Read mask'
 ################################################################################
 
 
-print 'Making the grid'
+print('Making the grid')
 mesh_indices, ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, ngrid)
-print 'Made the grid'
 
-print 'Checking the grid'
+
+print('Made the grid')
+
+print('Checking the grid')
 grid_good = True
 
-for i in xrange(ngrid):
-    for j in xrange(ngrid):
-        for k in xrange(ngrid):
+for i in range(ngrid):
+    for j in range(ngrid):
+        for k in range(ngrid):
             count = 0
             igal = chainlist[i,j,k]
             while igal != -1:
                 count += 1
                 igal = linklist[igal]
             if count != ngal[i,j,k]:
-                print i,j,k, count, ngal[i,j,k]
+                print(i,j,k, count, ngal[i,j,k])
                 grid_good = False
 if grid_good:
-    print 'Grid construction was successful.'
+    print('Grid construction was successful.')
 
 
 ################################################################################
@@ -140,15 +157,15 @@ if grid_good:
 # you need, and insert the call to your distance filtering function here.  If 
 # you have any questions of how to incorporate your function into this script, 
 # let me know!
-print 'Finding sep'
+print('Finding sep')
 
-totsep = 0.
+'''totsep = 0.
 
 minsep1 = 10000000*np.ones(N_gal)
 minsep2 = 10000000*np.ones(N_gal)
 minsep3 = 10000000*np.ones(N_gal)
 
-for i in xrange(N_gal):
+for i in range(N_gal):
 
     if not i%10000:
         print i
@@ -208,14 +225,31 @@ sd = np.sqrt(var/N_gal)
 
 print 'The standard deviation is', sd
 
-l = avsep + 1.5*sd
+l = avsep + 1.5*sd'''
+
+l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
+
+print('Average separation of n3rd gal is', avsep)
+print('The standard deviation is', sd)
+#print(dists3[:10])
+
+
 # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
 # l = 7.36181  # s0 = 3.5, gamma = 1.4
 # or force l to have a fixed number by setting l = ****
 
-print 'Going to build wall with search value', l
+print('Going to build wall with search value', l)
 
-boolean = minsep3 > l
+f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
+
+f_coord = to_array(f_coord_table)
+w_coord = to_array(w_coord_table)
+#print('w_coord shape',w_coord.shape)
+
+nf =  len(f_coord_table)
+nwall = len(w_coord_table)
+
+'''boolean = minsep3 > l
 
 # Voids
 nf = sum(boolean)
@@ -225,9 +259,9 @@ f_coord = to_array(f_coord_table)
 # Walls
 nwall = sum(np.logical_not(boolean))
 w_coord_table = coord_in_table[np.logical_not(boolean)]
-w_coord = to_array(w_coord_table)
+w_coord = to_array(w_coord_table)'''
 
-print nf, nwall
+print('Number of field gals:', nf,'Number of wall gals:', nwall)
 
 
 ################################################################################
@@ -235,11 +269,14 @@ print nf, nwall
 #   SET UP CELL GRID DISTRIBUTION
 #
 ################################################################################
-print 'Setting up grid'
+print('Setting up grid')
 
 wall_mesh_indices, ngal_wall, chainlist_wall, linklist_wall = mesh_galaxies(w_coord_table, coord_min_table, dl, ngrid)
 
-print 'Grid set up'
+#print(wall_mesh_indices[:5])
+#print(np.sum(ngal_wall))
+
+print('Grid set up')
 ################################################################################
 #
 #   BUILD NEAREST-NEIGHBOR TREE
@@ -255,7 +292,7 @@ galaxy_tree = neighbors.KDTree(w_coord)
 #   GROW HOLES
 #
 ################################################################################
-print 'Growing holes'
+print('Growing holes')
 
 # Center of the current cell
 hole_center_table = Table(np.zeros(6), names=['x', 'y', 'z', 'r', 'ra', 'dec'])
@@ -270,16 +307,18 @@ myvoids_r = []
 n_holes = 0
 
 # Find where all the empty cells are
-empty_indices = np.where(ngal == 0)
+empty_indices = np.where(ngal_wall == 0)
+
+#print(len(empty_indices[0]))
 
 # Go through each empty cell in the grid
-for empty_cell in xrange(len(empty_indices[0])):
+for empty_cell in range(len(empty_indices[0])):
     # Retrieve empty cell indices
     i = empty_indices[0][empty_cell]
     j = empty_indices[1][empty_cell]
     k = empty_indices[2][empty_cell]
 
-    print 'Looking in empty cell', empty_cell, 'of', len(empty_indices[0])
+    #print('Looking in empty cell', empty_cell, 'of', len(empty_indices[0]))
 
     # Calculate center coordinates of cell
     hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
@@ -296,11 +335,14 @@ for empty_cell in xrange(len(empty_indices[0])):
     nposs = 0 # Just a loop-ending variable - value does not matter anywhere else in the code!
 
     # Find closest galaxy to cell center
-    modv1, k1g = galaxy_tree.query(hole_center, k=1)
+    modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
 
     # Unit vector pointing from closest galaxy to cell center
-    v1_unit = (hole_center - w_coord[k1g])/modv1
-
+    v1_unit = (hole_center.T - w_coord[k1g[0]])/modv1
+    #print(v1_unit.shape)
+    #print(w_coord[k1g].shape)
+    #print(k1g.shape)
+    print(modv1.shape)
     ############################################################################
     # We are going to shift the center of the hole by dr along the direction of 
     # the vector pointing from the nearest galaxy to the center of the empty 
@@ -317,12 +359,12 @@ for empty_cell in xrange(len(empty_indices[0])):
 
         # Shift hole center along unit vector
         hole_center = hole_center + dr*v1_unit
-
+        #print(hole_center.shape)
         # Distance between hole center and nearest galaxy
         modv1 += dr
 
         # Search for nearest neighbors within modv1 of the hole center
-        dist_nearest, i_nearest = galaxy_tree.query_radius(hole_center, r=modv1)
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=modv1, return_distance=True)
 
         if len(i_nearest) > 1:
             # Found at least one other nearest neighbor!
@@ -388,7 +430,7 @@ for empty_cell in xrange(len(empty_indices[0])):
         Acenter = hole_center - w_coord[k1g]
 
         # Search for nearest neighbors within modv1 of the hole center
-        dist_nearest, i_nearest = galaxy_tree.query_radius(hole_center, r=np.linalg.norm(Acenter))
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=np.linalg.norm(Acenter), return_distance=True)
 
         if len(i_nearest) > 1:
             # Found at least one other nearest neighbor!
@@ -458,7 +500,7 @@ for empty_cell in xrange(len(empty_indices[0])):
         Acenter = hole_center_41 - w_coord[k1g]
 
         # Search for nearest neighbors within R of the hole center
-        dist_nearest, i_nearest = galaxy_tree.query_radius(hole_center_41, r=np.linalg.norm(Acenter))
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_41.T, r=np.linalg.norm(Acenter),return_distance=True)
 
         if len(i_nearest) > 1:
             # Found at least one other nearest neighbor!
@@ -506,7 +548,7 @@ for empty_cell in xrange(len(empty_indices[0])):
         Acenter = hole_center_42 - w_coord[k1g]
 
         # Search for nearest neighbors within R of the hole center
-        dist_nearest, i_nearest = galaxy_tree.query_radius(hole_center_42, r=np.linalg.norm(Acenter))
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_42.T, r=np.linalg.norm(Acenter),return_distance=True)
 
         if len(i_nearest) > 1:
             # Found at least one other nearest neighbor!
@@ -779,14 +821,14 @@ for empty_cell in xrange(len(empty_indices[0])):
 
                                 # fillgrid(mygrid, xcen4, ycen4, zcen4, rad, dl)
     '''
-print 'Found a total of', n_holes, 'potential voids.'
+print('Found a total of', n_holes, 'potential voids.')
 
 ################################################################################
 #
 #   SORT HOLES BY SIZE
 #
 ################################################################################
-print 'Sorting holes by size'
+print('Sorting holes by size')
 
 myvoids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=['x','y','z','radius'])
 
@@ -797,14 +839,14 @@ myvoids_table = myvoids_table[boolean]
 # Need to sort the potential voids into size order
 myvoids_table.sort('radius')
 
-print 'Holes are sorted.'
+print('Holes are sorted.')
 ################################################################################
 #
 #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
 #
 ################################################################################
 # The largest hole is a void
-print 'Combining holes into unique voids'
+print('Combining holes into unique voids')
 
 # Initialize column to store unique void identifier
 myvoids_table['flag'] = 0
@@ -816,7 +858,7 @@ void_count = 0
 v_index = [] # Index of v's in myvoids_table
 
 
-for i in xrange(len(myvoids_table)):
+for i in range(len(myvoids_table)):
 
     # Reset overlap flag
     overlap_flag = False
@@ -825,7 +867,7 @@ for i in xrange(len(myvoids_table)):
     myvoids_table['flag'] = void_count
 
     # Check to see if current hole overlaps by more than 50% volume with any previously identified voids
-    for j in xrange(void_count):
+    for j in range(void_count):
 
         # Calculate the distance between the hole centers
         dist_centers = np.linalg.norm(to_vector(subtract_row(myvoids_table['x','y','z'][i], myvoids_table['x','y','z'][v_index[j]])))
@@ -853,7 +895,7 @@ for i in xrange(len(myvoids_table)):
         v_index.append(i)
         void_count += 1
 
-print 'Number of unique voids is', void_count
+print('Number of unique voids is', void_count)
 
 # Save list of all void holes
 myvoids_table.write(out2_filename, format='ascii.commented_header')
@@ -864,18 +906,18 @@ myvoids_table.write(out2_filename, format='ascii.commented_header')
 #   COMPUTE VOLUME OF EACH VOID
 #
 ################################################################################
-print 'Compute void volumes'
+print('Compute void volumes')
 
 # Initialize void volume array
 void_vol = np.zeros(void_count)
 
 nran = 10000
 
-for i in xrange(void_count):
+for i in range(void_count):
     nsph = 0
     rad = 4*myvoids_table['radius'][v_index[i]]
 
-    for j in xrange(nran):
+    for j in range(nran):
         rand_pos = add_row(np.random.rand(3)*rad, myvoids_table['x','y','z'][v_index[i]]) - 0.5*rad
         
         for k in range(len(myvoids_table)):
@@ -896,7 +938,7 @@ for i in xrange(void_count):
 #   IDENTIFY VOID GALAXIES
 #
 ################################################################################
-print 'Assign field galaxies to voids'
+print('Assign field galaxies to voids')
 
 # Count the number of galaxies in each void
 nfield = np.zeros(void_count)
@@ -904,8 +946,8 @@ nfield = np.zeros(void_count)
 # Add void field to f_coord
 f_coord['vID'] = -99
 
-for i in xrange(nf): # Go through each void galaxy
-    for j in xrange(len(myvoids_table)): # Go through each void
+for i in range(nf): # Go through each void galaxy
+    for j in range(len(myvoids_table)): # Go through each void
         if np.linalg.norm(to_vector(subtract_row(f_coord[i], myvoids_table['x','y','z'][j]))) < myvoids_table['radius'][j]:
             # Galaxy lives in the void
             nfield[myvoids_table['flag'][j]] += 1
