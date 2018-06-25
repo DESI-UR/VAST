@@ -282,12 +282,15 @@ for empty_cell in range(len(empty_indices[0])):
     # Find closest galaxy to cell center
     modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
 
+    modv1 = modv1[0]
+    k1g = k1g[0]
+
     # Unit vector pointing from closest galaxy to cell center
-    v1_unit = (hole_center.T - w_coord[k1g[0]])/modv1[0]
+    v1_unit = (hole_center.T - w_coord[k1g])/modv1
     #print(v1_unit.shape)
     #print(w_coord[k1g].shape)
     #print(k1g.shape)
-    print(modv1.shape)
+    #print(modv1.shape)
     ############################################################################
     # We are going to shift the center of the hole by dr along the direction of 
     # the vector pointing from the nearest galaxy to the center of the empty 
@@ -303,7 +306,7 @@ for empty_cell in range(len(empty_indices[0])):
     while galaxy_search:
 
         # Shift hole center along unit vector
-        hole_center = hole_center + dr*v1_unit
+        hole_center = hole_center + dr*v1_unit.T
         #print(hole_center.shape)
         # Distance between hole center and nearest galaxy
         modv1 += dr
