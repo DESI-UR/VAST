@@ -77,7 +77,9 @@ RtoD = 180./np.pi
 print('Opening files')
 
 infile = Table.read(in_filename, format='ascii.commented_header')
+
 infile = mag_cut(infile,-20)
+
 xin = infile['Rgal']*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 yin = infile['Rgal']*np.sin(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 zin = infile['Rgal']*np.sin(infile['dec']*DtoR)
@@ -169,74 +171,6 @@ if grid_good:
 # you have any questions of how to incorporate your function into this script, 
 # let me know!
 print('Finding sep')
-
-'''totsep = 0.
-
-minsep1 = 10000000*np.ones(N_gal)
-minsep2 = 10000000*np.ones(N_gal)
-minsep3 = 10000000*np.ones(N_gal)
-
-for i in range(N_gal):
-
-    if not i%10000:
-        print i
-
-    index_offset = 0
-    nposs = 0
-
-    while nposs < 6:
-        index_offset += 1
-        nposs = 0
-
-        for mi in range(max(0, mesh_indices['x'][i]-index_offset), min(ngrid, mesh_indices['x'][i]+index_offset)):
-            for mj in range(max(0, mesh_indices['y'][i]-index_offset), min(ngrid, mesh_indices['y'][i]+index_offset)):
-                for mk in range(max(0, mesh_indices['z'][i]-index_offset), min(ngrid, mesh_indices['z'][i]+index_offset)):
-
-                    nposs += ngal[mi,mj,mk]
-
-    # Now need to check that there is not one closer in shell just round it
-    
-    index_offset += 1
-
-    for mi in range(max(0, mesh_indices['x'][i]-index_offset), min(ngrid, mesh_indices['x'][i]+index_offset)):
-        for mj in range(max(0, mesh_indices['y'][i]-index_offset), min(ngrid, mesh_indices['y'][i]+index_offset)):
-            for mk in range(max(0, mesh_indices['z'][i]-index_offset), min(ngrid, mesh_indices['z'][i]+index_offset)):
-                
-                jgal = chainlist[mi,mj,mk]
-
-                while jgal != -1:
-
-                    sep = sum((coord_in[i] - coord_in[jgal])**2)
-
-                    if sep > 0:
-                        if sep < minsep1[i]:
-                            minsep3[i] = minsep2[i]
-                            minsep2[i] = minsep1[i]
-                            minsep1[i] = sep
-                        elif sep < minsep2[i]:
-                            minsep3[i] = minsep2[i]
-                            minsep2[i] = sep
-                        elif sep < minsep3[i]:
-                            minsep3[i] = sep
-
-                    jgal = linklist[jgal]
-
-    minsep1[i] = np.sqrt(minsep1[i])
-    minsep2[i] = np.sqrt(minsep2[i])
-    minsep3[i] = np.sqrt(minsep3[i])
-
-    totsep = minsep3[i] + totsep
-
-avsep = totsep/N_gal
-
-print 'Average separation of n3rd gal is', avsep
-
-var = np.sum((minsep - avsep)**2)
-sd = np.sqrt(var/N_gal)
-
-print 'The standard deviation is', sd
-
-l = avsep + 1.5*sd'''
 
 l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
 
@@ -338,9 +272,8 @@ for empty_cell in range(len(empty_indices[0])):
 
     hole_center = to_vector(hole_center_table)
 
-    # Check to make sure that the hole center is still within the survey
+    # Check to make sure that the hole center is within the survey
     if not in_mask(hole_center_table, mask, [min_dist, max_dist]):
-        print('Hole center moved outside of mask.')
         continue
 
     index_offset = 0
