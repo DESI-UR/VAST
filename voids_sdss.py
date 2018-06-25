@@ -115,6 +115,17 @@ mask = np.zeros((maskra, maskdec))
 mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
 vol = len(maskfile)
 
+'''
+import matplotlib.pyplot as plt
+import sys
+
+plt.imshow(mask)
+plt.colorbar()
+plt.show()
+
+sys.exit()
+'''
+
 print('Read mask')
 
 ################################################################################
