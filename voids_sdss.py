@@ -28,14 +28,14 @@ from mag_cutoff_function import mag_cut, field_gal_cut
 
 
 # Input file names
-in_filename = 'SDSSdr7/vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'SDSSdr7/cbpdr7mask.dat' # File format: RA, dec
+in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
-out1_filename = 'SDSSdr7/out1_vollim_dr7_cbp_102709.dat' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = 'SDSSdr7/out2_vollim_dr7_cbp_102709.dat' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-out3_filename = 'SDSSdr7/out3_vollim_dr7_cbp_102709.dat' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-voidgals_filename = 'SDSSdr7/vollim_voidgals_dr7_cbp_102709.dat' # List of the void galaxies: x, y, z, void region #
+out1_filename = 'out1_vollim_dr7_cbp_102709.dat' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = 'out2_vollim_dr7_cbp_102709.dat' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out3_filename = 'out3_vollim_dr7_cbp_102709.dat' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
+voidgals_filename = 'vollim_voidgals_dr7_cbp_102709.dat' # List of the void galaxies: x, y, z, void region #
 
 
 ################################################################################
@@ -57,7 +57,7 @@ dl = box/ngrid    # length of each side of the box
 voidmax = 100.
 ioff2 = voidmax/dl + 2
 
-dr = 1. # Distance to shift the hole centers
+dr = 5. # Distance to shift the hole centers
 
 frac = 0.1
 
@@ -77,7 +77,10 @@ RtoD = 180./np.pi
 print('Opening files')
 
 infile = Table.read(in_filename, format='ascii.commented_header')
+
+#cut out galaxies with magnitudes fainter than -20
 infile = mag_cut(infile,-20)
+
 xin = infile['Rgal']*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 yin = infile['Rgal']*np.sin(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 zin = infile['Rgal']*np.sin(infile['dec']*DtoR)
@@ -231,7 +234,6 @@ l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
 
 print('Average separation of n3rd gal is', avsep)
 print('The standard deviation is', sd)
-#print(dists3[:10])
 
 
 # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
@@ -326,24 +328,27 @@ for empty_cell in range(len(empty_indices[0])):
     hole_center_table['z'] = (k + 0.5)*dl + coord_min_table['z']
 
     hole_center = to_vector(hole_center_table)
-
+    #print(hole_center_table)
     # Check to make sure that the hole center is still within the survey
     if not in_mask(hole_center_table, mask, [min_dist, max_dist]):
-        print('Hole center moved outside of mask.')
+        #print('Hole center moved outside of mask.')
         continue
-
+    print('in mask')
     index_offset = 0
     nposs = 0 # Just a loop-ending variable - value does not matter anywhere else in the code!
 
     # Find closest galaxy to cell center
     modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
-
+    
+    modv1 = modv1[0]
+    k1g = k1g[0]
+    
     # Unit vector pointing from closest galaxy to cell center
-    v1_unit = (hole_center.T - w_coord[k1g[0]])/modv1[0]
+    v1_unit = (hole_center.T - w_coord[k1g])/modv1
     #print(v1_unit.shape)
     #print(w_coord[k1g].shape)
     #print(k1g.shape)
-    print(modv1.shape)
+    #print(modv1.shape)
     ############################################################################
     # We are going to shift the center of the hole by dr along the direction of 
     # the vector pointing from the nearest galaxy to the center of the empty 
@@ -359,14 +364,14 @@ for empty_cell in range(len(empty_indices[0])):
     while galaxy_search:
 
         # Shift hole center along unit vector
-        hole_center = hole_center + dr*v1_unit
+        hole_center = hole_center + dr*v1_unit.T
         #print(hole_center.shape)
         # Distance between hole center and nearest galaxy
+        
         modv1 += dr
-
+        #print(modv1.shape)
         # Search for nearest neighbors within modv1 of the hole center
-        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=modv1, return_distance=True)
-
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=modv1,return_distance=True)
         if len(i_nearest) > 1:
             # Found at least one other nearest neighbor!
             galaxy_search = False
@@ -390,10 +395,10 @@ for empty_cell in range(len(empty_indices[0])):
 
             minx2 = x2[k2g_x2]
         elif not in_mask(hole_center_table, mask, [min_dist, max_dist]):
-            # Hole is no longer within survey limits
+            print('Hole is no longer within survey limits')
             galaxy_search = False
 
-    # print 'Found 2nd galaxy'
+    # Found 2nd galaxy
 
     # Check to make sure that the hole center is still within the survey
     if not in_mask(hole_center_table, mask, [min_dist, max_dist]):
@@ -403,6 +408,8 @@ for empty_cell in range(len(empty_indices[0])):
     # Calculate new hole center
     hole_radius = 0.5*sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit)
     hole_center = hole_radius*v1_unit
+    print(hole_center)
+    print(v1_unit)
 
     # Check to make sure that the hole center is still within the survey
     if not in_mask(hole_center_table, mask, [min_dist, max_dist]):
