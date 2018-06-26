@@ -57,14 +57,15 @@ def in_mask(coordinates, survey_mask, r_limits):
     good = True
 
     r = np.linalg.norm(to_vector(coordinates))
-    ra = np.arctan(coordinates['y']/coordinates['x'])*RtoD
-    dec = np.arcsin(coordinates['z']/r)*RtoD
+    ra = np.arctan(coordinates['y'][0]/coordinates['x'][0])*RtoD
+    dec = np.arcsin(coordinates['z'][0]/r)*RtoD
+
 
     if (coordinates['x'] < 0) and (coordinates['y'] != 0):
         ra += 180.
     if ra < 0:
         ra += 360.
-
+    #print('r=',r)
     if (survey_mask[ra.astype(int), dec.astype(int)-dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
         good = False
 
