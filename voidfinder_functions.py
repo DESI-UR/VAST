@@ -46,6 +46,8 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
 def in_mask(coordinates, survey_mask, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
+
+    ASSUMES THAT COORDINATES IS A SINGLE POINT (NOT A 2D ARRAY OF POINTS)
     '''
     RtoD = 180./np.pi
     dec_offset = -90
