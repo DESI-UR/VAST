@@ -57,7 +57,7 @@ dl = box/ngrid    # length of each side of the box
 voidmax = 100.
 ioff2 = voidmax/dl + 2
 
-dr = 5. # Distance to shift the hole centers
+dr = 1. # Distance to shift the hole centers
 
 frac = 0.1
 
@@ -258,13 +258,13 @@ for empty_cell in range(len(empty_indices[0])):
     hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
     hole_center_table['y'] = (j + 0.5)*dl + coord_min_table['y']
     hole_center_table['z'] = (k + 0.5)*dl + coord_min_table['z']
-
+    
     hole_center = to_vector(hole_center_table)
-
+    
     # Check to make sure that the hole center is still within the survey
     if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
         continue
-
+    #print('hole center 1 =',hole_center)
     index_offset = 0
     nposs = 0 # Just a loop-ending variable - value does not matter anywhere else in the code!
 
@@ -295,8 +295,8 @@ for empty_cell in range(len(empty_indices[0])):
 
         # Shift hole center along unit vector
         hole_center = hole_center + dr*v1_unit.T
-        #print(hole_center)
-        #print(v1_unit.T)
+        #print('hole center 2=',hole_center)
+
         # Distance between hole center and nearest galaxy
         modv1 += dr
         #print(modv1.shape)
@@ -316,24 +316,27 @@ for empty_cell in range(len(empty_indices[0])):
             i_nearest = i_nearest[boolean_nearest]
 
             # Calculate vector pointing from nearest galaxy to next nearest galaxies
-            BA = w_coord[k1g] - w_coord[i_nearest]
+            BA = w_coord[i_nearest] - w_coord[k1g]
             #print(i_nearest)
             #print(i_nearest.shape)
             #print(w_coord[k1g].shape,w_coord[i_nearest].shape)
             #print(BA.shape)
             #print(v1_unit.shape)
             bot = 2*np.dot(BA, v1_unit.T)
+            #print(bot.T)
             top = np.sum(BA**2, axis=1)
-
-            x2 = top/bot
-
+            #print(top)
+            x2 = top/bot.T
+            #print(x2.T)
             # Find index of 2nd nearest galaxy
-            k2g_x2 = np.argmin(x2)
+            k2g_x2 = np.argmin(x2.T)
+            #print(k2g_x2)
             k2g = i_nearest[k2g_x2]
 
-            minx2 = x2[k2g_x2]
+            minx2 = x2.T[k2g_x2]
+            #print(minx2)
         elif not in_mask(hole_center.T, mask, [min_dist, max_dist]):
-            print('hole not in survey')
+            #print('hole not in survey')
             # Hole is no longer within survey limits
             galaxy_search = False
 
@@ -341,16 +344,16 @@ for empty_cell in range(len(empty_indices[0])):
 
     # Check to make sure that the hole center is still within the survey
     if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
-        print('hole not in survey')
+        #print('hole not in survey')
         continue
 
     # Calculate new hole center
-    hole_radius = 0.5*sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)
-    hole_center = hole_radius*v1_unit
-
+    hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)
+    hole_center = w_coord[k1g] + hole_radius*v1_unit
+    #print('hole center 3i=',hole_center)
     # Check to make sure that the hole center is still within the survey
-    if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
-        print('hole not in survey')
+    if not in_mask(hole_center, mask, [min_dist, max_dist]):
+        #print('hole not in survey')
         continue
 
     ############################################################################
@@ -372,12 +375,11 @@ for empty_cell in range(len(empty_indices[0])):
 
         # Shift hole center along unit vector
         hole_center = hole_center + dr*v2_unit
-
         # Calculate vector pointing from the hole center to the nearest galaxies
-        Acenter = hole_center - w_coord[k1g]
-
+        Acenter = w_coord[k1g] - hole_center
+        #print(Acenter)
         # Search for nearest neighbors within modv1 of the hole center
-        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=np.linalg.norm(Acenter), return_distance=True)
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center, r=np.linalg.norm(Acenter), return_distance=True)
         i_nearest = i_nearest[0]
         dist_nearest = dist_nearest[0]
         if len(i_nearest) > 1:
@@ -390,13 +392,12 @@ for empty_cell in range(len(empty_indices[0])):
             i_nearest = i_nearest[boolean_nearest]
 
             # Calculate vector pointing from next nearest galaxies to hole center
-            Ccenter = w_coord[i_nearest] - hole_center
-
+            Ccenter = hole_center - w_coord[i_nearest]
+  
             bot = 2*np.dot((Ccenter - Acenter), v2_unit.T)
-            top = dist_nearest**2 - sum(Acenter**2)
+            top = np.array([(dist_nearest**2) - np.sum(Acenter**2)]).T
 
             x3 = top/bot
-
             # Find index of 3rd nearest galaxy
             k3g_x3 = np.argmin(x3)
             k3g = i_nearest[k3g_x3]
@@ -404,22 +405,22 @@ for empty_cell in range(len(empty_indices[0])):
             minx3 = x3[k3g_x3]
         elif not in_mask(hole_center.T, mask, [min_dist, max_dist]):
             # Hole is no longer within survey limits
-            print('hole not in survey')
+            #print('hole not in survey')
             galaxy_search = False
 
     # print 'Found 3rd galaxy'
 
     # Check to make sure that the hole center is still within the survey
-    if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
-        print('hole not in survey')
+    if not in_mask(hole_center, mask, [min_dist, max_dist]):
+        #print('hole not in survey')
         continue
 
     # Calculate new hole center
     hole_center = hole_center + minx3*v2_unit
-
+    print('hole center 4i=',hole_center)
     # Check to make sure that the hole center is still within the survey
-    if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
-        print('hole not in survey')
+    if not in_mask(hole_center, mask, [min_dist, max_dist]):
+        #print('hole not in survey')
         continue
 
     ############################################################################
@@ -448,10 +449,10 @@ for empty_cell in range(len(empty_indices[0])):
         hole_center_41 = hole_center + dr*v3_unit
 
         # Calculate vector pointing from the hole center to the nearest galaxy
-        Acenter = hole_center_41 - w_coord[k1g]
-
+        Acenter = w_coord[k1g] - hole_center_41
+        print('acenter',Acenter)
         # Search for nearest neighbors within R of the hole center
-        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_41.T, r=np.linalg.norm(Acenter),return_distance=True)
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_41, r=np.linalg.norm(Acenter),return_distance=True)
         i_nearest = i_nearest[0]
         dist_nearest = dist_nearest[0]
         if len(i_nearest) > 1:
@@ -465,10 +466,11 @@ for empty_cell in range(len(empty_indices[0])):
 
             # Calculate vector pointing from hole center to next nearest galaxies
             Ccenter = w_coord[i_nearest] - hole_center_41
-
-            bot = 2*np.dot((Ccenter - Acenter), v3_unit.T)
-            top = dist_nearest**2 - sum(Acenter**2)
-
+            print('ccenter',Ccenter[:5])
+            bot = 2*np.dot((Ccenter - Acenter), v3_unit.T) 
+            print('bot',bot)
+            top = np.array([dist_nearest**2 - np.sum(Acenter**2)]).T
+            print('top',top)
             x41 = top/bot
 
             # Find index of 3rd nearest galaxy
@@ -478,14 +480,14 @@ for empty_cell in range(len(empty_indices[0])):
             minx41 = x41[k4g1_x41]
         elif not in_mask(hole_center.T, mask, [min_dist, max_dist]):
             # Hole is no longer within survey limits
-            print('hole not in survey')
+            #print('hole not in survey')
             galaxy_search = False
 
     # print 'Found first potential 4th galaxy'
 
     # Calculate potential new hole center
     hole_center_41 = hole_center + minx41*v3_unit
-
+    print('41=',hole_center_41)
     # Repeat same search, but shift the hole center in the other direction this time
     v3_unit = -v3_unit
 
@@ -501,7 +503,7 @@ for empty_cell in range(len(empty_indices[0])):
         Acenter = hole_center_42 - w_coord[k1g]
 
         # Search for nearest neighbors within R of the hole center
-        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_42.T, r=np.linalg.norm(Acenter),return_distance=True)
+        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_42, r=np.linalg.norm(Acenter),return_distance=True)
         i_nearest = i_nearest[0]
         dist_nearest = dist_nearest[0]
 
@@ -518,7 +520,7 @@ for empty_cell in range(len(empty_indices[0])):
             Ccenter = w_coord[i_nearest] - hole_center_42
 
             bot = 2*np.dot((Ccenter - Acenter), v3_unit.T)
-            top = dist_nearest**2 - sum(Acenter**2)
+            top = np.array([dist_nearest**2 - np.sum(Acenter**2)]).T
 
             x42 = top/bot
 
@@ -527,8 +529,8 @@ for empty_cell in range(len(empty_indices[0])):
             k4g2 = i_nearest[k4g2_x42]
 
             minx42 = x42[k4g2_x42]
-        elif not in_mask(hole_center.T, mask, [min_dist, max_dist]):
-            print('hole not in survey')
+        elif not in_mask(hole_center, mask, [min_dist, max_dist]):
+            #print('hole not in survey')
             # Hole is no longer within survey limits
             galaxy_search = False
 
@@ -536,7 +538,7 @@ for empty_cell in range(len(empty_indices[0])):
 
     # Calculate potential new hole center
     hole_center_42 = hole_center + minx42*v3_unit
-
+    print('42=',hole_center_42)
     # Determine which is the 4th nearest galaxy
     if minx41 <= minx42 and in_mask(hole_center_41, mask, [min_dist, max_dist]):
         # The first 4th galaxy found is the next closest
@@ -548,6 +550,7 @@ for empty_cell in range(len(empty_indices[0])):
         k4g = k4g2
     else:
         # Neither hole center is within the mask - not a valid hole
+        print('not a valid hole')
         continue
 
     # Radius of the hole
