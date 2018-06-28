@@ -577,8 +577,12 @@ for empty_cell in range(len(empty_indices[0])):
     myvoids_r.append(hole_radius)
 
     n_holes += 1
+<<<<<<< HEAD
     if n_holes%100 == 0:
         print("number of holes=",n_holes)
+=======
+    print("number of holes=",n_holes)
+>>>>>>> df1a59b4459da3041b55461833dd2e1d353be803
 
 print('Found a total of', n_holes, 'potential voids.')
 
