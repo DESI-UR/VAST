@@ -80,6 +80,7 @@ def combine_holes(spheres_table):
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
+        sphere_i_coordinates = sphere_i_coordinates.T
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
 
@@ -93,7 +94,6 @@ def combine_holes(spheres_table):
         maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
         # Array of radii for previously identified maximal spheres
         maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
-
 
         # Distance between sphere i's center and the centers of the other maximal spheres
         separation = np.linalg.norm(maximal_spheres_coordinates - sphere_i_coordinates)
@@ -142,6 +142,9 @@ def combine_holes(spheres_table):
     # Extract table of maximal spheres
     maximal_spheres_table = spheres_table[maximal_spheres_indices]
 
+    # Convert maximal_spheres_indices to numpy array of type int
+    maximal_spheres_indices = np.array(maximal_spheres_indices, dtype=int)
+
     # Add void flag identifier to maximal spheres
     maximal_spheres_table['flag'] = np.arange(N_voids) + 1
 
@@ -180,6 +183,7 @@ def combine_holes(spheres_table):
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
+        sphere_i_coordinates = sphere_i_coordinates.T
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
 
@@ -244,6 +248,23 @@ def combine_holes(spheres_table):
     return maximal_spheres_table, holes_table
 
 
+################################################################################
+#
+#   TEST SCRIPT
+#
+################################################################################
 
+
+if __name__ == '__main__':
+
+    import pickle
+
+    in_file = open('potential_voids_list.txt', 'rb')
+    potential_voids_table = pickle.load(in_file)
+    in_file.close()
+
+    maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
+
+    print('Number of unique voids is', len(maximal_spheres_table))
 
 

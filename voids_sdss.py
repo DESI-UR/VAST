@@ -611,7 +611,7 @@ pickle.dump(potential_voids_table, potential_voids_file)
 potential_voids_file.close()
 
 '''
-in_file = open('potential_voids_list.txt', 'r')
+in_file = open('potential_voids_list.txt', 'rb')
 potential_voids_table = pickle.load(in_file)
 in_file.close()
 '''
@@ -626,7 +626,7 @@ print('Combining holes into unique voids')
 
 maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
 
-print('Number of unique voids is', len(myvoids_maximal_table))
+print('Number of unique voids is', len(maximal_spheres_table))
 
 # Save list of all void holes
 myvoids_table.write(out2_filename, format='ascii.commented_header')

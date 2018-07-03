@@ -82,6 +82,8 @@ def row_dot(row1, row2):
 def to_vector(row):
     '''Convert table row to numpy array'''
 
+    # It might be most useful to switch this to a row vector (so return the transpose)
+
     vector = np.array([row['x'], row['y'], row['z']])
 
     return vector
