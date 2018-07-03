@@ -12,7 +12,9 @@ import numpy as np
 from astropy.table import Table
 #from scipy import spatial
 from sklearn import neighbors
+import pickle
 
+from hole_combine import combine_holes
 from voidfinder_functions import mesh_galaxies, in_mask, in_survey
 from table_functions import add_row, subtract_row, to_vector, to_array
 
@@ -28,14 +30,14 @@ from mag_cutoff_function import mag_cut, field_gal_cut
 
 
 # Input file names
-in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
+in_filename = 'SDSSdr7/vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'SDSSdr7/cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
-out1_filename = 'out1_vollim_dr7_cbp_102709.dat' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = 'out2_vollim_dr7_cbp_102709.dat' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-out3_filename = 'out3_vollim_dr7_cbp_102709.dat' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-voidgals_filename = 'vollim_voidgals_dr7_cbp_102709.dat' # List of the void galaxies: x, y, z, void region #
+out1_filename = 'SDSSdr7/out1_vollim_dr7.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = 'SDSSdr7/out2_vollim_dr7.txt' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out3_filename = 'SDSSdr7/out3_vollim_dr7.txt' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
+voidgals_filename = 'SDSSdr7/vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region #
 
 
 ################################################################################
@@ -81,7 +83,7 @@ infile = mag_cut(infile,-20)
 xin = infile['Rgal']*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 yin = infile['Rgal']*np.sin(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
 zin = infile['Rgal']*np.sin(infile['dec']*DtoR)
-coord_in_table = Table([xin, yin, zin], names=['x','y','z'])
+coord_in_table = Table([xin, yin, zin], names=('x','y','z'))
 #coord_min_table = np.amin(coord_in_table)
 #coord_max_table = np.amax(coord_in_table)
 
@@ -93,8 +95,8 @@ coord_max_x = [max(coord_in_table['x'])]
 coord_max_y = [max(coord_in_table['y'])]
 coord_max_z = [max(coord_in_table['z'])]
 
-coord_min_table = Table([coord_min_x,coord_min_y,coord_min_z],names=('x','y','z'))
-coord_max_table = Table([coord_max_x,coord_max_y,coord_max_z],names=('x','y','z'))
+coord_min_table = Table([coord_min_x, coord_min_y, coord_min_z], names=('x','y','z'))
+coord_max_table = Table([coord_max_x, coord_max_y, coord_max_z], names=('x','y','z'))
 
 N_gal = len(infile)
 
@@ -228,7 +230,7 @@ galaxy_tree = neighbors.KDTree(w_coord)
 print('Growing holes')
 
 # Center of the current cell
-hole_center_table = Table(np.zeros(6), names=['x', 'y', 'z', 'r', 'ra', 'dec'])
+hole_center_table = Table(np.zeros(6), names=('x', 'y', 'z', 'r', 'ra', 'dec'))
 
 # Initialize list of hole details
 myvoids_x = []
@@ -251,7 +253,7 @@ for empty_cell in range(len(empty_indices[0])):
     j = empty_indices[1][empty_cell]
     k = empty_indices[2][empty_cell]
 
-    if empty_cell%10000==0:
+    if empty_cell%10000 == 0:
         print('Looking in empty cell', empty_cell, 'of', len(empty_indices[0]))
 
     # Calculate center coordinates of cell
@@ -311,7 +313,7 @@ for empty_cell in range(len(empty_indices[0])):
         dist_nearest = dist_nearest[boolean_nearest]
         i_nearest = i_nearest[boolean_nearest]
 
-        if len(i_nearest) > 1:
+        if len(i_nearest) > 0:
             # Found at least one other nearest neighbor!
             galaxy_search = False
 
@@ -389,7 +391,7 @@ for empty_cell in range(len(empty_indices[0])):
         dist_nearest = dist_nearest[boolean_nearest]
         i_nearest = i_nearest[boolean_nearest]
 
-        if len(i_nearest) > 1:
+        if len(i_nearest) > 0:
             # Found at least one other nearest neighbor!
             galaxy_search = False
 
@@ -456,6 +458,7 @@ for empty_cell in range(len(empty_indices[0])):
 
         # Shift hole center along unit vector
         hole_center_41 = hole_center_41 + dr*v3_unit
+        #print('Shifted center to', hole_center_41)
         # Calculate vector pointing from the hole center to the nearest galaxy
         Acenter = w_coord[k1g] - hole_center_41
         # Search for nearest neighbors within R of the hole center
@@ -467,8 +470,9 @@ for empty_cell in range(len(empty_indices[0])):
         boolean_nearest = np.logical_and.reduce((i_nearest != k1g, i_nearest != k2g, i_nearest != k3g))
         dist_nearest = dist_nearest[boolean_nearest]
         i_nearest = i_nearest[boolean_nearest]
+        #print('Number of nearby galaxies', len(i_nearest))
 
-        if len(i_nearest) > 1:
+        if len(i_nearest) > 0:
             # Found at least one other nearest neighbor!
             galaxy_search = False
 
@@ -493,7 +497,7 @@ for empty_cell in range(len(empty_indices[0])):
             #print('hole not in survey 41')
             galaxy_search = False
 
-    # print 'Found first potential 4th galaxy'
+    #print('Found first potential 4th galaxy')
 
     # Calculate potential new hole center
     hole_center_41 = hole_center + minx41*v3_unit
@@ -525,7 +529,7 @@ for empty_cell in range(len(empty_indices[0])):
         dist_nearest = dist_nearest[boolean_nearest]
         i_nearest = i_nearest[boolean_nearest]
 
-        if len(i_nearest) > 1:
+        if len(i_nearest) > 0:
             # Found at least one other nearest neighbor!
             galaxy_search = False
 
@@ -547,7 +551,7 @@ for empty_cell in range(len(empty_indices[0])):
             # Hole is no longer within survey limits
             galaxy_search = False
 
-    # print 'Found second potential 4th galaxy'
+    #print('Found second potential 4th galaxy')
 
     # Calculate potential new hole center
     hole_center_42 = hole_center + minx42*v3_unit
@@ -577,12 +581,13 @@ for empty_cell in range(len(empty_indices[0])):
     myvoids_r.append(hole_radius)
 
     n_holes += 1
-<<<<<<< HEAD
+
+    '''
     if n_holes%100 == 0:
         print("number of holes=",n_holes)
-=======
+
     print("number of holes=",n_holes)
->>>>>>> df1a59b4459da3041b55461833dd2e1d353be803
+    '''
 
 print('Found a total of', n_holes, 'potential voids.')
 
@@ -593,14 +598,23 @@ print('Found a total of', n_holes, 'potential voids.')
 ################################################################################
 print('Sorting holes by size')
 
-myvoids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=['x','y','z','radius'])
-
-# Remove all holes with radii smaller than 10 Mpc/h
-boolean = myvoids_table['radius'] > 10.
-myvoids_table = myvoids_table[boolean]
+potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=('x','y','z','radius'))
 
 # Need to sort the potential voids into size order
-myvoids_table.sort('radius')
+potential_voids_table.sort('radius')
+
+#potential_voids_table[:5].pprint()
+
+#potential_voids_table.write('potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
+potential_voids_file = open('potential_voids_list.txt', 'wb')
+pickle.dump(potential_voids_table, potential_voids_file)
+potential_voids_file.close()
+
+'''
+in_file = open('potential_voids_list.txt', 'r')
+potential_voids_table = pickle.load(in_file)
+in_file.close()
+'''
 
 print('Holes are sorted.')
 ################################################################################
@@ -608,62 +622,17 @@ print('Holes are sorted.')
 #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
 #
 ################################################################################
-# The largest hole is a void
 print('Combining holes into unique voids')
 
-# Initialize column to store unique void identifier
-myvoids_table['flag'] = 0
+maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
 
-# Unique void count
-void_count = 0
-
-# Initialize
-v_index = [] # Index of v's in myvoids_table
-
-
-for i in range(len(myvoids_table)):
-
-    # Reset overlap flag
-    overlap_flag = False
-
-    # Set hole's flag to be current unique void count (assumes that it is its own void)
-    myvoids_table['flag'] = void_count
-
-    # Check to see if current hole overlaps by more than 50% volume with any previously identified voids
-    for j in range(void_count):
-
-        # Calculate the distance between the hole centers
-        dist_centers = np.linalg.norm(to_vector(subtract_row(myvoids_table['x','y','z'][i], myvoids_table['x','y','z'][v_index[j]])))
-
-        # Sum of hole radii
-        radii_sum = myvoids_table['radius'][i] + myvoids_table['radius'][v_index[j]]
-
-        '''Calculate the overlapping volume.  If greater than half the 
-        volume of the smaller sphere, then accept it.  Otherwise don't.'''
-
-        if dist_centers < 1:  # Why are we comparing the center separation to 1?
-            overlap_flag = True
-            myvoids_table['flag'][i] = j
-
-        elif dist_centers <= radii_sum:
-            volume = np.pi/(12*dist_centers)*(radii_sum - dist_centers)**2*(dist_centers**2 + 2*dist_centers*myvoids_table['radius'][v_index[j]] - 3*myvoids_table['radius'][v_index[j]]**2 + 2*dist_centers*myvoids_table['radius'][i] + 6*myvoids_table['radius'][v_index[j]]*myvoids_table['radius'][i] - 3*myvoids_table['radius'][i]**2)
-            sphere_volume = 4*np.pi*myvoids_table['radius'][i]**3/3
-
-            if volume > frac*sphere_volume:
-                # These two spheres overlap by more than X%, so hole is not unique
-                overlap_flag = True
-                myvoids_table['flag'][i] = j
-
-    if not overlap_flag:
-        v_index.append(i)
-        void_count += 1
-
-print('Number of unique voids is', void_count)
+print('Number of unique voids is', len(myvoids_maximal_table))
 
 # Save list of all void holes
 myvoids_table.write(out2_filename, format='ascii.commented_header')
 
 
+'''
 ################################################################################
 #
 #   COMPUTE VOLUME OF EACH VOID
@@ -694,8 +663,8 @@ for i in range(void_count):
                     break
     
     void_vol[i] = (rad**3)*nsph/nran
-
-
+'''
+'''
 ################################################################################
 #
 #   IDENTIFY VOID GALAXIES
@@ -721,7 +690,7 @@ for i in range(nf): # Go through each void galaxy
             break
 
 f_coord.write(voidgals_filename, format='ascii.commented_header')
-
+'''
 
 ################################################################################
 #
@@ -730,24 +699,18 @@ f_coord.write(voidgals_filename, format='ascii.commented_header')
 ################################################################################
 
 
-# Initialize
-maximal_spheres = Table()
 
-maximal_spheres['x'] = myvoids_table['x'][v_index]
-maximal_spheres['y'] = myvoids_table['y'][v_index]
-maximal_spheres['z'] = myvoids_table['z'][v_index]
-maximal_spheres['radius'] = myvoids_table['radius'][v_index]
-maximal_spheres['r'] = np.linalg.norm([myvoids_table['x'][v_index],myvoids_table['y'][v_index],myvoids_table['z'][v_index]], axis=0)
-maximal_spheres['ra'] = np.arctan(myvoids_table['y'][v_index]/myvoids_table['x'][v_index])*RtoD
-maximal_spheres['dec'] = np.arcsin(myvoids_table['z'][v_index]/maximal_spheres['r'])*RtoD
+maximal_spheres_table['r'] = np.linalg.norm(to_array(maximal_spheres_table))#, axis=0)
+maximal_spheres_table['ra'] = np.arctan(maximal_spheres_table['y']/maximal_spheres_table['x'])*RtoD
+maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_spheres_table['r'])*RtoD
 
 # Adjust ra value as necessary
-boolean = np.logical_and(maximal_spheres['y'] != 0, maximal_spheres['x'] < 0)
-maximal_spheres['ra'][boolean] += 180.
+boolean = np.logical_and(maximal_spheres_table['y'] != 0, maximal_spheres_table['x'] < 0)
+maximal_spheres_table['ra'][boolean] += 180.
 
-maximal_spheres.write(out1_filename, format='ascii.commented_header')
+maximal_spheres_table.write(out1_filename, format='ascii.commented_header')
 
-
+'''
 ################################################################################
 #
 #   VOID REGION SIZES
@@ -769,5 +732,5 @@ void_regions['n_gal'] = nfield
 void_regions['vol_maxHole'] = (4./3.)*np.pi*myvoids_table['radius'][v_index]**3/void_vol
 
 void_regions.write(out3_filename, format='ascii.commented_header')
-
+'''
 
