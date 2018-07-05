@@ -13,6 +13,7 @@ from astropy.table import Table
 #from scipy import spatial
 from sklearn import neighbors
 import pickle
+import time
 
 from hole_combine import combine_holes
 from voidfinder_functions import mesh_galaxies, in_mask, in_survey
@@ -28,16 +29,17 @@ from mag_cutoff_function import mag_cut, field_gal_cut
 #
 ################################################################################
 
+tot_start = time.time()
 
 # Input file names
-in_filename = 'SDSSdr7/vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'SDSSdr7/cbpdr7mask.dat' # File format: RA, dec
+in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
-out1_filename = 'SDSSdr7/out1_vollim_dr7.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = 'SDSSdr7/out2_vollim_dr7.txt' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-out3_filename = 'SDSSdr7/out3_vollim_dr7.txt' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-voidgals_filename = 'SDSSdr7/vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region #
+out1_filename = 'out1_vollim_dr7.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = 'out2_vollim_dr7.txt' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out3_filename = 'out3_vollim_dr7.txt' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
+voidgals_filename = 'vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region #
 
 
 ################################################################################
@@ -159,6 +161,9 @@ if grid_good:
 # you need, and insert the call to your distance filtering function here.  If 
 # you have any questions of how to incorporate your function into this script, 
 # let me know!
+
+sep_start = time.time()
+
 print('Finding sep')
 
 
@@ -166,7 +171,7 @@ l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
 
 print('Average separation of n3rd gal is', avsep)
 print('The standard deviation is', sd)
-#print(dists3[:10])
+
 
 
 # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
@@ -175,11 +180,17 @@ print('The standard deviation is', sd)
 
 print('Going to build wall with search value', l)
 
+sep_end = time.time()
+
+print('Time to find sep =',sep_end-sep_start)
+
+fw_start = time.time()
+
 f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
 
 f_coord = to_array(f_coord_table)
 w_coord = to_array(w_coord_table)
-#print('w_coord shape',w_coord.shape)
+
 
 nf =  len(f_coord_table)
 nwall = len(w_coord_table)
@@ -198,6 +209,10 @@ w_coord = to_array(w_coord_table)'''
 
 print('Number of field gals:', nf,'Number of wall gals:', nwall)
 
+fw_end = time.time()
+
+print('Time to sort field and wall gals =',fw_end-fw_start)
+
 
 ################################################################################
 #
@@ -207,9 +222,6 @@ print('Number of field gals:', nf,'Number of wall gals:', nwall)
 print('Setting up grid')
 
 wall_mesh_indices, ngal_wall, chainlist_wall, linklist_wall = mesh_galaxies(w_coord_table, coord_min_table, dl, ngrid)
-
-#print(wall_mesh_indices[:5])
-#print(np.sum(ngal_wall))
 
 print('Grid set up')
 ################################################################################
@@ -227,6 +239,11 @@ galaxy_tree = neighbors.KDTree(w_coord)
 #   GROW HOLES
 #
 ################################################################################
+
+hole_times = []
+
+tot_hole_start = time.time()
+
 print('Growing holes')
 
 # Center of the current cell
@@ -244,10 +261,10 @@ n_holes = 0
 # Find where all the empty cells are
 empty_indices = np.where(ngal_wall == 0)
 
-#print(len(empty_indices[0]))
 
 # Go through each empty cell in the grid
 for empty_cell in range(len(empty_indices[0])):
+    hole_start = time.time()
     # Retrieve empty cell indices
     i = empty_indices[0][empty_cell]
     j = empty_indices[1][empty_cell]
@@ -266,7 +283,7 @@ for empty_cell in range(len(empty_indices[0])):
     # Check to make sure that the hole center is still within the survey
     if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
         continue
-    #print('hole center 1 =',hole_center)
+    
     index_offset = 0
     nposs = 0 # Just a loop-ending variable - value does not matter anywhere else in the code!
 
@@ -277,9 +294,7 @@ for empty_cell in range(len(empty_indices[0])):
 
     # Unit vector pointing from closest galaxy to cell center
     v1_unit = (hole_center.T - w_coord[k1g])/modv1
-    #print(v1_unit.shape)
-    #print(w_coord[k1g].shape)
-    #print(k1g.shape)
+
     
     ############################################################################
     # We are going to shift the center of the hole by dr along the direction of 
@@ -297,11 +312,11 @@ for empty_cell in range(len(empty_indices[0])):
 
         # Shift hole center along unit vector
         hole_center = hole_center + dr*v1_unit.T
-        #print('hole center 2=',hole_center)
+        
 
         # Distance between hole center and nearest galaxy
         modv1 += dr
-        #print(modv1.shape)
+        
         # Search for nearest neighbors within modv1 of the hole center
         i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=modv1, return_distance=True)
 
@@ -319,26 +334,21 @@ for empty_cell in range(len(empty_indices[0])):
 
             # Calculate vector pointing from nearest galaxy to next nearest galaxies
             BA = w_coord[i_nearest] - w_coord[k1g]
-            #print(i_nearest)
-            #print(i_nearest.shape)
-            #print(w_coord[k1g].shape,w_coord[i_nearest].shape)
-            #print(BA.shape)
-            #print(v1_unit.shape)
+            
             bot = 2*np.dot(BA, v1_unit.T)
-            #print(bot.T)
+            
             top = np.sum(BA**2, axis=1)
-            #print(top)
+            
             x2 = top/bot.T
-            #print(x2.T)
+            
             # Find index of 2nd nearest galaxy
             k2g_x2 = np.argmin(x2.T)
-            #print(k2g_x2)
+          
             k2g = i_nearest[k2g_x2]
 
             minx2 = x2.T[k2g_x2]
-            #print(minx2)
+            
         elif not in_mask(hole_center.T, mask, [min_dist, max_dist]):
-            #print('hole not in survey 2')
             # Hole is no longer within survey limits
             galaxy_search = False
 
@@ -379,7 +389,7 @@ for empty_cell in range(len(empty_indices[0])):
         hole_center = hole_center + dr*v2_unit
         # Calculate vector pointing from the hole center to the nearest galaxies
         Acenter = w_coord[k1g] - hole_center
-        #print(Acenter)
+        
         # Search for nearest neighbors within modv1 of the hole center
         i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center, r=np.linalg.norm(Acenter), return_distance=True)
 
@@ -397,15 +407,11 @@ for empty_cell in range(len(empty_indices[0])):
 
             # Calculate vector pointing from next nearest galaxies to hole center
             Ccenter = hole_center - w_coord[i_nearest]
-            '''print(hole_center.shape,w_coord[i_nearest].shape)
-            print(Ccenter)
-            print(Acenter)
-            print(Ccenter-Acenter)
-            print(v2_unit.shape)'''
+            
             bot = 2*np.dot((Ccenter - Acenter), v2_unit.T)
-            #print(bot.shape)
+           
             top = np.array([(dist_nearest**2) - np.sum(Acenter**2)]).T
-            #print(top.shape)
+           
             x3 = top/bot
             # Find index of 3rd nearest galaxy
             k3g_x3 = np.argmin(x3)
@@ -414,7 +420,6 @@ for empty_cell in range(len(empty_indices[0])):
             minx3 = x3[k3g_x3]
         elif not in_mask(hole_center, mask, [min_dist, max_dist]):
             # Hole is no longer within survey limits
-            #print('hole not in survey 3')
             galaxy_search = False
 
     #print('Found 3rd galaxy')
@@ -478,15 +483,13 @@ for empty_cell in range(len(empty_indices[0])):
 
             # Calculate vector pointing from hole center to next nearest galaxies
             Ccenter = w_coord[i_nearest] - hole_center_41
-            #print('cc',Ccenter.shape)
-            #print('ac',Acenter.shape)
-            #print('sub',(Ccenter-Acenter).shape)
+            
             bot = 2*np.dot((Ccenter - Acenter), v3_unit.T) 
-            #print('bot',bot.shape)
+            
             top = np.array([(dist_nearest**2) - np.sum(Acenter**2)]).T
-            #print('top',top.shape)
+            
             x41 = top/bot
-            #print(x41)
+            
             # Find index of 3rd nearest galaxy
             k4g1_x41 = np.argmin(x41)
             k4g1 = i_nearest[k4g1_x41]
@@ -494,14 +497,14 @@ for empty_cell in range(len(empty_indices[0])):
             minx41 = x41[k4g1_x41]
         elif not in_mask(hole_center, mask, [min_dist, max_dist]):
             # Hole is no longer within survey limits
-            #print('hole not in survey 41')
+            
             galaxy_search = False
 
     #print('Found first potential 4th galaxy')
 
     # Calculate potential new hole center
     hole_center_41 = hole_center + minx41*v3_unit
-    #print('41=',hole_center_41)
+   
     # Repeat same search, but shift the hole center in the other direction this time
     v3_unit = -v3_unit
 
@@ -547,7 +550,7 @@ for empty_cell in range(len(empty_indices[0])):
 
             minx42 = x42[k4g2_x42]
         elif not in_mask(hole_center, mask, [min_dist, max_dist]):
-            #print('hole not in survey 42')
+          
             # Hole is no longer within survey limits
             galaxy_search = False
 
@@ -555,7 +558,7 @@ for empty_cell in range(len(empty_indices[0])):
 
     # Calculate potential new hole center
     hole_center_42 = hole_center + minx42*v3_unit
-    #print('42=',hole_center_42)
+   
     # Determine which is the 4th nearest galaxy
     if minx41 <= minx42 and in_mask(hole_center_41, mask, [min_dist, max_dist]):
         # The first 4th galaxy found is the next closest
@@ -567,10 +570,9 @@ for empty_cell in range(len(empty_indices[0])):
         k4g = k4g2
     else:
         # Neither hole center is within the mask - not a valid hole
-        #print('not a valid hole')
+
         continue
-    #print(hole_center)
-    #print(w_coord[k1g])
+
     # Radius of the hole
     hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
     hole_center = hole_center.T
@@ -579,8 +581,9 @@ for empty_cell in range(len(empty_indices[0])):
     myvoids_y.append(hole_center[1])
     myvoids_z.append(hole_center[2])
     myvoids_r.append(hole_radius)
-
+    hole_end = time.time()
     n_holes += 1
+    hole_times.append(hole_end-hole_start)
 
     '''
     if n_holes%100 == 0:
@@ -591,11 +594,19 @@ for empty_cell in range(len(empty_indices[0])):
 
 print('Found a total of', n_holes, 'potential voids.')
 
+tot_hole_end = time.time()
+
+print('Time to find all holes =',tot_hole_end-tot_hole_start)
+print('AVG time to find each hole=', sum(hole_times)/len(hole_times))
+
 ################################################################################
 #
 #   SORT HOLES BY SIZE
 #
 ################################################################################
+
+sort_start = time.time()
+
 print('Sorting holes by size')
 
 potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=('x','y','z','radius'))
@@ -615,13 +626,18 @@ in_file = open('potential_voids_list.txt', 'rb')
 potential_voids_table = pickle.load(in_file)
 in_file.close()
 '''
+sort_end = time.time()
 
 print('Holes are sorted.')
+print('Time to sort holes =', sort_end-sort_start)
 ################################################################################
 #
 #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
 #
 ################################################################################
+
+combine_start = time.time()
+
 print('Combining holes into unique voids')
 
 maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
@@ -629,8 +645,12 @@ maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
 print('Number of unique voids is', len(maximal_spheres_table))
 
 # Save list of all void holes
-myvoids_table.write(out2_filename, format='ascii.commented_header')
+myvoids_table.write(out2_filename, format='ascii.commented_header', overwrite=True)
+print(len(maximal_spheres_table))
+print(len(myvoids_table))
+combine_end = time.time()
 
+print('Time to combine holes into voids =', combine_end-combine_start)
 
 '''
 ################################################################################
@@ -700,7 +720,7 @@ f_coord.write(voidgals_filename, format='ascii.commented_header')
 
 
 
-maximal_spheres_table['r'] = np.linalg.norm(to_array(maximal_spheres_table))#, axis=0)
+maximal_spheres_table['r'] = np.linalg.norm(to_array(maximal_spheres_table)).T#, axis=0)
 maximal_spheres_table['ra'] = np.arctan(maximal_spheres_table['y']/maximal_spheres_table['x'])*RtoD
 maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_spheres_table['r'])*RtoD
 
@@ -708,7 +728,11 @@ maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_sphe
 boolean = np.logical_and(maximal_spheres_table['y'] != 0, maximal_spheres_table['x'] < 0)
 maximal_spheres_table['ra'][boolean] += 180.
 
-maximal_spheres_table.write(out1_filename, format='ascii.commented_header')
+maximal_spheres_table.write(out1_filename, format='ascii.commented_header',overwrite=True)
+
+tot_end = time.time()
+
+print('Total time =',tot_end-tot_start)
 
 '''
 ################################################################################
