@@ -68,6 +68,7 @@ def combine_holes(spheres_table):
 
     large_spheres_boolean = spheres_table['radius'] > 10
     N_large_spheres = sum(large_spheres_boolean)
+    spheres_table = spheres_table[large_spheres_boolean]
 
     # Initialize index array for maximal spheres
     maximal_spheres_indices = []
@@ -122,10 +123,11 @@ def combine_holes(spheres_table):
             height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], sphere_i_radius, separation[overlap_boolean])
 
             # Overlap volume
-            overlap_volume = spherical_cap_volume(sphere_i_radius, heigh_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal[overlap_boolean])
+            overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal[overlap_boolean])
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
+            frac = 0.1
 
             if all(overlap_volume <= frac*volume_i):
                 # Sphere i does not overlap by more than x% with any of the other known maximal spheres.
@@ -220,7 +222,7 @@ def combine_holes(spheres_table):
             height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], sphere_i_radius, separation[overlap_boolean])
 
             # Overlap volume
-            overlap_volume = spherical_cap_volume(sphere_i_radius, heigh_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal[overlap_boolean])
+            overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal[overlap_boolean])
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
@@ -228,7 +230,7 @@ def combine_holes(spheres_table):
             # Does sphere i overlap by at least 50% of its volume with a maximal sphere?
             overlap_boolean = overlap_volume > 0.5*volume_i
 
-            if sum(overlap_boolan) == 1:
+            if sum(overlap_boolean) == 1:
                 # Sphere i overlaps by more than 50% with one maximal sphere
                 # Sphere i is therefore a hole in that void
                 N_holes += 1
