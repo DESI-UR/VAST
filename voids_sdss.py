@@ -720,13 +720,19 @@ f_coord.write(voidgals_filename, format='ascii.commented_header')
 
 
 
-maximal_spheres_table['r'] = np.linalg.norm(to_array(maximal_spheres_table)).T#, axis=0)
+maximal_spheres_table['r'] = np.linalg.norm(to_array(maximal_spheres_table))
+maximal_spheres_table['r'] = np.array([maximal_spheres_table['r']]).T
+print(maximal_spheres_table['r'].shape)
+print(maximal_spheres_table['z'].shape)
 maximal_spheres_table['ra'] = np.arctan(maximal_spheres_table['y']/maximal_spheres_table['x'])*RtoD
 maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_spheres_table['r'])*RtoD
 
 # Adjust ra value as necessary
 boolean = np.logical_and(maximal_spheres_table['y'] != 0, maximal_spheres_table['x'] < 0)
 maximal_spheres_table['ra'][boolean] += 180.
+
+maximal_spheres_table = Table(maximal_spheres_table)
+print(type(maximal_spheres_table))
 
 maximal_spheres_table.write(out1_filename, format='ascii.commented_header',overwrite=True)
 
