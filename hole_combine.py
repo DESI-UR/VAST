@@ -50,7 +50,7 @@ def cap_height(R, r, d):
 ################################################################################
 
 
-def combine_holes(spheres_table):
+def combine_holes(spheres_table, frac):
     '''
     Combines the potential void spheres into voids.
 
@@ -127,7 +127,6 @@ def combine_holes(spheres_table):
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
-            frac = 0.1
 
             if all(overlap_volume <= frac*volume_i):
                 # Sphere i does not overlap by more than x% with any of the other known maximal spheres.
