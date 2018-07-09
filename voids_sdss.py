@@ -731,7 +731,6 @@ maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_sphe
 boolean = np.logical_and(maximal_spheres_table['y'] != 0, maximal_spheres_table['x'] < 0)
 maximal_spheres_table['ra'][boolean] += 180.
 
-maximal_spheres_table = Table(maximal_spheres_table)
 print(type(maximal_spheres_table))
 
 maximal_spheres_table.write(out1_filename, format='ascii.commented_header',overwrite=True)
