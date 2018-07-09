@@ -72,7 +72,7 @@ c = 3e5
 DtoR = np.pi/180.
 RtoD = 180./np.pi
 
-
+'''
 ################################################################################
 #
 #   OPEN FILES
@@ -195,7 +195,7 @@ w_coord = to_array(w_coord_table)
 nf =  len(f_coord_table)
 nwall = len(w_coord_table)
 
-'''boolean = minsep3 > l
+######boolean = minsep3 > l
 
 # Voids
 nf = sum(boolean)
@@ -205,7 +205,7 @@ f_coord = to_array(f_coord_table)
 # Walls
 nwall = sum(np.logical_not(boolean))
 w_coord_table = coord_in_table[np.logical_not(boolean)]
-w_coord = to_array(w_coord_table)'''
+w_coord = to_array(w_coord_table)######
 
 print('Number of field gals:', nf,'Number of wall gals:', nwall)
 
@@ -585,12 +585,12 @@ for empty_cell in range(len(empty_indices[0])):
     n_holes += 1
     hole_times.append(hole_end-hole_start)
 
-    '''
+    ########
     if n_holes%100 == 0:
         print("number of holes=",n_holes)
 
     print("number of holes=",n_holes)
-    '''
+    ##########
 
 print('Found a total of', n_holes, 'potential voids.')
 
@@ -619,17 +619,20 @@ potential_voids_table.sort('radius')
 #potential_voids_table.write('potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
 potential_voids_file = open('potential_voids_list.txt', 'wb')
 pickle.dump(potential_voids_table, potential_voids_file)
-potential_voids_file.close()
+potential_voids_file.close()'''
 
-'''
+
 in_file = open('potential_voids_list.txt', 'rb')
 potential_voids_table = pickle.load(in_file)
 in_file.close()
-'''
+
+#print(potential_voids_table)
+#print(len(potential_voids_table))
+
 sort_end = time.time()
 
 print('Holes are sorted.')
-print('Time to sort holes =', sort_end-sort_start)
+#print('Time to sort holes =', sort_end-sort_start)
 ################################################################################
 #
 #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
@@ -646,8 +649,9 @@ print('Number of unique voids is', len(maximal_spheres_table))
 
 # Save list of all void holes
 myvoids_table.write(out2_filename, format='ascii.commented_header', overwrite=True)
-print(len(maximal_spheres_table))
-print(len(myvoids_table))
+#print(myvoids_table[:5])
+#print(len(maximal_spheres_table))
+#print(len(myvoids_table))
 combine_end = time.time()
 
 print('Time to combine holes into voids =', combine_end-combine_start)
@@ -722,8 +726,6 @@ f_coord.write(voidgals_filename, format='ascii.commented_header')
 
 maximal_spheres_table['r'] = np.linalg.norm(to_array(maximal_spheres_table))
 maximal_spheres_table['r'] = np.array([maximal_spheres_table['r']]).T
-print(maximal_spheres_table['r'].shape)
-print(maximal_spheres_table['z'].shape)
 maximal_spheres_table['ra'] = np.arctan(maximal_spheres_table['y']/maximal_spheres_table['x'])*RtoD
 maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_spheres_table['r'])*RtoD
 
@@ -731,13 +733,13 @@ maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_sphe
 boolean = np.logical_and(maximal_spheres_table['y'] != 0, maximal_spheres_table['x'] < 0)
 maximal_spheres_table['ra'][boolean] += 180.
 
-print(type(maximal_spheres_table))
+#print(maximal_spheres_table)
 
 maximal_spheres_table.write(out1_filename, format='ascii.commented_header',overwrite=True)
 
 tot_end = time.time()
 
-print('Total time =',tot_end-tot_start)
+#print('Total time =',tot_end-tot_start)
 
 '''
 ################################################################################
