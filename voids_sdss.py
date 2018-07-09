@@ -640,7 +640,7 @@ combine_start = time.time()
 
 print('Combining holes into unique voids')
 
-maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
+maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, frac)
 
 print('Number of unique voids is', len(maximal_spheres_table))
 
