@@ -90,7 +90,7 @@ def combine_holes(spheres_table, frac):
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
 
-        print(sphere_i_coordinates)
+        #print(sphere_i_coordinates)
 
         ########################################################################
         #
@@ -100,14 +100,14 @@ def combine_holes(spheres_table, frac):
 
         # Array of coordinates for previously identified maximal spheres
         maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
-        print(maximal_spheres_coordinates)
+        #print(maximal_spheres_coordinates)
         # Array of radii for previously identified maximal spheres
         maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
-        print(maximal_spheres_radii)
+        #print(maximal_spheres_radii)
         #print(sphere_i_coordinates.shape)
         # Distance between sphere i's center and the centers of the other maximal spheres
         separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
-        print(separation)
+        #print(separation)
         #print('max spheres',maximal_spheres_coordinates[0][:5])
         #print('sphere i',sphere_i_coordinates[:5])
         #print('subtraction',(maximal_spheres_coordinates[0] - sphere_i_coordinates)[:5])
