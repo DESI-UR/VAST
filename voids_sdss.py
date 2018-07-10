@@ -32,14 +32,14 @@ from mag_cutoff_function import mag_cut, field_gal_cut
 tot_start = time.time()
 
 # Input file names
-in_filename = 'SDSSdr7/vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'SDSSdr7/cbpdr7mask.dat' # File format: RA, dec
+in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
-out1_filename = 'SDSSdr7/out1_vollim_dr7.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = 'SDSSdr7/out2_vollim_dr7.txt' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-out3_filename = 'SDSSdr7/out3_vollim_dr7.txt' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-voidgals_filename = 'SDSSdr7/vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region #
+out1_filename = 'out1_vollim_dr7.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = 'out2_vollim_dr7.txt' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out3_filename = 'out3_vollim_dr7.txt' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
+voidgals_filename = 'vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region #
 
 # out_filename = in_filename[:-4] + '_maximal.txt'
 
