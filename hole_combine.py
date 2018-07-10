@@ -189,6 +189,8 @@ def combine_holes(spheres_table, frac):
     # Number of spheres which are assigned to a void (holes)
     N_holes = 0
 
+    maximal_indices = np.arange(N_voids)
+
     for i in range(N_spheres):
 
         # First - check if i is a maximal sphere
@@ -233,7 +235,7 @@ def combine_holes(spheres_table, frac):
             print('overlap true: voids')
             # Sphere i overlaps at least one maximal sphere by some amount.
             # Check to see by how much.
-
+            maximal_overlap_indices = maximal_indices[overlap_boolean]
             # Heights of the spherical caps
             height_i = cap_height(sphere_i_radius, maximal_spheres_radii[overlap_boolean], separation[overlap_boolean])
             height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], sphere_i_radius, separation[overlap_boolean])
@@ -244,10 +246,10 @@ def combine_holes(spheres_table, frac):
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
             # Does sphere i overlap by at least 50% of its volume with a maximal sphere?
-            overlap_boolean = overlap_volume > 0.5*volume_i
+            overlap2_boolean = overlap_volume > 0.5*volume_i
             #print(overlap_volume)
             #print('new', overlap_boolean)
-            if sum(overlap_boolean) == 1:
+            if sum(overlap2_boolean) == 1:
                 # Sphere i overlaps by more than 50% with one maximal sphere
                 # Sphere i is therefore a hole in that void
                 print('hole inside void')
@@ -255,7 +257,7 @@ def combine_holes(spheres_table, frac):
                 holes_indices.append(i)
                 #print(maximal_spheres_table['flag'].shape)
                 #print(overlap_boolean.shape)
-                spheres_table['flag'][i] = maximal_spheres_table['flag'][overlap_boolean]
+                spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_overlap_indices[overlap2_boolean]]
             
 
 
