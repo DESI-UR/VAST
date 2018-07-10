@@ -97,3 +97,20 @@ def to_array(table):
     array = np.array([table['x'], table['y'], table['z']]).T
 
     return array
+
+
+
+
+
+
+
+if __name__ == '__main__':
+
+    fake_x = [0, 1, 0, 30, 55, -18, 72, 0]
+    fake_y = [0, 0, -18, 0, 0, 0, 0, 100]
+    fake_radius = [20, 11, 15, 16, 18, 9, 8, 7]
+    fake_table = Table([fake_x, fake_y, fake_radius], names=('x','y','radius'))
+    fake_table['z'] = 0
+
+    fake_coordinates = to_array(fake_table)
+    print(fake_coordinates)

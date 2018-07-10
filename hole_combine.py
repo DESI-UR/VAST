@@ -68,7 +68,7 @@ def combine_holes(spheres_table, frac):
 
     large_spheres_boolean = spheres_table['radius'] > 10
     N_large_spheres = sum(large_spheres_boolean)
-    #spheres_table = spheres_table[large_spheres_boolean]
+    large_spheres_indices = np.nonzero(large_spheres_boolean)
 
     # Initialize index array for maximal spheres
     maximal_spheres_indices = []
@@ -77,7 +77,11 @@ def combine_holes(spheres_table, frac):
     N_voids = 1
     maximal_spheres_indices.append(0)
 
-    for i in range(1,N_large_spheres):
+    for i in large_spheres_indices[0][1:]:
+
+        #print('___________________________')
+        #print('Looking at large sphere', i)
+        #print('There are', len(maximal_spheres_indices), 'maximal spheres.')
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
@@ -85,6 +89,8 @@ def combine_holes(spheres_table, frac):
         #print(sphere_i_coordinates.shape)
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
+
+        print(sphere_i_coordinates)
 
         ########################################################################
         #
@@ -94,12 +100,14 @@ def combine_holes(spheres_table, frac):
 
         # Array of coordinates for previously identified maximal spheres
         maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
+        print(maximal_spheres_coordinates)
         # Array of radii for previously identified maximal spheres
         maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
-        #print(maximal_spheres_coordinates.shape)
-        #print(maximal_spheres_radii.shape)
+        print(maximal_spheres_radii)
+        #print(sphere_i_coordinates.shape)
         # Distance between sphere i's center and the centers of the other maximal spheres
-        separation = np.linalg.norm((maximal_spheres_coordinates[0] - sphere_i_coordinates),axis=1)
+        separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
+        print(separation)
         #print('max spheres',maximal_spheres_coordinates[0][:5])
         #print('sphere i',sphere_i_coordinates[:5])
         #print('subtraction',(maximal_spheres_coordinates[0] - sphere_i_coordinates)[:5])
@@ -195,6 +203,9 @@ def combine_holes(spheres_table, frac):
 
         # First - check if i is a maximal sphere
         if i in maximal_spheres_indices:
+            #print('Maximal sphere', spheres_table['radius'][i])
+            N_holes += 1
+            holes_indices.append(i)
             spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_spheres_indices == i]
             #print('sphere i is a maximal sphere')
             continue
@@ -213,7 +224,7 @@ def combine_holes(spheres_table, frac):
         ########################################################################
 
         # Distance between sphere i's center and the centers of the maximal spheres
-        separation = np.linalg.norm((maximal_spheres_coordinates[0] - sphere_i_coordinates),axis=1)
+        separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
 
         ########################################################################
         # Does sphere i live completely inside a maximal sphere?
@@ -221,7 +232,7 @@ def combine_holes(spheres_table, frac):
 
         if any((maximal_spheres_radii - sphere_i_radius) > separation):
             # Sphere i is completely inside another sphere --- sphere i should not be saved
-            print('sphere completely inside another sphere')
+            #print('Sphere completely inside another sphere', sphere_i_radius)
             continue
 
         ########################################################################
@@ -232,7 +243,6 @@ def combine_holes(spheres_table, frac):
         overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii)
         #print('ob', overlap_boolean)
         if any(overlap_boolean):
-            print('overlap true: voids')
             # Sphere i overlaps at least one maximal sphere by some amount.
             # Check to see by how much.
             maximal_overlap_indices = maximal_indices[overlap_boolean]
@@ -246,18 +256,21 @@ def combine_holes(spheres_table, frac):
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
             # Does sphere i overlap by at least 50% of its volume with a maximal sphere?
+            #print(overlap_volume/volume_i)
             overlap2_boolean = overlap_volume > 0.5*volume_i
             #print(overlap_volume)
             #print('new', overlap_boolean)
             if sum(overlap2_boolean) == 1:
                 # Sphere i overlaps by more than 50% with one maximal sphere
                 # Sphere i is therefore a hole in that void
-                print('hole inside void')
+                #print('Hole inside void', sphere_i_radius)
                 N_holes += 1
                 holes_indices.append(i)
                 #print(maximal_spheres_table['flag'].shape)
                 #print(overlap_boolean.shape)
                 spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_overlap_indices[overlap2_boolean]]
+            #else:
+                #print('Hole overlaps void, but not part of one', sphere_i_radius)
             
 
 
@@ -284,18 +297,30 @@ if __name__ == '__main__':
     import pickle
     from astropy.table import Table
 
+    
     in_file = open('potential_voids_list.txt', 'rb')
     potential_voids_table = pickle.load(in_file)
     in_file.close()
 
-    '''fake_x = [1 2 3 4 5 6 7 8 9]
-    fake_y = [1 2 3 1 2 3 1 2 3]
-    fake_z = [3 2 1 1 2 3 3 2 1]
-    fake_radius = [
-    fake_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=('x','y','z','radius'))'''
+    potential_voids_table.reverse()
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, 0.1)
 
     print('Number of unique voids is', len(maximal_spheres_table))
     print('voids length',len(myvoids_table))
+    
+    '''
+    fake_x = [0, 1, 0, 30, 55, -18, 72, 0]
+    fake_y = [0, 0, -18, 0, 0, 0, 0, 100]
+    fake_radius = [20, 11, 15, 16, 18, 9, 8, 7]
+    fake_table = Table([fake_x, fake_y, fake_radius], names=('x','y','radius'))
+    fake_table['z'] = 0
+    fake_table.sort('radius')
+    fake_table.reverse()
+
+    maximal_spheres_table, myvoids_table = combine_holes(fake_table, 0.1)
+
+    maximal_spheres_table.pprint()
+    myvoids_table.pprint()
+    '''
 

@@ -32,14 +32,16 @@ from mag_cutoff_function import mag_cut, field_gal_cut
 tot_start = time.time()
 
 # Input file names
-in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
+in_filename = 'SDSSdr7/vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'SDSSdr7/cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
-out1_filename = 'out1_vollim_dr7.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = 'out2_vollim_dr7.txt' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-out3_filename = 'out3_vollim_dr7.txt' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-voidgals_filename = 'vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region #
+out1_filename = 'SDSSdr7/out1_vollim_dr7.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = 'SDSSdr7/out2_vollim_dr7.txt' # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out3_filename = 'SDSSdr7/out3_vollim_dr7.txt' # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
+voidgals_filename = 'SDSSdr7/vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region #
+
+# out_filename = in_filename[:-4] + '_maximal.txt'
 
 
 ################################################################################
@@ -58,21 +60,19 @@ min_dist = 0.
 
 box = 630.        # Size of survey/simulation box
 dl = box/ngrid    # length of each side of the box
-voidmax = 100.
-ioff2 = voidmax/dl + 2
 
 dr = 1. # Distance to shift the hole centers
 
 frac = 0.1
 
-print('Number of grid cells is', ngrid, dl, box, ioff2)
+print('Number of grid cells is', ngrid, dl, box)
 
 # Constants
 c = 3e5
 DtoR = np.pi/180.
 RtoD = 180./np.pi
 
-'''
+
 ################################################################################
 #
 #   OPEN FILES
@@ -194,8 +194,8 @@ w_coord = to_array(w_coord_table)
 
 nf =  len(f_coord_table)
 nwall = len(w_coord_table)
-
-######boolean = minsep3 > l
+'''
+boolean = minsep3 > l
 
 # Voids
 nf = sum(boolean)
@@ -206,7 +206,7 @@ f_coord = to_array(f_coord_table)
 nwall = sum(np.logical_not(boolean))
 w_coord_table = coord_in_table[np.logical_not(boolean)]
 w_coord = to_array(w_coord_table)######
-
+'''
 print('Number of field gals:', nf,'Number of wall gals:', nwall)
 
 fw_end = time.time()
@@ -576,21 +576,22 @@ for empty_cell in range(len(empty_indices[0])):
     # Radius of the hole
     hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
     hole_center = hole_center.T
+
     # Save hole
-    myvoids_x.append(hole_center[0])
-    myvoids_y.append(hole_center[1])
-    myvoids_z.append(hole_center[2])
+    myvoids_x.append(hole_center[0,0])
+    myvoids_y.append(hole_center[1,0])
+    myvoids_z.append(hole_center[2,0])
     myvoids_r.append(hole_radius)
     hole_end = time.time()
     n_holes += 1
     hole_times.append(hole_end-hole_start)
 
-    ########
+    '''
     if n_holes%100 == 0:
         print("number of holes=",n_holes)
 
     print("number of holes=",n_holes)
-    ##########
+    '''
 
 print('Found a total of', n_holes, 'potential voids.')
 
@@ -613,19 +614,21 @@ potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], name
 
 # Need to sort the potential voids into size order
 potential_voids_table.sort('radius')
+potential_voids_table.reverse()
 
 #potential_voids_table[:5].pprint()
 
-#potential_voids_table.write('potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
+potential_voids_table.write('potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
+'''
 potential_voids_file = open('potential_voids_list.txt', 'wb')
 pickle.dump(potential_voids_table, potential_voids_file)
-potential_voids_file.close()'''
+potential_voids_file.close()
 
 
 in_file = open('potential_voids_list.txt', 'rb')
 potential_voids_table = pickle.load(in_file)
 in_file.close()
-
+'''
 #print(potential_voids_table)
 #print(len(potential_voids_table))
 
