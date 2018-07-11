@@ -1,6 +1,7 @@
 #VoidFinder Function to do the hole finding section
 
 import numpy as np
+from sklearn import neighbors
 from astropy.table import Table
 import pickle
 import time
@@ -15,6 +16,7 @@ from mag_cutoff_function import mag_cut, field_gal_cut
 maskra = 360
 maskdec = 180
 dec_offset = -90
+min_dist = 0.
 dr = 1. # Distance to shift the hole centers
 frac = 0.1 # Overlap fraction for calculating maximal spheres
 
@@ -141,10 +143,13 @@ def filter_galaxies(in_filename,mask_filename,ngrid, box, max_dist):
     nf =  len(f_coord_table)
     nwall = len(w_coord_table)
     print('Number of field gals:', nf,'Number of wall gals:', nwall)
-    return coord_min_table
+    return coord_min_table, mask
 
-def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table):
-    w_coord_table = np.loadtxt(wall_filename)
+def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename):
+
+    dl = box/ngrid # length of each side of the box    
+    
+    w_coord_table = Table.read(wall_filename, format='ascii.commented_header')
     w_coord = to_array(w_coord_table)
     ################################################################################
     #
