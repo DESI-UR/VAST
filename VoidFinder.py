@@ -15,8 +15,8 @@ from hole_grow import filter_galaxies, find_voids
 ################################################################################
 
 # Input file names
-in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
+in_filename = 'SDSSdr7/vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'SDSSdr7/cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
 out1_filename = in_filename[:-4] + '_maximal.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
@@ -29,4 +29,4 @@ max_dist = 300.    # z = 0.107 -> 313 h-1 Mpc   z = 0.087 -> 257 h-1 Mpc
 box = 630.        # Size of survey/simulation box
 
 coord_min_table, mask = filter_galaxies(in_filename,mask_filename,ngrid, box, max_dist)
-find_voids('wall_gal_file.txt', ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename)
+find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename)
