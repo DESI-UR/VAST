@@ -157,10 +157,6 @@ if grid_good:
 #   SEPARATION
 #
 ################################################################################
-# Michaela - Comment out as much or as little of this following block of code as 
-# you need, and insert the call to your distance filtering function here.  If 
-# you have any questions of how to incorporate your function into this script, 
-# let me know!
 
 sep_start = time.time()
 
@@ -194,19 +190,7 @@ w_coord = to_array(w_coord_table)
 
 nf =  len(f_coord_table)
 nwall = len(w_coord_table)
-'''
-boolean = minsep3 > l
 
-# Voids
-nf = sum(boolean)
-f_coord_table = coord_in_table[boolean]
-f_coord = to_array(f_coord_table)
-
-# Walls
-nwall = sum(np.logical_not(boolean))
-w_coord_table = coord_in_table[np.logical_not(boolean)]
-w_coord = to_array(w_coord_table)######
-'''
 print('Number of field gals:', nf,'Number of wall gals:', nwall)
 
 fw_end = time.time()

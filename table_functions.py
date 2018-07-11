@@ -94,7 +94,8 @@ def to_vector(row):
 def to_array(table):
     '''Convert table to numpy array'''
 
-    array = np.array([table['x'], table['y'], table['z']]).T
+    array = np.array([table['x'], table['y'], table['z']])
+    array = array.T
 
     return array
 

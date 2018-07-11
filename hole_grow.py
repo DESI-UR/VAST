@@ -145,12 +145,24 @@ def filter_galaxies(in_filename,mask_filename,ngrid, box, max_dist):
     print('Number of field gals:', nf,'Number of wall gals:', nwall)
     return coord_min_table, mask
 
-def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename):
+
+
+
+
+
+
+
+
+
+
+
+def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename):
 
     dl = box/ngrid # length of each side of the box    
     
-    w_coord_table = Table.read(wall_filename, format='ascii.commented_header')
+    w_coord_table = Table.read('wall_gal_file.txt', format='ascii.commented_header')
     w_coord = to_array(w_coord_table)
+
     ################################################################################
     #
     #   SET UP CELL GRID DISTRIBUTION
@@ -200,7 +212,7 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
 
 
     # Go through each empty cell in the grid
-    for empty_cell in range(len(empty_indices[0])):
+    for empty_cell in range(50000,len(empty_indices[0])):
         hole_start = time.time()
         # Retrieve empty cell indices
         i = empty_indices[0][empty_cell]
@@ -220,9 +232,6 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
         # Check to make sure that the hole center is still within the survey
         if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
             continue
-        
-        index_offset = 0
-        nposs = 0 # Just a loop-ending variable - value does not matter anywhere else in the code!
 
         # Find closest galaxy to cell center
         modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
@@ -231,6 +240,9 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
 
         # Unit vector pointing from closest galaxy to cell center
         v1_unit = (hole_center.T - w_coord[k1g])/modv1
+
+        print('______________________________________________')
+        #print('Hole radius', modv1, 'after finding 1st galaxy')
 
         
         ############################################################################
@@ -250,12 +262,11 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
             # Shift hole center along unit vector
             hole_center = hole_center + dr*v1_unit.T
             
-
             # Distance between hole center and nearest galaxy
             modv1 += dr
             
             # Search for nearest neighbors within modv1 of the hole center
-            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=modv1, return_distance=True)
+            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center.T, r=modv1, return_distance=True, sort_results=True)
 
             i_nearest = i_nearest[0]
             dist_nearest = dist_nearest[0]
@@ -267,7 +278,6 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
 
             if len(i_nearest) > 0:
                 # Found at least one other nearest neighbor!
-                galaxy_search = False
 
                 # Calculate vector pointing from nearest galaxy to next nearest galaxies
                 BA = w_coord[i_nearest] - w_coord[k1g]
@@ -277,29 +287,42 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
                 top = np.sum(BA**2, axis=1)
                 
                 x2 = top/bot.T
-                
-                # Find index of 2nd nearest galaxy
-                k2g_x2 = np.argmin(x2.T)
-              
-                k2g = i_nearest[k2g_x2]
 
-                minx2 = x2.T[k2g_x2]
+                # Locate positive values of x2
+                valid_idx = np.where(x2 > 0)[0]
+                
+                if len(valid_idx) > 0:
+                    # Find index of 2nd nearest galaxy
+                    k2g_x2 = valid_idx[x2[valid_idx].argmin()]
+                    k2g = i_nearest[k2g_x2]
+
+                    minx2 = x2.T[k2g_x2]
+
+                    galaxy_search = False
                 
             elif not in_mask(hole_center.T, mask, [min_dist, max_dist]):
                 # Hole is no longer within survey limits
                 galaxy_search = False
-
-        #print('Found 2nd galaxy')
 
         # Check to make sure that the hole center is still within the survey
         if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
             #print('hole not in survey')
             continue
 
+        #print('Found 2nd galaxy')
+        '''
+        if k2g == i_nearest[0]:
+            print('2nd galaxy was the next nearest neighbor.')
+        else:
+            print('2nd galaxy was NOT the next nearest neighbor.')
+        '''
+
         # Calculate new hole center
         hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)
         hole_center = w_coord[k1g] + hole_radius*v1_unit
         #print('hole center 3i=',hole_center)
+        #print('Hole radius', hole_radius, 'after finding 2nd galaxy')
+
         # Check to make sure that the hole center is still within the survey
         if not in_mask(hole_center, mask, [min_dist, max_dist]):
             #print('hole not in survey')
@@ -318,17 +341,26 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
 
         # Same methodology as for finding the second galaxy
 
+        hole_center_3 = hole_center
+
         galaxy_search = True
 
         while galaxy_search:
 
             # Shift hole center along unit vector
-            hole_center = hole_center + dr*v2_unit
-            # Calculate vector pointing from the hole center to the nearest galaxies
+            hole_center_3 = hole_center_3 + dr*v2_unit
+
+            # Calculate vector pointing from the hole center to the nearest galaxy
             Acenter = w_coord[k1g] - hole_center
+            # Calculate vector pointing from the hole center to the second-nearest galaxy
+            Bcenter = w_coord[k2g] - hole_center
+
+            # New hole "radius"
+            hole_radius += dr
             
             # Search for nearest neighbors within modv1 of the hole center
-            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center, r=np.linalg.norm(Acenter), return_distance=True)
+            #i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center, r=np.linalg.norm(Acenter), return_distance=True)
+            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_3, r=hole_radius, return_distance=True, sort_results=True)
 
             i_nearest = i_nearest[0]
             dist_nearest = dist_nearest[0]
@@ -340,34 +372,50 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
 
             if len(i_nearest) > 0:
                 # Found at least one other nearest neighbor!
-                galaxy_search = False
 
-                # Calculate vector pointing from next nearest galaxies to hole center
-                Ccenter = hole_center - w_coord[i_nearest]
+                # Calculate vector pointing from hole center to next nearest galaxies
+                Ccenter = w_coord[i_nearest] - hole_center
                 
                 bot = 2*np.dot((Ccenter - Acenter), v2_unit.T)
                
-                top = np.array([(dist_nearest**2) - np.sum(Acenter**2)]).T
+                top = np.array([(dist_nearest**2) - np.sum(Bcenter**2)]).T
                
                 x3 = top/bot
-                # Find index of 3rd nearest galaxy
-                k3g_x3 = np.argmin(x3)
-                k3g = i_nearest[k3g_x3]
 
-                minx3 = x3[k3g_x3]
+                # Locate positive values of x3
+                valid_idx = np.where(x3 > 0)[0]
+
+                if len(valid_idx) > 0:
+                    # Find index of 3rd nearest galaxy
+                    k3g_x3 = valid_idx[x3[valid_idx].argmin()]
+                    k3g = i_nearest[k3g_x3]
+
+                    minx3 = x3[k3g_x3]
+
+                    galaxy_search = False
+
             elif not in_mask(hole_center, mask, [min_dist, max_dist]):
                 # Hole is no longer within survey limits
                 galaxy_search = False
 
-        #print('Found 3rd galaxy')
-
         # Check to make sure that the hole center is still within the survey
-        if not in_mask(hole_center, mask, [min_dist, max_dist]):
+        if not in_mask(hole_center_3, mask, [min_dist, max_dist]):
             #print('hole not in survey')
             continue
 
+        #print('Found 3rd galaxy')
+        '''
+        if k3g == i_nearest[0]:
+            print('3rd galaxy was the next nearest neighbor.')
+        else:
+            print('3rd galaxy was NOT the next nearest neighbor.')
+        '''
+
         # Calculate new hole center
         hole_center = hole_center + minx3*v2_unit
+        hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
+        #print('Hole radius', hole_radius, 'after finding 3rd galaxy')
+
         # Check to make sure that the hole center is still within the survey
         if not in_mask(hole_center, mask, [min_dist, max_dist]):
             #print('hole not in survey')
@@ -394,17 +442,27 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
         # First move in the direction of the unit vector defined above
         galaxy_search = True
         
-        hole_center_41 = hole_center    
+        hole_center_41 = hole_center
+        hole_radius_41 = hole_radius 
 
         while galaxy_search:
 
             # Shift hole center along unit vector
             hole_center_41 = hole_center_41 + dr*v3_unit
             #print('Shifted center to', hole_center_41)
+
             # Calculate vector pointing from the hole center to the nearest galaxy
-            Acenter = w_coord[k1g] - hole_center_41
+            Acenter = w_coord[k1g] - hole_center
+            # Calculate vector pointing from the hole center to the second-nearest galaxy
+            Bcenter = w_coord[k2g] - hole_center
+
+            # New hole "radius"
+            hole_radius_41 += dr
+
             # Search for nearest neighbors within R of the hole center
-            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_41, r=np.linalg.norm(Acenter),return_distance=True)
+            #i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_41, r=np.linalg.norm(Acenter),return_distance=True)
+            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_41, r=hole_radius_41, return_distance=True, sort_results=True)
+
             i_nearest = i_nearest[0]
             dist_nearest = dist_nearest[0]
 
@@ -416,31 +474,43 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
 
             if len(i_nearest) > 0:
                 # Found at least one other nearest neighbor!
-                galaxy_search = False
 
                 # Calculate vector pointing from hole center to next nearest galaxies
-                Ccenter = w_coord[i_nearest] - hole_center_41
+                Dcenter = w_coord[i_nearest] - hole_center
                 
-                bot = 2*np.dot((Ccenter - Acenter), v3_unit.T) 
+                bot = 2*np.dot((Dcenter - Acenter), v3_unit.T) 
                 
-                top = np.array([(dist_nearest**2) - np.sum(Acenter**2)]).T
+                top = np.array([(dist_nearest**2) - np.sum(Bcenter**2)]).T
                 
                 x41 = top/bot
-                
-                # Find index of 3rd nearest galaxy
-                k4g1_x41 = np.argmin(x41)
-                k4g1 = i_nearest[k4g1_x41]
 
-                minx41 = x41[k4g1_x41]
-            elif not in_mask(hole_center, mask, [min_dist, max_dist]):
+                # Locate positive values of x41
+                valid_idx = np.where(x41 > 0)[0]
+
+                if len(valid_idx) > 0:
+                    # Find index of 4th nearest galaxy
+                    k4g1_x41 = valid_idx[x41[valid_idx].argmin()]
+                    k4g1 = i_nearest[k4g1_x41]
+
+                    minx41 = x41[k4g1_x41]
+
+                    galaxy_search = False
+
+            elif not in_mask(hole_center_41, mask, [min_dist, max_dist]):
                 # Hole is no longer within survey limits
-                
                 galaxy_search = False
 
         #print('Found first potential 4th galaxy')
+        '''
+        if k4g1 == i_nearest[0]:
+            print('First 4th galaxy was the next nearest neighbor.')
+        else:
+            print('First 4th galaxy was NOT the next nearest neighbor.')
+        '''
 
         # Calculate potential new hole center
         hole_center_41 = hole_center + minx41*v3_unit
+        print('hole_radius_41', np.linalg.norm(hole_center_41 - w_coord[k1g]))
        
         # Repeat same search, but shift the hole center in the other direction this time
         v3_unit = -v3_unit
@@ -449,6 +519,7 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
         galaxy_search = True
 
         hole_center_42 = hole_center
+        hole_radius_42 = hole_radius
 
         while galaxy_search:
 
@@ -456,10 +527,16 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
             hole_center_42 = hole_center_42 + dr*v3_unit
 
             # Calculate vector pointing from the hole center to the nearest galaxy
-            Acenter = hole_center_42 - w_coord[k1g]
+            Acenter = w_coord[k1g] - hole_center
+            # Calculate vector pointing from the hole center to the second-nearest galaxy
+            Bcenter = w_coord[k2g] - hole_center
+
+            # New hole "radius"
+            hole_radius_42 += dr
 
             # Search for nearest neighbors within R of the hole center
-            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_42, r=np.linalg.norm(Acenter),return_distance=True)
+            #i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_42, r=np.linalg.norm(Acenter), return_distance=True)
+            i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_42, r=hole_radius_42, return_distance=True, sort_results=True)
 
             i_nearest = i_nearest[0]
             dist_nearest = dist_nearest[0]
@@ -471,48 +548,72 @@ def find_voids(wall_filename, ngrid, box, max_dist, coord_min_table, mask, out1_
 
             if len(i_nearest) > 0:
                 # Found at least one other nearest neighbor!
-                galaxy_search = False
 
                 # Calculate vector pointing from hole center to next nearest galaxies
-                Ccenter = w_coord[i_nearest] - hole_center_42
+                Dcenter = w_coord[i_nearest] - hole_center
 
-                bot = 2*np.dot((Ccenter - Acenter), v3_unit.T)
-                top = np.array([(dist_nearest**2) - np.sum(Acenter**2)]).T
+                bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)
+                top = np.array([(dist_nearest**2) - np.sum(Bcenter**2)]).T
 
                 x42 = top/bot
 
-                # Find index of 3rd nearest galaxy
-                k4g2_x42 = np.argmin(x42)
-                k4g2 = i_nearest[k4g2_x42]
+                # Locate positive values of x42
+                valid_idx = np.where(x42 > 0)[0]
 
-                minx42 = x42[k4g2_x42]
-            elif not in_mask(hole_center, mask, [min_dist, max_dist]):
+                if len(valid_idx) > 0:
+                    # Find index of 3rd nearest galaxy
+                    k4g2_x42 = valid_idx[x42[valid_idx].argmin()]
+                    k4g2 = i_nearest[k4g2_x42]
+
+                    minx42 = x42[k4g2_x42]
+
+                    galaxy_search = False
+
+            elif not in_mask(hole_center_42, mask, [min_dist, max_dist]):
               
                 # Hole is no longer within survey limits
                 galaxy_search = False
 
         #print('Found second potential 4th galaxy')
+        '''
+        if k4g2 == i_nearest[0]:
+            print('Second 4th galaxy was the next nearest neighbor.')
+        else:
+            print('Second 4th galaxy was NOT the next nearest neighbor.')
+        '''
 
         # Calculate potential new hole center
         hole_center_42 = hole_center + minx42*v3_unit
-       
+        print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
+        print('minx41:', minx41, '   minx42:', minx42)
+        
+        if not in_mask(hole_center_41, mask, [min_dist, max_dist]):
+            print('hole_center_41 is NOT in the mask')
+        if not in_mask(hole_center_42, mask, [min_dist, max_dist]):
+            print('hole_center_42 is NOT in the mask')
+        
         # Determine which is the 4th nearest galaxy
         if minx41 <= minx42 and in_mask(hole_center_41, mask, [min_dist, max_dist]):
             # The first 4th galaxy found is the next closest
             hole_center = hole_center_41
             k4g = k4g1
-        elif minx42 < minx41 and in_mask(hole_center_42, mask, [min_dist, max_dist]):
+        elif in_mask(hole_center_42, mask, [min_dist, max_dist]):
             # The second 4th galaxy found is the next closest
             hole_center = hole_center_42
             k4g = k4g2
+        elif in_mask(hole_center_41, mask, [min_dist, max_dist]):
+            # The first 4th galaxy found is the next closest
+            hole_center = hole_center_41
+            k4g = k4g1
         else:
             # Neither hole center is within the mask - not a valid hole
-
             continue
 
         # Radius of the hole
         hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
         hole_center = hole_center.T
+
+        print('Final hole radius:', hole_radius)
 
         # Save hole
         myvoids_x.append(hole_center[0,0])
