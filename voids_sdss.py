@@ -223,6 +223,7 @@ print('Setting up grid')
 
 wall_mesh_indices, ngal_wall, chainlist_wall, linklist_wall = mesh_galaxies(w_coord_table, coord_min_table, dl, ngrid)
 
+
 print('Grid set up')
 ################################################################################
 #
@@ -361,6 +362,7 @@ for empty_cell in range(len(empty_indices[0])):
 
     # Calculate new hole center
     hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)
+    #print('hole radius 1',hole_radius)
     hole_center = w_coord[k1g] + hole_radius*v1_unit
     #print('hole center 3i=',hole_center)
     # Check to make sure that the hole center is still within the survey
@@ -572,9 +574,9 @@ for empty_cell in range(len(empty_indices[0])):
         # Neither hole center is within the mask - not a valid hole
 
         continue
-
     # Radius of the hole
-    hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
+    hole_radius = np.linalg.norm(hole_center[0] - w_coord[k1g])
+    print('hole radius 2',hole_radius)
     hole_center = hole_center.T
 
     # Save hole
