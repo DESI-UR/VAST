@@ -212,7 +212,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
 
 
     # Go through each empty cell in the grid
-    for empty_cell in range(50000,len(empty_indices[0])):
+    for empty_cell in range(750000,len(empty_indices[0])):
 
         hole_start = time.time()
 
@@ -236,7 +236,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
             continue
 
-        print('______________________________________________')
+        #print('______________________________________________')
 
         # Find closest galaxy to cell center
         modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
@@ -557,10 +557,11 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         '''
 
         # Calculate potential new hole center
-        hole_center_41 = hole_center + minx41*v3_unit
-        #print('______________________')
-        #print(hole_center_41, 'hc41')
-        #print('hole_radius_41', np.linalg.norm(hole_center_41 - w_coord[k1g]))
+        if in_mask(hole_center_41, mask, [min_dist, max_dist]):
+            hole_center_41 = hole_center + minx41*v3_unit
+            #print('______________________')
+            #print(hole_center_41, 'hc41')
+            #print('hole_radius_41', np.linalg.norm(hole_center_41 - w_coord[k1g]))
        
         # Repeat same search, but shift the hole center in the other direction this time
         v3_unit = -v3_unit
@@ -633,10 +634,11 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         '''
 
         # Calculate potential new hole center
-        hole_center_42 = hole_center + minx42*v3_unit
-        #print(hole_center_42, 'hc42')
-        #print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
-        #print('minx41:', minx41, '   minx42:', minx42)
+        if in_mask(hole_center_42, mask, [min_dist, max_dist]):
+            hole_center_42 = hole_center + minx42*v3_unit
+            #print(hole_center_42, 'hc42')
+            #print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
+            #print('minx41:', minx41, '   minx42:', minx42)
         
         '''if not in_mask(hole_center_41, mask, [min_dist, max_dist]):
             print('hole_center_41 is NOT in the mask')
@@ -644,7 +646,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
             print('hole_center_42 is NOT in the mask')'''
         
         # Determine which is the 4th nearest galaxy
-        if minx41 <= minx42 and in_mask(hole_center_41, mask, [min_dist, max_dist]):
+        if in_mask(hole_center_41, mask, [min_dist, max_dist]) and minx41 <= minx42:
             # The first 4th galaxy found is the next closest
             hole_center = hole_center_41
             k4g = k4g1
@@ -664,7 +666,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
         hole_center = hole_center.T
 
-        '''
+        
         ########################################################################
         # TEST BLOCK
 
@@ -679,17 +681,19 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         i_nearest = i_nearest[boolean_nearest]
 
         if len(i_nearest) > 0:
-            print('4th galaxy - There are galaxies inside the hole!', len(i_nearest))
+            print('________________________________________________')
+            print('There are galaxies inside the hole!', len(i_nearest))
         ########################################################################
 
         if hole_radius > 23:
-            #print('______________________')
+            if len(i_nearest) == 0:
+                print('_______________________________________________')
             print(hole_center_41, 'hc41')
             print('hole_radius_41', np.linalg.norm(hole_center_41 - w_coord[k1g]))
             print(hole_center_42, 'hc42')
             print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
             print('Final hole radius:', hole_radius)
-        '''
+        
 
         # Save hole
         myvoids_x.append(hole_center[0,0])
