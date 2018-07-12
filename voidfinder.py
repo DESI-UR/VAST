@@ -212,7 +212,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
 
 
     # Go through each empty cell in the grid
-    for empty_cell in range(50000,len(empty_indices[0])):
+    for empty_cell in range(len(empty_indices[0])):
 
         hole_start = time.time()
 
@@ -236,7 +236,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
             continue
 
-        print('______________________________________________')
+        #print('______________________________________________')
 
         # Find closest galaxy to cell center
         modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
@@ -664,7 +664,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
         hole_center = hole_center.T
 
-        '''
+        
         ########################################################################
         # TEST BLOCK
 
@@ -681,7 +681,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         if len(i_nearest) > 0:
             print('4th galaxy - There are galaxies inside the hole!', len(i_nearest))
         ########################################################################
-
+        '''
         if hole_radius > 23:
             #print('______________________')
             print(hole_center_41, 'hc41')
