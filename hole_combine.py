@@ -66,6 +66,7 @@ def combine_holes(spheres_table, frac):
     # independent voids.  The search runs from the largest hole to the smallest.
     ############################################################################
 
+
     large_spheres_boolean = spheres_table['radius'] > 10
     N_large_spheres = sum(large_spheres_boolean)
     large_spheres_indices = np.nonzero(large_spheres_boolean)
@@ -297,12 +298,14 @@ if __name__ == '__main__':
     import pickle
     from astropy.table import Table
 
-    
+    '''
     in_file = open('potential_voids_list.txt', 'rb')
     potential_voids_table = pickle.load(in_file)
     in_file.close()
 
     potential_voids_table.reverse()
+    '''
+    potential_voids_table = Table.read('potential_voids_list.txt', format = 'ascii.commented_header')
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, 0.1)
 
