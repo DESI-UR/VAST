@@ -14,9 +14,12 @@ from voidfinder import filter_galaxies, find_voids
 #
 ################################################################################
 
+# File header
+directories = 'SDSSdr7/'
+
 # Input file names
-in_filename = 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'cbpdr7mask.dat' # File format: RA, dec
+in_filename = directories + 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = directories + 'cbpdr7mask.dat' # File format: RA, dec
 
 # Output file names
 out1_filename = in_filename[:-4] + '_maximal.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
