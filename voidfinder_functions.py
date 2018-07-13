@@ -3,7 +3,10 @@
 import numpy as np
 from astropy.table import Table
 
-from table_functions import add_row, subtract_row, table_divide, table_dtype_cast, row_cross, row_dot, to_vector
+from table_functions import add_row, subtract_row, table_divide, table_dtype_cast, row_cross, row_dot, to_vector, to_array
+
+
+RtoD = 180./np.pi
 
 
 ################################################################################
@@ -90,3 +93,26 @@ def in_survey(coordinates, min_limit, max_limit):
         good = np.all([good, check_min, check_max], axis=0)
 
     return good
+
+
+################################################################################
+################################################################################
+
+def save_maximals(sphere_table, out1_filename):
+    '''
+    Calculate the ra, dec coordinates for the centers of each of the maximal spheres
+    Save the maximal spheres to a text file
+    '''
+
+    r = np.linalg.norm(to_array(sphere_table), axis=1)
+    sphere_table['r'] = r.T
+    sphere_table['ra'] = np.arctan(sphere_table['y']/sphere_table['x'])*RtoD
+    sphere_table['dec'] = np.arcsin(sphere_table['z']/sphere_table['r'])*RtoD
+
+    # Adjust ra value as necessary
+    boolean = np.logical_and(sphere_table['y'] != 0, sphere_table['x'] < 0)
+    sphere_table['ra'][boolean] += 180.
+
+    #print(sphere_table)
+
+    sphere_table.write(out1_filename, format='ascii.commented_header',overwrite=True)

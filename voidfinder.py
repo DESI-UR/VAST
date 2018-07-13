@@ -7,7 +7,7 @@ from astropy.table import Table
 import time
 
 from hole_combine import combine_holes
-from voidfinder_functions import mesh_galaxies, in_mask, in_survey
+from voidfinder_functions import mesh_galaxies, in_mask, in_survey, save_maximals
 from table_functions import add_row, subtract_row, to_vector, to_array
 
 from avsepcalc import av_sep_calc
@@ -718,6 +718,8 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
     print('Time to find all holes =', tot_hole_end - tot_hole_start)
     print('AVG time to find each hole =', sum(hole_times)/len(hole_times))
 
+    # CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
+
     ################################################################################
     #
     #   SORT HOLES BY SIZE
@@ -841,18 +843,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
     #
     ################################################################################
 
-    maximal_spheres_table['r'] = np.linalg.norm(to_array(maximal_spheres_table))
-    maximal_spheres_table['r'] = np.array(maximal_spheres_table['r']).T
-    maximal_spheres_table['ra'] = np.arctan(maximal_spheres_table['y']/maximal_spheres_table['x'])*RtoD
-    maximal_spheres_table['dec'] = np.arcsin(maximal_spheres_table['z']/maximal_spheres_table['r'])*RtoD
-
-    # Adjust ra value as necessary
-    boolean = np.logical_and(maximal_spheres_table['y'] != 0, maximal_spheres_table['x'] < 0)
-    maximal_spheres_table['ra'][boolean] += 180.
-
-    #print(maximal_spheres_table)
-
-    maximal_spheres_table.write(out1_filename, format='ascii.commented_header',overwrite=True)
+    save_maximals(maximal_spheres_table, out1_filename)
 
     '''
     ################################################################################

@@ -4,6 +4,9 @@ import numpy as np
 
 from table_functions import to_array,to_vector
 
+#import warnings
+#warnings.simplefilter('error')
+
 
 
 ################################################################################
@@ -67,27 +70,22 @@ def combine_holes(spheres_table, frac):
     ############################################################################
 
 
-    large_spheres_boolean = spheres_table['radius'] > 10
-    N_large_spheres = sum(large_spheres_boolean)
-    large_spheres_indices = np.nonzero(large_spheres_boolean)
-
-    # Initialize index array for maximal spheres
-    maximal_spheres_indices = []
+    large_spheres_indices = np.nonzero(spheres_table['radius'] > 10)
 
     # The largest hole is a void
     N_voids = 1
-    maximal_spheres_indices.append(0)
+    maximal_spheres_indices = [0]
 
     for i in large_spheres_indices[0][1:]:
 
-        #print('___________________________')
-        #print('Looking at large sphere', i)
-        #print('There are', len(maximal_spheres_indices), 'maximal spheres.')
+        #print('__________________________________________')
+        #print('Looking at large sphere', i, 'of', len(maximal_spheres_indices))
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
         sphere_i_coordinates = sphere_i_coordinates.T
         #print(sphere_i_coordinates.shape)
+
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
 
@@ -102,35 +100,36 @@ def combine_holes(spheres_table, frac):
         # Array of coordinates for previously identified maximal spheres
         maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
         #print(maximal_spheres_coordinates)
+
         # Array of radii for previously identified maximal spheres
         maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
         #print(maximal_spheres_radii)
-        #print(sphere_i_coordinates.shape)
+
         # Distance between sphere i's center and the centers of the other maximal spheres
         separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
         #print(separation)
         #print('max spheres',maximal_spheres_coordinates[0][:5])
-        #print('sphere i',sphere_i_coordinates[:5])
         #print('subtraction',(maximal_spheres_coordinates[0] - sphere_i_coordinates)[:5])
         #print(separation.shape)
+
         ########################################################################
         # Does sphere i live completely inside another maximal sphere?
         ########################################################################
 
-        if any((maximal_spheres_radii - sphere_i_radius) > separation):
+        if any((maximal_spheres_radii - sphere_i_radius) >= separation):
             # Sphere i is completely inside another sphere --- sphere i is not a maximal sphere
-            #print('sphere completely inside other sphere')
+            #print('Sphere i is completely inside another sphere')
             continue
 
         ########################################################################
         # Does sphere i overlap by less than x% with another maximal sphere?
         ########################################################################
 
-        # First - determine which maximal spheres sphere i does overlap with.
+        # First - determine which maximal spheres overlap with sphere i
         overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii)
-        '''print(sphere_i_radius)
-        print(maximal_spheres_radii[:5])
-        print((sphere_i_radius + maximal_spheres_radii)[:5])'''
+        #print(sphere_i_radius)
+        #print(maximal_spheres_radii[:5])
+        #print((sphere_i_radius + maximal_spheres_radii)[:5])
 
         if any(overlap_boolean):
             #print('overlap true: maximal')
@@ -151,13 +150,13 @@ def combine_holes(spheres_table, frac):
             if all(overlap_volume <= frac*volume_i):
                 # Sphere i does not overlap by more than x% with any of the other known maximal spheres.
                 # Sphere i is therefore a maximal sphere.
-                #print('maximal sphere')
+                #print('Overlap by less than x%: maximal sphere')
                 N_voids += 1
                 maximal_spheres_indices.append(i)
 
         else:
             # No overlap!  Sphere i is a maximal sphere
-            #print('no overlap: maximal sphere')
+            #print('No overlap: maximal sphere')
             N_voids += 1
             maximal_spheres_indices.append(i)
 
@@ -176,6 +175,8 @@ def combine_holes(spheres_table, frac):
 
     # Array of radii for maximal spheres
     maximal_spheres_radii = np.array(maximal_spheres_table['radius'])
+
+    print('Maximal spheres identified')
 
 
     ############################################################################
@@ -231,7 +232,7 @@ def combine_holes(spheres_table, frac):
         # Does sphere i live completely inside a maximal sphere?
         ########################################################################
 
-        if any((maximal_spheres_radii - sphere_i_radius) > separation):
+        if any((maximal_spheres_radii - sphere_i_radius) >= separation):
             # Sphere i is completely inside another sphere --- sphere i should not be saved
             #print('Sphere completely inside another sphere', sphere_i_radius)
             continue
@@ -298,6 +299,8 @@ if __name__ == '__main__':
     import pickle
     from astropy.table import Table
 
+    from voidfinder_functions import save_maximals
+
     '''
     in_file = open('potential_voids_list.txt', 'rb')
     potential_voids_table = pickle.load(in_file)
@@ -310,7 +313,9 @@ if __name__ == '__main__':
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, 0.1)
 
     print('Number of unique voids is', len(maximal_spheres_table))
-    print('voids length',len(myvoids_table))
+    print('Number of void holes is', len(myvoids_table))
+
+    save_maximals(maximal_spheres_table, 'maximal_spheres.txt')
     
     '''
     fake_x = [0, 1, 0, 30, 55, -18, 72, 0]
