@@ -212,7 +212,8 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
 
 
     # Go through each empty cell in the grid
-    for empty_cell in range(750000,len(empty_indices[0])):
+
+    for empty_cell in range(len(empty_indices[0])):
 
         hole_start = time.time()
 
@@ -683,8 +684,9 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
         if len(i_nearest) > 0:
             print('________________________________________________')
             print('There are galaxies inside the hole!', len(i_nearest))
+            print('Final radius:', hole_radius)
         ########################################################################
-
+        '''
         if hole_radius > 23:
             if len(i_nearest) == 0:
                 print('_______________________________________________')
@@ -693,6 +695,7 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
             print(hole_center_42, 'hc42')
             print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
             print('Final hole radius:', hole_radius)
+        '''
         
 
         # Save hole
@@ -808,8 +811,8 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
                         break
         
         void_vol[i] = (rad**3)*nsph/nran
-    '''
-    '''
+    
+    
     ################################################################################
     #
     #   IDENTIFY VOID GALAXIES
