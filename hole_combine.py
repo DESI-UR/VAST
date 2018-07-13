@@ -4,6 +4,7 @@ import numpy as np
 
 from table_functions import to_array,to_vector
 
+import warnings
 
 
 ################################################################################
@@ -40,8 +41,12 @@ def cap_height(R, r, d):
 
     h : height of cap
     '''
-
+    '''for elem in d:
+        if np.isnan(elem) or elem == 0:
+            print(d)
+            print(':(')'''
     h = (r - R + d)*(r + R - d)/(2*d)
+    
 
     return h
 
@@ -101,18 +106,18 @@ def combine_holes(spheres_table, frac):
 
         # Array of coordinates for previously identified maximal spheres
         maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
-        #print(maximal_spheres_coordinates)
+
         # Array of radii for previously identified maximal spheres
         maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
-        #print(maximal_spheres_radii)
-        #print(sphere_i_coordinates.shape)
+   
         # Distance between sphere i's center and the centers of the other maximal spheres
         separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
-        #print(separation)
-        #print('max spheres',maximal_spheres_coordinates[0][:5])
-        #print('sphere i',sphere_i_coordinates[:5])
-        #print('subtraction',(maximal_spheres_coordinates[0] - sphere_i_coordinates)[:5])
-        #print(separation.shape)
+        '''if any(separation == 0):
+            print(i)
+            print(np.where(separation==0))
+            print(maximal_spheres_coordinates[np.where(separation==0)])
+            print(sphere_i_coordinates)'''
+
         ########################################################################
         # Does sphere i live completely inside another maximal sphere?
         ########################################################################
@@ -144,6 +149,9 @@ def combine_holes(spheres_table, frac):
 
             # Overlap volume
             overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
+            '''for elem in height_maximal:
+                if np.isnan(elem):
+                    print('first max height', height_maximal)'''
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
@@ -226,6 +234,11 @@ def combine_holes(spheres_table, frac):
 
         # Distance between sphere i's center and the centers of the maximal spheres
         separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
+        if any(separation == 0):
+            print(i)
+            print(np.where(separation==0))
+            print(maximal_spheres_coordinates[np.where(separation==0)])
+            print(sphere_i_coordinates)
 
         ########################################################################
         # Does sphere i live completely inside a maximal sphere?
@@ -253,6 +266,9 @@ def combine_holes(spheres_table, frac):
 
             # Overlap volume
             overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
+            '''for elem in height_maximal:
+                if np.isnan(elem):
+                    print('second max height', height_maximal)'''
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
