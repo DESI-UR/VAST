@@ -16,7 +16,36 @@ RtoD = 180./np.pi
 ################################################################################
 
 def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
-    '''Sort galaxies onto a grid'''
+    '''
+    Sort galaxies onto a cubic grid
+
+    Parameters:
+    ____________________
+      galaxy_coords: astropy table of galaxy Cartesian coordinates (columns x, y, and z)
+
+      coord_min: one-row astropy table of the minima in each of the three coordinates
+
+      grid_side_length: length of a grid cell
+
+      N_boxes: number of cells in the grid
+
+
+    Output:
+    _____________________
+      mesh_indices: astropy table of the cell coordinates for each galaxy
+
+      ngal: 3D numpy array of the number of galaxies in each cell
+
+      chainlist: 3D numpy array (same size as ngal) of the index value of the 
+                 last galaxy to be stored in that cell
+
+      linklist: 1D numpy array of length of the number of galaxies that stores 
+                the index value of the previous galaxy stored in the cell of 
+                the current galaxy.  If the galaxy is the first one to be put 
+                in the cell, then its value in linklist is -1.  Using both 
+                chainlist and linklist, one can discern all the galaxies that 
+                live in a given cell.
+    '''
 
     # Initialize the 3D bins that will contain the number of galaxies in each bin
     ngal = np.zeros((N_boxes, N_boxes, N_boxes), dtype=int)
@@ -27,20 +56,20 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
     # Initialize a list that will store the galaxy's index that previously occupied the cell
     linklist = np.zeros(len(galaxy_coords), dtype=int)
 
-    # Conver the galaxy coordinates to grid indices
+    # Convert the galaxy coordinates to grid indices
     mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
 
-    for igal in range(len(galaxy_coords)): # Change to range() for python 3
+    for igal in range(len(galaxy_coords)):
+        
         # Increase the number of galaxies in corresponding cell in ngal
-        #print('gal num:',igal)
         ngal[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]] += 1
-        #print(ngal[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]])
+        
         # Store the index of the last galaxy that was saved in corresponding cell 
         linklist[igal] = chainlist[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]]
 
         # Store the index of current galaxy in corresponding cell
         chainlist[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]] = igal
-    #print('ngal sum',np.sum(ngal))
+    
     return mesh_indices, ngal, chainlist, linklist
 
 ################################################################################

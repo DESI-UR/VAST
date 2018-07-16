@@ -25,8 +25,10 @@ c = 3e5
 DtoR = np.pi/180.
 RtoD = 180./np.pi
 
-def filter_galaxies(in_filename,mask_filename,ngrid, box, max_dist):
+def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist):
+    
     dl = box/ngrid # length of each side of the box
+
     print('Number of grid cells is', ngrid, dl, box)
     ################################################################################
     #
