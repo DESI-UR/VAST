@@ -1,47 +1,55 @@
-#6 calls to in mask (fix the coordinates to actually function, these are just so you know what's happening)
-#fix all the in mask inputs actually
+#imports 
 
 import numpy as np
 from voidfinder_functions import in_mask
+from hole_combine import spherical_cap_volume
 
 
-def max_range_check(spheres_table, direction, sign):
+# function to find which spheres stick out of the mask
+def max_range_check(spheres_table, direction, sign, survey_mask, r_limits):
 
     if sign == '+':
        spheres_table[direction] += spheres_table['radius']
-   else:
+    else:
        spheres_table[direction] -= spheres_table['radius']
 
-   boolean = in_mask(table, survey_mask, r_limits)
+    boolean = in_mask(spheres_table, survey_mask, r_limits)
 
-   return boolean
+    return boolean
 
 
-
+def check_coordinates(coord, direction, sign, survey_mask, r_limits):
+    dr = 0
+    check_coord = coord
+    mask_check = True
+    while dr < coord['radius'] and mask_check:
+        dr += 1
+        if sign == '+':
+            check_coord[direction] = coord[direction] + dr
+        else:
+            check_coord[direction] = coord[direction] - dr 
+        mask_check = in_mask(check_coord, survey_mask, r_limits)
+    height_i = check_coord['radius'] - dr
+    cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
+    sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
+    
+    return cap_volume_i, sphere_volume
 
 
 
 def volume_cut(hole_table,survey_mask,r_limits):
+    '''# so these can be used in other subfunctions    
+    survey_mask = survey_mask
+    r_limits = r_limits'''
 
-    xpos = max_range_check(hole_table, 'x', '+')
-    xneg = max_range_check(hole_table, 'x', '-')
+    xpos = max_range_check(hole_table, 'x', '+', survey_mask, r_limits)
+    xneg = max_range_check(hole_table, 'x', '-', survey_mask, r_limits)
 
-    ypos = max_range_check(hole_table, 'y', '+')
-    yneg = max_range_check(hole_table, 'y', '-')
+    ypos = max_range_check(hole_table, 'y', '+', survey_mask, r_limits)
+    yneg = max_range_check(hole_table, 'y', '-', survey_mask, r_limits)
 
-    zpos = max_range_check(hole_table, 'z', '+')
-    zneg = max_range_check(hole_table, 'z', '-')
-
-    '''
-    xpos = in_mask(X+R, survey_mask, r_limits)
-    xneg = in_mask(X-R, survey_mask, r_limits)
-
-    ypos = in_mask(Y+R, survey_mask, r_limits)
-    yneg = in_mask(Y-R, survey_mask, r_limits)
-
-    zpos = in_mask(Z+R, survey_mask, r_limits)
-    zneg = in_mask(Z-R, survey_mask, r_limits)
-    '''
+    zpos = max_range_check(hole_table, 'z', '+', survey_mask, r_limits)
+    zneg = max_range_check(hole_table, 'z', '-', survey_mask, r_limits)
 
     comb_bool = np.logical_and.reduce(xpos, xneg, ypos, yneg, zpos, zneg)
 
@@ -54,6 +62,7 @@ def volume_cut(hole_table,survey_mask,r_limits):
     for i in false_indices:
         coord = hole_table[i]
         if xpos[i] == False:
+            '''
             dr = 0
             check_coord = coord
             mask_check = True
@@ -64,7 +73,8 @@ def volume_cut(hole_table,survey_mask,r_limits):
             height_i = check_coord['radius'] - dr
             cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
             sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
-            #in_volume = sphere_volume-cap_volume
+            '''
+            cap_volume, sphere_volume = check_coordinates(coord, 'x', '+', survey_mask, r_limits)
             if cap_volume > 0.1*sphere_volume:
                 #MAKE NOTE TO TAKE SPHERE OUT?
                 out_spheres_indices.append(i)
@@ -72,6 +82,7 @@ def volume_cut(hole_table,survey_mask,r_limits):
 
 
         elif xneg[i] == False and not_removed:
+            '''
             dr = 0
             check_coord = coord
             mask_check = True
@@ -82,13 +93,16 @@ def volume_cut(hole_table,survey_mask,r_limits):
             height_i = check_coord['radius']-dr
             cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
             sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
-            in_volume = sphere_volume-cap_volume
-            if in_volume/sphere_volume <= 0.9:
+            '''
+            cap_volume, sphere_volume = check_coordinates(coord, 'x', '-', survey_mask, r_limits)
+            if cap_volume > 0.1*sphere_volume:
                 #MAKE NOTE TO TAKE SPHERE OUT?
                 out_spheres_indices.append(i)
+                not_removed = False
 
 
-        if ypos[i] == False:
+        elif ypos[i] == False and not_removed:
+            '''
             dr = 0
             check_coord = coord
             mask_check = True
@@ -99,13 +113,16 @@ def volume_cut(hole_table,survey_mask,r_limits):
             height_i = check_coord['radius']-dr
             cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
             sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
-            in_volume = sphere_volume-cap_volume
-            if in_volume/sphere_volume <= 0.9:
+            '''
+            cap_volume, sphere_volume = check_coordinates(coord, 'y', '+', survey_mask, r_limits)
+            if cap_volume > 0.1*sphere_volume:
                 #MAKE NOTE TO TAKE SPHERE OUT?
                 out_spheres_indices.append(i)
+                not_removed = False
 
 
-        if yneg[i] == False:
+        elif yneg[i] == False and not_removed:
+            '''
             dr = 0
             check_coord = coord
             mask_check = True
@@ -116,13 +133,16 @@ def volume_cut(hole_table,survey_mask,r_limits):
             height_i = check_coord['radius']-dr
             cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
             sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
-            in_volume = sphere_volume-cap_volume
-            if in_volume/sphere_volume <= 0.9:
+            '''
+            cap_volume, sphere_volume = check_coordinates(coord, 'y', '-', survey_mask, r_limits)
+            if cap_volume > 0.1*sphere_volume:
                 #MAKE NOTE TO TAKE SPHERE OUT?
                 out_spheres_indices.append(i)
+                not_removed = False
 
 
-        if zpos[i] == False:
+        elif zpos[i] == False and not_removed:
+            '''
             dr = 0
             check_coord = coord
             mask_check = True
@@ -133,13 +153,15 @@ def volume_cut(hole_table,survey_mask,r_limits):
             height_i = check_coord['radius']-dr
             cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
             sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
-            in_volume = sphere_volume-cap_volume
-            if in_volume/sphere_volume <= 0.9:
+            '''
+            cap_volume, sphere_volume = check_coordinates(coord, 'z', '+', survey_mask, r_limits)
+            if cap_volume > 0.1*sphere_volume:
                 #MAKE NOTE TO TAKE SPHERE OUT?
                 out_spheres_indices.append(i)
+                not_removed = False
 
-
-        if zneg[i] == False:
+        elif zneg[i] == False and not_removed:
+            '''
             dr = 0
             check_coord = coord
             mask_check = True
@@ -150,10 +172,42 @@ def volume_cut(hole_table,survey_mask,r_limits):
             height_i = check_coord['radius']-dr
             cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
             sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
-            in_volume = sphere_volume-cap_volume
-            if in_volume/sphere_volume <= 0.9:
+            '''
+            cap_volume, sphere_volume = check_coordinates(coord, 'z', '-', survey_mask, r_limits)
+            if cap_volume > 0.1*sphere_volume:
                 #MAKE NOTE TO TAKE SPHERE OUT?
                 out_spheres_indices.append(i)
+                not_removed = False
 
     for i in out_spheres_indices:
         hole_table.remove_row(i)
+
+    return hole_table
+
+if __name__ == '__main__':
+
+    from astropy.table import Table
+
+    from voidfinder_functions import save_maximals
+
+    maskra = 360
+    maskdec = 180
+    min_dist = 0.
+    max_dist = 300.
+    dec_offset = -90
+    
+    maskfile = Table.read('cbpdr7mask.dat', format='ascii.commented_header')
+    mask = np.zeros((maskra, maskdec))
+    mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
+
+    holes_table = Table.read('potential_voids_list.txt', format = 'ascii.commented_header')
+    potential_voids_table = volume_cut(holes_table, mask, [min_dist, max_dist])
+    maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, 0.1)
+
+    print('Number of unique voids is', len(maximal_spheres_table))
+    print('Number of void holes is', len(myvoids_table))
+
+    save_maximals(maximal_spheres_table, 'maximal_spheres_test.txt')
+    
+   
+
