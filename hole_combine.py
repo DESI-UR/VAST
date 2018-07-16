@@ -234,10 +234,10 @@ def combine_holes(spheres_table, frac):
         # Distance between sphere i's center and the centers of the maximal spheres
         separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
         if any(separation == 0):
-            print(i)
+            '''print(i)
             print(np.where(separation==0))
             print(maximal_spheres_coordinates[np.where(separation==0)])
-            print(sphere_i_coordinates)
+            print(sphere_i_coordinates)'''
 
         ########################################################################
         # Does sphere i live completely inside a maximal sphere?

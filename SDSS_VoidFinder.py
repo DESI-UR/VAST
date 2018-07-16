@@ -15,7 +15,7 @@ from voidfinder import filter_galaxies, find_voids
 ################################################################################
 
 # File header
-directories = 'SDSSdr7/'
+directories = ''
 
 # Input file names
 in_filename = directories + 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
