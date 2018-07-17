@@ -1,7 +1,7 @@
 '''Functions used in voids_sdss.py'''
 
 import numpy as np
-from astropy.table import Table
+from astropy.table import Table, Row
 
 from table_functions import add_row, subtract_row, table_divide, table_dtype_cast, row_cross, row_dot, to_vector, to_array
 
@@ -75,13 +75,10 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
 ################################################################################
 ################################################################################
 
-def in_mask(coordinates, survey_mask, r_limits):
+def in_mask_table(coordinates, survey_mask, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
-
-    ASSUMES THAT COORDINATES IS A SINGLE POINT (NOT A 2D ARRAY OF POINTS)
     '''
-    RtoD = 180./np.pi
     dec_offset = -90
 
     # Convert coordinates to table if not already
@@ -99,9 +96,36 @@ def in_mask(coordinates, survey_mask, r_limits):
         ra += 180.
     if ra < 0:
         ra += 360.
-    #print('r=',r)
+    
     if (survey_mask[ra.astype(int), dec.astype(int)-dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
         good = False
+
+    return good
+
+
+def in_mask(coordinates, survey_mask, r_limits):
+    '''
+    Determine whether the specified coordinates are within the masked area.
+    '''
+    dec_offset = -90
+
+    # Convert coordinates to table if not already
+    if isinstance(coordinates, Table):
+        coordinates = to_array(coordinates)
+    elif isinstance(coordinates, Row):
+        coordinates = to_vector(coordinates)
+        coordinates.shape = (1,3)
+
+    r = np.linalg.norm(coordinates, axis=1)
+    ra = np.arctan(coordinates[:,1]/coordinates[:,0])*RtoD
+    dec = np.arcsin(coordinates[:,2]/r)*RtoD
+
+
+    boolean_ra180 = np.logical_and(coordinates[:,0] < 0, coordinates[:,1] != 0)
+    ra[boolean_ra180] += 180.
+    ra[ra < 0] += 360.
+    
+    good = np.logical_and.reduce((survey_mask[ra.astype(int), dec.astype(int)-dec_offset] == 1, r <= r_limits[1], r >= r_limits[0]))
 
     return good
 
