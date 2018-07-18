@@ -2,7 +2,9 @@
 
 import numpy as np
 from voidfinder_functions import in_mask
-from hole_combine import spherical_cap_volume, combine_holes
+from hole_combine import spherical_cap_volume
+from astropy.table import Table
+
 
 
 # function to find which spheres stick out of the mask
@@ -47,19 +49,14 @@ def check_coordinates(coord, direction, sign, survey_mask, r_limits):
 def volume_cut(hole_table, survey_mask, r_limits):
 
     xpos = max_range_check(Table(hole_table), 'x', '+', survey_mask, r_limits)
-    #print(xpos[:50])
     xneg = max_range_check(Table(hole_table), 'x', '-', survey_mask, r_limits)
-    #print(xneg[:10])
 
     ypos = max_range_check(Table(hole_table), 'y', '+', survey_mask, r_limits)
-    #print(ypos[:10])
     yneg = max_range_check(Table(hole_table), 'y', '-', survey_mask, r_limits)
-    #print(yneg[:10])
 
     zpos = max_range_check(Table(hole_table), 'z', '+', survey_mask, r_limits)
-    #print(zpos[:10])
     zneg = max_range_check(Table(hole_table), 'z', '-', survey_mask, r_limits)
-    #print(zneg[:10])
+
 
     comb_bool = np.logical_and.reduce((xpos, xneg, ypos, yneg, zpos, zneg))
 
@@ -67,97 +64,68 @@ def volume_cut(hole_table, survey_mask, r_limits):
 
     out_spheres_indices = []
 
-    out_volumes = []
-
-    
     for i in false_indices[0]:
 
         not_removed = True
 
         coord = hole_table[i]
-        
-        #print('___________________________')
 
-        if xpos[i] == False:
+        # Check x-direction 
+
+        if not xpos[i]:
 
             cap_volume, sphere_volume = check_coordinates(Table(coord), 'x', '+', survey_mask, r_limits)
 
-            #print('xpos')
-            #out_volumes.append(cap_volume[0]/sphere_volume[0])
-
-            if cap_volume[0] > 0.1*sphere_volume[0]:
+            if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
-                #print('out of mask')
                 not_removed = False
-
 
         elif xneg[i] == False and not_removed:
-            
+
             cap_volume, sphere_volume = check_coordinates(Table(coord), 'x', '-', survey_mask, r_limits)
-            #print('xneg')
 
-            #out_volumes.append(cap_volume[0]/sphere_volume[0])
-
-            if cap_volume[0] > 0.1*sphere_volume[0]:
+            if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
-                #print('out of mask')
                 not_removed = False
 
+        # Check y-direction
 
         if ypos[i] == False and not_removed:
-            
-            cap_volume, sphere_volume = check_coordinates(Table(coord), 'y', '+', survey_mask, r_limits)
-            #print('ypos')
-            #out_volumes.append(cap_volume[0]/sphere_volume[0])
 
-            if cap_volume[0] > 0.1*sphere_volume[0]:
+            cap_volume, sphere_volume = check_coordinates(Table(coord), 'y', '+', survey_mask, r_limits)
+
+            if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
-                #print('out of mask')
                 not_removed = False
 
 
         elif yneg[i] == False and not_removed:
-            
+
             cap_volume, sphere_volume = check_coordinates(Table(coord), 'y', '-', survey_mask, r_limits)
-            #print('yneg')
 
-            #out_volumes.append(cap_volume[0]/sphere_volume[0])
-
-            if cap_volume[0] > 0.1*sphere_volume[0]:
+            if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
-                #print('out of mask')
                 not_removed = False
 
 
+        # Check z-direction
+
         if zpos[i] == False and not_removed:
-            
             cap_volume, sphere_volume = check_coordinates(Table(coord), 'z', '+', survey_mask, r_limits)
 
-            #print('zpos')
-            #out_volumes.append(cap_volume[0]/sphere_volume[0])
-
-            if cap_volume[0] > 0.1*sphere_volume[0]:
+            if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
-                #print('out of mask')
                 not_removed = False
 
         elif zneg[i] == False and not_removed:
-            
+
             cap_volume, sphere_volume = check_coordinates(Table(coord), 'z', '-', survey_mask, r_limits)
 
-            #print('zneg')
-            #out_volumes.append(cap_volume[0]/sphere_volume[0])
-
-            if cap_volume[0] > 0.1*sphere_volume[0]:
+            if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
-                #print('out of mask')
                 not_removed = False
     
-    print(len(out_spheres_indices))
-
     out_spheres_indices = np.unique(out_spheres_indices)
-
-    print(len(out_spheres_indices))
 
     hole_table.remove_rows(out_spheres_indices)
 
@@ -168,6 +136,7 @@ if __name__ == '__main__':
     from astropy.table import Table
 
     from voidfinder_functions import save_maximals
+    from hole_combine import combine_holes
 
     maskra = 360
     maskdec = 180
@@ -202,5 +171,6 @@ if __name__ == '__main__':
     plt.title('Histogram of Volume Percentages of Holes Around Border of Survey')
     plt.show()
     '''
+
    
 

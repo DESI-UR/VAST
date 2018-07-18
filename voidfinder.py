@@ -3,7 +3,6 @@
 import numpy as np
 from sklearn import neighbors
 from astropy.table import Table
-#import pickle
 import time
 
 from hole_combine import combine_holes
@@ -25,36 +24,40 @@ c = 3e5
 DtoR = np.pi/180.
 RtoD = 180./np.pi
 
-def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist):
+#def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist)
+def filter_galaxies(infile, maskfile, dl, max_dist):
     
-    dl = box/ngrid # length of each side of the box
-
-    print('Number of grid cells is', ngrid, dl, box)
     ################################################################################
     #
-    #   OPEN FILES
+    #   PRE-PROCESS DATA
     #
     ################################################################################
-    print('Opening files')
+    print('Pre-processing data')
 
-    infile = Table.read(in_filename, format='ascii.commented_header')
+    #infile = Table.read(in_filename, format='ascii.commented_header')
+
+    # Remove faint galaxies
     infile = mag_cut(infile,-20)
+
+    # Convert galaxy coordinates to Cartesian
     xin = infile['Rgal']*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
     yin = infile['Rgal']*np.sin(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
     zin = infile['Rgal']*np.sin(infile['dec']*DtoR)
     coord_in_table = Table([xin, yin, zin], names=('x','y','z'))
 
+    # Cartesian coordinate minima
     coord_min_x = [min(coord_in_table['x'])]
     coord_min_y = [min(coord_in_table['y'])]
     coord_min_z = [min(coord_in_table['z'])]
+    coord_min_table = Table([coord_min_x, coord_min_y, coord_min_z], names=('x','y','z'))
 
+    # Cartesian coordinate maxima
     coord_max_x = [max(coord_in_table['x'])]
     coord_max_y = [max(coord_in_table['y'])]
     coord_max_z = [max(coord_in_table['z'])]
-
-    coord_min_table = Table([coord_min_x, coord_min_y, coord_min_z], names=('x','y','z'))
     coord_max_table = Table([coord_max_x, coord_max_y, coord_max_z], names=('x','y','z'))
 
+    # Number of galaxies
     N_gal = len(infile)
 
     print('x:', coord_min_table['x'][0], coord_max_table['x'][0])
@@ -69,7 +72,7 @@ def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist):
 
     print('Reading mask')
 
-    maskfile = Table.read(mask_filename, format='ascii.commented_header')
+    #maskfile = Table.read(mask_filename, format='ascii.commented_header')
     mask = np.zeros((maskra, maskdec))
     mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
     vol = len(maskfile)
@@ -83,18 +86,32 @@ def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist):
     ################################################################################
 
 
-    print('Making the grid')
-    mesh_indices, ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, ngrid)
+    #dl = box/ngrid # length of each side of the box
+    #print('Number of grid cells is', ngrid, dl, box)
 
+    print('Making the grid')
+
+    # Array of size of survey in x, y, z directions [Mpc/h]
+    box = np.array([coord_max_x - coord_min_x, coord_max_y - coord_min_y, max_dist])
+
+    # Tuple of number of cells in each direction
+    ngrid = box/dl
+
+    print('Number of grid cells is', ngrid, 'with side lengths of', dl)
+
+    # Bin the galaxies onto a 3D grid
+    #mesh_indices, ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, ngrid)
+    ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, tuple(ngrid))
 
     print('Made the grid')
+
 
     print('Checking the grid')
     grid_good = True
 
-    for i in range(ngrid):
-        for j in range(ngrid):
-            for k in range(ngrid):
+    for i in range(ngrid[0]):
+        for j in range(ngrid[1]):
+            for k in range(ngrid[2]):
                 count = 0
                 igal = chainlist[i,j,k]
                 while igal != -1:
@@ -145,7 +162,8 @@ def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist):
     nf =  len(f_coord_table)
     nwall = len(w_coord_table)
     print('Number of field gals:', nf,'Number of wall gals:', nwall)
-    return coord_min_table, mask
+
+    return coord_min_table, mask, ngrid
 
 
 
@@ -158,9 +176,10 @@ def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist):
 
 
 
-def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename):
+#def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename):
+def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename):
 
-    dl = box/ngrid # length of each side of the box    
+    #dl = box/ngrid # length of each side of the box    
     
     w_coord_table = Table.read('wall_gal_file.txt', format='ascii.commented_header')
     w_coord = to_array(w_coord_table)
@@ -170,11 +189,12 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
     #   SET UP CELL GRID DISTRIBUTION
     #
     ################################################################################
-    print('Setting up grid')
+    print('Setting up grid of wall galaxies')
 
-    wall_mesh_indices, ngal_wall, chainlist_wall, linklist_wall = mesh_galaxies(w_coord_table, coord_min_table, dl, ngrid)
+    #wall_mesh_indices, ngal_wall, chainlist_wall, linklist_wall = mesh_galaxies(w_coord_table, coord_min_table, dl, ngrid)
+    ngal_wall, _, _ = mesh_galaxies(w_coord_table, coord_min_table, dl, tuple(ngrid))
 
-    print('Grid set up')
+    print('Wall galaxy grid set up')
     ################################################################################
     #
     #   BUILD NEAREST-NEIGHBOR TREE
