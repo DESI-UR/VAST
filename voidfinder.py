@@ -92,10 +92,11 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
     print('Making the grid')
 
     # Array of size of survey in x, y, z directions [Mpc/h]
-    box = np.array([coord_max_x - coord_min_x, coord_max_y - coord_min_y, max_dist])
+    box = np.array([coord_max_x[0] - coord_min_x[0], coord_max_y[0] - coord_min_y[0], max_dist])
 
-    # Tuple of number of cells in each direction
+    # Array of number of cells in each direction
     ngrid = box/dl
+    ngrid = np.ceil(ngrid, dtype=int)
 
     print('Number of grid cells is', ngrid, 'with side lengths of', dl)
 
