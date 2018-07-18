@@ -1,4 +1,4 @@
-#VoidFinder Function to do the hole finding section
+#VoidFinder Function to do just about everything
 
 import numpy as np
 from sklearn import neighbors
@@ -723,8 +723,6 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
     print('Time to find all holes =', tot_hole_end - tot_hole_start)
     print('AVG time to find each hole =', sum(hole_times)/len(hole_times))
 
-    # CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
-
     ################################################################################
     #
     #   SORT HOLES BY SIZE
@@ -741,10 +739,6 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
     potential_voids_table.sort('radius')
     potential_voids_table.reverse()
 
-    #potential_voids_table[:5].pprint()
-
-    potential_voids_table.write('potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
-
     '''
     potential_voids_file = open('potential_voids_list.txt', 'wb')
     pickle.dump(potential_voids_table, potential_voids_file)
@@ -760,6 +754,16 @@ def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_
 
     print('Holes are sorted.')
     print('Time to sort holes =', sort_end-sort_start)
+
+    ################################################################################
+    #
+    #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
+    #
+    ################################################################################
+
+    potential_voids_table = volume_cut(potential_voids_table, mask, [min_dist, max_dist])
+
+    potential_voids_table.write('potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
 
     ################################################################################
     #

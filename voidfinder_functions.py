@@ -48,10 +48,10 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
     '''
 
     # Initialize the 3D bins that will contain the number of galaxies in each bin
-    ngal = np.zeros((N_boxes, N_boxes, N_boxes), dtype=int)
+    ngal = np.zeros(N_boxes, dtype=int)
 
     # Initialize the 3D bins that will contain the galaxy indices
-    chainlist = -np.ones((N_boxes, N_boxes, N_boxes), dtype=int)
+    chainlist = -np.ones(N_boxes, dtype=int)
 
     # Initialize a list that will store the galaxy's index that previously occupied the cell
     linklist = np.zeros(len(galaxy_coords), dtype=int)
@@ -70,7 +70,7 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
         # Store the index of current galaxy in corresponding cell
         chainlist[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]] = igal
     
-    return mesh_indices, ngal, chainlist, linklist
+    return mesh_indices, ngal
 
 ################################################################################
 ################################################################################
