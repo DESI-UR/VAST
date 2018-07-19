@@ -89,24 +89,25 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
     #dl = box/ngrid # length of each side of the box
     #print('Number of grid cells is', ngrid, dl, box)
 
-    print('Making the grid')
+    #print('Making the grid')
 
     # Array of size of survey in x, y, z directions [Mpc/h]
-    box = np.array([coord_max_x[0] - coord_min_x[0], coord_max_y[0] - coord_min_y[0], max_dist])
+    box = np.array([coord_max_x[0] - coord_min_x[0], coord_max_y[0] - coord_min_y[0], coord_max_z[0] - coord_min_z[0]])
 
     # Array of number of cells in each direction
     ngrid = box/dl
-    ngrid = np.ceil(ngrid, dtype=int)
+    ngrid = np.ceil(ngrid)
+    ngrid = ngrid.astype(int)
 
     print('Number of grid cells is', ngrid, 'with side lengths of', dl)
 
     # Bin the galaxies onto a 3D grid
     #mesh_indices, ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, ngrid)
-    ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, tuple(ngrid))
+    #ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, tuple(ngrid))
 
-    print('Made the grid')
+    #print('Made the grid')
 
-
+    '''
     print('Checking the grid')
     grid_good = True
 
@@ -123,7 +124,7 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
                     grid_good = False
     if grid_good:
         print('Grid construction was successful.')
-
+    '''
     ################################################################################
     #
     #   SEPARATION
