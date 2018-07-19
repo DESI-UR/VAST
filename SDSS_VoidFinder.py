@@ -9,6 +9,8 @@
 from voidfinder import filter_galaxies, find_voids
 from astropy.table import Table
 
+from astropy.table import Table
+
 ################################################################################
 #
 #   USER INPUTS
@@ -16,7 +18,7 @@ from astropy.table import Table
 ################################################################################
 
 # File header
-directory = ''
+directory = 'SDSSdr7/'
 
 # Input file names
 in_filename = directory + 'vollim_dr7_cbp_102709.dat' # File format: RA, dec, redshift, comoving distance, absolute magnitude
@@ -63,4 +65,4 @@ coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, dl, max_dist)
 ################################################################################
 
 
-find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename)
+#find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename)
