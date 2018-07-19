@@ -202,7 +202,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     print('Wall galaxy grid set up')
     '''
 
-    mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
+    mesh_indices = table_dtype_cast(table_divide(subtract_row(w_coord_table, coord_min_table), dl), int)
+
 
     print('Galaxy grid indices computed')
     ################################################################################
@@ -756,6 +757,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                             hole_end = time.time()
                             n_holes += 1
                             hole_times.append(hole_end-hole_start)
+                            print('hewwo')
 
                             '''
                             if n_holes%100 == 0:
