@@ -6,8 +6,9 @@ from astropy.table import Table
 import time
 
 from hole_combine import combine_holes
-from voidfinder_functions import mesh_galaxies, in_mask, in_survey, save_maximals
+from voidfinder_functions import mesh_galaxies, in_mask, in_survey, save_maximals, mesh_galaxies_dict
 from table_functions import add_row, subtract_row, to_vector, to_array, table_dtype_cast, table_divide
+from volume_cut import volume_cut
 
 from avsepcalc import av_sep_calc
 from mag_cutoff_function import mag_cut, field_gal_cut
@@ -96,8 +97,7 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
 
     # Array of number of cells in each direction
     ngrid = box/dl
-    ngrid = np.ceil(ngrid)
-    ngrid = ngrid.astype(int)
+    ngrid = np.ceil(ngrid).astype(int)
 
     print('Number of grid cells is', ngrid, 'with side lengths of', dl)
 
@@ -202,7 +202,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     print('Wall galaxy grid set up')
     '''
 
-    mesh_indices = table_dtype_cast(table_divide(subtract_row(w_coord_table, coord_min_table), dl), int)
+    # Build a dictionary of all the cell IDs that have at least one galaxy in them
+    cell_ID_dict = mesh_galaxies_dict(w_coord_table, coord_min_table, dl)
 
 
     print('Galaxy grid indices computed')
@@ -246,17 +247,18 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     # Go through each empty cell in the grid
     empty_cell = 0
 
+    # Number of empty cells
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
+
     #for empty_cell in range(len(empty_indices[0])):
     for i in range(ngrid[0]):
         for j in range(ngrid[1]):
             for k in range(ngrid[2]):
 
-                x_bool = mesh_indices['x'] == i
-                y_bool = mesh_indices['y'] == j
-                z_bool = mesh_indices['z'] == k
+                check_bin_ID = (i,j,k)
 
                 # Check if there are any galaxies in this grid in this cell
-                if sum(np.logical_and.reduce((x_bool, y_bool, z_bool))) == 0:
+                if check_bin_ID not in cell_ID_dict:
 
                     hole_start = time.time()
 
@@ -271,9 +273,9 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         print('Looking in empty cell', empty_cell, 'of', len(empty_indices[0]))
                     '''
                     empty_cell += 1
-                    #print(empty_cell)
+
                     if empty_cell%10000 == 0:
-                        print('Looking in empty cell', empty_cell, 'of', ngrid[0]*ngrid[1]*ngrid[2], 'total cells')
+                        print('Looking in empty cell', empty_cell, 'of', n_empty_cells)
 
                     # Calculate center coordinates of cell
                     hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
@@ -300,15 +302,16 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     #print('Hole radius', modv1, 'after finding 1st galaxy')
 
                     
-                    ############################################################################
-                    # We are going to shift the center of the hole by dr along the direction of 
-                    # the vector pointing from the nearest galaxy to the center of the empty 
-                    # cell.  From there, we will search within a radius of length the distance  
-                    # between the center of the hole and the first galaxy from the center of 
-                    # the hole to find the next nearest neighbors.  From there, we will 
-                    # minimize top/bottom to find which one is the next nearest galaxy that 
-                    # bounds the hole.
-                    ############################################################################
+                    ############################################################
+                    # We are going to shift the center of the hole by dr along 
+                    # the direction of the vector pointing from the nearest 
+                    # galaxy to the center of the empty cell.  From there, we 
+                    # will search within a radius of length the distance between 
+                    # the center of the hole and the first galaxy from the 
+                    # center of the hole to find the next nearest neighbors.  
+                    # From there, we will minimize top/bottom to find which one 
+                    # is the next nearest galaxy that bounds the hole.
+                    ############################################################
 
                     galaxy_search = True
 
@@ -808,6 +811,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
     #
     ################################################################################
+
+    print('Removing holes with at least 10% of their volume outside the mask')
 
     potential_voids_table = volume_cut(potential_voids_table, mask, [min_dist, max_dist])
 
