@@ -620,6 +620,9 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     # First move in the direction of the unit vector defined above
                     galaxy_search = True
 
+                    # Initialize minx42 (in case it does not get created later)
+                    minx42 = np.infty
+
                     hole_center_42 = hole_center
 
                     while galaxy_search:
@@ -717,7 +720,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
                     hole_center = hole_center.T
 
-                    
+                    '''
                     ########################################################################
                     # TEST BLOCK
 
@@ -736,6 +739,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         print('There are galaxies inside the hole!', len(i_nearest))
                         print('Final radius:', hole_radius)
                     ########################################################################
+                    '''
                     '''
                     if hole_radius > 23:
                         if len(i_nearest) == 0:
