@@ -129,7 +129,7 @@ def volume_cut(hole_table, survey_mask, r_limits):
 
     hole_table.remove_rows(out_spheres_indices)
 
-    return hole_table, out_volumes
+    return hole_table
 
 if __name__ == '__main__':
 
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
 
     holes_table = Table.read('potential_voids_list.txt', format='ascii.commented_header')
-    potential_voids_table, volumes_list = volume_cut(holes_table, mask, [min_dist, max_dist])
+    potential_voids_table = volume_cut(holes_table, mask, [min_dist, max_dist])
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, 0.1)
 

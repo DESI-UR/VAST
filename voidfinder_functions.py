@@ -80,6 +80,33 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
 ################################################################################
 ################################################################################
 
+def mesh_galaxies_dict(galaxy_coords, coord_min, grid_side_length):
+    '''
+    Build a dictionary of the galaxies' cell coordinates
+    '''
+
+    # Convert the galaxy coordinates to grid indices
+    mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
+
+    # Initialize dictionary of cell IDs with at least one galaxy in them
+    cell_ID_dict = {}
+
+    for idx in range(len(mesh_indices)):
+
+        x = mesh_indices['x'][idx]
+        y = mesh_indices['y'][idx]
+        z = mesh_indices['z'][idx]
+
+        bin_ID = (x,y,z)
+
+        cell_ID_dict[bin_ID] = 1
+
+    return cell_ID_dict
+
+
+################################################################################
+################################################################################
+
 def in_mask_table(coordinates, survey_mask, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
