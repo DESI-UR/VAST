@@ -624,6 +624,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     galaxy_search = True
 
                     hole_center_42 = hole_center
+                    
+                    minx42 = np.infty
 
                     while galaxy_search:
 
