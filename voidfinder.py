@@ -271,7 +271,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         print('Looking in empty cell', empty_cell, 'of', len(empty_indices[0]))
                     '''
                     empty_cell += 1
-                    print(empty_cell)
+                    #print(empty_cell)
                     if empty_cell%10000 == 0:
                         print('Looking in empty cell', empty_cell, 'of', ngrid[0]*ngrid[1]*ngrid[2], 'total cells')
 
