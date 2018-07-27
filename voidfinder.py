@@ -33,7 +33,7 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
     #   PRE-PROCESS DATA
     #
     ################################################################################
-    print('Pre-processing data')
+    print('Pre-processing data', flush=True)
 
     #infile = Table.read(in_filename, format='ascii.commented_header')
 
@@ -61,24 +61,24 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
     # Number of galaxies
     N_gal = len(infile)
 
-    print('x:', coord_min_table['x'][0], coord_max_table['x'][0])
-    print('y:', coord_min_table['y'][0], coord_max_table['y'][0])
-    print('z:', coord_min_table['z'][0], coord_max_table['z'][0])
-    print('There are', N_gal, 'galaxies in this simulation.')
+    print('x:', coord_min_table['x'][0], coord_max_table['x'][0], flush=True)
+    print('y:', coord_min_table['y'][0], coord_max_table['y'][0], flush=True)
+    print('z:', coord_min_table['z'][0], coord_max_table['z'][0], flush=True)
+    print('There are', N_gal, 'galaxies in this simulation.', flush=True)
 
     # Convert coord_in, coord_min, coord_max tables to numpy arrays
     coord_in = to_array(coord_in_table)
     coord_min = to_vector(coord_min_table)
     coord_max = to_vector(coord_max_table)
 
-    print('Reading mask')
+    print('Reading mask',flush=True)
 
     #maskfile = Table.read(mask_filename, format='ascii.commented_header')
     mask = np.zeros((maskra, maskdec))
     mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
     vol = len(maskfile)
 
-    print('Read mask')
+    print('Read mask',flush=True)
 
     ################################################################################
     #
@@ -99,15 +99,16 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
     ngrid = box/dl
     ngrid = np.ceil(ngrid).astype(int)
 
-    print('Number of grid cells is', ngrid, 'with side lengths of', dl)
+    print('Number of grid cells is', ngrid, 'with side lengths of', dl, flush=True)
 
     '''
     # Bin the galaxies onto a 3D grid
     #mesh_indices, ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, ngrid)
-    ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, tuple(ngrid))
+    #ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, tuple(ngrid))
 
-    print('Made the grid')
+    #print('Made the grid')
 
+  
     print('Checking the grid')
     grid_good = True
 
@@ -133,22 +134,22 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
   
     sep_start = time.time()
 
-    print('Finding sep')
+    print('Finding sep',flush=True)
 
     l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
 
-    print('Average separation of n3rd gal is', avsep)
-    print('The standard deviation is', sd)
+    print('Average separation of n3rd gal is', avsep, flush=True)
+    print('The standard deviation is', sd,flush=True)
 
     # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
     # l = 7.36181  # s0 = 3.5, gamma = 1.4
     # or force l to have a fixed number by setting l = ****
 
-    print('Going to build wall with search value', l)
+    print('Going to build wall with search value', l, flush=True)
 
     sep_end = time.time()
 
-    print('Time to find sep =',sep_end-sep_start)
+    print('Time to find sep =',sep_end-sep_start, flush=True)
 
     fw_start = time.time()
 
@@ -159,11 +160,11 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
     
     fw_end = time.time()
 
-    print('Time to sort field and wall gals =',fw_end-fw_start)
+    print('Time to sort field and wall gals =',fw_end-fw_start, flush=True)
 
     nf =  len(f_coord_table)
     nwall = len(w_coord_table)
-    print('Number of field gals:', nf,'Number of wall gals:', nwall)
+    print('Number of field gals:', nf,'Number of wall gals:', nwall, flush=True)
 
     return coord_min_table, mask, ngrid
 
@@ -204,6 +205,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     # Build a dictionary of all the cell IDs that have at least one galaxy in them
     cell_ID_dict = mesh_galaxies_dict(w_coord_table, coord_min_table, dl)
 
+
     print('Galaxy grid indices computed')
     ################################################################################
     #
@@ -225,7 +227,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
     tot_hole_start = time.time()
 
-    print('Growing holes')
+    print('Growing holes', flush=True)
 
     # Center of the current cell
     hole_center_table = Table(np.zeros(6), names=('x', 'y', 'z', 'r', 'ra', 'dec'))
@@ -271,8 +273,9 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         print('Looking in empty cell', empty_cell, 'of', len(empty_indices[0]))
                     '''
                     empty_cell += 1
+
                     if empty_cell%10000 == 0:
-                        print('Looking in empty cell', empty_cell, 'of', n_empty_cells)
+                        print('Looking in empty cell', empty_cell, 'of', n_empty_cells, flush=True)
 
                     # Calculate center coordinates of cell
                     hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
@@ -624,6 +627,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     minx42 = np.infty
 
                     hole_center_42 = hole_center
+                    
+                    minx42 = np.infty
 
                     while galaxy_search:
 
@@ -751,7 +756,6 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         print('Final hole radius:', hole_radius)
                     '''
                     
-
                     # Save hole
                     myvoids_x.append(hole_center[0,0])
                     myvoids_y.append(hole_center[1,0])
@@ -768,12 +772,13 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     print("number of holes=",n_holes)
                     '''
 
-    print('Found a total of', n_holes, 'potential voids.')
+
+    print('Found a total of', n_holes, 'potential voids.',flush=True)
 
     tot_hole_end = time.time()
 
-    print('Time to find all holes =', tot_hole_end - tot_hole_start)
-    print('AVG time to find each hole =', sum(hole_times)/len(hole_times))
+    print('Time to find all holes =', tot_hole_end - tot_hole_start,flush=True)
+    print('AVG time to find each hole =', sum(hole_times)/len(hole_times),flush=True)
 
     ################################################################################
     #
@@ -783,7 +788,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
     sort_start = time.time()
 
-    print('Sorting holes by size')
+    print('Sorting holes by size',flush=True)
 
     potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=('x','y','z','radius'))
 
@@ -804,8 +809,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
     sort_end = time.time()
 
-    print('Holes are sorted.')
-    print('Time to sort holes =', sort_end-sort_start)
+    print('Holes are sorted.',flush=True)
+    print('Time to sort holes =', sort_end-sort_start,flush=True)
 
     ################################################################################
     #
@@ -813,7 +818,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     #
     ################################################################################
 
-    print('Removing holes with at least 10% of their volume outside the mask')
+    print('Removing holes with at least 10% of their volume outside the mask',flush=True)
 
     potential_voids_table = volume_cut(potential_voids_table, mask, [min_dist, max_dist])
 
@@ -827,18 +832,18 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
     combine_start = time.time()
 
-    print('Combining holes into unique voids')
+    print('Combining holes into unique voids',flush=True)
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, frac)
 
-    print('Number of unique voids is', len(maximal_spheres_table))
+    print('Number of unique voids is', len(maximal_spheres_table),flush=True)
 
     # Save list of all void holes
     myvoids_table.write(out2_filename, format='ascii.commented_header', overwrite=True)
 
     combine_end = time.time()
 
-    print('Time to combine holes into voids =', combine_end-combine_start)
+    print('Time to combine holes into voids =', combine_end-combine_start,flush=True)
 
     '''
     ################################################################################

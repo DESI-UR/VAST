@@ -11,7 +11,7 @@ def av_sep_calc(GALTABLEXYZ):
 
 	galaxy_tree = spatial.KDTree(gal_array)
 
-	distances, indices = galaxy_tree.query(gal_array, k=4)
+	distances, indices = galaxy_tree.query(gal_array,k=4)
 	all_3rd_distances = distances[:,3]
 
 	avg = np.mean(all_3rd_distances)

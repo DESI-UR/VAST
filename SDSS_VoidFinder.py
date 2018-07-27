@@ -7,6 +7,7 @@
 ################################################################################
 
 from voidfinder import filter_galaxies, find_voids
+from astropy.table import Table
 
 from astropy.table import Table
 
