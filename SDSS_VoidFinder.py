@@ -64,4 +64,4 @@ coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, dl, max_dist)
 ################################################################################
 
 
-#find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename)
+find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename)
