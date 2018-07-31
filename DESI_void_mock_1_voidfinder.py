@@ -21,8 +21,8 @@ in_directory = ''
 out_directory = '/scratch/mguzzett/VoidFinder/'
 
 # Input file names
-in_filename = in_directory + 'DESI_sgc.fits' # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = in_directory + 'dc17sgcmask.dat' # File format: RA, dec
+in_filename = in_directory + 'DESI_void_mock_1.fits' # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = in_directory + 'void_1_mask.dat' # File format: RA, dec
 
 # Output file names
 out1_filename = out_directory + in_filename[:-5] + '_maximal.txt' # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
@@ -31,7 +31,7 @@ out2_filename = out_directory + in_filename[:-5] + '_holes.txt' # List of holes 
 voidgals_filename = 'vollim_voidgals_dr7.txt' # List of the void galaxies: x, y, z, void region '''
 
 #ngrid = 128     # Number of grid cells
-max_dist = 3400. # z_ngc = 1.5--> 4158 h-1 Mpc # z_sgc = 1.1 --> 3374
+max_dist = 2300. # z = .7--> 2388 h-1 Mpc
 #box = 630.      # Size of survey/simulation box
 dl = 5.         # Cell side length [Mpc/h]
 
@@ -50,7 +50,7 @@ gal_file = fits.open(in_filename)
 infile = Table(gal_file[1].data)
 maskfile = Table.read(mask_filename, format='ascii.commented_header')
 
-survey_name = 'DC17_SGC_'
+survey_name = 'DESI_mock_1_'
 
 ################################################################################
 #
@@ -60,7 +60,7 @@ survey_name = 'DC17_SGC_'
 
 
 #coord_min_table, mask = filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist)
-coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, dl, max_dist, survey_name)
+coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, dl, max_dist,survey_name)
 
 
 ################################################################################

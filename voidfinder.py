@@ -26,7 +26,7 @@ DtoR = np.pi/180.
 RtoD = 180./np.pi
 
 #def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist)
-def filter_galaxies(infile, maskfile, dl, max_dist):
+def filter_galaxies(infile, maskfile, dl, max_dist, survey_name):
     
     ################################################################################
     #
@@ -155,8 +155,8 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
 
     f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
 
-    f_coord_table.write('field_gal_file.txt', format='ascii.commented_header',overwrite=True)
-    w_coord_table.write('wall_gal_file.txt', format='ascii.commented_header',overwrite=True)
+    f_coord_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header',overwrite=True)
+    w_coord_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header',overwrite=True)
     
     fw_end = time.time()
 
@@ -180,11 +180,11 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
 
 
 #def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename):
-def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename):
+def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name):
 
     #dl = box/ngrid # length of each side of the box    
     
-    w_coord_table = Table.read('wall_gal_file.txt', format='ascii.commented_header')
+    w_coord_table = Table.read(survey_name + 'wall_gal_file.txt', format='ascii.commented_header')
     w_coord = to_array(w_coord_table)
 
     coord_min = to_vector(coord_min_table)
@@ -847,7 +847,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
     potential_voids_table = volume_cut(potential_voids_table, mask, [min_dist, max_dist])
 
-    potential_voids_table.write('potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
+    potential_voids_table.write(survey_name + 'potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
 
     ################################################################################
     #
