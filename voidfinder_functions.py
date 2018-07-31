@@ -7,6 +7,7 @@ from table_functions import add_row, subtract_row, table_divide, table_dtype_cas
 
 
 RtoD = 180./np.pi
+dec_offset = -90
 
 
 ################################################################################
@@ -86,18 +87,20 @@ def mesh_galaxies_dict(galaxy_coords, coord_min, grid_side_length):
     '''
 
     # Convert the galaxy coordinates to grid indices
-    mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
+    mesh_indices = ((galaxy_coords - coord_min)/grid_side_length).astype(int)
+    #mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
 
     # Initialize dictionary of cell IDs with at least one galaxy in them
     cell_ID_dict = {}
 
     for idx in range(len(mesh_indices)):
 
-        x = mesh_indices['x'][idx]
-        y = mesh_indices['y'][idx]
-        z = mesh_indices['z'][idx]
+        #x = mesh_indices['x'][idx]
+        #y = mesh_indices['y'][idx]
+        #z = mesh_indices['z'][idx]
 
-        bin_ID = (x,y,z)
+        #bin_ID = (x,y,z)
+        bin_ID = tuple(mesh_indices[idx])
 
         cell_ID_dict[bin_ID] = 1
 
@@ -139,7 +142,6 @@ def in_mask(coordinates, survey_mask, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
     '''
-    dec_offset = -90
 
     # Convert coordinates to table if not already
     if isinstance(coordinates, Table):
@@ -160,6 +162,52 @@ def in_mask(coordinates, survey_mask, r_limits):
     good = np.logical_and.reduce((survey_mask[ra.astype(int), dec.astype(int)-dec_offset] == 1, r <= r_limits[1], r >= r_limits[0]))
 
     return good
+
+
+
+def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
+    '''
+    Determine whether a given set of coordinates falls within the survey.
+
+    Parameters:
+    ============
+
+    coordinates : numpy.ndarray of shape (3,), in x-y-z order and cartesian coordinates
+        x,y, and z are measured in Mpc/h
+
+    survey_mask_ra_dec : numpy.ndarray of shape (num_ra, num_dec) where 
+        the element at [i,j] represents whether or not the ra corresponding to
+        i and the dec corresponding to j fall within the mask.  ra and dec
+        are both measured in degrees.
+
+    rmin, rmax : scalar, min and max values of survey distance in units of
+        Mpc/h
+
+    Returns:
+    ========
+
+    boolean : True if coordinates fall outside the survey_mask
+    '''
+    coords = coordinates[0]
+    r = np.linalg.norm(coords)
+
+    if r < rmin or r > rmax:
+        return True
+
+    ra = np.arctan(coords[1]/coords[0])*RtoD
+    dec = np.arcsin(coords[2]/r)*RtoD
+
+    if coords[0] < 0 and coords[1] != 0:
+        ra += 180
+    if ra < 0:
+        ra += 360
+
+    return not survey_mask_ra_dec[int(ra), int(dec)-dec_offset]
+
+
+
+
+
 
 ################################################################################
 ################################################################################

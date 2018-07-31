@@ -6,7 +6,7 @@ from astropy.table import Table
 import time
 
 from hole_combine import combine_holes
-from voidfinder_functions import mesh_galaxies, in_mask, in_survey, save_maximals, mesh_galaxies_dict
+from voidfinder_functions import mesh_galaxies, in_mask,not_in_mask, in_survey, save_maximals, mesh_galaxies_dict
 from table_functions import add_row, subtract_row, to_vector, to_array, table_dtype_cast, table_divide
 from volume_cut import volume_cut
 
@@ -74,8 +74,8 @@ def filter_galaxies(infile, maskfile, dl, max_dist):
     print('Reading mask',flush=True)
 
     #maskfile = Table.read(mask_filename, format='ascii.commented_header')
-    mask = np.zeros((maskra, maskdec))
-    mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
+    mask = np.zeros((maskra, maskdec), dtype=bool)
+    mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = True
     vol = len(maskfile)
 
     print('Read mask',flush=True)
@@ -187,6 +187,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     w_coord_table = Table.read('wall_gal_file.txt', format='ascii.commented_header')
     w_coord = to_array(w_coord_table)
 
+    coord_min = to_vector(coord_min_table)
+
 
     ################################################################################
     #
@@ -203,7 +205,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     '''
 
     # Build a dictionary of all the cell IDs that have at least one galaxy in them
-    cell_ID_dict = mesh_galaxies_dict(w_coord_table, coord_min_table, dl)
+    #cell_ID_dict = mesh_galaxies_dict(w_coord_table, coord_min_table, dl)
+    cell_ID_dict = mesh_galaxies_dict(w_coord, coord_min.T, dl)
 
 
     print('Galaxy grid indices computed')
@@ -230,7 +233,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     print('Growing holes', flush=True)
 
     # Center of the current cell
-    hole_center_table = Table(np.zeros(6), names=('x', 'y', 'z', 'r', 'ra', 'dec'))
+    #hole_center_table = Table(np.zeros(6), names=('x', 'y', 'z', 'r', 'ra', 'dec'))
 
     # Initialize list of hole details
     myvoids_x = []
@@ -249,6 +252,13 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
     # Number of empty cells
     n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
+
+
+    #######
+    # DEBUGGING VARIABLES
+    #######
+    n_iter = 0
+    check_time = 0.0
 
     #for empty_cell in range(len(empty_indices[0])):
     for i in range(ngrid[0]):
@@ -278,26 +288,29 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         print('Looking in empty cell', empty_cell, 'of', n_empty_cells, flush=True)
 
                     # Calculate center coordinates of cell
-                    hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
-                    hole_center_table['y'] = (j + 0.5)*dl + coord_min_table['y']
-                    hole_center_table['z'] = (k + 0.5)*dl + coord_min_table['z']
+                    #hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
+                    #hole_center_table['y'] = (j + 0.5)*dl + coord_min_table['y']
+                    #hole_center_table['z'] = (k + 0.5)*dl + coord_min_table['z']
+                    hole_center = (np.array([[i, j, k]]) + 0.5)*dl + coord_min.T
                     
-                    hole_center = to_vector(hole_center_table)
-                    hole_center = hole_center
+                    #hole_center = to_vector(hole_center_table)
                     
                     # Check to make sure that the hole center is still within the survey
-                    if not in_mask(hole_center.T, mask, [min_dist, max_dist]):
+                    if not_in_mask(hole_center, mask, min_dist, max_dist):
                         continue
+
 
                     #print('______________________________________________')
 
                     # Find closest galaxy to cell center
-                    modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
+                    #modv1, k1g = galaxy_tree.query(hole_center.T, k=1)
+                    modv1, k1g = galaxy_tree.query(hole_center, k=1)
                     modv1 = modv1[0][0]
                     k1g = k1g[0][0]
 
                     # Unit vector pointing from cell center to the closest galaxy
-                    v1_unit = (w_coord[k1g] - hole_center.T)/modv1
+                    #v1_unit = (w_coord[k1g] - hole_center.T)/modv1
+                    v1_unit = (w_coord[k1g] - hole_center)/modv1
 
                     #print('Hole radius', modv1, 'after finding 1st galaxy')
 
@@ -320,13 +333,13 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     while galaxy_search:
 
                         # Shift hole center away from first galaxy
-                        hole_center_2 = hole_center_2 - dr*v1_unit.T
+                        hole_center_2 = hole_center_2 - dr*v1_unit
                         
                         # Distance between hole center and nearest galaxy
                         modv1 += dr
                         
                         # Search for nearest neighbors within modv1 of the hole center
-                        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_2.T, r=modv1, return_distance=True, sort_results=True)
+                        i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_2, r=modv1, return_distance=True, sort_results=True)
 
                         i_nearest = i_nearest[0]
                         dist_nearest = dist_nearest[0]
@@ -360,12 +373,14 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
                                 galaxy_search = False
                             
-                        elif not in_mask(hole_center_2.T, mask, [min_dist, max_dist]):
+                        #elif not in_mask(hole_center_2.T, mask, [min_dist, max_dist]):
+                        elif not_in_mask(hole_center_2, mask, min_dist, max_dist):
                             # Hole is no longer within survey limits
                             galaxy_search = False
 
                     # Check to make sure that the hole center is still within the survey
-                    if not in_mask(hole_center_2.T, mask, [min_dist, max_dist]):
+                    #if not in_mask(hole_center_2.T, mask, [min_dist, max_dist]):
+                    if not_in_mask(hole_center_2, mask, min_dist, max_dist):
                         #print('hole not in survey')
                         continue
 
@@ -384,7 +399,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     #print('Hole radius', hole_radius, 'after finding 2nd galaxy')
 
                     # Check to make sure that the hole center is still within the survey
-                    if not in_mask(hole_center, mask, [min_dist, max_dist]):
+                    #if not in_mask(hole_center, mask, [min_dist, max_dist]):
+                    if not_in_mask(hole_center, mask, min_dist, max_dist):
                         #print('hole not in survey')
                         continue
 
@@ -475,12 +491,14 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
                                 galaxy_search = False
 
-                        elif not in_mask(hole_center, mask, [min_dist, max_dist]):
+                        #elif not in_mask(hole_center, mask, [min_dist, max_dist]):
+                        elif not_in_mask(hole_center, mask, min_dist, max_dist):
                             # Hole is no longer within survey limits
                             galaxy_search = False
 
                     # Check to make sure that the hole center is still within the survey
-                    if not in_mask(hole_center_3, mask, [min_dist, max_dist]):
+                    #if not in_mask(hole_center_3, mask, [min_dist, max_dist]):
+                    if not_in_mask(hole_center_3, mask, min_dist, max_dist):
                         #print('hole not in survey')
                         continue
 
@@ -498,7 +516,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     #print('Hole radius', hole_radius, 'after finding 3rd galaxy')
 
                     # Check to make sure that the hole center is still within the survey
-                    if not in_mask(hole_center, mask, [min_dist, max_dist]):
+                    #if not in_mask(hole_center, mask, [min_dist, max_dist]):
+                    if not_in_mask(hole_center, mask, min_dist, max_dist):
                         #print('hole not in survey')
                         continue
 
@@ -598,7 +617,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
                                 galaxy_search = False
 
-                        elif not in_mask(hole_center_41, mask, [min_dist, max_dist]):
+                        #elif not in_mask(hole_center_41, mask, [min_dist, max_dist]):
+                        elif not_in_mask(hole_center_41, mask, min_dist, max_dist):
                             # Hole is no longer within survey limits
                             galaxy_search = False
 
@@ -611,7 +631,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     '''
 
                     # Calculate potential new hole center
-                    if in_mask(hole_center_41, mask, [min_dist, max_dist]):
+                    #if in_mask(hole_center_41, mask, [min_dist, max_dist]):
+                    if not not_in_mask(hole_center_41, mask, min_dist, max_dist):
                         hole_center_41 = hole_center + minx41*v3_unit
                         #print('______________________')
                         #print(hole_center_41, 'hc41')
@@ -679,8 +700,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
                                 galaxy_search = False
 
-                        elif not in_mask(hole_center_42, mask, [min_dist, max_dist]):
-                          
+                        #elif not in_mask(hole_center_42, mask, [min_dist, max_dist]):
+                        elif not_in_mask(hole_center_42, mask, min_dist, max_dist):
                             # Hole is no longer within survey limits
                             galaxy_search = False
 
@@ -693,7 +714,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     '''
 
                     # Calculate potential new hole center
-                    if in_mask(hole_center_42, mask, [min_dist, max_dist]):
+                    #if in_mask(hole_center_42, mask, [min_dist, max_dist]):
+                    if not not_in_mask(hole_center_42, mask, min_dist, max_dist):
                         hole_center_42 = hole_center + minx42*v3_unit
                         #print(hole_center_42, 'hc42')
                         #print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
@@ -705,15 +727,18 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         print('hole_center_42 is NOT in the mask')'''
                     
                     # Determine which is the 4th nearest galaxy
-                    if in_mask(hole_center_41, mask, [min_dist, max_dist]) and minx41 <= minx42:
+                    #if in_mask(hole_center_41, mask, [min_dist, max_dist]) and minx41 <= minx42:
+                    if not not_in_mask(hole_center_41, mask, min_dist, max_dist) and minx41 <= minx42:
                         # The first 4th galaxy found is the next closest
                         hole_center = hole_center_41
                         k4g = k4g1
-                    elif in_mask(hole_center_42, mask, [min_dist, max_dist]):
+                    #elif in_mask(hole_center_42, mask, [min_dist, max_dist]):
+                    elif not not_in_mask(hole_center_42, mask, min_dist, max_dist):
                         # The second 4th galaxy found is the next closest
                         hole_center = hole_center_42
                         k4g = k4g2
-                    elif in_mask(hole_center_41, mask, [min_dist, max_dist]):
+                    #elif in_mask(hole_center_41, mask, [min_dist, max_dist]):
+                    elif not not_in_mask(hole_center_41, mask, min_dist, max_dist):
                         # The first 4th galaxy found is the next closest
                         hole_center = hole_center_41
                         k4g = k4g1
