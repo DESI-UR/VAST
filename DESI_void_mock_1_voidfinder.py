@@ -27,12 +27,15 @@ in_directory = 'DESI/mocks/'
 out_directory = 'DESI/mocks/'
 
 # Input file names
-in_filename = in_directory + 'void_flatmock_1.fits'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = in_directory + 'void_1_mask.dat'     # File format: RA, dec
+galaxies_filename = 'void_flatmock_1.fits'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'void_1_mask.dat'           # File format: RA, dec
+
+in_filename = in_directory + galaxies_filename
+mask_filename = in_directory + mask_filename
 
 # Output file names
-out1_filename = out_directory + in_filename[:-5] + '_maximal.txt'  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = out_directory + in_filename[:-5] + '_holes.txt'    # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out1_filename = out_directory + galaxies_filename[:-5] + '_maximal.txt'  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = out_directory + galaxies_filename[:-5] + '_holes.txt'    # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
 #out3_filename = out_directory + 'out3_vollim_dr7.txt'              # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
 #voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'      # List of the void galaxies: x, y, z, void region
 
