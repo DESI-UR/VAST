@@ -13,20 +13,22 @@ from volume_cut import volume_cut
 from avsepcalc import av_sep_calc
 from mag_cutoff_function import mag_cut, field_gal_cut
 
+
+
 maskra = 360
 maskdec = 180
 dec_offset = -90
-min_dist = 0.
-dr = 1. # Distance to shift the hole centers
-frac = 0.1 # Overlap fraction for calculating maximal spheres
+dl = 5           # Cell side length [Mpc/h]
+dr = 1.          # Distance to shift the hole centers
+frac = 0.1       # Overlap fraction for calculating maximal spheres
 
 # Constants
 c = 3e5
 DtoR = np.pi/180.
 RtoD = 180./np.pi
 
-#def filter_galaxies(in_filename, mask_filename, ngrid, box, max_dist)
-def filter_galaxies(infile, maskfile, dl, max_dist, survey_name):
+
+def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name):
     
     ################################################################################
     #
@@ -34,8 +36,6 @@ def filter_galaxies(infile, maskfile, dl, max_dist, survey_name):
     #
     ################################################################################
     print('Pre-processing data', flush=True)
-
-    #infile = Table.read(in_filename, format='ascii.commented_header')
 
     # Remove faint galaxies
     infile = mag_cut(infile,-20)
@@ -179,10 +179,9 @@ def filter_galaxies(infile, maskfile, dl, max_dist, survey_name):
 
 
 
-#def find_voids(ngrid, box, max_dist, coord_min_table, mask, out1_filename, out2_filename):
-def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name):
 
-    #dl = box/ngrid # length of each side of the box    
+def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name):
+
     
     w_coord_table = Table.read(survey_name + 'wall_gal_file.txt', format='ascii.commented_header')
     w_coord = to_array(w_coord_table)
@@ -257,8 +256,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
     #######
     # DEBUGGING VARIABLES
     #######
-    n_iter = 0
-    check_time = 0.0
+    cycle_time = time.time()
+
 
     #for empty_cell in range(len(empty_indices[0])):
     for i in range(ngrid[0]):
@@ -285,7 +284,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     empty_cell += 1
 
                     if empty_cell%10000 == 0:
-                        print('Looking in empty cell', empty_cell, 'of', n_empty_cells, flush=True)
+                        print('Looking in empty cell', empty_cell, 'of', n_empty_cells, flush=True)#, '---', i,j,k, '---', time.time() - cycle_time, flush=True)
+                        cycle_time = time.time()
 
                     # Calculate center coordinates of cell
                     #hole_center_table['x'] = (i + 0.5)*dl + coord_min_table['x']
@@ -395,7 +395,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     # Calculate new hole center
                     hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)
                     hole_center = w_coord[k1g] - hole_radius*v1_unit
-                    #print('hole center',hole_center)
+                    #print('Hole center',hole_center)
                     #print('Hole radius', hole_radius, 'after finding 2nd galaxy')
 
                     # Check to make sure that the hole center is still within the survey
@@ -428,6 +428,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     ########################################################################
                     # Now find the third nearest galaxy.
                     ########################################################################
+                    # Same methodology as for finding the second galaxy
 
                     # Find the midpoint between the two nearest galaxies
                     midpoint = 0.5*(w_coord[k1g] + w_coord[k2g])                
@@ -435,8 +436,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     # Define the unit vector along which to move the hole center
                     modv2 = np.linalg.norm(hole_center - midpoint)
                     v2_unit = (hole_center - midpoint)/modv2
-
-                    # Same methodology as for finding the second galaxy
+                    #print('v2_unit', v2_unit)
 
                     hole_center_3 = hole_center
 
@@ -491,8 +491,8 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
                                 galaxy_search = False
 
-                        #elif not in_mask(hole_center, mask, [min_dist, max_dist]):
-                        elif not_in_mask(hole_center, mask, min_dist, max_dist):
+                        #elif not in_mask(hole_center_3, mask, [min_dist, max_dist]):
+                        elif not_in_mask(hole_center_3, mask, min_dist, max_dist):
                             # Hole is no longer within survey limits
                             galaxy_search = False
 
@@ -721,10 +721,12 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                         #print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
                         #print('minx41:', minx41, '   minx42:', minx42)
                     
-                    '''if not in_mask(hole_center_41, mask, [min_dist, max_dist]):
+                    '''
+                    if not in_mask(hole_center_41, mask, [min_dist, max_dist]):
                         print('hole_center_41 is NOT in the mask')
                     if not in_mask(hole_center_42, mask, [min_dist, max_dist]):
-                        print('hole_center_42 is NOT in the mask')'''
+                        print('hole_center_42 is NOT in the mask')
+                    '''
                     
                     # Determine which is the 4th nearest galaxy
                     #if in_mask(hole_center_41, mask, [min_dist, max_dist]) and minx41 <= minx42:
@@ -786,9 +788,9 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     myvoids_y.append(hole_center[1,0])
                     myvoids_z.append(hole_center[2,0])
                     myvoids_r.append(hole_radius)
-                    hole_end = time.time()
+                    hole_times.append(time.time() - hole_start)
+                    #print(hole_times[n_holes], i,j,k)
                     n_holes += 1
-                    hole_times.append(hole_end-hole_start)
 
                     '''
                     if n_holes%100 == 0:
@@ -798,12 +800,10 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
                     '''
 
 
-    print('Found a total of', n_holes, 'potential voids.',flush=True)
+    print('Found a total of', n_holes, 'potential voids.', flush=True)
 
-    tot_hole_end = time.time()
-
-    print('Time to find all holes =', tot_hole_end - tot_hole_start,flush=True)
-    print('AVG time to find each hole =', sum(hole_times)/len(hole_times),flush=True)
+    print('Time to find all holes =', time.time() - tot_hole_start, flush=True)
+    print('AVG time to find each hole =', np.mean(hole_times), flush=True)
 
     ################################################################################
     #
@@ -813,7 +813,7 @@ def find_voids(ngrid, dl, max_dist, coord_min_table, mask, out1_filename, out2_f
 
     sort_start = time.time()
 
-    print('Sorting holes by size',flush=True)
+    print('Sorting holes by size', flush=True)
 
     potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=('x','y','z','radius'))
 
