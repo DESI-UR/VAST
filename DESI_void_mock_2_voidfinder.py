@@ -27,12 +27,15 @@ in_directory = ''
 out_directory = '/scratch/mguzzett/VoidFinder/'
 
 # Input file names
-in_filename = in_directory + 'DESI_void_mock_2.fits'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = in_directory + 'void_2_mask.dat'      # File format: RA, dec
+galaxies_filename = 'DESI_void_mock_2.fits'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
+mask_filename = 'void_2_mask.dat'            # File format: RA, dec
+
+in_filename = in_directory + galaxies_filename
+mask_filename = in_directory + mask_filename
 
 # Output file names
-out1_filename = out_directory + in_filename[:-5] + '_maximal.txt'  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = out_directory + in_filename[:-5] + '_holes.txt'    # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out1_filename = out_directory + galaxies_filename[:-5] + '_maximal.txt'  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = out_directory + galaxies_filename[:-5] + '_holes.txt'    # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
 #out3_filename = out_directory + 'out3_vollim_dr7.txt'              # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
 #voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'      # List of the void galaxies: x, y, z, void region
 

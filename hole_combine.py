@@ -310,8 +310,9 @@ def combine_holes(spheres_table, frac):
 
 if __name__ == '__main__':
 
-    import pickle
+    #import pickle
     from astropy.table import Table
+    import time
 
     from voidfinder_functions import save_maximals
 
@@ -322,14 +323,30 @@ if __name__ == '__main__':
 
     potential_voids_table.reverse()
     '''
-    potential_voids_table = Table.read('potential_voids_list.txt', format = 'ascii.commented_header')
+    survey_name = 'DESI_void_flatmock_1_'
+    out_directory = 'DESI/mocks/'
+    galaxies_filename = 'void_flatmock_1.fits'
+
+    potential_voids_table = Table.read(survey_name + 'potential_voids_list.txt', format = 'ascii.commented_header')
+
+    combine_start = time.time()
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, 0.1)
 
     print('Number of unique voids is', len(maximal_spheres_table))
     print('Number of void holes is', len(myvoids_table))
 
-    save_maximals(maximal_spheres_table, 'maximal_spheres.txt')
+    # Save list of all void holes
+    out2_filename = out_directory + galaxies_filename[:-5] + '_holes.txt'
+    myvoids_table.write(out2_filename, format='ascii.commented_header', overwrite=True)
+
+    combine_end = time.time()
+
+    print('Time to combine holes into voids =', combine_end-combine_start,flush=True)
+
+    # Save list of maximal spheres
+    out1_filename = out_directory + galaxies_filename[:-5] + '_maximal.txt'
+    save_maximals(maximal_spheres_table, out1_filename)
     
     '''
     fake_x = [0, 1, 0, 30, 55, -18, 72, 0]
