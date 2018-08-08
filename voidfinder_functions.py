@@ -188,7 +188,8 @@ def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
 
     boolean : True if coordinates fall outside the survey_mask
     '''
-    coords = coordinates[0]
+
+    coords = coordinates[0]  # Convert shape from (1,3) to (3,)
     r = np.linalg.norm(coords)
 
     if r < rmin or r > rmax:

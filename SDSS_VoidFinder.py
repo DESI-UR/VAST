@@ -9,6 +9,7 @@
 
 from voidfinder import filter_galaxies, find_voids
 from astropy.table import Table
+import pickle
 
 
 ################################################################################
@@ -57,7 +58,14 @@ maskfile = Table.read(mask_filename, format='ascii.commented_header')
 ################################################################################
 
 
+'''
 coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name)
+
+temp_outfile = open("filter_galaxies_output.pickle", 'wb')
+pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
+temp_outfile.close()
+'''
+
 
 
 ################################################################################
@@ -65,6 +73,11 @@ coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_d
 #   FIND VOIDS
 #
 ################################################################################
+
+
+temp_infile = open("filter_galaxies_output.pickle", 'rb')
+coord_min_table, mask, ngrid = pickle.load(temp_infile)
+temp_infile.close()
 
 
 find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name)

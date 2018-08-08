@@ -13,6 +13,8 @@ from astropy.table import Table
 
 from absmag_comovingdist_functions import Distance
 
+import pickle
+
 ################################################################################
 #
 #   USER INPUTS
@@ -104,6 +106,10 @@ if 'Rgal' not in infile.columns:
 
 coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name)
 
+temp_outfile = open("filter_galaxies_output.pickle", 'wb')
+pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
+temp_outfile.close()
+
 
 ################################################################################
 #
@@ -111,5 +117,9 @@ coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_d
 #
 ################################################################################
 
+
+temp_infile = open("filter_galaxies_output.pickle", 'rb')
+coord_min_table, mask, ngrid = pickle.load(temp_infile)
+temp_infile.close()
 
 find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name)

@@ -86,7 +86,6 @@ def combine_holes(spheres_table, frac):
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
-        sphere_i_coordinates = sphere_i_coordinates.T
         #print(sphere_i_coordinates.shape)
 
         # Radius of sphere i
@@ -220,7 +219,6 @@ def combine_holes(spheres_table, frac):
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
-        sphere_i_coordinates = sphere_i_coordinates.T
 
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
