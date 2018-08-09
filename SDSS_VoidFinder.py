@@ -59,7 +59,7 @@ maskfile = Table.read(mask_filename, format='ascii.commented_header')
 
 
 '''
-coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name)
+coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, True)
 
 temp_outfile = open("filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)

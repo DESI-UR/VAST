@@ -7,8 +7,13 @@
 ################################################################################
 
 from voidfinder import filter_galaxies, find_voids
+
 from astropy.io import fits
 from astropy.table import Table
+
+from absmag_comovingdist_functions import Distance
+
+import pickle
 
 ################################################################################
 #
@@ -16,9 +21,12 @@ from astropy.table import Table
 #
 ################################################################################
 
+
+survey_name = 'DESI_dc17_'
+
 # File header
-in_directory = ''
-out_directory = '/scratch/mguzzett/VoidFinder/'
+in_directory = '/scratch/kdougla7/VoidFinder/DESI/'
+out_directory = '/scratch/kdougla7/VoidFinder/DESI/'
 
 # Input file names
 in_filename = in_directory + 'DESI_sgc.fits' # File format: RA, dec, redshift, comoving distance, absolute magnitude

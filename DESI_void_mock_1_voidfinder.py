@@ -26,7 +26,7 @@ survey_name = 'DESI_void_flatmock_1_'
 
 # File header
 in_directory = '/scratch/sbenzvi_lab/desi/void_catalog/'
-out_directory = 'DESI/mocks/'
+out_directory = '/scratch/kdougla7/VoidFinder/DESI/mocks/'
 
 # Input file names
 galaxies_filename = 'void_flatmock_1.fits'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
@@ -34,12 +34,6 @@ mask_filename = 'void_1_mask.dat'                                       # File f
 
 in_filename = in_directory + galaxies_filename
 mask_filename = out_directory + mask_filename
-
-# Output file names
-out1_filename = out_directory + galaxies_filename[:-5] + '_maximal.txt'  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = out_directory + galaxies_filename[:-5] + '_holes.txt'    # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-#out3_filename = out_directory + 'out3_vollim_dr7.txt'              # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-#voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'      # List of the void galaxies: x, y, z, void region
 
 
 # Survey parameters
@@ -53,6 +47,21 @@ h = 1
 
 # Remove faint galaxies?
 mag_cut = False
+
+
+# Output file names
+if mag_cut:
+    out1_suffix = '_maximal.txt'
+    out2_suffix = '_holes.txt'
+else:
+    out1_suffix = '_maximal_noMagCut.txt'
+    out2_suffix = '_holes_noMagCut.txt'
+
+out1_filename = out_directory + galaxies_filename[:-5] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = out_directory + galaxies_filename[:-5] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+#out3_filename = out_directory + 'out3_vollim_dr7.txt'                # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
+#voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'        # List of the void galaxies: x, y, z, void region
+
 
 
 ################################################################################
