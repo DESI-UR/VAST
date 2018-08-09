@@ -28,7 +28,7 @@ DtoR = np.pi/180.
 RtoD = 180./np.pi
 
 
-def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name):
+def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_flag):
     
     ################################################################################
     #
@@ -38,7 +38,8 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name):
     print('Pre-processing data', flush=True)
 
     # Remove faint galaxies
-    infile = mag_cut(infile,-20)
+    if mag_cut_flag:
+        infile = mag_cut(infile,-20)
 
     # Convert galaxy coordinates to Cartesian
     xin = infile['Rgal']*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)

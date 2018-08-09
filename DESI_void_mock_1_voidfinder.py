@@ -25,15 +25,15 @@ import pickle
 survey_name = 'DESI_void_flatmock_1_'
 
 # File header
-in_directory = 'DESI/mocks/'
+in_directory = '/scratch/sbenzvi_lab/desi/void_catalog/'
 out_directory = 'DESI/mocks/'
 
 # Input file names
 galaxies_filename = 'void_flatmock_1.fits'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'void_1_mask.dat'           # File format: RA, dec
+mask_filename = 'void_1_mask.dat'                                       # File format: RA, dec
 
 in_filename = in_directory + galaxies_filename
-mask_filename = in_directory + mask_filename
+mask_filename = out_directory + mask_filename
 
 # Output file names
 out1_filename = out_directory + galaxies_filename[:-5] + '_maximal.txt'  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
@@ -50,6 +50,9 @@ max_dist = 2600  # z = 1.2 --> 2634 Mpc/h
 # Cosmology
 Omega_M = 0.3
 h = 1
+
+# Remove faint galaxies?
+mag_cut = False
 
 
 ################################################################################
@@ -104,7 +107,7 @@ if 'Rgal' not in infile.columns:
 ################################################################################
 
 
-coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name)
+coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut)
 
 temp_outfile = open("filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
