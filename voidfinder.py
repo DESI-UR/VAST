@@ -28,7 +28,7 @@ DtoR = np.pi/180.
 RtoD = 180./np.pi
 
 
-def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_flag):
+def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_flag, rm_isolated_flag):
     
     ################################################################################
     #
@@ -140,40 +140,49 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
     #   SEPARATION
     #
     ################################################################################
-  
-    sep_start = time.time()
-
-    print('Finding sep',flush=True)
-
-    l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
-
-    print('Average separation of n3rd gal is', avsep, flush=True)
-    print('The standard deviation is', sd,flush=True)
-
-    # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
-    # l = 7.36181  # s0 = 3.5, gamma = 1.4
-    # or force l to have a fixed number by setting l = ****
-
-    print('Going to build wall with search value', l, flush=True)
-
-    sep_end = time.time()
-
-    print('Time to find sep =',sep_end-sep_start, flush=True)
-
-    fw_start = time.time()
-
-    f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
-
-    f_coord_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header',overwrite=True)
-    w_coord_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header',overwrite=True)
     
-    fw_end = time.time()
+    if rm_isolated_flag:
+        sep_start = time.time()
 
-    print('Time to sort field and wall gals =',fw_end-fw_start, flush=True)
+        print('Finding sep',flush=True)
+
+        l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
+
+        print('Average separation of n3rd gal is', avsep, flush=True)
+        print('The standard deviation is', sd,flush=True)
+
+        # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
+        # l = 7.36181  # s0 = 3.5, gamma = 1.4
+        # or force l to have a fixed number by setting l = ****
+
+        print('Going to build wall with search value', l, flush=True)
+
+        sep_end = time.time()
+
+        print('Time to find sep =',sep_end-sep_start, flush=True)
+
+        fw_start = time.time()
+
+        f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
+
+    else:
+        w_coord_table = coord_in_table
+        f_coord_table = Table(names=coord_in_table.colnames)
+
+
+    f_coord_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
+    w_coord_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
+
+
+    if rm_isolated_flag:
+        fw_end = time.time()
+
+        print('Time to sort field and wall gals =', fw_end-fw_start, flush=True)
+
 
     nf =  len(f_coord_table)
     nwall = len(w_coord_table)
-    print('Number of field gals:', nf,'Number of wall gals:', nwall, flush=True)
+    print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
 
     return coord_min_table, mask, ngrid[0]
 

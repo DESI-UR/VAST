@@ -30,7 +30,7 @@ out_directory = '/scratch/kdougla7/VoidFinder/DESI/mocks/'
 
 # Input file names
 galaxies_filename = 'void_flatmock_1.fits'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-mask_filename = 'void_1_mask.dat'                                       # File format: RA, dec
+mask_filename = 'void_1_mask.dat'           # File format: RA, dec
 
 in_filename = in_directory + galaxies_filename
 mask_filename = out_directory + mask_filename
@@ -48,14 +48,23 @@ h = 1
 # Remove faint galaxies?
 mag_cut = False
 
+# Remove isolated galaxies?
+rm_isolated = False
+
 
 # Output file names
-if mag_cut:
+if mag_cut and rm_isolated:
     out1_suffix = '_maximal.txt'
     out2_suffix = '_holes.txt'
-else:
+elif rm_isolated:
     out1_suffix = '_maximal_noMagCut.txt'
     out2_suffix = '_holes_noMagCut.txt'
+elif mag_cut:
+    out1_suffix = '_maximal_keepIsolated.txt'
+    out2_suffix = '_holes_keepIsolated.txt'
+else:
+    out1_suffix = '_maximal_noFiltering.txt'
+    out2_suffix = 'holes_noFiltering.txt'
 
 out1_filename = out_directory + galaxies_filename[:-5] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
 out2_filename = out_directory + galaxies_filename[:-5] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
@@ -116,7 +125,7 @@ if 'Rgal' not in infile.columns:
 ################################################################################
 
 
-coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut)
+coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut, rm_isolated)
 
 temp_outfile = open("filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
