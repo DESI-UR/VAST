@@ -44,8 +44,9 @@ voids['voidID'] == index number identifying to which void the sphere belongs
 '''
 
 #galaxy_file = input('Galaxy data file (with extension): ')
-galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_found.txt'
-galaxies = Table.read(galaxy_file, format='ascii.commented_header')
+#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_found.txt'
+galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_classified.txt'
+galaxies = Table.read(galaxy_file, format='ascii.ecsv')
 
 
 ################################################################################
@@ -57,16 +58,16 @@ galaxies = Table.read(galaxy_file, format='ascii.commented_header')
 
 
 # Convert redshift to distance
-galaxies_r = c*galaxies['redshift']/H
+galaxies_r = c*galaxies['NSA_zdist']/H
 
 # Calculate x-coordinates
-galaxies_x = galaxies_r*np.cos(galaxies['dec'])*np.cos(galaxies['ra'])
+galaxies_x = galaxies_r*np.cos(galaxies['NSA_DEC'])*np.cos(galaxies['NSA_RA'])
 
 # Calculate y-coordinates
-galaxies_y = galaxies_r*np.cos(galaxies['dec'])*np.sin(galaxies['ra'])
+galaxies_y = galaxies_r*np.cos(galaxies['NSA_DEC'])*np.sin(galaxies['NSA_RA'])
 
 # Calculate z-coordinates
-galaxies_z = galaxies_r*np.sin(galaxies['dec'])
+galaxies_z = galaxies_r*np.sin(galaxies['NSA_DEC'])
 
 
 ################################################################################
@@ -77,6 +78,8 @@ galaxies_z = galaxies_r*np.sin(galaxies['dec'])
 
 
 for i in range(len(galaxies)):
+
+    #print('Galaxy #', galaxies['NSA_index'][i])
     
     galaxies['vflag'][i] = determine_vflag(galaxies_x[i],galaxies_y[i],galaxies_z[i], voids)
 
@@ -91,4 +94,4 @@ for i in range(len(galaxies)):
 # Output file name
 outfile = galaxy_file[:-4] + '_vflag.txt'
 
-galaxies.write(outfile, format=)
+galaxies.write(outfile, format='ascii.ecsv')
