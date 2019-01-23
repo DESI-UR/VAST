@@ -19,7 +19,7 @@ from python.voidfinder._git import get_version, SetVersion
 #
 setup_keywords = dict()
 #
-setup_keywords['name'] = 'VoidFinder'
+setup_keywords['name'] = 'voidfinder'
 setup_keywords['description'] = 'VoidFinder package'
 setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
 setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
