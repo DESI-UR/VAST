@@ -1,22 +1,16 @@
-'''Determines whether or not a galaxy is a void, wall, edge, or unclassifiable 
-galaxy.'''
+'''
+voidfinder.vflag
+================
 
-
-################################################################################
-#
-#   IMPORT LIBRARIES
-#
-################################################################################
+Determines whether or not a galaxy is a void, wall, edge, or unclassifiable
+galaxy.
+'''
 
 
 import numpy as np
-
 from astropy.table import Table
 
 from voidfinder_functions import not_in_mask
-
-
-
 
 maskra = 360
 maskdec = 180
@@ -30,7 +24,7 @@ dec_offset = -90
 ################################################################################
 
 
-def determine_vflag(x,y,z,voids):
+def determine_vflag(x, y, z, voids):
 
     ############################################################################
     #   INTRO CALCULATIONS, INITIALIZATIONS
