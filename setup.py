@@ -43,7 +43,8 @@ setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = find_packages('python')
 setup_keywords['package_dir'] = {'': 'python'}
 setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
-setup_keywords['test_suite']='{name}.test.test_suite'.format(**setup_keywords)
+setup_keywords['test_suite']='nose.collector'
+setup_keywords['tests_require']=['nose']
 #
 # Internal data directories.
 #
