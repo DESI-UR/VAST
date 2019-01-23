@@ -23,6 +23,20 @@ maskdec = 180
 dec_offset = -90
 
 
+
+
+# Read in survey mask
+survey_mask = Table.read('SDSSdr7/cbpdr7mask.dat', format='ascii.commented_header')  # SDSS DR7
+
+# Make mask
+mask = np.zeros((maskra, maskdec), dtype=np.bool)
+mask[survey_mask['ra'].astype(int), survey_mask['dec'].astype(int) - dec_offset] = True
+
+# Distance limits (units of Mpc/h, taken from voids_sdss.py)
+rmin = 0
+rmax = 300
+
+
 ################################################################################
 #
 #   FUNCTION - DETERMINE_VFLAG
@@ -40,14 +54,14 @@ def determine_vflag(x,y,z,voids):
     distance_to_center = np.sqrt((voids['x'] - x)**2 + (voids['y'] - y)**2 + (voids['z'] - z)**2)
     
     # Boolean to find which void surrounds the galaxy, if any
-    bool = distance_to_center < voids['radius']
+    boolean = distance_to_center < voids['radius']
     
     
     ############################################################################
     #   VOID GALAXIES
     ############################################################################
     
-    if any(bool):
+    if any(boolean):
         # The galaxy resides in at least one void
         vflag = 1
         
@@ -63,21 +77,10 @@ def determine_vflag(x,y,z,voids):
         # Is the galaxy outside the survey boundary?
         ########################################################################
 
-        # Read in survey mask
-        survey_mask = Table.read('SDSSdr7/cbpdr7mask.dat', format='ascii.commented_header')  # SDSS DR7
-
-        # Make mask
-        mask = np.zeros((maskra, maskdec), dtype=np.bool)
-        mask[survey_mask['ra'].astype(int), survey_mask['dec'].astype(int) - dec_offset] = True
-
-        # Distance limits (units of Mpc/h, taken from voids_sdss.py)
-        rmin = 0
-        rmax = 300
-
         coord_array = np.array([[x,y,z]])
 
         # Check to see if the galaxy is within the survey
-        if not_in_mask(np.array([[x,y,z]]), mask, rmin, rmax):
+        if not_in_mask(coord_array, mask, rmin, rmax):
             # Galaxy is outside the survey mask
             vflag = -9
 

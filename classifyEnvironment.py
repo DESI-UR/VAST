@@ -26,6 +26,8 @@ c = 3e5 # km/s
 h = 1
 H = 100*h
 
+DtoR = np.pi/180
+
 
 ################################################################################
 #
@@ -44,8 +46,10 @@ voids['voidID'] == index number identifying to which void the sphere belongs
 '''
 
 #galaxy_file = input('Galaxy data file (with extension): ')
-#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_found.txt'
-galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_classified.txt'
+galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_found.txt'
+#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_classified.txt'
+#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/void_reclassification.txt'
+#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/wall_reclassification.txt'
 galaxies = Table.read(galaxy_file, format='ascii.ecsv')
 
 
@@ -61,13 +65,13 @@ galaxies = Table.read(galaxy_file, format='ascii.ecsv')
 galaxies_r = c*galaxies['NSA_zdist']/H
 
 # Calculate x-coordinates
-galaxies_x = galaxies_r*np.cos(galaxies['NSA_DEC'])*np.cos(galaxies['NSA_RA'])
+galaxies_x = galaxies_r*np.cos(galaxies['NSA_DEC']*DtoR)*np.cos(galaxies['NSA_RA']*DtoR)
 
 # Calculate y-coordinates
-galaxies_y = galaxies_r*np.cos(galaxies['NSA_DEC'])*np.sin(galaxies['NSA_RA'])
+galaxies_y = galaxies_r*np.cos(galaxies['NSA_DEC']*DtoR)*np.sin(galaxies['NSA_RA']*DtoR)
 
 # Calculate z-coordinates
-galaxies_z = galaxies_r*np.sin(galaxies['NSA_DEC'])
+galaxies_z = galaxies_r*np.sin(galaxies['NSA_DEC']*DtoR)
 
 
 ################################################################################
@@ -94,4 +98,4 @@ for i in range(len(galaxies)):
 # Output file name
 outfile = galaxy_file[:-4] + '_vflag.txt'
 
-galaxies.write(outfile, format='ascii.ecsv')
+galaxies.write(outfile, format='ascii.ecsv', overwrite=True)
