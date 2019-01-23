@@ -1,13 +1,12 @@
-'''General astropy table functions'''
+'''
+voidfinder.table_functions
+==========================
+
+General astropy table functions.
+'''
 
 import numpy as np
 from astropy.table import Table
-
-################################################################################
-#
-#   DEFINE FUNCTIONS
-#
-################################################################################
 
 def add_row(table, row):
     '''Column-wise add table row to table'''
@@ -19,9 +18,6 @@ def add_row(table, row):
 
     return out_table
 
-################################################################################
-################################################################################
-
 def subtract_row(table, row):
     '''Column-wise subtract table row from table'''
 
@@ -31,9 +27,6 @@ def subtract_row(table, row):
         out_table[name] = table[name] - row[name]
 
     return out_table
-
-################################################################################
-################################################################################
 
 def table_divide(table, scalar):
     '''Scale values in table'''
@@ -45,9 +38,6 @@ def table_divide(table, scalar):
 
     return out_table
 
-################################################################################
-################################################################################
-
 def table_dtype_cast(table, dtype):
     '''Cast table dtype to given dtype'''
 
@@ -56,9 +46,6 @@ def table_dtype_cast(table, dtype):
 
     return table
 
-################################################################################
-################################################################################
-
 def row_cross(row1, row2):
     '''Calculate cross-product of two rows'''
 
@@ -66,18 +53,12 @@ def row_cross(row1, row2):
 
     return Table(crossed_row, names=['x','y','z'])
 
-################################################################################
-################################################################################
-
 def row_dot(row1, row2):
     '''Calculate the dot-product of two rows'''
 
     dotted_row = np.dot(to_vector(row1), to_vector(row2))
 
     return dotted_row
-
-################################################################################
-################################################################################
 
 def to_vector(row):
     '''Convert table row to numpy array'''
@@ -87,9 +68,6 @@ def to_vector(row):
 
     return vector
 
-################################################################################
-################################################################################
-
 def to_array(table):
     '''Convert table to numpy array'''
 
@@ -98,19 +76,3 @@ def to_array(table):
 
     return array
 
-
-
-
-
-
-
-if __name__ == '__main__':
-
-    fake_x = [0, 1, 0, 30, 55, -18, 72, 0]
-    fake_y = [0, 0, -18, 0, 0, 0, 0, 100]
-    fake_radius = [20, 11, 15, 16, 18, 9, 8, 7]
-    fake_table = Table([fake_x, fake_y, fake_radius], names=('x','y','radius'))
-    fake_table['z'] = 0
-
-    fake_coordinates = to_array(fake_table)
-    print(fake_coordinates)
