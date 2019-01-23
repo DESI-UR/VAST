@@ -13,7 +13,7 @@ import sys
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 #
-from python.VoidFinder._git import get_version, SetVersion
+from python.voidfinder._git import get_version, SetVersion
 #
 # Package setup.
 #

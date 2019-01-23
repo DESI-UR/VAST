@@ -134,8 +134,8 @@ def find_version_directory():
 
     Looks for files in the following places:
 
-    * python/ussr/_version.py
-    * ussr/_version.py
+    * python/voidfinder/_version.py
+    * voidfinder/_version.py
 
     Returns
     -------
@@ -147,7 +147,7 @@ def find_version_directory():
     IOError
         If no valid directory can be found.
     """
-    packagename='ussr'
+    packagename='voidfinder'
     setup_dir = abspath('.')
     if isdir(join(setup_dir, 'python', packagename)):
         version_dir = join(setup_dir, 'python', packagename)
