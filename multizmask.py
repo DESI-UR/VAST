@@ -1,6 +1,5 @@
 from astropy.io import fits
 import matplotlib.pyplot as plt
-from astropy.table import Table, unique
 import numpy as np
 import argparse
 from absmag_comovingdist_functions import Distance
@@ -51,12 +50,11 @@ ax.set_ylabel('DEC')
 
 plt.show()'''
 
-nmin = 1 + int(D2R*np.amin(r)/10.)
 nmax = 1 + int(D2R*np.amax(r)/10.)
 
 mask = []
 
-for i in range(nmin,nmax+1):
+for i in range(1,nmax+1):
     mask.append(np.unique((i*ang).astype(int),axis=0)
 
 np.savey(args.output,mask)
