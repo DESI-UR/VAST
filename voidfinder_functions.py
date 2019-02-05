@@ -7,6 +7,7 @@ from table_functions import add_row, subtract_row, table_divide, table_dtype_cas
 
 
 RtoD = 180./np.pi
+DtoR = np.pi/180.
 dec_offset = -90
 
 
@@ -114,8 +115,6 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
     '''
-    dec_offset = -90
-    DtoR       = np.pi/180.
 
     # Convert coordinates to table if not already
     if not isinstance(coordinates, Table):
@@ -124,7 +123,7 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     good = True
 
     r = np.linalg.norm(to_vector(coordinates))
-    n = 1 + int(DtoR*r/10.)
+    n = 1 + (DtoR*r/10.).astype(int)
     ra = np.arctan(coordinates['y'][0]/coordinates['x'][0])*RtoD
     dec = np.arcsin(coordinates['z'][0]/r)*RtoD
 
@@ -134,7 +133,7 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     if ra < 0:
         ra += 360.
     
-    if (survey_mask[n, ra.astype(int), dec.astype(int)-dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
+    if (survey_mask[n, (n*ra).astype(int), (n*dec).astype(int)-n*dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
         good = False
 
     return good
@@ -153,6 +152,7 @@ def in_mask(coordinates, survey_mask, r_limits):
         coordinates.shape = (1,3)
 
     r = np.linalg.norm(coordinates, axis=1)
+    n = 1 + (DtoR*r/10.).astype(int)
     ra = np.arctan(coordinates[:,1]/coordinates[:,0])*RtoD
     dec = np.arcsin(coordinates[:,2]/r)*RtoD
 
@@ -161,7 +161,7 @@ def in_mask(coordinates, survey_mask, r_limits):
     ra[boolean_ra180] += 180.
     ra[ra < 0] += 360.
     
-    good = np.logical_and.reduce((survey_mask[ra.astype(int), dec.astype(int)-dec_offset] == 1, r <= r_limits[1], r >= r_limits[0]))
+    good = np.logical_and.reduce((survey_mask[n, (n*ra).astype(int), (n*dec).astype(int)-n*dec_offset] == 1, r <= r_limits[1], r >= r_limits[0]))
 
     return good
 
@@ -197,6 +197,7 @@ def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
     if r < rmin or r > rmax:
         return True
 
+    n = 1 + int(DtoR*r/10.)
     ra = np.arctan(coords[1]/coords[0])*RtoD
     dec = np.arcsin(coords[2]/r)*RtoD
 
@@ -205,7 +206,7 @@ def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
     if ra < 0:
         ra += 360
 
-    return not survey_mask_ra_dec[int(ra), int(dec)-dec_offset]
+    return not survey_mask_ra_dec[n, int(n*ra), int(n*dec)-n*dec_offset]
 
 
 
