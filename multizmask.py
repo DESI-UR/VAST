@@ -1,4 +1,5 @@
 from astropy.io import fits
+from astropy.table import Table
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
@@ -15,7 +16,7 @@ parser.add_argument('--output', '-o',
                     dest    = 'output',
                     default = None,
                     type    = str)
-parser.add_argument('--H0','-h',
+parser.add_argument('--H0','-H',
                     help    = 'H_0',
                     dest    = 'H0',
                     default = 100.,
@@ -34,10 +35,10 @@ H_0 = args.H0
 O_m = args.Om
 D2R = np.pi/180.
 
-ra  = gal_data['RA']%360
-dec = gal_data['DEC']
-r   = Distance(gal_data['Z'], O_m, H_0/100.)
-ang = np.array(zip(ra,dec))
+ra  = gal_data['ra']%360
+dec = gal_data['dec']
+r   = Distance(gal_data['z'], O_m, H_0/100.)
+ang = np.array(list(zip(ra,dec)))
 
 '''fig = plt.figure()
 
@@ -55,6 +56,7 @@ nmax = 1 + int(D2R*np.amax(r)/10.)
 mask = []
 
 for i in range(1,nmax+1):
-    mask.append(np.unique((i*ang).astype(int),axis=0)
+    mask.append(list(zip(*(np.unique((i*ang).astype(int),axis=0)))))
 
-np.savey(args.output,mask)
+mask = np.array(mask)
+np.save(args.output,mask)
