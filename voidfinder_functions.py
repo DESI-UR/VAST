@@ -115,6 +115,7 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     Determine whether the specified coordinates are within the masked area.
     '''
     dec_offset = -90
+    DtoR       = np.pi/180.
 
     # Convert coordinates to table if not already
     if not isinstance(coordinates, Table):
@@ -123,6 +124,7 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     good = True
 
     r = np.linalg.norm(to_vector(coordinates))
+    n = 1 + int(DtoR*r/10.)
     ra = np.arctan(coordinates['y'][0]/coordinates['x'][0])*RtoD
     dec = np.arcsin(coordinates['z'][0]/r)*RtoD
 
@@ -132,7 +134,7 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     if ra < 0:
         ra += 360.
     
-    if (survey_mask[ra.astype(int), dec.astype(int)-dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
+    if (survey_mask[n, ra.astype(int), dec.astype(int)-dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
         good = False
 
     return good
