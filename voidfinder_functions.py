@@ -133,7 +133,7 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     if ra < 0:
         ra += 360.
     
-    if (survey_mask[n, (n*ra).astype(int), (n*dec).astype(int)-n*dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
+    if (survey_mask[n-1][(n*ra).astype(int)][(n*dec).astype(int)-n*dec_offset] == 0) or (r > r_limits[1]) or (r < r_limits[0]):
         good = False
 
     return good
@@ -160,8 +160,12 @@ def in_mask(coordinates, survey_mask, r_limits):
     boolean_ra180 = np.logical_and(coordinates[:,0] < 0, coordinates[:,1] != 0)
     ra[boolean_ra180] += 180.
     ra[ra < 0] += 360.
-    
-    good = np.logical_and.reduce((survey_mask[n, (n*ra).astype(int), (n*dec).astype(int)-n*dec_offset] == 1, r <= r_limits[1], r >= r_limits[0]))
+
+    angood = []
+    for i in range(len(ra)):
+        angood.append(survey_mask[n[i]-1][int(n[i]*ra[i])][int(n[i]*dec[i])-n[i]*dec_offset])
+    #good = np.logical_and.reduce((survey_mask[n-1][(n*ra).astype(int)][(n*dec).astype(int)-n*dec_offset] == 1, r <= r_limits[1], r >= r_limits[0]))
+    good = np.logical_and.reduce((np.array(angood), r<= r_limits[1], r >= r_limits[0]))
 
     return good
 
@@ -206,7 +210,7 @@ def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
     if ra < 0:
         ra += 360
 
-    return not survey_mask_ra_dec[n, int(n*ra), int(n*dec)-n*dec_offset]
+    return not survey_mask_ra_dec[n-1][int(n*ra)][int(n*dec)-n*dec_offset]
 
 
 
