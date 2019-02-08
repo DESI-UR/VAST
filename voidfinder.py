@@ -79,7 +79,6 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
         mask.append(np.zeros((i*maskra,i*maskdec),dtype=bool))
         for j in range(len(maskfile[i-1][0])):
             mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
-        #mask[i-1][np.array([np.array(maskfile[i-1][0]),np.array(maskfile[i-1][1])])-np.array([[0],[i*dec_offset]])] = True
     mask = np.array(mask)
     vol = len(maskfile)
 
