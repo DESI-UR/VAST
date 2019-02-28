@@ -3,7 +3,7 @@
 import numpy as np
 from astropy.table import Table, Row
 
-from table_functions import add_row, subtract_row, table_divide, table_dtype_cast, row_cross, row_dot, to_vector, to_array
+from .table_functions import add_row, subtract_row, table_divide, table_dtype_cast, row_cross, row_dot, to_vector, to_array
 
 
 RtoD = 180./np.pi

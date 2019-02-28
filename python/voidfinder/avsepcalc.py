@@ -3,7 +3,7 @@
 from scipy import spatial
 import numpy as np
 
-from table_functions import to_array
+from .table_functions import to_array
 
 def av_sep_calc(GALTABLEXYZ):
 

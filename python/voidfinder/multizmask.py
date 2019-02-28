@@ -28,8 +28,22 @@ parser.add_argument('--OmegaM','-m',
                     type    = float)
 args = parser.parse_args()
 
-gal_file = fits.open(args.input) 
-gal_data = Table(gal_file[1].data)
+
+
+
+#################################################################
+# Mucking around with the input
+#################################################################
+#gal_file = fits.open(args.input) 
+#gal_data = Table(gal_file[1].data)
+
+gal_data = Table.read(args.input, format="ascii.commented_header")
+
+#################################################################
+# 
+#################################################################
+
+
 
 H_0 = args.H0
 O_m = args.Om
@@ -37,7 +51,7 @@ D2R = np.pi/180.
 
 ra  = gal_data['ra']%360
 dec = gal_data['dec']
-r   = Distance(gal_data['z'], O_m, H_0/100.)
+r   = Distance(gal_data['redshift'], O_m, H_0/100.)
 ang = np.array(list(zip(ra,dec)))
 
 '''fig = plt.figure()

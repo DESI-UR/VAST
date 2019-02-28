@@ -2,7 +2,7 @@ from astropy.table import Table
 
 import numpy as np
 
-from table_functions import to_array,to_vector
+from .table_functions import to_array,to_vector
 
 #import warnings
 #warnings.simplefilter('error')

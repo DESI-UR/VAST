@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from voidfinder_functions import in_mask
-from hole_combine import spherical_cap_volume
+from .voidfinder_functions import in_mask
+from .hole_combine import spherical_cap_volume
 from astropy.table import Table
 
 
