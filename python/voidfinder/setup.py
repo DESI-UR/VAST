@@ -15,8 +15,8 @@ extensions = [
     
     
     Extension(
-        "_voidfinder",
-        ["_voidfinder.pyx"],
+        "_voidfinder_cython",
+        ["_voidfinder_cython.pyx"],
         include_dirs=[numpy.get_include()+"/numpy"],
         libraries=["m"],
         #extra_compile_args=['-fopenmp'],

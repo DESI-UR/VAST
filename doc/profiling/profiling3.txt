@@ -1,0 +1,66 @@
+
+#################################################################
+
+Single thread with cython version.
+
+produced file:
+cell_time_dist_cython.png
+
+
+#################################################################
+
+Galaxy grid indices computed
+Growing holes
+cell_ID_list finish time:  0.10656571388244629
+Running single-process mode
+KDTree creation time: 0.03217744827270508
+Processed 10000 cells of 390860
+Processed 20000 cells of 390860
+Processed 30000 cells of 390860
+Processed 40000 cells of 390860
+Processed 50000 cells of 390860
+Processed 60000 cells of 390860
+Processed 70000 cells of 390860
+Processed 80000 cells of 390860
+Processed 90000 cells of 390860
+Processed 100000 cells of 390860
+Processed 110000 cells of 390860
+Processed 120000 cells of 390860
+Processed 130000 cells of 390860
+Processed 140000 cells of 390860
+Processed 150000 cells of 390860
+Processed 160000 cells of 390860
+Processed 170000 cells of 390860
+Processed 180000 cells of 390860
+Processed 190000 cells of 390860
+Processed 200000 cells of 390860
+Processed 210000 cells of 390860
+Processed 220000 cells of 390860
+Processed 230000 cells of 390860
+Processed 240000 cells of 390860
+Processed 250000 cells of 390860
+Processed 260000 cells of 390860
+Processed 270000 cells of 390860
+Processed 280000 cells of 390860
+Processed 290000 cells of 390860
+Processed 300000 cells of 390860
+Processed 310000 cells of 390860
+Processed 320000 cells of 390860
+Processed 330000 cells of 390860
+Processed 340000 cells of 390860
+Processed 350000 cells of 390860
+Processed 360000 cells of 390860
+Processed 370000 cells of 390860
+Processed 380000 cells of 390860
+Processed 390000 cells of 390860
+Found a total of 113586 potential voids.
+Time to find all holes = 397.85032391548157
+Sorting holes by size
+Holes are sorted.
+Time to sort holes = 0.08373856544494629
+Removing holes with at least 10% of their volume outside the mask
+Combining holes into unique voids
+Maximal spheres identified
+Number of unique voids is 829
+Time to combine holes into voids = 32.26241660118103
+
