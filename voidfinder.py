@@ -659,7 +659,7 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, 
                             top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
                             #print('top shape:', top.shape)
                             
-                            x41 = top/bot.T[0]  # shape (N,)
+                            x41 = top/bot  # shape (N,)
                             #print('x41 shape:', x41.shape)
 
                             # Locate positive values of x41
@@ -751,7 +751,7 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, 
 
                             top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
 
-                            x42 = top/bot.T[0]  # shape (N,)
+                            x42 = top/bot  # shape (N,)
 
                             # Locate positive values of x42
                             valid_idx = np.where(x42 > 0)[0]  # shape (n,)
