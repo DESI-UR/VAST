@@ -21,6 +21,8 @@ from queue import Empty
 
 from copy import deepcopy
 
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 
@@ -665,7 +667,7 @@ def run_single_process(cell_ID_list,
                 top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
                 #print('top shape:', top.shape)
                 
-                x41 = top/bot.T[0]  # shape (N,)
+                x41 = top/bot  # shape (N,)
                 #print('x41 shape:', x41.shape)
     
                 # Locate positive values of x41
@@ -763,7 +765,7 @@ def run_single_process(cell_ID_list,
     
                 top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
     
-                x42 = top/bot.T[0]  # shape (N,)
+                x42 = top/bot  # shape (N,)
     
                 # Locate positive values of x42
                 valid_idx = np.where(x42 > 0)[0]  # shape (n,)
@@ -1090,10 +1092,13 @@ def run_single_process_cython(cell_ID_list,
         
         PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
         
-        
-    fig = plt.figure(figsize=(14,10))
+    
+    print('Plotting single cell processing times distribution')
+    plt.figure(figsize=(14,10))
     plt.hist(PROFILE_loop_times, bins=50)
     plt.title("All Single Cell processing times Cython (sec)")
+    plt.xlabel('Time [s]')
+    plt.ylabel('Count')
     #plt.show()
     plt.savefig("Cell_time_dist_Cython.png")
     plt.close()

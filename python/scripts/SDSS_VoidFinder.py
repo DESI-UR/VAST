@@ -8,7 +8,7 @@
 
 
 import sys
-sys.path.insert(1, "/home/moose/VoidFinder/python")
+sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python')
 
 from voidfinder import filter_galaxies, find_voids
 from astropy.table import Table
@@ -26,7 +26,7 @@ import numpy as np
 survey_name = 'SDSS_dr7_'
 
 # File header
-directory = '/home/moose/VoidFinder/python/voidfinder/data/'
+directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
 
 # Input file names
 in_filename = directory + 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
