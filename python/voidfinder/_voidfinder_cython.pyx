@@ -273,7 +273,7 @@ cpdef void main_algorithm(int i,
     #print(k1g)
     #print(v1_unit)
 
-    ############################################################
+    ############################################################################
     #
     # Find Galaxy 2 
     #
@@ -285,19 +285,85 @@ cpdef void main_algorithm(int i,
     # center of the hole to find the next nearest neighbors.  
     # From there, we will minimize top/bottom to find which one 
     # is the next nearest galaxy that bounds the hole.
-    ############################################################
+    ############################################################################
 
     galaxy_search = True
     
     
-    ############################################################
+    ############################################################################
     # Update hole center 2
-    ############################################################
+    ############################################################################
     '''
     hole_center_2 = hole_center
     '''
     for idx in range(3):
         hole_center_2_memview[0,idx] = hole_center_memview[0,idx]
+
+
+    ############################################################################
+    # Find galaxy 2
+    #
+    # List of used variables:
+    #   - hole_center_2_memview
+    #   - modv1
+    #   - dr
+    #   - v1_unit_memview
+    #   - galaxy_tree
+    #   - k1g
+    #   - w_coord
+    #   - BA_memview
+    ############################################################################
+
+
+
+    #copy hole_center_2
+    #make list of the [k1g, k2g, ...] to put in nearest_gal_index_list
+    #
+    #
+    cdef hole_center_2_memview_copy = np.empty((1,3), dtype=np.float64, order='C')
+    cdef DTYPE_F64_t modv1_copy = modv1
+    cdef DTYPE_F64_t dr_copy = dr
+    cdef DTYPE_F64_t[:] v1_unit_memview_copy = np.empty((1,3), dtype=np.float64, order='C')
+
+
+    for idx in range(3):
+        v1_unit_memview_copy[idx] = v1_unit_memview[idx]
+        hole_center_2_memview_copy[0,idx] = hole_center_2_memview[0,idx]
+
+
+    cdef ITYPE_t[:] nearest_gal_index_list = np.empty(1, dtype=np.int64, order='C')
+    nearest_gal_index_list[0] = k1g
+
+    cdef ITYPE_t x_ratio_index_return = 0
+    cdef ITYPE_t k2g_return = 0
+    cdef DTYPE_F64_t minx2_return = 0.0
+    cdef DTYPE_B_t in_mask_return = True
+
+
+    find_next_galaxy(hole_center_2_memview_copy, 
+                            modv1_copy, 
+                            dr_copy, 
+                            v1_unit_memview_copy, 
+                            galaxy_tree, 
+                            nearest_gal_index_list, 
+                            w_coord, 
+                            mask, 
+                            min_dist, 
+                            max_dist,
+                            x_ratio_index_return,
+                            k2g_return,
+                            minx2_return,
+                            in_mask_return)
+
+
+
+
+
+
+
+
+
+
 
     in_mask_2 = True
 
@@ -578,6 +644,20 @@ cpdef void main_algorithm(int i,
 
 
 
+
+
+
+    print("Finished gal 2")
+    print(in_mask_return, in_mask_2)
+    print(k2g_x2, x_ratio_index_return)
+    print(k2g, k2g_return)
+
+
+
+
+
+
+
     ############################################################################
     # Update hole center
     ############################################################################
@@ -803,8 +883,23 @@ cpdef void main_algorithm(int i,
     ############################################################################
     
     
-    
-    
+
+
+
+    ############################################################################
+    # Find galaxy 3
+    #
+    # List of used variables:
+    #   - hole_center_3_memview (temporary hole center)
+    #   - dr
+    #   - v2_unit_memview
+    #   - galaxy_tree
+    #   - k1g, k2g
+    #   - w_coord
+    #   - Ccenter_memview (vectors from galaxy 3/C candidates to hole center)
+    #   - Acenter_memview (vector from galaxy 1/A to hole center)
+    #   - Bcenter_memview (vector from galaxy 2/B to hole center)
+    ############################################################################
     
     galaxy_search = True
 
@@ -1141,7 +1236,7 @@ cpdef void main_algorithm(int i,
 
     
     ############################################################################
-    # Update hole center 4
+    # Update hole center
     ############################################################################
 
     ############################################################################
@@ -1214,7 +1309,7 @@ cpdef void main_algorithm(int i,
 
 
 
-    ########################################################################
+    ############################################################################
     #
     # Find Galaxy 4 
     #
@@ -1222,7 +1317,7 @@ cpdef void main_algorithm(int i,
     # move above or below the plane.  Therefore, we will find the next closest 
     # if we move above the plane, and the next closest if we move below the 
     # plane.
-    ########################################################################
+    ############################################################################
 
 
 
@@ -1372,16 +1467,6 @@ cpdef void main_algorithm(int i,
 
 
 
-    # First move in the direction of the unit vector defined above
-
-    galaxy_search = True
-
-    in_mask_41 = True
-
-
-
-
-
     ############################################################################
     # Python version
     #---------------------------------------------------------------------------
@@ -1401,6 +1486,30 @@ cpdef void main_algorithm(int i,
 
 
 
+
+
+
+    ############################################################################
+    # Find galaxy 4
+    #
+    # List of used variables:
+    #   - hole_center_4X_memview (temporary hole center)
+    #   - dr
+    #   - v3_unit_memview
+    #   - galaxy_tree
+    #   - k1g, k2g, k3g
+    #   - w_coord
+    #   - Dcenter_memview (vectors from hole center to galaxy 4X/D candidates)
+    #   - Ccenter_memview (vector from hole center to galaxy 3/C)
+    #   - Acenter_memview (vector from hole center to galaxy 1/A)
+    #   - Bcenter_memview (vector from hole center to galaxy 2/B)
+    ############################################################################
+
+    # First move in the direction of the unit vector defined above
+
+    galaxy_search = True
+
+    in_mask_41 = True
 
     while galaxy_search:
 
@@ -2472,6 +2581,424 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
 
 ################################################################################
 ################################################################################
+
+
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, 
+                            DTYPE_F64_t hole_radius, 
+                            DTYPE_F64_t dr, 
+                            DTYPE_F64_t[:] unit_vector_memview, 
+                            galaxy_tree, 
+                            ITYPE_t[:] nearest_gal_index_list, 
+                            DTYPE_F64_t[:,:] w_coord, 
+                            DTYPE_B_t[:,:,:] mask, 
+                            DTYPE_F64_t min_dist, 
+                            DTYPE_F64_t max_dist,
+                            ITYPE_t &nearest_neighbor_x_ratio_index,
+                            ITYPE_t &nearest_neighbor_index,
+                            DTYPE_F64_t &min_x_ratio,
+                            DTYPE_B_t &in_mask):
+
+    '''
+    Description:
+    ============
+    Function to locate the next nearest galaxy during hole center propagation 
+    along direction defined by unit_vector_memview.
+
+    The algorithm needs to find 4 bounding galaxies per cell.  The 
+    first galaxy is found as the minimum of regular euclidean distance to the hole center.  The
+    second galaxy is determined using a ratio of distance with respect to projected distance
+    along the hole center search path.  To find galaxy 2, the hole center search path and 
+    distance ratios are calculated with respect to neighbor 1.  
+
+    Implementation Detail:
+    For galaxies 3 and 4, the 
+    distance ratios are calculated with respect to the previous galaxies, so this code uses
+    an if-block to detect whether we're calculating for galaxy 2, 3, or 4, and runs slightly
+    different distance ratio calculations.  The if block looks for the number of elements
+    in the input nearest_gal_index_list, when its 1 it assumes we're finding for galaxy 2
+    and when its not 1 it assumes we have the first 2 galaxies and we're looking for galaxy
+    3 or 4.
+
+
+
+    Parameters:
+    ===========
+
+    hole_center_memview : memview of shape (1,3)
+        x,y,z coordinate of current center of hole in units of Mpc/h
+
+    hole_radius : float
+        Radius of hole in units of Mpc/h
+
+    dr : float
+        Incrememt value for hole propagation
+
+    unit_vector_memview : memview of shape (3)
+        Unit vector indicating direction hole center will shift
+
+    galaxy_tree : sklearn KDTree
+        Tree to query for nearest-neighbor results
+
+    nearest_gal_index_list : memview of shape (N)
+        List of row indices in w_coord for existing bounding galaxies
+
+    w_coord : memview of shape (N_galaxies, 3)
+        x,y,z coordinates of all galaxies in sample in units of Mpc/h
+
+    mask : memview of shape (z_dim, ra_dim, dec_dim)
+        uint8 array of whether location is within survey footprint
+
+    min_dist : float
+        minimum distance (redshift) in survey in units of Mpc/h
+
+    max_dist : float
+        maximum distance (redshift) in survey in units of Mpc/h
+
+
+    Returns:
+    ========
+
+    nearest_neighbor_x_ratio_index : index
+        Index value to nearest_neighbor_x_ratio array of next nearest neighbor
+
+    nearest_neighbor_index : index
+        Index value to w_coord array of next nearest neighbor
+
+    min_x_ratio : float
+        ???
+
+    in_mask : boolean
+        Flag indicating whether or not the temporary hole center is within the 
+        survey footprint.
+    '''
+
+
+    ############################################################################
+    #
+    #   DECLARATIONS
+    #
+    ############################################################################
+
+    cdef DTYPE_B_t galaxy_search = True
+
+    #cdef DTYPE_B_t in_mask = True
+
+    cdef DTYPE_F64_t[:,:] temp_hole_center_memview = np.empty((1,3), dtype=np.float64, order='C')
+    cdef DTYPE_F64_t[:,:] candidate_minus_center_memview
+    cdef DTYPE_F64_t[:,:] candidate_minus_A_memview
+
+    cdef DTYPE_F64_t[:] Bcenter_memview = np.empty(3, dtype=np.float64, order='C')
+
+    cdef DTYPE_F64_t[:] x_ratio_memview
+
+    cdef ITYPE_t[:] i_nearest_memview
+    cdef ITYPE_t[:] i_nearest_reduced_memview
+
+    cdef DTYPE_F64_t temp_f64_accum
+    cdef DTYPE_F64_t temp_f64_val
+
+    cdef DTYPE_F64_t search_radius
+
+    cdef ITYPE_t idx
+    cdef ITYPE_t jdx
+    cdef ITYPE_t temp_idx
+
+    cdef ITYPE_t num_results
+    cdef ITYPE_t num_neighbors
+    cdef ITYPE_t num_nearest
+
+    #cdef ITYPE_t nearest_neighbor_x_ratio_index
+    #cdef ITYPE_t nearest_neighbor_index
+
+    #cdef DTYPE_F64_t min_x_ratio
+
+    ############################################################################
+    ############################################################################
+
+
+
+    # Initialize temp_hole_center_memview
+
+    for idx in range(3):
+
+        temp_hole_center_memview[0, idx] = hole_center_memview[0, idx]
+
+
+
+    # Initialize search radius
+
+    search_radius = hole_radius
+
+
+
+
+    # First move in the direction of the unit vector
+
+    while galaxy_search:
+
+
+        #-----------------------------------------------------------------------
+        # Shift hole center along unit vector
+
+        for idx in range(3):
+
+            temp_hole_center_memview[0, idx] = temp_hole_center_memview[0, idx] + dr*unit_vector_memview[idx]
+
+        #-----------------------------------------------------------------------
+        ########################################################################
+
+
+
+        #-----------------------------------------------------------------------
+        # New hole "radius"
+
+        search_radius += dr
+
+        #-----------------------------------------------------------------------
+        ########################################################################
+
+
+
+        #-----------------------------------------------------------------------
+        # Search for nearest neighbors within R of the hole center
+        i_nearest = galaxy_tree.query_radius(temp_hole_center_memview, r=search_radius)
+
+        i_nearest = i_nearest[0]
+
+        i_nearest_memview = i_nearest
+
+        #-----------------------------------------------------------------------
+        ########################################################################
+
+
+
+        #-----------------------------------------------------------------------
+        # Remove nearest galaxies from list
+
+        num_results = i_nearest_memview.shape[0]
+
+        num_neighbors = nearest_gal_index_list.shape[0]
+
+
+        boolean_nearest = np.ones(num_results, dtype=np.uint8)
+
+        for idx in range(num_results):
+
+            for jdx in range(num_neighbors):
+
+                if i_nearest_memview[idx] == nearest_gal_index_list[jdx]:
+
+                    boolean_nearest[idx] = False
+
+        i_nearest_reduced_memview = i_nearest[boolean_nearest]
+
+        #-----------------------------------------------------------------------
+        ########################################################################
+
+
+
+        #num_nearest is int of ITYPE_t
+        num_nearest = i_nearest_reduced_memview.shape[0]
+
+        if num_nearest > 0:
+            # Found at least one other nearest neighbor!
+
+
+            #-------------------------------------------------------------------
+            # Calculate vectors pointing from hole center and galaxy 1/A to next nearest candidate galaxy
+
+            candidate_minus_A_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+
+            candidate_minus_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+            
+            for idx in range(num_nearest):
+
+                temp_idx = i_nearest_reduced_memview[idx]
+
+                for jdx in range(3):
+
+                    candidate_minus_A_memview[idx, jdx] = w_coord[temp_idx, jdx] - w_coord[nearest_gal_index_list[0], jdx]
+
+                    candidate_minus_center_memview[idx, jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
+
+            #-------------------------------------------------------------------
+            ####################################################################
+            
+            
+
+
+            #-------------------------------------------------------------------
+            # Calculate bottom of ratio to be minimized
+
+            bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+            
+            for idx in range(num_nearest):
+                
+                temp_f64_accum = 0.0
+                
+                for jdx in range(3):
+                    
+                    temp_f64_accum += candidate_minus_A_memview[idx,jdx]*unit_vector_memview[jdx]
+                    
+                bot_memview[idx] = 2*temp_f64_accum
+            
+            #-------------------------------------------------------------------
+            ####################################################################
+
+
+
+
+
+            #-------------------------------------------------------------------
+            # Calculate top of ratio to be minimized
+            
+            top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+
+
+            if num_neighbors == 1:
+
+                for idx in range(num_nearest):
+                
+                    temp_f64_accum = 0.0
+                    
+                    for jdx in range(3):
+                        
+                        temp_f64_accum += candidate_minus_A_memview[idx,jdx]*candidate_minus_A_memview[idx,jdx]
+                        
+                    top_memview[idx] = temp_f64_accum
+
+
+            else:
+
+                #---------------------------------------------------------------
+
+                for idx in range(3):
+
+                    Bcenter_memview[idx] = w_coord[nearest_gal_index_list[1], idx] - hole_center_memview[0, idx]
+
+                #---------------------------------------------------------------
+
+
+
+                #---------------------------------------------------------------
+
+                temp_f64_accum = 0.0
+                
+                for idx in range(3):
+                    
+                    temp_f64_accum += Bcenter_memview[idx]*Bcenter_memview[idx]
+                    
+                temp_f64_val = temp_f64_accum
+
+                #---------------------------------------------------------------
+
+
+
+                #---------------------------------------------------------------
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_accum = 0.0
+                    
+                    for jdx in range(3):
+                        
+                        temp_f64_accum += candidate_minus_center_memview[idx, jdx]*candidate_minus_center_memview[idx, jdx]
+                        
+                    top_memview[idx] = temp_f64_accum - temp_f64_val
+
+                #---------------------------------------------------------------
+            
+            #-------------------------------------------------------------------
+            ####################################################################
+
+
+
+
+            #-------------------------------------------------------------------
+
+            x_ratio_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+
+            for idx in range(num_nearest):
+
+                x_ratio_memview[idx] = top_memview[idx]/bot_memview[idx]
+
+            #-------------------------------------------------------------------
+            ####################################################################
+
+
+
+
+            #-------------------------------------------------------------------
+            # Locate positive values of x_ratio
+            
+            any_valid = 0
+            
+            valid_min_idx = 0
+            
+            valid_min_val = INFINITY
+            
+            
+            for idx in range(num_nearest):
+                
+                temp_f64_val = x_ratio_memview[idx]
+                
+                if temp_f64_val > 0.0:
+                    
+                    any_valid = 1
+                    
+                    if temp_f64_val < valid_min_val:
+                        
+                        valid_min_idx = idx
+                        
+                        valid_min_val = temp_f64_val
+
+            #-------------------------------------------------------------------
+            ####################################################################
+
+
+
+
+            #-------------------------------------------------------------------
+            
+            if any_valid:
+                
+                # used to index into the x_ratio distance array
+                (&nearest_neighbor_x_ratio_index)[0] = valid_min_idx
+                
+                # used to index into the w_coord array
+                (&nearest_neighbor_index)[0] = i_nearest_memview[valid_min_idx]
+
+                # ???????
+                (&min_x_ratio)[0] = x_ratio_memview[nearest_neighbor_x_ratio_index]
+                
+                galaxy_search = False
+            
+            #-------------------------------------------------------------------
+            ####################################################################
+
+
+
+        
+        #-----------------------------------------------------------------------
+
+        elif not_in_mask(temp_hole_center_memview, mask, min_dist, max_dist):
+            # Hole is no longer within survey limits
+
+            galaxy_search = False
+
+            (&in_mask)[0] = False
+
+        #-----------------------------------------------------------------------
+        ########################################################################
+
+
+    return
+
 
 
 
