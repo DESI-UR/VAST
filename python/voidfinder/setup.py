@@ -23,6 +23,16 @@ extensions = [
         #extra_link_args=['-fopenmp']
         
         
+        ),
+    Extension(
+        "_voidfinder_cython_find_next",
+        ["_voidfinder_cython_find_next.pyx"],
+        include_dirs=[numpy.get_include()+"/numpy"],
+        libraries=["m"],
+        #extra_compile_args=['-fopenmp'],
+        #extra_link_args=['-fopenmp']
+        
+        
         )
               
 ]

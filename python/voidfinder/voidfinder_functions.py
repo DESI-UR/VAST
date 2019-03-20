@@ -163,7 +163,10 @@ def in_mask(coordinates, survey_mask, r_limits):
 
     angood = []
     for i in range(len(ra)):
+        
         angood.append(survey_mask[n[i]-1][int(n[i]*ra[i])][int(n[i]*dec[i])-n[i]*dec_offset])
+        
+        
     good = np.logical_and.reduce((np.array(angood), r<= r_limits[1], r >= r_limits[0]))
 
     return good
