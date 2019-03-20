@@ -361,16 +361,8 @@ cpdef void main_algorithm(int i,
 
 
 
-    '''
-    print("Gal 2 function inputs: ")
-    print(hole_center_2_memview_copy)
-    print(modv1_copy)
-    print(dr_copy)
-    print(np.asarray(v1_unit_memview_copy, dtype=np.float64, order='C'))
-    print(np.asarray(nearest_gal_index_list, dtype=np.int64, order="C"))
-    '''
-
-    find_next_galaxy(hole_center_2_memview_copy, 
+    find_next_galaxy(hole_center_memview,
+                     hole_center_2_memview_copy, 
                             modv1_copy, 
                             dr_copy, 
                             -1.0,
@@ -687,22 +679,6 @@ cpdef void main_algorithm(int i,
     
     # Check to make sure that the hole center is still within the survey
     if not in_mask_2:
-        #print('hole not in survey')
-        
-        #put_start = time.time()
-        
-        #return_queue.put(("data", (None, None, None, None)))
-        
-        #time_returning += time.time() - put_start
-        
-        #continue
-        
-        if in_mask_2 != in_mask_return:
-            print("Didn't match", in_mask_2, in_mask_return)
-        
-        #print("Finished gal 2 not in mask")
-        #print(in_mask_2, in_mask_return)
-        
     
         return_array[0] = NAN
         return_array[1] = NAN
@@ -711,83 +687,39 @@ cpdef void main_algorithm(int i,
         
         return 
     
-        #print('Found 2nd galaxy')
-    
-    
-    '''
-    if in_mask_2 != in_mask_return or \
-       k2g_x2 != x_ratio_index_return or \
-       k2g != k2g_return:
-        
-        print("Didn't match")
-        print(in_mask_2, in_mask_return)
-        print(k2g_x2, x_ratio_index_return)
-        print(k2g, k2g_return)
-
-
-    
-    print("Finished gal 2")
-    print(in_mask_2, in_mask_return)
-    print(k2g_x2, x_ratio_index_return)
-    print(k2g, k2g_return)
-
-    sys.stdout.flush()
-    time.sleep(1.0)
-    '''
     
     
     
     
-
+    ########################################################################################################################################################
+    ########################################################################################################################################################
+    ########################################################################################################################################################
+    #
+    # Find Galaxy 3 (closest to cell center)
+    #
+    # (Same methodology as for finding the second galaxy)
+    #
+    ########################################################################################################################################################
+    ########################################################################################################################################################
+    ########################################################################################################################################################
     
-
-
-    '''
-    k2g_x2 = x_ratio_index_return_mem[0]
-    k2g = k2g_return_mem[0]
-    in_mask_2 = in_mask_return_mem[0]
-    '''
-
-    ############################################################################
-    # Update hole center
-    ############################################################################
-
-
-    # Calculate new hole center
-
+    
+    
+    # Calculate new hole radius
     ############################################################################
     # Python version
     #---------------------------------------------------------------------------
-    '''
-    hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)  # shape (1,)
-    '''
+    
+    #hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)  # shape (1,)
+    
     #---------------------------------------------------------------------------
     # Cython version
     #---------------------------------------------------------------------------
-    '''
     temp_f64_accum = 0.0
     
     temp_f64_accum2 = 0.0
     
     for idx in range(3):
-        
-        temp_f64_val = BA_memview[k2g_x2, idx]
-        
-        temp_f64_accum += temp_f64_val*temp_f64_val
-        
-        temp_f64_accum2 += BA_memview[k2g_x2, idx]*v1_unit_memview[idx]
-        
-    hole_radius = 0.5*temp_f64_accum/temp_f64_accum2
-    '''
-    
-    
-    
-    temp_f64_accum = 0.0
-    
-    temp_f64_accum2 = 0.0
-    
-    for idx in range(3):
-    
     
         temp_f64_val = w_coord[k1g,idx] - w_coord[k2g, idx]
         
@@ -795,77 +727,30 @@ cpdef void main_algorithm(int i,
         
         temp_f64_accum2 += temp_f64_val*v1_unit_memview[idx]
     
-    
     hole_radius = 0.5*temp_f64_accum/temp_f64_accum2
-    
-    
-    #print(hole_radius, hole_radius_test)
-    
-        
     #---------------------------------------------------------------------------
     ############################################################################
     
     
-    
-    
-    
-    '''
-    if in_mask_2 != in_mask_return or \
-       k2g_x2 != x_ratio_index_return or \
-       k2g != k2g_return:
-        
-        print("Didn't match")
-    
-    
-    
-    
-    '''
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    # Update hole center
     ############################################################################
     # Python version
     #---------------------------------------------------------------------------
-    '''
-    hole_center = w_coord[k1g] - hole_radius*v1_unit  # shape (1,3)
-    '''
+    
+    #hole_center = w_coord[k1g] - hole_radius*v1_unit  # shape (1,3)
+    
     #---------------------------------------------------------------------------
     # Cython version
     #---------------------------------------------------------------------------
-    
     for idx in range(3):
         
         hole_center_memview[0,idx] = w_coord[k1g,idx] - hole_radius*v1_unit_memview[idx]
-    
     #---------------------------------------------------------------------------
     ############################################################################
    
-   
-   
-   
     # Check to make sure that the hole center is still within the survey
     if not_in_mask(hole_center_memview, mask, min_dist, max_dist):
-        #print('hole not in survey')
         
-        #put_start = time.time()
-        
-        #return_queue.put(("data", (None, None, None, None)))
-        
-        #time_returning += time.time() - put_start
-        
-        #continue
-    
         return_array[0] = NAN
         return_array[1] = NAN
         return_array[2] = NAN
@@ -876,27 +761,6 @@ cpdef void main_algorithm(int i,
 
 
 
-
-
-    
-    ############################################################################
-    #
-    # Check Gal 2 output both methods
-    #
-    ############################################################################
-
-
-
-
-
-
-
-
-    ############################################################################
-    # Find Galaxy 3 (closest to cell center)
-    #
-    # (Same methodology as for finding the second galaxy)
-    ############################################################################
 
 
     # Find the midpoint between the two nearest galaxies
@@ -917,6 +781,9 @@ cpdef void main_algorithm(int i,
     
     #---------------------------------------------------------------------------
     ############################################################################
+    
+    
+    
     
     
     
@@ -1039,6 +906,83 @@ cpdef void main_algorithm(int i,
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+    #cdef hole_center_2_memview_copy = np.empty((1,3), dtype=np.float64, order='C')
+    #cdef DTYPE_F64_t modv1_copy = modv1
+    #cdef DTYPE_F64_t dr_copy = dr
+    #cdef DTYPE_F64_t[:] v1_unit_memview_copy = np.empty(3, dtype=np.float64, order='C')
+
+
+    #for idx in range(3):
+    #    v1_unit_memview_copy[idx] = v1_unit_memview[idx]
+    #    hole_center_2_memview_copy[0,idx] = hole_center_2_memview[0,idx]
+
+
+    nearest_gal_index_list = np.empty(2, dtype=np.int64, order='C')
+    nearest_gal_index_list[0] = k1g
+    nearest_gal_index_list[1] = k2g
+
+    x_ratio_index_return = 0
+    cdef ITYPE_t k3g_return = 0
+    cdef DTYPE_F64_t minx3_return = 0.0
+    in_mask_return = True
+
+
+
+    #cdef ITYPE_t[:] x_ratio_index_return_mem = np.zeros(1, dtype=np.int64, order='C')
+    cdef ITYPE_t[:] k3g_return_mem = np.zeros(1, dtype=np.int64, order='C')
+    cdef DTYPE_F64_t[:] minx3_return_mem = np.zeros(1, dtype=np.float64, order='C')
+    #cdef DTYPE_B_t[:] in_mask_return_mem = np.ones(1, dtype=np.uint8)
+    in_mask_return_mem[0] = 1
+
+
+    find_next_galaxy(hole_center_memview,
+                     hole_center_3_memview, 
+                            hole_radius, 
+                            dr_copy, 
+                            1.0,
+                            v2_unit_memview, 
+                            galaxy_tree, 
+                            nearest_gal_index_list, 
+                            w_coord, 
+                            mask, 
+                            min_dist, 
+                            max_dist,
+                            x_ratio_index_return_mem,  #return variable
+                            k3g_return_mem,            #return variable
+                            minx3_return_mem,          #return variable
+                            in_mask_return_mem)        #return variable
+
+
+    '''
+    x_ratio_index_return = x_ratio_index_return_mem[0]
+    k3g_return = k3g_return_mem[0]
+    minx3_return = minx3_return_mem[0]
+    in_mask_return = in_mask_return_mem[0]
+    '''
+
+
+
+
+    
+    k3g_x3 = x_ratio_index_return_mem[0]
+    k3g = k3g_return_mem[0]
+    minx3 = minx3_return_mem[0]
+    in_mask_3 = in_mask_return_mem[0]
+    
+
+
+
     ############################################################################
     # Find galaxy 3
     #
@@ -1053,329 +997,326 @@ cpdef void main_algorithm(int i,
     #   - Acenter_memview (vector from galaxy 1/A to hole center)
     #   - Bcenter_memview (vector from galaxy 2/B to hole center)
     ############################################################################
+    '''
+    if False:
+        
+        galaxy_search = True
     
-    galaxy_search = True
-
-    in_mask_3 = True
-
-    while galaxy_search:
-
-
-
-
-        # Shift hole center along unit vector
-
-        ########################################################################
-        # Python version
-        #-----------------------------------------------------------------------
-        '''
-        hole_center_3 = hole_center_3 + dr*v2_unit
-        '''
-        #-----------------------------------------------------------------------
-        # Cython version
-        #-----------------------------------------------------------------------
-            
-        for idx in range(3):
-            
-            hole_center_3_memview[0,idx] = hole_center_3_memview[0,idx] + dr*v2_unit_memview[idx]
-        
-        #-----------------------------------------------------------------------
-        ########################################################################
-        
-        
-        
-        
-
-        # New hole "radius"
-
-        ########################################################################
-        # Python version
-        #-----------------------------------------------------------------------
-        '''
-        search_radius = np.linalg.norm(w_coord[k1g] - hole_center_3)
-        '''
-        #-----------------------------------------------------------------------
-        # Cython version
-        #-----------------------------------------------------------------------
-        
-        temp_f64_accum = 0.0
-        
-        for idx in range(3):
-            
-            temp_f64_val = w_coord[k1g,idx] - hole_center_3_memview[0,idx]
-            
-            temp_f64_accum += temp_f64_val*temp_f64_val
-            
-        search_radius = sqrt(temp_f64_accum)
-        
-        #-----------------------------------------------------------------------
-        ########################################################################
-        
-        
-        
-        
-        
-        # Search for nearest neighbors within modv1 of the hole center
-        i_nearest = galaxy_tree.query_radius(hole_center_3_memview, r=search_radius)
-
-        i_nearest = i_nearest[0]
-
-        # Remove two nearest galaxies from list
-        boolean_nearest = np.logical_and(i_nearest != k1g, i_nearest != k2g)
-        
-        i_nearest = i_nearest[boolean_nearest]
-
-        #num_nearest is int of ITYPE_t
-        num_nearest = i_nearest.shape[0]
-
-        if num_nearest > 0:
-            # Found at least one other nearest neighbor!
-            
-            i_nearest_memview = i_nearest  # Needed for cython only
-
-
-            
-            # Calculate vector pointing from hole center to next nearest galaxies
-
-            ####################################################################
+        in_mask_3 = True
+    
+        while galaxy_search:
+    
+    
+    
+    
+            # Shift hole center along unit vector
+    
+            ########################################################################
             # Python version
-            #-------------------------------------------------------------------
-            '''
-            temp_1 = np.take(w_coord, i_nearest, axis=0)
+            #-----------------------------------------------------------------------
             
-            Ccenter = np.subtract(temp_1, hole_center)  # shape (N,3)
-            '''
-            #-------------------------------------------------------------------
+            #hole_center_3 = hole_center_3 + dr*v2_unit
+            
+            #-----------------------------------------------------------------------
             # Cython version
-            #-------------------------------------------------------------------
+            #-----------------------------------------------------------------------
                 
-            Ccenter_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
-            
-            for idx in range(num_nearest):
+            for idx in range(3):
                 
-                for jdx in range(3):
-                    
-                    temp_idx = i_nearest_memview[idx]
-                    
-                    Ccenter_memview[idx,jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0,jdx]
+                hole_center_3_memview[0,idx] = hole_center_3_memview[0,idx] + dr*v2_unit_memview[idx]
             
-            #-------------------------------------------------------------------
-            ####################################################################
+            #-----------------------------------------------------------------------
+            ########################################################################
             
             
             
             
-            
-            
-            ####################################################################
+    
+            # New hole "radius"
+    
+            ########################################################################
             # Python version
-            #-------------------------------------------------------------------
-            '''
-            bot = 2*np.dot((Ccenter - Acenter), v2_unit.T)  # shape (N,1)
-            '''
-            #-------------------------------------------------------------------
+            #-----------------------------------------------------------------------
+            
+            #search_radius = np.linalg.norm(w_coord[k1g] - hole_center_3)
+            
+            #-----------------------------------------------------------------------
             # Cython version
-            #
-            # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
-            #-------------------------------------------------------------------
-
-            bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
-
-
-            C_minus_A_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
-            
-            for idx in range(num_nearest):
-                
-                for jdx in range(3):
-                    
-                    C_minus_A_center_memview[idx, jdx] = Ccenter_memview[idx, jdx] - Acenter_memview[jdx]
-
-            
-            for idx in range(num_nearest):
-                
-                temp_f64_accum = 0.0
-                
-                for jdx in range(3):
-                    
-                    temp_f64_accum += C_minus_A_center_memview[idx,jdx]*v2_unit_memview[jdx]
-                    
-                bot_memview[idx] = 2*temp_f64_accum
-            
-            #-------------------------------------------------------------------
-            ####################################################################
-            
-            
-            
-            
-            
-            
-            
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            top = np.sum(Ccenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #
-            # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
-            #-------------------------------------------------------------------
-            
-            top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+            #-----------------------------------------------------------------------
             
             temp_f64_accum = 0.0
             
             for idx in range(3):
                 
-                temp_f64_accum += Bcenter_memview[idx]*Bcenter_memview[idx]
+                temp_f64_val = w_coord[k1g,idx] - hole_center_3_memview[0,idx]
                 
-            temp_f64_val = temp_f64_accum
+                temp_f64_accum += temp_f64_val*temp_f64_val
+                
+            search_radius = sqrt(temp_f64_accum)
             
-            for idx in range(num_nearest):
+            #-----------------------------------------------------------------------
+            ########################################################################
+            
+            
+            
+            
+            
+            # Search for nearest neighbors within modv1 of the hole center
+            i_nearest = galaxy_tree.query_radius(hole_center_3_memview, r=search_radius)
+    
+            i_nearest = i_nearest[0]
+    
+            # Remove two nearest galaxies from list
+            boolean_nearest = np.logical_and(i_nearest != k1g, i_nearest != k2g)
+            
+            i_nearest = i_nearest[boolean_nearest]
+    
+            #num_nearest is int of ITYPE_t
+            num_nearest = i_nearest.shape[0]
+    
+            if num_nearest > 0:
+                # Found at least one other nearest neighbor!
+                
+                i_nearest_memview = i_nearest  # Needed for cython only
+    
+    
+                
+                # Calculate vector pointing from hole center to next nearest galaxies
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #temp_1 = np.take(w_coord, i_nearest, axis=0)
+                
+                #Ccenter = np.subtract(temp_1, hole_center)  # shape (N,3)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+                    
+                Ccenter_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    for jdx in range(3):
+                        
+                        temp_idx = i_nearest_memview[idx]
+                        
+                        Ccenter_memview[idx,jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0,jdx]
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+                
+                
+                
+                
+                
+                
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #bot = 2*np.dot((Ccenter - Acenter), v2_unit.T)  # shape (N,1)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #
+                # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
+                #-------------------------------------------------------------------
+    
+                bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+    
+    
+                C_minus_A_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    for jdx in range(3):
+                        
+                        C_minus_A_center_memview[idx, jdx] = Ccenter_memview[idx, jdx] - Acenter_memview[jdx]
+    
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_accum = 0.0
+                    
+                    for jdx in range(3):
+                        
+                        temp_f64_accum += C_minus_A_center_memview[idx,jdx]*v2_unit_memview[jdx]
+                        
+                    bot_memview[idx] = 2*temp_f64_accum
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+                
+                
+                
+                
+                
+                
+                
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #top = np.sum(Ccenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #
+                # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
+                #-------------------------------------------------------------------
+                
+                top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
                 
                 temp_f64_accum = 0.0
                 
-                for jdx in range(3):
+                for idx in range(3):
                     
-                    temp_f64_accum += Ccenter_memview[idx,jdx]*Ccenter_memview[idx,jdx]
+                    temp_f64_accum += Bcenter_memview[idx]*Bcenter_memview[idx]
                     
-                top_memview[idx] = temp_f64_accum - temp_f64_val
-            
-            #-------------------------------------------------------------------
-            ####################################################################
-            
-            
-            
-            
-            
-            
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            x3 = top/bot.T[0]  # shape (N,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #
-            # CAN PROBABLY CONSOLIDATE ABOVE FOR-LOOP BLOCKS
-            #-------------------------------------------------------------------
-
-            x3_memview = np.empty(num_nearest, dtype=np.float64, order='C')
-            
-            for idx in range(num_nearest):
+                temp_f64_val = temp_f64_accum
                 
-                x3_memview[idx] = top_memview[idx]/bot_memview[idx]
-
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-            # Locate positive values of x3
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            valid_idx = np.where(x3 > 0)[0]  # shape (N,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-            
-            any_valid = 0
-            
-            valid_min_idx = 0
-            
-            valid_min_val = INFINITY
-            
-            #valid_idx_memview = np.empty(num_nearest, dtype=np.uint8, order='C')
-            
-            for idx in range(num_nearest):
-                
-                temp_f64_val = x3_memview[idx]
-                
-                if temp_f64_val > 0.0:
+                for idx in range(num_nearest):
                     
-                    #valid_idx_memview[idx] = 1
+                    temp_f64_accum = 0.0
                     
-                    any_valid = 1
-                    
-                    if temp_f64_val < valid_min_val:
+                    for jdx in range(3):
                         
-                        valid_min_idx = idx
+                        temp_f64_accum += Ccenter_memview[idx,jdx]*Ccenter_memview[idx,jdx]
                         
-                        valid_min_val = temp_f64_val
-
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-
-
-            ####################################################################
-            # Python version
-            #
-            # CANNOT KEEP DUE TO FLAGS SET IN IF-BLOCK
-            #-------------------------------------------------------------------
-            '''
-            if len(valid_idx) > 0:
-                # Find index of 3rd nearest galaxy
-                k3g_x3 = valid_idx[x3[valid_idx].argmin()]
-                k3g = i_nearest[k3g_x3]
-
-                minx3 = x3[k3g_x3]
-
+                    top_memview[idx] = temp_f64_accum - temp_f64_val
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+                
+                
+                
+                
+                
+                
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #x3 = top/bot.T[0]  # shape (N,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #
+                # CAN PROBABLY CONSOLIDATE ABOVE FOR-LOOP BLOCKS
+                #-------------------------------------------------------------------
+    
+                x3_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    x3_memview[idx] = top_memview[idx]/bot_memview[idx]
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+                # Locate positive values of x3
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #valid_idx = np.where(x3 > 0)[0]  # shape (N,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+                
+                any_valid = 0
+                
+                valid_min_idx = 0
+                
+                valid_min_val = INFINITY
+                
+                #valid_idx_memview = np.empty(num_nearest, dtype=np.uint8, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_val = x3_memview[idx]
+                    
+                    if temp_f64_val > 0.0:
+                        
+                        #valid_idx_memview[idx] = 1
+                        
+                        any_valid = 1
+                        
+                        if temp_f64_val < valid_min_val:
+                            
+                            valid_min_idx = idx
+                            
+                            valid_min_val = temp_f64_val
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+    
+                ####################################################################
+                # Python version
+                #
+                # CANNOT KEEP DUE TO FLAGS SET IN IF-BLOCK
+                #-------------------------------------------------------------------
+                
+                #if len(valid_idx) > 0:
+                    # Find index of 3rd nearest galaxy
+                #    k3g_x3 = valid_idx[x3[valid_idx].argmin()]
+                #    k3g = i_nearest[k3g_x3]
+    
+                #    minx3 = x3[k3g_x3]
+    
+                #    galaxy_search = False
+                
+    
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+                
+                if any_valid:
+                    
+                    #used to index into the BA distance array
+                    k3g_x3 = valid_min_idx
+                    
+                    #used to index into the w_coord array
+                    k3g = i_nearest_memview[valid_min_idx]
+    
+                    # ???????
+                    minx3 = x3_memview[k3g_x3]
+                    
+                    galaxy_search = False
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+            elif not_in_mask(hole_center_3_memview, mask, min_dist, max_dist):
+                # Hole is no longer within survey limits
                 galaxy_search = False
-            '''
-
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-            
-            if any_valid:
-                
-                #used to index into the BA distance array
-                k3g_x3 = valid_min_idx
-                
-                #used to index into the w_coord array
-                k3g = i_nearest_memview[valid_min_idx]
-
-                # ???????
-                minx3 = x3_memview[k3g_x3]
-                
-                galaxy_search = False
-            
-            #-------------------------------------------------------------------
-            ####################################################################
+                in_mask_3 = False
+    
+    
+    
 
 
-
-
-
-        elif not_in_mask(hole_center_3_memview, mask, min_dist, max_dist):
-            # Hole is no longer within survey limits
-            galaxy_search = False
-            in_mask_3 = False
-
-
+    '''
 
     # Check to make sure that the hole center is still within the survey
     if not in_mask_3:
-        #print('hole not in survey')
-        
-        #put_start = time.time()
-        
-        #return_queue.put(("data", (None, None, None, None)))
-        
-        #time_returning += time.time() - put_start
-        
-        #continue
     
         return_array[0] = NAN
         return_array[1] = NAN
@@ -1385,6 +1326,43 @@ cpdef void main_algorithm(int i,
         return 
 
     #print('Found 3rd galaxy')
+    
+    
+    '''
+    if in_mask_3 != in_mask_return or \
+       k3g != k3g_return or \
+       np.logical_not(np.isclose(minx3,minx3_return)) or \
+       k3g_x3 != x_ratio_index_return:
+
+
+        print("Gal 3 didn't match on other val:")
+        print(in_mask_3, in_mask_return)
+        print(k3g, k3g_return)
+        print(minx3, minx3_return)
+        print(k3g_x3, x_ratio_index_return)
+    '''
+    
+    
+
+
+
+    
+    
+    ########################################################################################################################################################
+    ########################################################################################################################################################
+    ########################################################################################################################################################
+    #
+    # Find Galaxy 4-1 
+    #
+    # 
+    #
+    ########################################################################################################################################################
+    ########################################################################################################################################################
+    ########################################################################################################################################################
+    
+
+
+
 
 
     
@@ -1642,6 +1620,99 @@ cpdef void main_algorithm(int i,
 
 
 
+
+
+
+
+
+
+
+    
+
+    #cdef hole_center_2_memview_copy = np.empty((1,3), dtype=np.float64, order='C')
+    #cdef DTYPE_F64_t modv1_copy = modv1
+    #cdef DTYPE_F64_t dr_copy = dr
+    #cdef DTYPE_F64_t[:] v1_unit_memview_copy = np.empty(3, dtype=np.float64, order='C')
+
+
+    #for idx in range(3):
+    #    v1_unit_memview_copy[idx] = v1_unit_memview[idx]
+    #    hole_center_2_memview_copy[0,idx] = hole_center_2_memview[0,idx]
+
+
+    nearest_gal_index_list = np.empty(3, dtype=np.int64, order='C')
+    nearest_gal_index_list[0] = k1g
+    nearest_gal_index_list[1] = k2g
+    nearest_gal_index_list[2] = k3g
+
+    x_ratio_index_return = 0
+    cdef ITYPE_t k41g_return = 0
+    cdef DTYPE_F64_t minx41_return = 0.0
+    in_mask_return = True
+
+
+
+    #cdef ITYPE_t[:] x_ratio_index_return_mem = np.zeros(1, dtype=np.int64, order='C')
+    cdef ITYPE_t[:] k41g_return_mem = np.zeros(1, dtype=np.int64, order='C')
+    cdef DTYPE_F64_t[:] minx41_return_mem = np.zeros(1, dtype=np.float64, order='C')
+    #cdef DTYPE_B_t[:] in_mask_return_mem = np.ones(1, dtype=np.uint8)
+    in_mask_return_mem[0] = 1
+
+
+
+    '''
+    print("Gal 41 function inputs: ")
+    print(np.asarray(hole_center_memview, dtype=np.float64, order='C'))
+    print(np.asarray(hole_center_41_memview, dtype=np.float64, order='C'))
+    print(np.asarray(v3_unit_memview, dtype=np.float64, order='C'))
+    print(k1g, k2g, k3g)
+    '''
+
+    find_next_galaxy(hole_center_memview,
+                     hole_center_41_memview, 
+                            hole_radius, 
+                            dr_copy, 
+                            1.0,
+                            v3_unit_memview, 
+                            galaxy_tree, 
+                            nearest_gal_index_list, 
+                            w_coord, 
+                            mask, 
+                            min_dist, 
+                            max_dist,
+                            x_ratio_index_return_mem,  #return variable
+                            k41g_return_mem,            #return variable
+                            minx41_return_mem,          #return variable
+                            in_mask_return_mem)        #return variable
+
+
+    '''
+    x_ratio_index_return = x_ratio_index_return_mem[0]
+    k41g_return = k41g_return_mem[0]
+    minx41_return = minx41_return_mem[0]
+    in_mask_return = in_mask_return_mem[0]
+    '''
+
+
+
+
+
+    k4g1_x41 = x_ratio_index_return_mem[0]
+                    
+    k4g1 = k41g_return_mem[0]
+    
+    minx41 = minx41_return_mem[0]
+
+    in_mask_41 = in_mask_return_mem[0]
+
+
+
+
+
+
+
+
+
     ############################################################################
     # Find galaxy 4
     #
@@ -1658,326 +1729,379 @@ cpdef void main_algorithm(int i,
     #   - Bcenter_memview (vector from hole center to galaxy 2/B)
     ############################################################################
 
+
+
+
+
+    '''
+    print("Gal 41 main inputs: ")
+    print(np.asarray(hole_center_memview, dtype=np.float64, order='C'))
+    print(np.asarray(hole_center_41_memview, dtype=np.float64, order='C'))
+    print(np.asarray(v3_unit_memview, dtype=np.float64, order='C'))
+    print(k1g, k2g, k3g)
+    '''
+
+
+
+
+
+    
     # First move in the direction of the unit vector defined above
-
-    galaxy_search = True
-
-    in_mask_41 = True
-
-    while galaxy_search:
-
-
-
-
-        # Shift hole center along unit vector
-
-        ########################################################################
-        # Python version
-        #-----------------------------------------------------------------------
-        '''
-        hole_center_41 = hole_center_41 + dr*v3_unit
-        '''
-        #-----------------------------------------------------------------------
-        # Cython version
-        #-----------------------------------------------------------------------
-
-        for idx in range(3):
-
-            hole_center_41_memview[0, idx] = hole_center_41_memview[0, idx] + dr*v3_unit_memview[idx]
-
-        #-----------------------------------------------------------------------
-        ########################################################################
-
-
-
-
-
-        # New hole "radius"
-
-        ########################################################################
-        # Python version
-        #-----------------------------------------------------------------------
-        '''
-        search_radius = np.linalg.norm(w_coord[k1g] - hole_center_41)
-        '''
-        #-----------------------------------------------------------------------
-        # Cython version
-        #-----------------------------------------------------------------------
-
-        temp_f64_accum = 0.0
-
-        for idx in range(3):
-
-            temp_f64_val = w_coord[k1g, idx] - hole_center_41_memview[0, idx]
-
-            temp_f64_accum += temp_f64_val*temp_f64_val
-
-        search_radius = sqrt(temp_f64_accum)
-
-        #-----------------------------------------------------------------------
-        ########################################################################
-
-
-
-
-
-        # Search for nearest neighbors within R of the hole center
-        i_nearest = galaxy_tree.query_radius(hole_center_41_memview, r=search_radius)
-
-        i_nearest = i_nearest[0]
-
-        # Remove two nearest galaxies from list
-        boolean_nearest = np.logical_and.reduce((i_nearest != k1g, i_nearest != k2g, i_nearest != k3g))
-
-        i_nearest = i_nearest[boolean_nearest]
-
-        #num_nearest is int of ITYPE_t
-        num_nearest = i_nearest.shape[0]
-
-        if num_nearest > 0:
-            # Found at least one other nearest neighbor!
-
-            i_nearest_memview = i_nearest  # Needed for cython only
-
-
-
-
-            # Calculate vector pointing from hole center to next nearest galaxies
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            temp_1 = np.take(w_coord, i_nearest, axis=0)
-
-            Dcenter = np.subtract(temp_1, hole_center)  # shape (N,3)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-
-            Dcenter_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
-            
-            for idx in range(num_nearest):
-
-                temp_idx = i_nearest_memview[idx]
-
-                for jdx in range(3):
-
-                    Dcenter_memview[idx, jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
-
-            #-------------------------------------------------------------------
-            ####################################################################
-            
-            
-
-
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)  # shape (N,)
-            # Different shape than previous bot's because v3_unit has a different shape
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #
-            # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
-            #-------------------------------------------------------------------
-
-            bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
-
-
-            D_minus_A_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
-            
-            for idx in range(num_nearest):
-                
-                for jdx in range(3):
-                    
-                    D_minus_A_center_memview[idx, jdx] = Dcenter_memview[idx, jdx] - Acenter_memview[jdx]
-
-            
-            for idx in range(num_nearest):
-                
-                temp_f64_accum = 0.0
-                
-                for jdx in range(3):
-                    
-                    temp_f64_accum += D_minus_A_center_memview[idx,jdx]*v3_unit_memview[jdx]
-                    
-                bot_memview[idx] = 2*temp_f64_accum
-            
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #
-            # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
-            #-------------------------------------------------------------------
-            
-            top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
-
-            
-            temp_f64_accum = 0.0
-            
-            for idx in range(3):
-                
-                temp_f64_accum += Bcenter_memview[idx]*Bcenter_memview[idx]
-                
-            temp_f64_val = temp_f64_accum
-            
-            for idx in range(num_nearest):
-                
-                temp_f64_accum = 0.0
-                
-                for jdx in range(3):
-                    
-                    temp_f64_accum += Dcenter_memview[idx,jdx]*Dcenter_memview[idx,jdx]
-                    
-                top_memview[idx] = temp_f64_accum - temp_f64_val
-            
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            x41 = top/bot  # shape (N,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-
-            x41_memview = np.empty(num_nearest, dtype=np.float64, order='C')
-
-            for idx in range(num_nearest):
-
-                x41_memview[idx] = top_memview[idx]/bot_memview[idx]
-
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-            
-
-            # Locate positive values of x41
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            valid_idx = np.where(x41 > 0)[0]  # shape (n,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-            
-            any_valid = 0
-            
-            valid_min_idx = 0
-            
-            valid_min_val = INFINITY
-            
-            #valid_idx_memview = np.empty(num_nearest, dtype=np.uint8, order='C')
-            
-            for idx in range(num_nearest):
-                
-                temp_f64_val = x41_memview[idx]
-                
-                if temp_f64_val > 0.0:
-                    
-                    #valid_idx_memview[idx] = 1
-                    
-                    any_valid = 1
-                    
-                    if temp_f64_val < valid_min_val:
-                        
-                        valid_min_idx = idx
-                        
-                        valid_min_val = temp_f64_val
-
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-            #debug_1 = len(valid_idx) > 0
-
-            ####################################################################
-            # Python version
-            #
-            # CANNOT KEEP DUE TO FLAGS SET IN IF-BLOCK
-            #-------------------------------------------------------------------
-            '''
-            if len(valid_idx) > 0:
-                # Find index of 4th nearest galaxy
-                k4g1_x41 = valid_idx[x41[valid_idx].argmin()]
-                k4g1 = i_nearest[k4g1_x41]
-
-                minx41 = x41[k4g1_x41]
-
-                galaxy_search = False
-            '''
-
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-            
-            if any_valid:
-                
-                #used to index into the BA distance array
-                k4g1_x41 = valid_min_idx
-                
-                #used to index into the w_coord array
-                k4g1 = i_nearest_memview[valid_min_idx]
-
-                # ???????
-                minx41 = x41_memview[k4g1_x41]
-                
-                galaxy_search = False
-            
-            #-------------------------------------------------------------------
-            ####################################################################
-            '''
-            print('---------------------------------')
-            print('Is there an x41 > 0?', debug_1, any_valid)
-            print('k4g1_x41:', k4g1_x41, k4g1_x41_cython)
-            print('k4g1:', k4g1, k4g1_cython)
-            print('minx41:', minx41, minx41_cython)
-            print('x41:', x41, np.asarray(x41_memview, dtype=np.float64, order='C'))
-            print('top:', top, np.asarray(top_memview, dtype=np.float64, order='C'))
-            print('bot:', bot, np.asarray(bot_memview, dtype=np.float64, order='C'))
-            '''
-
-
-
+    '''
+    if False:
         
-        elif not_in_mask(hole_center_41_memview, mask, min_dist, max_dist):
-            # Hole is no longer within survey limits
-            galaxy_search = False
-            in_mask_41 = False
-
-    #print('Found first potential 4th galaxy')
+        galaxy_search = True
+    
+        in_mask_41 = True
+    
+        while galaxy_search:
+    
+    
+    
+    
+            # Shift hole center along unit vector
+    
+            ########################################################################
+            # Python version
+            #-----------------------------------------------------------------------
+            
+            #hole_center_41 = hole_center_41 + dr*v3_unit
+            
+            #-----------------------------------------------------------------------
+            # Cython version
+            #-----------------------------------------------------------------------
+    
+            for idx in range(3):
+    
+                hole_center_41_memview[0, idx] = hole_center_41_memview[0, idx] + dr*v3_unit_memview[idx]
+    
+            #-----------------------------------------------------------------------
+            ########################################################################
+    
+    
+    
+    
+    
+            # New hole "radius"
+    
+            ########################################################################
+            # Python version
+            #-----------------------------------------------------------------------
+            
+            #search_radius = np.linalg.norm(w_coord[k1g] - hole_center_41)
+            
+            #-----------------------------------------------------------------------
+            # Cython version
+            #-----------------------------------------------------------------------
+    
+            temp_f64_accum = 0.0
+    
+            for idx in range(3):
+    
+                temp_f64_val = w_coord[k1g, idx] - hole_center_41_memview[0, idx]
+    
+                temp_f64_accum += temp_f64_val*temp_f64_val
+    
+            search_radius = sqrt(temp_f64_accum)
+    
+            #-----------------------------------------------------------------------
+            ########################################################################
+    
+    
+    
+    
+    
+            # Search for nearest neighbors within R of the hole center
+            i_nearest = galaxy_tree.query_radius(hole_center_41_memview, r=search_radius)
+    
+            i_nearest = i_nearest[0]
+    
+            # Remove two nearest galaxies from list
+            boolean_nearest = np.logical_and.reduce((i_nearest != k1g, i_nearest != k2g, i_nearest != k3g))
+    
+            i_nearest = i_nearest[boolean_nearest]
+    
+            #num_nearest is int of ITYPE_t
+            num_nearest = i_nearest.shape[0]
+    
+            if num_nearest > 0:
+                # Found at least one other nearest neighbor!
+    
+                i_nearest_memview = i_nearest  # Needed for cython only
+    
+    
+    
+    
+                # Calculate vector pointing from hole center to next nearest galaxies
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #temp_1 = np.take(w_coord, i_nearest, axis=0)
+    
+                #Dcenter = np.subtract(temp_1, hole_center)  # shape (N,3)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+    
+                Dcenter_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+                
+                for idx in range(num_nearest):
+    
+                    temp_idx = i_nearest_memview[idx]
+    
+                    for jdx in range(3):
+    
+                        Dcenter_memview[idx, jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+                
+                
+    
+    
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)  # shape (N,)
+                # Different shape than previous bot's because v3_unit has a different shape
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #
+                # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
+                #-------------------------------------------------------------------
+    
+                bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+    
+    
+                D_minus_A_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    for jdx in range(3):
+                        
+                        D_minus_A_center_memview[idx, jdx] = Dcenter_memview[idx, jdx] - Acenter_memview[jdx]
+    
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_accum = 0.0
+                    
+                    for jdx in range(3):
+                        
+                        temp_f64_accum += D_minus_A_center_memview[idx,jdx]*v3_unit_memview[jdx]
+                        
+                    bot_memview[idx] = 2*temp_f64_accum
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #
+                # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
+                #-------------------------------------------------------------------
+                
+                top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+    
+                
+                temp_f64_accum = 0.0
+                
+                for idx in range(3):
+                    
+                    temp_f64_accum += Bcenter_memview[idx]*Bcenter_memview[idx]
+                    
+                temp_f64_val = temp_f64_accum
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_accum = 0.0
+                    
+                    for jdx in range(3):
+                        
+                        temp_f64_accum += Dcenter_memview[idx,jdx]*Dcenter_memview[idx,jdx]
+                        
+                    top_memview[idx] = temp_f64_accum - temp_f64_val
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #x41 = top/bot  # shape (N,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+    
+                x41_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+    
+                for idx in range(num_nearest):
+    
+                    x41_memview[idx] = top_memview[idx]/bot_memview[idx]
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+                
+    
+                # Locate positive values of x41
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #valid_idx = np.where(x41 > 0)[0]  # shape (n,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+                
+                any_valid = 0
+                
+                valid_min_idx = 0
+                
+                valid_min_val = INFINITY
+                
+                #valid_idx_memview = np.empty(num_nearest, dtype=np.uint8, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_val = x41_memview[idx]
+                    
+                    if temp_f64_val > 0.0:
+                        
+                        #valid_idx_memview[idx] = 1
+                        
+                        any_valid = 1
+                        
+                        if temp_f64_val < valid_min_val:
+                            
+                            valid_min_idx = idx
+                            
+                            valid_min_val = temp_f64_val
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+                #debug_1 = len(valid_idx) > 0
+    
+                ####################################################################
+                # Python version
+                #
+                # CANNOT KEEP DUE TO FLAGS SET IN IF-BLOCK
+                #-------------------------------------------------------------------
+                
+                #if len(valid_idx) > 0:
+                #    # Find index of 4th nearest galaxy
+                #    k4g1_x41 = valid_idx[x41[valid_idx].argmin()]
+                #    k4g1 = i_nearest[k4g1_x41]
+    
+                #    minx41 = x41[k4g1_x41]
+    
+                #    galaxy_search = False
+                
+    
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+                
+                if any_valid:
+                    
+                    #used to index into the BA distance array
+                    k4g1_x41 = valid_min_idx
+                    
+                    #used to index into the w_coord array
+                    k4g1 = i_nearest_memview[valid_min_idx]
+    
+                    # ???????
+                    minx41 = x41_memview[k4g1_x41]
+                    
+                    galaxy_search = False
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+                
+                #print('---------------------------------')
+                #print('Is there an x41 > 0?', debug_1, any_valid)
+                #print('k4g1_x41:', k4g1_x41, k4g1_x41_cython)
+                #print('k4g1:', k4g1, k4g1_cython)
+                #print('minx41:', minx41, minx41_cython)
+                #print('x41:', x41, np.asarray(x41_memview, dtype=np.float64, order='C'))
+                #print('top:', top, np.asarray(top_memview, dtype=np.float64, order='C'))
+                #print('bot:', bot, np.asarray(bot_memview, dtype=np.float64, order='C'))
+                
+    
+    
+    
+            
+            elif not_in_mask(hole_center_41_memview, mask, min_dist, max_dist):
+                # Hole is no longer within survey limits
+                galaxy_search = False
+                in_mask_41 = False
+    
+        #print('Found first potential 4th galaxy')
+        
+        
+    '''
+        
+    
+    
+    '''
+    if in_mask_41 == 0 and in_mask_return == 0:
+        #rest doesnt have to match
+        pass
+    else:
+    
+        if in_mask_41 != in_mask_return or \
+           k4g1 != k41g_return or \
+           np.logical_not(np.isclose(minx41,minx41_return)) or \
+           k4g1_x41 != x_ratio_index_return:
+    
+            print("-----")
+            print("Gal 41 didn't match:")
+            
+            
+            print(in_mask_41, in_mask_return)
+            print(k4g1, k41g_return)
+            print(minx41, minx41_return)
+            print(k4g1_x41, x_ratio_index_return)
+            
+    '''
+    
+    
+    
+    
+    
+    
+    
     
 
     # Calculate potential new hole center
@@ -2040,7 +2164,7 @@ cpdef void main_algorithm(int i,
 
 
     # First move in the direction of the unit vector defined above
-    galaxy_search = True
+    
 
 
 
@@ -2086,317 +2210,463 @@ cpdef void main_algorithm(int i,
 
 
 
-    in_mask_42 = True
-
-    while galaxy_search:
-
-
-
-
-        # Shift hole center along unit vector
-
-        ########################################################################
-        # Python version
-        #-----------------------------------------------------------------------
-        '''
-        hole_center_42 = hole_center_42 + dr*v3_unit
-        '''
-        #-----------------------------------------------------------------------
-        # Cython version
-        #-----------------------------------------------------------------------
-
-        for idx in range(3):
-
-            hole_center_42_memview[0, idx] += dr*v3_unit_memview[idx]
-
-        #-----------------------------------------------------------------------
-        ########################################################################
-
-
-
-
-
-        # New hole "radius"
-
-        ########################################################################
-        # Python version
-        #-----------------------------------------------------------------------
-        '''
-        search_radius = np.linalg.norm(w_coord[k1g] - hole_center_42)
-        '''
-        #-----------------------------------------------------------------------
-        # Cython version
-        #-----------------------------------------------------------------------
-
-        temp_f64_accum = 0.0
-
-        for idx in range(3):
-
-            temp_f64_val = w_coord[k1g, idx] - hole_center_42_memview[0, idx]
-
-            temp_f64_accum += temp_f64_val*temp_f64_val
-
-        search_radius = sqrt(temp_f64_accum)
-
-        #-----------------------------------------------------------------------
-        ########################################################################
-
-
-
-
-
-        # Search for nearest neighbors within R of the hole center
-        i_nearest = galaxy_tree.query_radius(hole_center_42_memview, r=search_radius)
-
-        i_nearest = i_nearest[0]
-
-        # Remove three nearest galaxies from list
-        boolean_nearest = np.logical_and.reduce((i_nearest != k1g, i_nearest != k2g, i_nearest != k3g))
-
-        i_nearest = i_nearest[boolean_nearest]
-
-        #num_nearest is int of ITYPE_t
-        num_nearest = i_nearest.shape[0]
-
-        if num_nearest > 0:
-            # Found at least one other nearest neighbor!
-
-            i_nearest_memview = i_nearest  # Needed for cython only
-
-
-
-
-
-            # Calculate vector pointing from hole center to next nearest galaxies
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            temp_1 = np.take(w_coord, i_nearest, axis=0)
-            
-            Dcenter = np.subtract(temp_1, hole_center)  # shape (N,3)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-
-            Dcenter_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
-            
-            for idx in range(num_nearest):
-
-                temp_idx = i_nearest_memview[idx]
-
-                for jdx in range(3):
-
-                    Dcenter_memview[idx, jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
-
-            #-------------------------------------------------------------------
-            ####################################################################
 
 
 
 
 
 
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)  # shape (N,)
-            # Different shape than previous bot's because v3_unit has a different shape
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #
-            # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
-            #-------------------------------------------------------------------
-
-            bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
 
 
-            D_minus_A_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
-            
-            for idx in range(num_nearest):
-                
-                for jdx in range(3):
+
+    #nearest_gal_index_list = np.empty(3, dtype=np.int64, order='C')
+    #nearest_gal_index_list[0] = k1g
+    #nearest_gal_index_list[1] = k2g
+    #nearest_gal_index_list[2] = k3g
+
+    x_ratio_index_return = 0
+    cdef ITYPE_t k42g_return = 0
+    cdef DTYPE_F64_t minx42_return = 0.0
+    in_mask_return = True
+
+
+
+    #cdef ITYPE_t[:] x_ratio_index_return_mem = np.zeros(1, dtype=np.int64, order='C')
+    cdef ITYPE_t[:] k42g_return_mem = np.zeros(1, dtype=np.int64, order='C')
+    cdef DTYPE_F64_t[:] minx42_return_mem = np.zeros(1, dtype=np.float64, order='C')
+    #cdef DTYPE_B_t[:] in_mask_return_mem = np.ones(1, dtype=np.uint8)
+    in_mask_return_mem[0] = 1
+
+
+
+    '''
+    print("Gal 42 function inputs: ")
+    print(np.asarray(hole_center_memview, dtype=np.float64, order='C'))
+    print(np.asarray(hole_center_42_memview, dtype=np.float64, order='C'))
+    print(np.asarray(v3_unit_memview, dtype=np.float64, order='C'))
+    print(k1g, k2g, k3g)
+    '''
+
+    find_next_galaxy(hole_center_memview,
+                     hole_center_42_memview, 
+                            hole_radius, 
+                            dr_copy, 
+                            1.0,
+                            v3_unit_memview, 
+                            galaxy_tree, 
+                            nearest_gal_index_list, 
+                            w_coord, 
+                            mask, 
+                            min_dist, 
+                            max_dist,
+                            x_ratio_index_return_mem,  #return variable
+                            k42g_return_mem,            #return variable
+                            minx42_return_mem,          #return variable
+                            in_mask_return_mem)        #return variable
+
+
+    '''
+    x_ratio_index_return = x_ratio_index_return_mem[0]
+    k42g_return = k42g_return_mem[0]
+    minx42_return = minx42_return_mem[0]
+    in_mask_return = in_mask_return_mem[0]
+    '''
+
+
+
+
+    
+    k4g2_x42 = x_ratio_index_return_mem[0]
                     
-                    D_minus_A_center_memview[idx, jdx] = Dcenter_memview[idx, jdx] - Acenter_memview[jdx]
+    k4g2 = k42g_return_mem[0]
+    
+    minx42 = minx42_return_mem[0]
 
-            
-            for idx in range(num_nearest):
-                
-                temp_f64_accum = 0.0
-                
-                for jdx in range(3):
-                    
-                    temp_f64_accum += D_minus_A_center_memview[idx,jdx]*v3_unit_memview[jdx]
-                    
-                bot_memview[idx] = 2*temp_f64_accum
-            
-            #-------------------------------------------------------------------
-            ####################################################################
+    in_mask_42 = in_mask_return_mem[0]
+    
 
 
 
 
 
-            ####################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    '''
+    print("Gal 42 main inputs: ")
+    print(np.asarray(hole_center_memview, dtype=np.float64, order='C'))
+    print(np.asarray(hole_center_42_memview, dtype=np.float64, order='C'))
+    print(np.asarray(v3_unit_memview, dtype=np.float64, order='C'))
+    print(k1g, k2g, k3g)
+    '''
+    
+    
+    '''
+
+    if False:
+        
+        in_mask_42 = True
+        
+        galaxy_search = True
+    
+        while galaxy_search:
+    
+    
+    
+    
+            # Shift hole center along unit vector
+    
+            ########################################################################
             # Python version
-            #-------------------------------------------------------------------
-            '''
-            top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
-            '''
-            #-------------------------------------------------------------------
+            #-----------------------------------------------------------------------
+            
+            #hole_center_42 = hole_center_42 + dr*v3_unit
+            
+            #-----------------------------------------------------------------------
             # Cython version
-            #
-            # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
-            #-------------------------------------------------------------------
-            
-            top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
-
-            
-            temp_f64_accum = 0.0
-            
+            #-----------------------------------------------------------------------
+    
             for idx in range(3):
-                
-                temp_f64_accum += Bcenter_memview[idx]*Bcenter_memview[idx]
-                
-            temp_f64_val = temp_f64_accum
+    
+                hole_center_42_memview[0, idx] += dr*v3_unit_memview[idx]
+    
+            #-----------------------------------------------------------------------
+            ########################################################################
+    
+    
+    
+    
+    
+            # New hole "radius"
+    
+            ########################################################################
+            # Python version
+            #-----------------------------------------------------------------------
             
-            for idx in range(num_nearest):
+            #search_radius = np.linalg.norm(w_coord[k1g] - hole_center_42)
+            
+            #-----------------------------------------------------------------------
+            # Cython version
+            #-----------------------------------------------------------------------
+    
+            temp_f64_accum = 0.0
+    
+            for idx in range(3):
+    
+                temp_f64_val = w_coord[k1g, idx] - hole_center_42_memview[0, idx]
+    
+                temp_f64_accum += temp_f64_val*temp_f64_val
+    
+            search_radius = sqrt(temp_f64_accum)
+    
+            #-----------------------------------------------------------------------
+            ########################################################################
+    
+    
+    
+    
+    
+            # Search for nearest neighbors within R of the hole center
+            i_nearest = galaxy_tree.query_radius(hole_center_42_memview, r=search_radius)
+    
+            i_nearest = i_nearest[0]
+    
+            # Remove three nearest galaxies from list
+            boolean_nearest = np.logical_and.reduce((i_nearest != k1g, i_nearest != k2g, i_nearest != k3g))
+    
+            i_nearest = i_nearest[boolean_nearest]
+    
+            #num_nearest is int of ITYPE_t
+            num_nearest = i_nearest.shape[0]
+    
+            if num_nearest > 0:
+                # Found at least one other nearest neighbor!
+    
+                i_nearest_memview = i_nearest  # Needed for cython only
+    
+    
+    
+    
+    
+                # Calculate vector pointing from hole center to next nearest galaxies
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #temp_1 = np.take(w_coord, i_nearest, axis=0)
+                
+                #Dcenter = np.subtract(temp_1, hole_center)  # shape (N,3)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+    
+                Dcenter_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+                
+                for idx in range(num_nearest):
+    
+                    temp_idx = i_nearest_memview[idx]
+    
+                    for jdx in range(3):
+    
+                        Dcenter_memview[idx, jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)  # shape (N,)
+                # Different shape than previous bot's because v3_unit has a different shape
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #
+                # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
+                #-------------------------------------------------------------------
+    
+                bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+    
+    
+                D_minus_A_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    for jdx in range(3):
+                        
+                        D_minus_A_center_memview[idx, jdx] = Dcenter_memview[idx, jdx] - Acenter_memview[jdx]
+    
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_accum = 0.0
+                    
+                    for jdx in range(3):
+                        
+                        temp_f64_accum += D_minus_A_center_memview[idx,jdx]*v3_unit_memview[jdx]
+                        
+                    bot_memview[idx] = 2*temp_f64_accum
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #
+                # CAN PROBABLY CONSOLIDATE BELOW FOR-LOOPS
+                #-------------------------------------------------------------------
+                
+                top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+    
                 
                 temp_f64_accum = 0.0
                 
-                for jdx in range(3):
+                for idx in range(3):
                     
-                    temp_f64_accum += Dcenter_memview[idx,jdx]*Dcenter_memview[idx,jdx]
+                    temp_f64_accum += Bcenter_memview[idx]*Bcenter_memview[idx]
                     
-                top_memview[idx] = temp_f64_accum - temp_f64_val
-            
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            x42 = top/bot  # shape (N,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-
-            x42_memview = np.empty(num_nearest, dtype=np.float64, order='C')
-
-            for idx in range(num_nearest):
-
-                x42_memview[idx] = top_memview[idx]/bot_memview[idx]
-
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-
-
-            # Locate positive values of x42
-
-            ####################################################################
-            # Python version
-            #-------------------------------------------------------------------
-            '''
-            valid_idx = np.where(x42 > 0)[0]  # shape (n,)
-            '''
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
-            
-            any_valid = 0
-            
-            valid_min_idx = 0
-            
-            valid_min_val = INFINITY
-            
-            #valid_idx_memview = np.empty(num_nearest, dtype=np.uint8, order='C')
-            
-            for idx in range(num_nearest):
+                temp_f64_val = temp_f64_accum
                 
-                temp_f64_val = x42_memview[idx]
-                
-                if temp_f64_val > 0.0:
+                for idx in range(num_nearest):
                     
-                    #valid_idx_memview[idx] = 1
+                    temp_f64_accum = 0.0
                     
-                    any_valid = 1
-                    
-                    if temp_f64_val < valid_min_val:
+                    for jdx in range(3):
                         
-                        valid_min_idx = idx
+                        temp_f64_accum += Dcenter_memview[idx,jdx]*Dcenter_memview[idx,jdx]
                         
-                        valid_min_val = temp_f64_val
-
-            #-------------------------------------------------------------------
-            ####################################################################
-
-
-
-
-
-
-
-            ####################################################################
-            # Python version
-            #
-            # CANNOT KEEP DUE TO FLAGS SET IN IF-BLOCK
-            #-------------------------------------------------------------------
-            '''
-            if len(valid_idx) > 0:
-                # Find index of 3rd nearest galaxy
-                k4g2_x42 = valid_idx[x42[valid_idx].argmin()]
-                k4g2 = i_nearest[k4g2_x42]
-
-                minx42 = x42[k4g2_x42]
-
+                    top_memview[idx] = temp_f64_accum - temp_f64_val
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #x42 = top/bot  # shape (N,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+    
+                x42_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+    
+                for idx in range(num_nearest):
+    
+                    x42_memview[idx] = top_memview[idx]/bot_memview[idx]
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+    
+                # Locate positive values of x42
+    
+                ####################################################################
+                # Python version
+                #-------------------------------------------------------------------
+                
+                #valid_idx = np.where(x42 > 0)[0]  # shape (n,)
+                
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+                
+                any_valid = 0
+                
+                valid_min_idx = 0
+                
+                valid_min_val = INFINITY
+                
+                #valid_idx_memview = np.empty(num_nearest, dtype=np.uint8, order='C')
+                
+                for idx in range(num_nearest):
+                    
+                    temp_f64_val = x42_memview[idx]
+                    
+                    if temp_f64_val > 0.0:
+                        
+                        #valid_idx_memview[idx] = 1
+                        
+                        any_valid = 1
+                        
+                        if temp_f64_val < valid_min_val:
+                            
+                            valid_min_idx = idx
+                            
+                            valid_min_val = temp_f64_val
+    
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+    
+    
+                ####################################################################
+                # Python version
+                #
+                # CANNOT KEEP DUE TO FLAGS SET IN IF-BLOCK
+                #-------------------------------------------------------------------
+                
+                #if len(valid_idx) > 0:
+                    # Find index of 3rd nearest galaxy
+                #    k4g2_x42 = valid_idx[x42[valid_idx].argmin()]
+                #    k4g2 = i_nearest[k4g2_x42]
+    
+                #    minx42 = x42[k4g2_x42]
+    
+                #    galaxy_search = False
+                
+    
+                #-------------------------------------------------------------------
+                # Cython version
+                #-------------------------------------------------------------------
+                
+                if any_valid:
+                    
+                    #used to index into the BA distance array
+                    k4g2_x42 = valid_min_idx
+                    
+                    #used to index into the w_coord array
+                    k4g2 = i_nearest_memview[valid_min_idx]
+    
+                    # ???????
+                    minx42 = x42_memview[k4g2_x42]
+                    
+                    galaxy_search = False
+                
+                #-------------------------------------------------------------------
+                ####################################################################
+    
+    
+    
+    
+    
+            elif not_in_mask(hole_center_42_memview, mask, min_dist, max_dist):
+                # Hole is no longer within survey limits
                 galaxy_search = False
-            '''
+                in_mask_42 = False
+    
+        #print('Found second potential 4th galaxy')
+    
+    '''
+    
 
-            #-------------------------------------------------------------------
-            # Cython version
-            #-------------------------------------------------------------------
+
+    
+    '''
+    if in_mask_42 == 0 and in_mask_return == 0:
+        #rest doesnt have to match
+        pass
+    else:
+    
+        if in_mask_42 != in_mask_return or \
+           k4g2 != k42g_return or \
+           np.logical_not(np.isclose(minx42,minx42_return)) or \
+           k4g2_x42 != x_ratio_index_return:
+    
+            print("-----")
+            print("Gal 42 didn't match:")
             
-            if any_valid:
-                
-                #used to index into the BA distance array
-                k4g2_x42 = valid_min_idx
-                
-                #used to index into the w_coord array
-                k4g2 = i_nearest_memview[valid_min_idx]
-
-                # ???????
-                minx42 = x42_memview[k4g2_x42]
-                
-                galaxy_search = False
             
-            #-------------------------------------------------------------------
-            ####################################################################
+            print(in_mask_42, in_mask_return)
+            print(k4g2, k42g_return)
+            print(minx42, minx42_return)
+            print(k4g2_x42, x_ratio_index_return)
+            
+    '''
 
 
 
 
 
-        elif not_in_mask(hole_center_42_memview, mask, min_dist, max_dist):
-            # Hole is no longer within survey limits
-            galaxy_search = False
-            in_mask_42 = False
 
-    #print('Found second potential 4th galaxy')
+
+
+
 
 
 

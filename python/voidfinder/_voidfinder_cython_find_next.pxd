@@ -10,6 +10,7 @@ from typedefs cimport DTYPE_CP128_t, DTYPE_CP64_t, DTYPE_F64_t, DTYPE_F32_t, DTY
 
 
 cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
+                           DTYPE_F64_t[:,:] moving_hole_center_memview, \
                             DTYPE_F64_t hole_radius, \
                             DTYPE_F64_t dr, \
                             DTYPE_F64_t direction_mod,\

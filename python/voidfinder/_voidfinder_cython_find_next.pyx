@@ -52,6 +52,7 @@ from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 @cython.cdivision(True)
 cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, 
+                           DTYPE_F64_t[:,:] moving_hole_center_memview,
                             DTYPE_F64_t hole_radius, 
                             DTYPE_F64_t dr, 
                             DTYPE_F64_t direction_mod,
@@ -185,12 +186,15 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     ############################################################################
 
 
+    #print("NN idxs: ", np.asarray(nearest_gal_index_list,dtype=np.int64, order='C'))
+
+
 
     # Initialize temp_hole_center_memview
 
     for idx in range(3):
 
-        temp_hole_center_memview[0, idx] = hole_center_memview[0, idx]
+        temp_hole_center_memview[0, idx] = moving_hole_center_memview[0, idx]
 
 
 
@@ -221,7 +225,31 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         #-----------------------------------------------------------------------
         # New hole "radius"
 
-        search_radius += dr
+        #search_radius += dr
+        
+        
+        
+        num_neighbors = nearest_gal_index_list.shape[0]
+        
+        if num_neighbors == 1:
+            
+            search_radius += dr
+        
+        elif num_neighbors > 1:
+            
+            temp_f64_accum = 0.0
+            
+            for idx in range(3):
+                
+                temp_f64_val = w_coord[nearest_gal_index_list[0],idx] - temp_hole_center_memview[0,idx]
+                
+                temp_f64_accum += temp_f64_val*temp_f64_val
+                
+            search_radius = sqrt(temp_f64_accum)
+            
+        
+        
+        
 
         #-----------------------------------------------------------------------
         ########################################################################
@@ -253,10 +281,16 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         
         
         num_nearest = num_results
+        
+        #print("Num results: ", num_results)
+        #print(np.asarray(i_nearest_memview, dtype=np.int64, order='C'))
 
         for idx in range(num_results):
 
             for jdx in range(num_neighbors):
+                
+                
+                #print("NN idx check: ", i_nearest_memview[idx], nearest_gal_index_list[jdx])
 
                 if i_nearest_memview[idx] == nearest_gal_index_list[jdx]:
 
@@ -264,7 +298,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                     
                     num_nearest -= 1
                     
+                    #print("fail", num_nearest)
+                    
                     break
+                
+                #print("succeed")
 
         
         #i_nearest = i_nearest[boolean_nearest]
@@ -283,16 +321,32 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             
             jdx = 0
             
+            #print("building output: ")
+            #print(np.asarray(boolean_nearest, dtype=np.uint8, order='C'))
+            
             for idx in range(num_results):
                 
+                
+                #print("idx: ", idx, boolean_nearest[idx])
+                
                 if boolean_nearest[idx]:
+                    
+                    
+                    #print("succeed: ", i_nearest_memview[idx])
                     
                     i_nearest_reduced[jdx] = i_nearest_memview[idx]
                     
                     jdx += 1
-            
+                    
+                    #print("succeed")
+                    
+                    
+            #print("i_nearest_reduced")
+            #print(i_nearest_reduced)
             
             i_nearest_reduced_memview = i_nearest_reduced
+            
+            #print(np.asarray(i_nearest_reduced_memview, dtype=np.int64, order='C'))
 
 
             #-------------------------------------------------------------------
@@ -465,6 +519,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 nearest_neighbor_x_ratio_index[0] = valid_min_idx
                 
                 # used to index into the w_coord array
+                #print("result: ")
+                #print(valid_min_idx)
+                #print(np.asarray(i_nearest_reduced_memview, dtype=np.int64, order='C'))
+                
+                
                 nearest_neighbor_index[0] = i_nearest_reduced_memview[valid_min_idx]
 
                 # ???????

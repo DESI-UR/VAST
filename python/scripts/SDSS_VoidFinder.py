@@ -8,7 +8,7 @@
 
 
 import sys
-sys.path.insert(1, '/home/moose/VoidFinder/python')
+sys.path.insert(1, '/home/moose/VoidFinder/python/')
 
 from voidfinder import filter_galaxies, find_voids
 from astropy.table import Table
