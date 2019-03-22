@@ -20,3 +20,4 @@ ctypedef np.float32_t DTYPE_F32_t
 ctypedef np.uint8_t DTYPE_B_t
 ctypedef np.intp_t ITYPE_t  
 ctypedef np.int32_t DTYPE_INT32_t
+ctypedef np.int64_t DTYPE_INT64_t

@@ -38,7 +38,7 @@ def _main_hole_finder(cell_ID_dict,
                       w_coord,
                       batch_size=1000,
                       verbose=True,
-                      num_cpus=1):
+                      num_cpus=None):
     '''
     Description:
     ============
@@ -1003,7 +1003,7 @@ def run_single_process_cython(cell_ID_list,
     
     n_empty_cells = len(cell_ID_list)
     
-    return_array = np.empty(4, dtype=np.float64)
+    #return_array = np.empty(4, dtype=np.float64)
     
     ################################################################################
     # Convert the mask to an array of uint8 values for running in the cython code
@@ -1035,6 +1035,7 @@ def run_single_process_cython(cell_ID_list,
     ################################################################################
     # Main loop
     ################################################################################
+    '''
     num_cells_processed = 0
     
     for hole_center_coords in cell_ID_list:
@@ -1091,8 +1092,56 @@ def run_single_process_cython(cell_ID_list,
         
         
         PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
+    '''
+    
+    
+    i_j_k_array = np.array(cell_ID_list, dtype=np.int64)
+    
+    return_array = np.empty((n_empty_cells, 4), dtype=np.float64)
+        
+    main_algorithm(i_j_k_array,
+                   galaxy_tree,
+                   w_coord,
+                   dl, 
+                   dr,
+                   coord_min,
+                   mask,
+                   min_dist,
+                   max_dist,
+                   return_array,
+                   1  #verbose level
+                   )
         
     
+    print("Exited main algorithm returned to python")
+    
+        
+    for row in return_array:
+        
+        x_val = row[0]
+        y_val = row[1]
+        z_val = row[2]
+        r_val = row[3]
+        
+        if not np.isnan(x_val):
+                
+            myvoids_x.append(x_val)
+            #x_val = hole_center[0,0]
+            
+            myvoids_y.append(y_val)
+            #y_val = hole_center[0,1]
+            
+            myvoids_z.append(z_val)
+            #z_val = hole_center[0,2]
+            
+            myvoids_r.append(r_val)
+            #r_val = hole_radius
+            
+            n_holes += 1
+        
+        
+        
+    '''
     print('Plotting single cell processing times distribution')
     plt.figure(figsize=(14,10))
     plt.hist(PROFILE_loop_times, bins=50)
@@ -1102,7 +1151,7 @@ def run_single_process_cython(cell_ID_list,
     #plt.show()
     plt.savefig("Cell_time_dist_Cython.png")
     plt.close()
-        
+    '''
         
     return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
 
@@ -1151,11 +1200,20 @@ def run_multi_process(cell_ID_list,
     n_holes = 0
 
     # Counter for the number of empty cells
-    empty_cell_counter = 0
+    #empty_cell_counter = 0
     
     # Number of empty cells
     #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
     n_empty_cells = len(cell_ID_list)
+    
+    
+    
+    ################################################################################
+    # mask needs to be 1 byte per bool to match the cython dtype
+    ################################################################################
+    
+    mask = mask.astype(np.uint8)
+    
     
     ################################################################################
     #
@@ -1248,7 +1306,7 @@ def run_multi_process(cell_ID_list,
     
     curr_cell_idx = 0
     
-    while num_cells_processed < empty_cell_counter:
+    while num_cells_processed < n_empty_cells:
         
         try:
             
@@ -1273,28 +1331,36 @@ def run_multi_process(cell_ID_list,
                 
                 #append to the correct lists and stuff
                 
-                x_val, y_val, z_val, r_val = message[1]
                 
-                if not np.isnan(x_val):
+                return_array = message[1]
                 
-                    myvoids_x.append(x_val)
-        
-                    myvoids_y.append(y_val)
+                for row in return_array:
+                
+                    x_val = row[0]
+                    y_val = row[1] 
+                    z_val = row[2] 
+                    r_val = row[3]
                     
-                    myvoids_z.append(z_val)
+                    if not np.isnan(x_val):
                     
-                    myvoids_r.append(r_val)
-                    
-                    n_holes += 1
-                
-                num_cells_processed += 1
-                
-                
-                if verbose:
+                        myvoids_x.append(x_val)
             
-                    if num_cells_processed % 10000 == 0:
+                        myvoids_y.append(y_val)
                         
-                       print('Processed', num_cells_processed, 'cells of', n_empty_cells)
+                        myvoids_z.append(z_val)
+                        
+                        myvoids_r.append(r_val)
+                        
+                        n_holes += 1
+                    
+                    num_cells_processed += 1
+                
+                
+                    if verbose:
+                
+                        if num_cells_processed % 10000 == 0:
+                            
+                           print('Processed', num_cells_processed, 'cells of', n_empty_cells)
                 
                 
         for proc_idx, worker_waiting in enumerate(workers_waiting):
@@ -1370,7 +1436,7 @@ def run_multi_process(cell_ID_list,
         
     if verbose:
         
-        print("Num empty cells: ", empty_cell_counter)
+        print("Num empty cells: ", n_empty_cells)
         
     return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
                     
@@ -1490,7 +1556,7 @@ def _main_hole_finder_worker(process_id,
                 main_proc_start_time = time.time()
                 
                 cell_ID_list = message
-                
+                '''
                 for hole_center_coords in cell_ID_list:
                     
                     num_cells_processed += 1
@@ -1525,6 +1591,60 @@ def _main_hole_finder_worker(process_id,
                     return_queue.put(("data", (x_val, y_val, z_val, r_val)))
                     time_returning += time.time() - put_start
                     
+                '''
+                    
+                    
+                    
+                i_j_k_array = np.array(cell_ID_list, dtype=np.int64)
+    
+                return_array = np.empty((len(cell_ID_list), 4), dtype=np.float64)
+                    
+                main_algorithm(i_j_k_array,
+                               galaxy_tree,
+                               w_coord,
+                               dl, 
+                               dr,
+                               coord_min,
+                               mask,
+                               min_dist,
+                               max_dist,
+                               return_array,
+                               0  #verbose level
+                               )
+                '''
+                for row in return_array:
+                    
+                    x_val = row[0]
+                    y_val = row[1]
+                    z_val = row[2]
+                    r_val = row[3]
+                    
+                    if not np.isnan(x_val):
+                            
+                        myvoids_x.append(x_val)
+                        #x_val = hole_center[0,0]
+                        
+                        myvoids_y.append(y_val)
+                        #y_val = hole_center[0,1]
+                        
+                        myvoids_z.append(z_val)
+                        #z_val = hole_center[0,2]
+                        
+                        myvoids_r.append(r_val)
+                        #r_val = hole_radius
+                        
+                        n_holes += 1
+                '''
+                
+                
+                num_cells_processed += return_array.shape[0]
+                
+                put_start = time.time()
+                return_queue.put(("data", return_array))
+                time_returning += time.time() - put_start
+                    
+                    
+                    
                 time_main += time.time() - main_proc_start_time
                 
                 #print("Processed2: ", num_cells_processed, "time: ", time.time() - worker_lifetime_start, "main: ", time_main, time_empty)
@@ -1541,72 +1661,3 @@ def _main_hole_finder_worker(process_id,
     return None
     
     
-'''
-#Attempt at modularizing the big behemoth in _main_hole_finder
-def _find_galaxy_2(hole_center, w_coord, galaxy_tree, dr, v1_unit, modv1, k1g, mask, min_dist, max_dist):
-    
-    
-    galaxy_search = True
-
-    hole_center_2 = hole_center
-
-    in_mask_2 = True
-
-    while galaxy_search:
-
-        # Shift hole center away from first galaxy
-        hole_center_2 = hole_center_2 - dr*v1_unit
-        
-        # Distance between hole center and nearest galaxy
-        modv1 += dr
-        
-        # Search for nearest neighbors within modv1 of the hole center
-        i_nearest = galaxy_tree.query_radius(hole_center_2, r=modv1)
-
-        i_nearest = i_nearest[0]
-        #dist_nearest = dist_nearest[0]
-
-        # Remove nearest galaxy from list
-        boolean_nearest = i_nearest != k1g
-        
-        i_nearest = i_nearest[boolean_nearest]
-        
-
-        if len(i_nearest) > 0:
-            # Found at least one other nearest neighbor!
-
-            # Calculate vector pointing from next nearest galaxies to the nearest galaxy
-            BA = w_coord[k1g] - w_coord[i_nearest]  # shape (N,3)
-            
-            bot = 2*np.dot(BA, v1_unit.T)  # shape (N,1)
-            
-            top = np.sum(BA**2, axis=1)  # shape (N,)
-            
-            x2 = top/bot.T[0]  # shape (N,)
-
-            # Locate positive values of x2
-            valid_idx = np.where(x2 > 0)[0]  # shape (n,)
-            
-            if len(valid_idx) > 0:
-                # Find index of 2nd nearest galaxy
-                k2g_x2 = valid_idx[x2[valid_idx].argmin()]
-                
-                k2g = i_nearest[k2g_x2]
-
-                minx2 = x2[k2g_x2]  # Eliminated transpose on x2
-
-                galaxy_search = False
-            
-        elif not_in_mask(hole_center_2, mask, min_dist, max_dist):
-            # Hole is no longer within survey limits
-            galaxy_search = False
-            
-            in_mask_2 = False
-
-    return k2g, k2g_x2, minx2, in_mask_2, BA
-'''
-
-
-
-
-
