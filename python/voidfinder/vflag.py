@@ -8,9 +8,9 @@ galaxy.
 
 
 import numpy as np
-from astropy.table import Table
+#from astropy.table import Table
 
-from voidfinder_functions import not_in_mask
+from voidfinder_functions import build_mask, not_in_mask
 
 maskra = 360
 maskdec = 180
@@ -20,12 +20,16 @@ dec_offset = -90
 
 
 # Read in survey mask
+survey_mask = np.load('/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/vollim_dr7_cbp_102709_mask.npy')
+
+mask = build_mask(survey_mask)
+'''
 survey_mask = Table.read('SDSSdr7/cbpdr7mask.dat', format='ascii.commented_header')  # SDSS DR7
 
 # Make mask
 mask = np.zeros((maskra, maskdec), dtype=np.bool)
 mask[survey_mask['ra'].astype(int), survey_mask['dec'].astype(int) - dec_offset] = True
-
+'''
 # Distance limits (units of Mpc/h, taken from voids_sdss.py)
 rmin = 0
 rmax = 300
