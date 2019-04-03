@@ -6,7 +6,7 @@ from astropy.table import Table
 import time
 
 from .hole_combine import combine_holes
-from .voidfinder_functions import mesh_galaxies, in_mask,not_in_mask, in_survey, save_maximals, mesh_galaxies_dict
+from .voidfinder_functions import build_mask, mesh_galaxies, in_mask, not_in_mask, in_survey, save_maximals, mesh_galaxies_dict
 from .table_functions import add_row, subtract_row, to_vector, to_array, table_dtype_cast, table_divide
 from .volume_cut import volume_cut
 
@@ -76,7 +76,8 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
     coord_max = to_vector(coord_max_table)
 
     print('Reading mask',flush=True)
-
+    mask = build_mask(maskfile)
+    '''
     mask = []
     
     for i in range(1, 1+len(maskfile)):
@@ -88,7 +89,7 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
             mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
             
     mask = np.array(mask)
-    
+    '''
     vol = len(maskfile)
 
     print('Read mask',flush=True)
@@ -209,7 +210,7 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
 
 
 
-def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name):
+def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name, num_cpus):
     
 
     
@@ -264,7 +265,8 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, 
                                                                             min_dist,
                                                                             max_dist,
                                                                             w_coord,
-                                                                            verbose=True)
+                                                                            verbose=True,
+                                                                            num_cpus=num_cpus)
 
     print('Found a total of', n_holes, 'potential voids.', flush=True)
 

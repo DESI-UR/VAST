@@ -38,11 +38,13 @@ def _main_hole_finder(cell_ID_dict,
                       w_coord,
                       batch_size=1000,
                       verbose=True,
-                      num_cpus=None):
+                      num_cpus=1):
     '''
     Description:
     ============
-    We kinda know what this does, Kelly can fill this in
+
+    Grow a sphere in each empty cell until the sphere is bounded by four 
+    galaxies on its surface.
     
     
     
@@ -51,8 +53,9 @@ def _main_hole_finder(cell_ID_dict,
     
     cell_ID_dict : python dictionary
         keys are tuples of (i,j,k) locations which correspond to a grid cell.
-        if the key (i,j,k) is in the dictionary, then that means there is at least 1 galaxy at the corresponding
-        grid cell so we should pass over that grid cell since it isn't empty.
+        if the key (i,j,k) is in the dictionary, then that means there is at 
+        least 1 galaxy at the corresponding grid cell so we should pass over 
+        that grid cell since it isn't empty.
     
     ngrid : numpy.ndarray of shape (3,)
         the number of grid cells in each of the 3 x,y,z dimensions
@@ -61,14 +64,15 @@ def _main_hole_finder(cell_ID_dict,
         length of each cell in Mpc/h
         
     dr : scalar float
-        distance to shift hole centers during iterative void hole growing in Mpc/h
+        distance to shift hole centers during iterative void hole growing in 
+        Mpc/h
         
     coord_min : numpy.ndarray of shape (3,) (actually shape (1,3)?)
         minimum coordinates of the survey in x,y,z in Mpc/h
         
     mask : numpy.ndarray of shape (N,M) type bool
-        represents the survey footprint in ra/dec space.  Value of True indicates that a location
-        is within the survey
+        represents the survey footprint in ra/dec space.  Value of True 
+        indicates that a location is within the survey
     
     min_dist : scalar
         minimum redshift in units of Mpc/h
@@ -78,28 +82,39 @@ def _main_hole_finder(cell_ID_dict,
         
     w_coord : numpy.ndarray of shape ()
         x,y,z coordinates of the galaxies used in building the query tree
+
+    batch_size : scalar float
+        Number of empty cells to pass into each process.  Initialized to 1000.
+
+    verbose : boolean
+        Flag to determine whether or not to display status messages while 
+        running.  Default is True (print statements).
+
+    num_cpus : scalar float
+        Number of CPUs to use in parallel.  Default is 1.  Set to None to use 
+        maximum number of CPUs available.
     
     
     
     Returns:
     ========
     
-    Fill in later!
-    
-    
-    
+    myvoids_x : numpy.ndarray of shape (N,)
+        x-coordinates of the N hole centers found in units of Mpc/h
+
+    myvoids_y : numpy.ndarray of shape (N,)
+        y-coordinates of the N hole centers found in units of Mpc/h
+
+    myvoids_z : numpy.ndarray of shape (N,)
+        z-coordinates of the N hole centers found in units of Mpc/h
+
+    myvoids_r : numpy.ndarray of shape (N,)
+        Radii of the N holes found in units of Mpc/h
+
+    n_holes : scalar float
+        Number of holes found
     '''
-    
-    
-    '''
-    print(mask)
-    print(type(mask)) #numpy ndarray
-    print(mask.shape)
-    print(mask.dtype)
-    print(mask.dtype.itemsize)
-    
-    exit()
-    '''
+
     
     start_time = time.time()
     
@@ -175,6 +190,11 @@ def _main_hole_finder(cell_ID_dict,
     return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
     
     
+
+
+
+
+
     
 def run_single_process(cell_ID_list, 
                        ngrid, 
@@ -1175,7 +1195,7 @@ def run_multi_process(cell_ID_list,
                        w_coord,
                        batch_size=1000,
                        verbose=False,
-                       num_cpus=None):
+                       num_cpus=1):
     
     
     start_time = time.time()
@@ -1244,10 +1264,12 @@ def run_multi_process(cell_ID_list,
     #job_queue = Queue()
     
     return_queue = Queue()
+
+    max_cpus = cpu_count() - 1
     
-    if num_cpus is None:
+    if (num_cpus is None) or (num_cpus > max_cpus):
        
-        num_cpus = cpu_count() - 1
+        num_cpus = max_cpus
     
     processes = []
     
