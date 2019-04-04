@@ -14,6 +14,7 @@ Voidfinder now includes some cythonized code for speed.  To build this code, ent
 /python/voidfinder/ directory and run:
 
 cython -a *.pyx
+
 python setup.py build_ext --inplace
 
 then from the /python/scripts/ directory edit the paths in whichever run script desired and run
