@@ -18,8 +18,6 @@ from ._voidfinder import _main_hole_finder
 
 
 
-maskra = 360
-maskdec = 180
 dec_offset = -90
 dl = 5           # Cell side length [Mpc/h]
 dr = 1.          # Distance to shift the hole centers
