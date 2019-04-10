@@ -133,13 +133,13 @@ def build_mask(file):
 
     mask = []
     
-    for i in range(1, 1+len(maskfile)):
+    for i in range(1, 1+len(file)):
         
         mask.append(np.zeros((i*maskra,i*maskdec),dtype=bool))
         
-        for j in range(len(maskfile[i-1][0])):
+        for j in range(len(file[i-1][0])):
             
-            mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
+            mask[i-1][file[i-1][0][j]][file[i-1][1][j]-i*dec_offset] = True
             
     mask = np.array(mask)
 
