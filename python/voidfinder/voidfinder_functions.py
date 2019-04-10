@@ -111,6 +111,45 @@ def mesh_galaxies_dict(galaxy_coords, coord_min, grid_side_length):
 ################################################################################
 ################################################################################
 
+
+def build_mask(file):
+    '''
+    Build the survey mask
+
+
+    Parameters:
+    ===========
+
+    file : numpy array of shape ()
+        Coordinates that are within the survey limits
+
+
+    Returns:
+    ========
+
+    mask : numpy array of shape ()
+        Index coordinate array of the points within the survey limits
+    '''
+
+    mask = []
+    
+    for i in range(1, 1+len(maskfile)):
+        
+        mask.append(np.zeros((i*maskra,i*maskdec),dtype=bool))
+        
+        for j in range(len(maskfile[i-1][0])):
+            
+            mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
+            
+    mask = np.array(mask)
+
+
+    return mask
+
+
+################################################################################
+################################################################################
+
 def in_mask_table(coordinates, survey_mask, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.

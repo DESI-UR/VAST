@@ -32,6 +32,51 @@ RtoD = 180./np.pi
 
 
 def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_flag, rm_isolated_flag):
+    '''
+    Filter the input galaxy catalog, removing galaxies fainter than some limit and 
+    removing isolated galaxies.
+
+
+    Parameters:
+    ===========
+
+    infile : astropy table
+        List of galaxies and their coordinates (ra, dec, redshift) and magnitudes
+
+    maskfile : numpy array of shape ()
+        Coordinates of positions within survey mask
+
+    min_dist : float
+        Minimum distance (in Mpc/h) of the galaxy distribution
+
+    max_dist : float
+        Maximum distance (in Mpc/h) of the galaxy distribution
+
+    survey_name : string
+        Name of galaxy catalog
+
+    mag_cut_flag : boolean
+        Determines whether or not to remove galaxies fainter than Mr = -20.  True 
+        will remove the faint galaxies.
+
+    rm_isolated_flag : boolean
+        Determines whether or not to remove isolated galaxies.  True will remove 
+        the isolated galaxies.
+
+
+    Returns:
+    ========
+
+    coord_min_table : astropy table
+        Minimum values of the galaxy coordinates in x, y, and z.
+
+    mask : numpy array of shape ()
+        Index array of the coordinates that are within the survey footprint
+
+    ngrid[0] : numpy array of shape (3,)
+        Number of cells in each cartesian direction.
+
+    '''
     
     ################################################################################
     #
@@ -76,20 +121,9 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
     coord_max = to_vector(coord_max_table)
 
     print('Reading mask',flush=True)
+
     mask = build_mask(maskfile)
-    '''
-    mask = []
-    
-    for i in range(1, 1+len(maskfile)):
-        
-        mask.append(np.zeros((i*maskra,i*maskdec),dtype=bool))
-        
-        for j in range(len(maskfile[i-1][0])):
-            
-            mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
-            
-    mask = np.array(mask)
-    '''
+
     vol = len(maskfile)
 
     print('Read mask',flush=True)
