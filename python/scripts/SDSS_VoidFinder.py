@@ -8,10 +8,11 @@
 
 
 import sys
-sys.path.insert(1, '/home/moose/VoidFinder/python/')
+#sys.path.insert(1, '/home/moose/VoidFinder/python/')
+sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
 
 from voidfinder import filter_galaxies, find_voids
-from absmag_comovingdist_functions import Distance
+from voidfinder.absmag_comovingdist_functions import Distance
 
 from astropy.table import Table
 import pickle
@@ -26,14 +27,14 @@ import numpy as np
 
 
 # Number of CPUs available for analysis
-num_cpus = 3
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
 
 # File header
-in_directory = '/home/moose/VoidFinder/python/voidfinder/data/'
-out_directory = '/home/moose/VoidFinder/python/voidfinder/data/'
+in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
 
 # Input file names
 galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
@@ -91,7 +92,7 @@ out2_filename = out_directory + galaxies_filename[:-5] + out2_suffix  # List of 
 ################################################################################
 
 
-infile = Table.read(galaxy_filename, format='ascii.commented_header')
+infile = Table.read(in_filename, format='ascii.commented_header')
 #maskfile = Table.read(mask_filename, format='ascii.commented_header')
 maskfile = np.load(mask_filename)
 
