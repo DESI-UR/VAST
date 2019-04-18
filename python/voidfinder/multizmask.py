@@ -3,6 +3,7 @@ from astropy.table import Table
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
+import pickle
 from absmag_comovingdist_functions import Distance
 
 parser = argparse.ArgumentParser(description='make mask')
@@ -54,6 +55,46 @@ dec = gal_data['dec']
 r   = Distance(gal_data['redshift'], O_m, H_0/100.)
 ang = np.array(list(zip(ra,dec)))
 
+
+'''
+################################################################################
+# Build variable resolution mask
+#-------------------------------------------------------------------------------
+nmax = 1 + int(D2R*np.amax(r)/10.)
+
+mask = []
+
+for i in range(1,nmax+1):
+    mask.append(list(zip(*(np.unique((i*ang).astype(int),axis=0)))))
+
+mask = np.array(mask)
+np.save(args.output,mask)
+################################################################################
+'''
+
+
+################################################################################
+# Build highest resolution mask necessary for survey
+#-------------------------------------------------------------------------------
+
+# Mask resolution (inverse of the angular radius of the minimum void at the 
+# maximum distance)
+mask_resolution = 1 + int(D2R*np.amax(r)/10)
+
+# Scale all coordinates by mask_resolution
+mask = list(zip(*(np.unique((mask_resolution*ang).astype(int), axis=0))))
+
+# Convert to numpy array
+mask = np.array(mask)
+
+# Save scaled survey mask coordinates and mask resolution
+outfile = open(args.output, 'wb')
+pickle.dump((mask_resolution, mask), outfile)
+outfile.close()
+################################################################################
+
+
+
 '''fig = plt.figure()
 
 ax = fig.add_subplot(111)
@@ -64,13 +105,3 @@ ax.set_xlabel('RA')
 ax.set_ylabel('DEC')
 
 plt.show()'''
-
-nmax = 1 + int(D2R*np.amax(r)/10.)
-
-mask = []
-
-for i in range(1,nmax+1):
-    mask.append(list(zip(*(np.unique((i*ang).astype(int),axis=0)))))
-
-mask = np.array(mask)
-np.save(args.output,mask)

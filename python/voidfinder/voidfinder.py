@@ -21,7 +21,6 @@ from ._voidfinder import _main_hole_finder
 dec_offset = -90
 dl = 5           # Cell side length [Mpc/h]
 dr = 1.          # Distance to shift the hole centers
-frac = 0.1       # Overlap fraction for calculating maximal spheres
 
 # Constants
 c = 3e5
@@ -29,7 +28,7 @@ DtoR = np.pi/180.
 RtoD = 180./np.pi
 
 
-def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_flag, rm_isolated_flag):
+def filter_galaxies(infile, maskfile, mask_resolution, min_dist, max_dist, survey_name, mag_cut_flag, rm_isolated_flag):
     '''
     Filter the input galaxy catalog, removing galaxies fainter than some limit and 
     removing isolated galaxies.
@@ -41,8 +40,12 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
     infile : astropy table
         List of galaxies and their coordinates (ra, dec, redshift) and magnitudes
 
-    maskfile : numpy array of shape ()
-        Coordinates of positions within survey mask
+    maskfile : numpy array of shape (2,n)
+        n pairs of RA,dec coordinates that are within the survey limits and are 
+        scaled by the mask_resolution.  Oth row is RA; 1st row is dec.
+
+    mask_resolution : integer
+        Scale factor of coordinates in maskfile
 
     min_dist : float
         Minimum distance (in Mpc/h) of the galaxy distribution
@@ -118,11 +121,10 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
     coord_min = to_vector(coord_min_table)
     coord_max = to_vector(coord_max_table)
 
+
     print('Reading mask',flush=True)
 
-    mask = build_mask(maskfile)
-
-    vol = len(maskfile)
+    mask = build_mask(maskfile, mask_resolution)
 
     print('Read mask',flush=True)
 
@@ -242,7 +244,7 @@ def filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut_f
 
 
 
-def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name, num_cpus):
+def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution, out1_filename, out2_filename, survey_name, num_cpus):
     
 
     
@@ -294,6 +296,7 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, 
                                                                             dr,
                                                                             coord_min,
                                                                             mask,
+                                                                            mask_resolution,
                                                                             min_dist,
                                                                             max_dist,
                                                                             w_coord,
@@ -345,7 +348,7 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, 
 
     print('Removing holes with at least 10% of their volume outside the mask',flush=True)
 
-    potential_voids_table = volume_cut(potential_voids_table, mask, [min_dist, max_dist])
+    potential_voids_table = volume_cut(potential_voids_table, mask, mask_resolution, [min_dist, max_dist])
 
     potential_voids_table.write(survey_name + 'potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
 
@@ -359,7 +362,7 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, 
 
     print('Combining holes into unique voids',flush=True)
 
-    maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, frac)
+    maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
 
     print('Number of unique voids is', len(maximal_spheres_table),flush=True)
 

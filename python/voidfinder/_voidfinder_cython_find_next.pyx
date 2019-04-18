@@ -51,7 +51,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            DTYPE_INT64_t[:] nearest_gal_index_list, 
                            ITYPE_t num_neighbors,
                            DTYPE_F64_t[:,:] w_coord, 
-                           DTYPE_B_t[:,:,:] mask, 
+                           DTYPE_B_t[:,:] mask, 
+                           DTYPE_INT32_t mask_resolution,
                            DTYPE_F64_t min_dist, 
                            DTYPE_F64_t max_dist, 
                            
@@ -124,8 +125,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     w_coord : memview of shape (N_galaxies, 3)
         x,y,z coordinates of all galaxies in sample in units of Mpc/h
 
-    mask : memview of shape (z_dim, ra_dim, dec_dim)
+    mask : memview of shape (ra_dim, dec_dim)
         uint8 array of whether location is within survey footprint
+
+    mask_resolution : integer
+        Scale factor of coordinates used to index mask
 
     min_dist : float
         minimum distance (redshift) in survey in units of Mpc/h
@@ -537,7 +541,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 galaxy_search = False
             
 
-        elif not_in_mask(temp_hole_center_memview, mask, min_dist, max_dist):
+        elif not_in_mask(temp_hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
             galaxy_search = False
 
@@ -563,7 +567,8 @@ cdef DTYPE_F64_t dec_offset = -90
 @cython.wraparound(False)
 @cython.cdivision(True)
 cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, 
-                  DTYPE_B_t[:,:,:] survey_mask_ra_dec, 
+                  DTYPE_B_t[:,:] survey_mask_ra_dec, 
+                  DTYPE_INT32_t n,
                   DTYPE_F64_t rmin, 
                   DTYPE_F64_t rmax):
     '''
@@ -576,9 +581,12 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
         x,y, and z are measured in Mpc/h
 
     survey_mask_ra_dec : numpy.ndarray of shape (num_ra, num_dec) where 
-        the element at [i,j] represents whether or not the ra corresponding to
-        i and the dec corresponding to j fall within the mask.  ra and dec
-        are both measured in degrees.
+        the element at [i,j] represents whether or not the scaled ra corresponding to
+        i and the scaled dec corresponding to j fall within the mask.  RA and dec
+        are both measured in degrees and scaled by n.
+
+    n : integer
+        Scale factor of coordinates used to index survey_mask_ra_dec
 
     rmin, rmax : scalar, min and max values of survey distance in units of
         Mpc/h
@@ -597,7 +605,6 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
     cdef DTYPE_F64_t ra
     cdef DTYPE_F64_t dec
     
-    cdef ITYPE_t n
     cdef DTYPE_F64_t n_float
     
     
@@ -616,25 +623,19 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
     coord_z = coordinates[0,2]
     
     
-    #r = sqrt(coord_x*coord_x + coord_y*coord_y + coord_z*coord_z)
-    
     r_sq = coord_x*coord_x + coord_y*coord_y + coord_z*coord_z
 
     if r_sq < rmin*rmin or r_sq > rmax*rmax:
         
         return True
+
+
+    n_float = <DTYPE_F64_t>n
+
     
     r = sqrt(r_sq)
-
-    n = 1 + <ITYPE_t>(DtoR*r/10.)
-    
-    n_float = <DTYPE_F64_t>n
-    
-    #ra = np.arctan(coordinates[0,1]/coordinates[0,0])*RtoD
     
     ra = atan(coord_y/coord_x)*RtoD
-    
-    #dec = np.arcsin(coordinates[0,2]/r)*RtoD
     
     dec = asin(coord_z/r)*RtoD
     
@@ -653,9 +654,7 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
     idx2 = <ITYPE_t>(n_float*dec) - <ITYPE_t>(n_float*dec_offset)
     
     
-    #return_mask_value = survey_mask_ra_dec[n-1][idx1][idx2]
-    
-    return_mask_value = survey_mask_ra_dec[n-1, idx1, idx2]
+    return_mask_value = survey_mask_ra_dec[idx1, idx2]
     
     
     

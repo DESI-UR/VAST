@@ -30,7 +30,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                           DTYPE_F64_t dl, 
                           DTYPE_F64_t dr,
                           DTYPE_F64_t[:,:] coord_min, 
-                          DTYPE_B_t[:,:,:] mask,
+                          DTYPE_B_t[:,:] mask,
+                          DTYPE_INT32_t mask_resolution,
                           DTYPE_F64_t min_dist,
                           DTYPE_F64_t max_dist,
                           DTYPE_F64_t[:,:] return_array,
@@ -284,7 +285,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             hole_center_memview[0,idx] = (hole_center_memview[0,idx] + 0.5)*dl + coord_min[0,idx]
             
             
-        if not_in_mask(hole_center_memview, mask, min_dist, max_dist):
+        if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
             return_array[working_idx, 0] = NAN
             
@@ -356,6 +357,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          1,
                          w_coord, 
                          mask, 
+                         mask_resolution,
                          min_dist, 
                          max_dist,
                          Bcenter_memview,
@@ -423,7 +425,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             hole_center_memview[0,idx] = w_coord[k1g,idx] - hole_radius*unit_vector_memview[idx]
         
         
-        if not_in_mask(hole_center_memview, mask, min_dist, max_dist):
+        if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
             return_array[working_idx, 0] = NAN
             
@@ -505,6 +507,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          2,
                          w_coord, 
                          mask, 
+                         mask_resolution, 
                          min_dist, 
                          max_dist,
                          Bcenter_memview,
@@ -570,7 +573,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         hole_radius = sqrt(temp_f64_accum)
         
     
-        if not_in_mask(hole_center_memview, mask, min_dist, max_dist):
+        if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
         
             return_array[working_idx, 0] = NAN
             
@@ -666,6 +669,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          3,
                          w_coord, 
                          mask, 
+                         mask_resolution,
                          min_dist, 
                          max_dist,
                          Bcenter_memview,
@@ -741,6 +745,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          3,
                          w_coord, 
                          mask, 
+                         mask_resolution,
                          min_dist, 
                          max_dist,
                          Bcenter_memview,
@@ -781,7 +786,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # because we left the survey, return NAN output
         ############################################################################
         
-        not_in_mask_41 = not_in_mask(hole_center_41_memview, mask, min_dist, max_dist)
+        not_in_mask_41 = not_in_mask(hole_center_41_memview, mask, mask_resolution, min_dist, max_dist)
     
         if not not_in_mask_41 and minx41 <= minx42:
     
@@ -791,7 +796,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
             k4g = k4g1
     
-        elif not not_in_mask(hole_center_42_memview, mask, min_dist, max_dist):
+        elif not not_in_mask(hole_center_42_memview, mask, mask_resolution, min_dist, max_dist):
             
             for idx in range(3):
     

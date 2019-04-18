@@ -56,21 +56,187 @@ def cap_height(R, r, d):
 ################################################################################
 
 
-def combine_holes(spheres_table, frac):
+def combine_holes(spheres_table, frac=0.1):
     '''
     Combines the potential void spheres into voids.
 
-    Assumes that spheres_table is sorted by radius.
+
+    Parameters:
+    ===========
+
+    spheres_table : astropy table of length N
+        Table of holes found, sorted by radius.  Required columns: radius, x, y, 
+        z (in units of Mpc/h)
+
+    frac : float
+        Fraction of hole volume.  If a hole overlaps a maximal sphere by more 
+        than this fraction, it is not part of a unique void.  Default is 10%.
+
+
+    Returns:
+    ========
+
+    maximal_spheres_table : astropy table of length M
+        Table of maximal spheres (largest hole in each void).  Minimum radius is 
+        10 Mpc/h.  Columns: x, y, z, radius (all in units of Mpc/h), flag 
+        (unique void number).
+
+    holes_table : astropy table of length P
+        Table of all holes that belong to voids.  Columns: x, y, z, radius (all 
+        in units of Mpc/h), flag (void number identifier).
     '''
 
+
     ############################################################################
-    # IDENTIFY MAXIMAL SPHERES
-    #
-    # We only consider holes with radii greater than 10 Mpc/h as seeds for a 
-    # void.  If two holes of this size overlap by more than X% of their volume, 
-    # then they are considered part of the same void.  Otherwise, they are 
-    # independent voids.  The search runs from the largest hole to the smallest.
+    # Remove duplicate holes
+    #---------------------------------------------------------------------------
+    unique_spheres_table = remove_duplicates(spheres_table)
     ############################################################################
+
+
+
+    ############################################################################
+    # Maximal spheres
+    #---------------------------------------------------------------------------
+    maximal_spheres_table, maximal_spheres_indices = find_maximals(unique_spheres_table, frac)
+
+
+    # Array of coordinates for maximal spheres
+    maximal_spheres_coordinates = to_array(maximal_spheres_table)
+
+    # Array of radii for maximal spheres
+    maximal_spheres_radii = np.array(maximal_spheres_table['radius'])
+
+    print('Maximal spheres identified')
+    ############################################################################
+
+
+
+    ############################################################################
+    # Assign spheres to voids
+    #---------------------------------------------------------------------------
+    holes_table = find_holes(unique_spheres_table, maximal_spheres_table, maximal_spheres_indices)
+    ############################################################################
+
+
+    return maximal_spheres_table, holes_table
+
+
+
+################################################################################
+################################################################################
+################################################################################
+
+
+def remove_duplicates(spheres_table, tol=0.1):
+    '''
+    Remove all duplicate spheres
+
+
+    Parameters:
+    ===========
+
+    spheres_table : astropy table of length N
+        Table of spheres found by VoidFinder.  Columns must include x, y, z, 
+        radius (all in units of Mpc/h)
+
+    tol : float
+        Tolerence within which to consider two spheres to be identical.
+
+
+    Returns:
+    ========
+
+    unique_spheres_table : astropy table of length Q
+        Table of unique spheres.  Columns include x, y, z, radius (all in units 
+        of Mpc/h)
+    '''
+
+
+    # At least the first sphere will remain
+    unique_spheres_indices = [0]
+
+
+    for i in range(len(spheres_table))[1:]:
+
+        # Coordinates of sphere i
+        sphere_i_coordinates = to_vector(spheres_table[i])
+
+        # Radius of sphere i
+        sphere_i_radius = spheres_table['radius'][i]
+
+
+        ########################################################################
+        # COMPARE AGAINST LAST UNIQUE SPHERE
+        #
+        # Since spheres_table is sorted by radius, identical spheres should be 
+        # next to each other in the table.
+        ########################################################################
+
+        # Array of coordinates for previously identified unique spheres
+        unique_sphere_coordinates = to_array(spheres_table[unique_spheres_indices[-1]])
+
+        # Array of radii for previously identified unique spheres
+        unique_sphere_radius = np.array(spheres_table['radius'][unique_spheres_indices[-1]])
+
+        # Distance between sphere i's center and the center of the last unique sphere
+        separation = np.linalg.norm(unique_sphere_coordinates - sphere_i_coordinates)
+
+        if (separation > tol) or (unique_sphere_radius - sphere_i_radius > tol):
+            # Sphere i is a unique sphere
+            unique_spheres_indices.append(i)
+        '''
+        else:
+            # Sphere i is the same as the last unique sphere
+            print('Sphere i is not a unique sphere')
+        '''
+
+
+    # Build unique_spheres_table
+    unique_spheres_table = spheres_table[unique_spheres_indices]
+
+    return unique_spheres_table
+
+
+
+################################################################################
+################################################################################
+################################################################################
+
+
+def find_maximals(spheres_table, frac):
+    '''
+    IDENTIFY MAXIMAL SPHERES
+    
+    We only consider holes with radii greater than 10 Mpc/h as seeds for a void.  
+    If two holes of this size overlap by more than X% of their volume, then they 
+    are considered part of the same void.  Otherwise, they are independent 
+    voids.  The search runs from the largest hole to the smallest.
+    
+
+    Parameters:
+    ===========
+
+    spheres_table : astropy table of length N
+        Table of holes found, sorted by radius.  Required columns: radius, x, y, 
+        z (in units of Mpc/h)
+
+    frac : float
+        Fraction of hole volume.  If a hole overlaps a maximal sphere by more 
+        than this fraction, it is not part of a unique void.  Default is 10%.
+    
+
+    Returns:
+    ========
+
+    maximal_spheres_table : astropy table of length M
+        Table of maximal spheres.  Columns: x, y, z, radius (all in units of 
+        Mpc/h), flag (unique void identifier)
+
+    maximal_spheres_indices : numpy array of shape (M,)
+        Integer numpy array of the indices in spheres_table corresponding to 
+        each maximal sphere
+    '''
 
 
     large_spheres_indices = np.nonzero(spheres_table['radius'] > 10)
@@ -81,17 +247,11 @@ def combine_holes(spheres_table, frac):
 
     for i in large_spheres_indices[0][1:]:
 
-        #print('__________________________________________')
-        #print('Looking at large sphere', i, 'of', len(maximal_spheres_indices))
-
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
-        #print(sphere_i_coordinates.shape)
 
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
-
-        #print(sphere_i_coordinates)
 
         ########################################################################
         #
@@ -101,53 +261,44 @@ def combine_holes(spheres_table, frac):
 
         # Array of coordinates for previously identified maximal spheres
         maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
-        #print(maximal_spheres_coordinates)
 
         # Array of radii for previously identified maximal spheres
         maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
-        #print(maximal_spheres_radii)
 
         # Distance between sphere i's center and the centers of the other maximal spheres
         separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
-        #print(separation)
-        #print('max spheres',maximal_spheres_coordinates[0][:5])
-        #print('subtraction',(maximal_spheres_coordinates[0] - sphere_i_coordinates)[:5])
-        #print(separation.shape)
 
         ########################################################################
         # Does sphere i live completely inside another maximal sphere?
-        ########################################################################
-
+        #-----------------------------------------------------------------------
         if any((maximal_spheres_radii - sphere_i_radius) >= separation):
             # Sphere i is completely inside another sphere --- sphere i is not a maximal sphere
             #print('Sphere i is completely inside another sphere')
             continue
+        ########################################################################
+
 
         ########################################################################
         # Does sphere i overlap by less than x% with another maximal sphere?
-        ########################################################################
-
+        #-----------------------------------------------------------------------
         # First - determine which maximal spheres overlap with sphere i
         overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii)
-        #print(sphere_i_radius)
-        #print(maximal_spheres_radii[:5])
-        #print((sphere_i_radius + maximal_spheres_radii)[:5])
 
         if any(overlap_boolean):
-            #print('overlap true: maximal')
             # Sphere i overlaps at least one maximal sphere by some amount.
             # Check to see by how much.
 
             # Heights of the spherical caps
-            height_i = cap_height(sphere_i_radius, maximal_spheres_radii[overlap_boolean], separation[overlap_boolean])
+            height_i = cap_height(sphere_i_radius, 
+                                  maximal_spheres_radii[overlap_boolean], 
+                                  separation[overlap_boolean])
 
-            height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], sphere_i_radius, separation[overlap_boolean])
+            height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], 
+                                        sphere_i_radius, separation[overlap_boolean])
 
             # Overlap volume
-            overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
-            '''for elem in height_maximal:
-                if np.isnan(elem):
-                    print('first max height', height_maximal)'''
+            overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) \
+                             + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
@@ -164,32 +315,58 @@ def combine_holes(spheres_table, frac):
             #print('No overlap: maximal sphere')
             N_voids += 1
             maximal_spheres_indices.append(i)
+        ########################################################################
 
 
     # Extract table of maximal spheres
     maximal_spheres_table = spheres_table[maximal_spheres_indices]
 
-    # Convert maximal_spheres_indices to numpy array of type int
-    maximal_spheres_indices = np.array(maximal_spheres_indices, dtype=int)
-
     # Add void flag identifier to maximal spheres
     maximal_spheres_table['flag'] = np.arange(N_voids) + 1
 
-    # Array of coordinates for maximal spheres
-    maximal_spheres_coordinates = to_array(maximal_spheres_table)
+    # Convert maximal_spheres_indices to numpy array of type int
+    maximal_spheres_indices = np.array(maximal_spheres_indices, dtype=int)
 
-    # Array of radii for maximal spheres
-    maximal_spheres_radii = np.array(maximal_spheres_table['radius'])
-
-    print('Maximal spheres identified')
+    return maximal_spheres_table, maximal_spheres_indices
 
 
-    ############################################################################
-    # ASSIGN SPHERES TO VOIDS
-    #
-    # A sphere is part of a void if it overlaps one maximal sphere by at least 
-    # 50% of the smaller sphere's volume.
-    ############################################################################
+
+################################################################################
+################################################################################
+################################################################################
+
+
+def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
+    '''
+    ASSIGN SPHERES TO VOIDS
+    
+    A sphere is part of a void if it overlaps one maximal sphere by at least 50% 
+    of the smaller sphere's volume.
+
+
+    Parameters:
+    ===========
+
+    spheres_table : astropy table of length N
+        Table of holes found, sorted by radius.  Required columns: radius, x, y, 
+        z (in units of Mpc/h)
+
+    maximal_spheres_table : astropy table of length M
+        Table of maximal spheres.  Columns: x, y, z, radius (all in units of 
+        Mpc/h), flag (unique void identifier)
+
+    maximal_spheres_indices : numpy array of shape (M,)
+        Integer numpy array of the indices in spheres_table corresponding to 
+        each maximal sphere
+
+
+    Returns:
+    ========
+
+    hole_table : astropy table of length P
+        Table of void holes.  Columns are x, y, z, radius (all in units of 
+        Mpc/h), flag (void identifier)
+    '''
 
 
     # Initialize void flag identifier
@@ -204,24 +381,34 @@ def combine_holes(spheres_table, frac):
     # Number of spheres which are assigned to a void (holes)
     N_holes = 0
 
-    maximal_indices = np.arange(N_voids)
+    # Coordinates of maximal spheres
+    maximal_spheres_coordinates = to_array(maximal_spheres_table)
+
+    # Radii of maximal spheres
+    maximal_spheres_radii = np.array(maximal_spheres_table['radius'])
+
+    maximal_indices = np.arange(len(maximal_spheres_indices))
 
     for i in range(N_spheres):
 
+        ########################################################################
         # First - check if i is a maximal sphere
+        #-----------------------------------------------------------------------
         if i in maximal_spheres_indices:
-            #print('Maximal sphere', spheres_table['radius'][i])
             N_holes += 1
             holes_indices.append(i)
             spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_spheres_indices == i]
             #print('sphere i is a maximal sphere')
             continue
+        ########################################################################
+
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
 
         # Radius of sphere i
         sphere_i_radius = spheres_table['radius'][i]
+
 
         ########################################################################
         #
@@ -231,61 +418,70 @@ def combine_holes(spheres_table, frac):
 
         # Distance between sphere i's center and the centers of the maximal spheres
         separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
+        '''
         if any(separation == 0):
-            '''print(i)
+            print(i)
             print(np.where(separation==0))
             print(maximal_spheres_coordinates[np.where(separation==0)])
-            print(sphere_i_coordinates)'''
+            print(sphere_i_coordinates)
+        '''
 
         ########################################################################
         # Does sphere i live completely inside a maximal sphere?
-        ########################################################################
-
+        #-----------------------------------------------------------------------
         if any((maximal_spheres_radii - sphere_i_radius) >= separation):
             # Sphere i is completely inside another sphere --- sphere i should not be saved
             #print('Sphere completely inside another sphere', sphere_i_radius)
             continue
+        ########################################################################
+
 
         ########################################################################
         # Does sphere i overlap by more than 50% with a maximal sphere?
-        ########################################################################
-
+        #-----------------------------------------------------------------------
         # First - determine which maximal spheres sphere i overlaps with
         overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii)
-        #print('ob', overlap_boolean)
+        
         if any(overlap_boolean):
             # Sphere i overlaps at least one maximal sphere by some amount.
             # Check to see by how much.
+
             maximal_overlap_indices = maximal_indices[overlap_boolean]
+
             # Heights of the spherical caps
-            height_i = cap_height(sphere_i_radius, maximal_spheres_radii[overlap_boolean], separation[overlap_boolean])
-            height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], sphere_i_radius, separation[overlap_boolean])
+            height_i = cap_height(sphere_i_radius, 
+                                  maximal_spheres_radii[overlap_boolean], 
+                                  separation[overlap_boolean])
+            height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], 
+                                        sphere_i_radius, 
+                                        separation[overlap_boolean])
 
             # Overlap volume
-            overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
-            '''for elem in height_maximal:
-                if np.isnan(elem):
-                    print('second max height', height_maximal)'''
+            overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) \
+                             + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
+
             # Does sphere i overlap by at least 50% of its volume with a maximal sphere?
-            #print(overlap_volume/volume_i)
             overlap2_boolean = overlap_volume > 0.5*volume_i
-            #print(overlap_volume)
-            #print('new', overlap_boolean)
+            
             if sum(overlap2_boolean) == 1:
                 # Sphere i overlaps by more than 50% with one maximal sphere
                 # Sphere i is therefore a hole in that void
+
                 #print('Hole inside void', sphere_i_radius)
+
                 N_holes += 1
+
                 holes_indices.append(i)
-                #print(maximal_spheres_table['flag'].shape)
-                #print(overlap_boolean.shape)
+
                 spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_overlap_indices[overlap2_boolean]]
-            #else:
-                #print('Hole overlaps void, but not part of one', sphere_i_radius)
-            
+            '''
+            else:
+                print('Hole overlaps void, but not part of one', sphere_i_radius)
+            '''
+        ########################################################################
 
 
     ############################################################################
@@ -296,7 +492,8 @@ def combine_holes(spheres_table, frac):
 
     holes_table = spheres_table[holes_indices]
 
-    return maximal_spheres_table, holes_table
+    return holes_table
+
 
 
 ################################################################################

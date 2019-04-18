@@ -39,7 +39,7 @@ out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidf
 # Input file names
 galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #mask_filename = 'cbpdr7mask.dat'           # File format: RA, dec
-mask_filename = 'vollim_dr7_cbp_102709_mask.npy'
+mask_filename = 'vollim_dr7_cbp_102709_mask.dat'
 
 in_filename = in_directory + galaxies_filename
 mask_filename = in_directory + mask_filename
@@ -79,8 +79,8 @@ else:
     out1_suffix = '_maximal_noFiltering.txt'
     out2_suffix = 'holes_noFiltering.txt'
 
-out1_filename = out_directory + galaxies_filename[:-5] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = out_directory + galaxies_filename[:-5] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+out1_filename = out_directory + galaxies_filename[:-4] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+out2_filename = out_directory + galaxies_filename[:-4] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
 #out3_filename = out_directory + 'out3_vollim_dr7.txt'                # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
 #voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'        # List of the void galaxies: x, y, z, void region
 #-------------------------------------------------------------------------------
@@ -93,8 +93,12 @@ out2_filename = out_directory + galaxies_filename[:-5] + out2_suffix  # List of 
 
 
 infile = Table.read(in_filename, format='ascii.commented_header')
+
 #maskfile = Table.read(mask_filename, format='ascii.commented_header')
-maskfile = np.load(mask_filename)
+#maskfile = np.load(mask_filename)
+mask_infile = open(mask_filename, 'rb')
+mask_resolution, maskfile = pickle.load(mask_infile)
+mask_infile.close()
 
 
 #-------------------------------------------------------------------------------
@@ -134,13 +138,15 @@ if 'Rgal' not in infile.columns:
 #
 ################################################################################
 
-
-coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, min_dist, max_dist, survey_name, mag_cut, rm_isolated)
+'''
+coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, mask_resolution, 
+                                               min_dist, max_dist, survey_name, 
+                                               mag_cut, rm_isolated)
 
 temp_outfile = open("filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
 temp_outfile.close()
-
+'''
 
 
 
@@ -156,4 +162,5 @@ coord_min_table, mask, ngrid = pickle.load(temp_infile)
 temp_infile.close()
 
 
-find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, out1_filename, out2_filename, survey_name, num_cpus)
+find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution, 
+           out1_filename, out2_filename, survey_name, num_cpus)

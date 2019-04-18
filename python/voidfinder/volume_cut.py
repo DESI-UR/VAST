@@ -9,19 +9,19 @@ from astropy.table import Table
 
 
 # function to find which spheres stick out of the mask
-def max_range_check(spheres_table, direction, sign, survey_mask, r_limits):
+def max_range_check(spheres_table, direction, sign, survey_mask, mask_resolution, r_limits):
 
     if sign == '+':
        spheres_table[direction] += spheres_table['radius']
     else:
        spheres_table[direction] -= spheres_table['radius']
 
-    boolean = in_mask(spheres_table, survey_mask, r_limits)
+    boolean = in_mask(spheres_table, survey_mask, mask_resolution, r_limits)
 
     return boolean
 
 
-def check_coordinates(coord, direction, sign, survey_mask, r_limits):
+def check_coordinates(coord, direction, sign, survey_mask, mask_resolution, r_limits):
 
     dr = 0
     check_coord = coord
@@ -37,7 +37,7 @@ def check_coordinates(coord, direction, sign, survey_mask, r_limits):
         else:
             check_coord[direction] = coord[direction] - dr 
 
-        mask_check = in_mask(check_coord, survey_mask, r_limits)
+        mask_check = in_mask(check_coord, survey_mask, mask_resolution, r_limits)
 
     height_i = check_coord['radius'] - dr
     cap_volume_i = spherical_cap_volume(check_coord['radius'], height_i)
@@ -47,16 +47,16 @@ def check_coordinates(coord, direction, sign, survey_mask, r_limits):
 
 
 
-def volume_cut(hole_table, survey_mask, r_limits):
+def volume_cut(hole_table, survey_mask, mask_resolution, r_limits):
 
-    xpos = max_range_check(Table(hole_table), 'x', '+', survey_mask, r_limits)
-    xneg = max_range_check(Table(hole_table), 'x', '-', survey_mask, r_limits)
+    xpos = max_range_check(Table(hole_table), 'x', '+', survey_mask, mask_resolution, r_limits)
+    xneg = max_range_check(Table(hole_table), 'x', '-', survey_mask, mask_resolution, r_limits)
 
-    ypos = max_range_check(Table(hole_table), 'y', '+', survey_mask, r_limits)
-    yneg = max_range_check(Table(hole_table), 'y', '-', survey_mask, r_limits)
+    ypos = max_range_check(Table(hole_table), 'y', '+', survey_mask, mask_resolution, r_limits)
+    yneg = max_range_check(Table(hole_table), 'y', '-', survey_mask, mask_resolution, r_limits)
 
-    zpos = max_range_check(Table(hole_table), 'z', '+', survey_mask, r_limits)
-    zneg = max_range_check(Table(hole_table), 'z', '-', survey_mask, r_limits)
+    zpos = max_range_check(Table(hole_table), 'z', '+', survey_mask, mask_resolution, r_limits)
+    zneg = max_range_check(Table(hole_table), 'z', '-', survey_mask, mask_resolution, r_limits)
 
 
     comb_bool = np.logical_and.reduce((xpos, xneg, ypos, yneg, zpos, zneg))
@@ -75,7 +75,7 @@ def volume_cut(hole_table, survey_mask, r_limits):
 
         if not xpos[i]:
 
-            cap_volume, sphere_volume = check_coordinates(Table(coord), 'x', '+', survey_mask, r_limits)
+            cap_volume, sphere_volume = check_coordinates(Table(coord), 'x', '+', survey_mask, mask_resolution, r_limits)
 
             if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
@@ -83,7 +83,7 @@ def volume_cut(hole_table, survey_mask, r_limits):
 
         elif xneg[i] == False and not_removed:
 
-            cap_volume, sphere_volume = check_coordinates(Table(coord), 'x', '-', survey_mask, r_limits)
+            cap_volume, sphere_volume = check_coordinates(Table(coord), 'x', '-', survey_mask, mask_resolution, r_limits)
 
             if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
@@ -93,7 +93,7 @@ def volume_cut(hole_table, survey_mask, r_limits):
 
         if ypos[i] == False and not_removed:
 
-            cap_volume, sphere_volume = check_coordinates(Table(coord), 'y', '+', survey_mask, r_limits)
+            cap_volume, sphere_volume = check_coordinates(Table(coord), 'y', '+', survey_mask, mask_resolution, r_limits)
 
             if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
@@ -102,7 +102,7 @@ def volume_cut(hole_table, survey_mask, r_limits):
 
         elif yneg[i] == False and not_removed:
 
-            cap_volume, sphere_volume = check_coordinates(Table(coord), 'y', '-', survey_mask, r_limits)
+            cap_volume, sphere_volume = check_coordinates(Table(coord), 'y', '-', survey_mask, mask_resolution, r_limits)
 
             if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
@@ -112,7 +112,7 @@ def volume_cut(hole_table, survey_mask, r_limits):
         # Check z-direction
 
         if zpos[i] == False and not_removed:
-            cap_volume, sphere_volume = check_coordinates(Table(coord), 'z', '+', survey_mask, r_limits)
+            cap_volume, sphere_volume = check_coordinates(Table(coord), 'z', '+', survey_mask, mask_resolution, r_limits)
 
             if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
@@ -120,7 +120,7 @@ def volume_cut(hole_table, survey_mask, r_limits):
 
         elif zneg[i] == False and not_removed:
 
-            cap_volume, sphere_volume = check_coordinates(Table(coord), 'z', '-', survey_mask, r_limits)
+            cap_volume, sphere_volume = check_coordinates(Table(coord), 'z', '-', survey_mask, mask_resolution, r_limits)
 
             if cap_volume > 0.1*sphere_volume:
                 out_spheres_indices.append(i)
@@ -131,47 +131,6 @@ def volume_cut(hole_table, survey_mask, r_limits):
     hole_table.remove_rows(out_spheres_indices)
 
     return hole_table
-
-if __name__ == '__main__':
-
-    from astropy.table import Table
-
-    from voidfinder_functions import save_maximals
-    from hole_combine import combine_holes
-
-    maskra = 360
-    maskdec = 180
-    min_dist = 0.
-    max_dist = 300.
-    dec_offset = -90
-    
-    maskfile = Table.read('cbpdr7mask.dat', format='ascii.commented_header')
-    mask = np.zeros((maskra, maskdec))
-    mask[maskfile['ra'].astype(int), maskfile['dec'].astype(int) - dec_offset] = 1
-
-    holes_table = Table.read('potential_voids_list.txt', format='ascii.commented_header')
-    potential_voids_table = volume_cut(holes_table, mask, [min_dist, max_dist])
-
-    maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table, 0.1)
-
-    print('Number of unique voids is', len(maximal_spheres_table))
-    print('Number of void holes is', len(myvoids_table))
-
-    save_maximals(maximal_spheres_table, 'maximal_spheres_test.txt')
-
-
-
-    '''import numpy as np
-    import matplotlib.mlab as mlab
-    import matplotlib.pyplot as plt
- 
-    num_bins = 20
-    n, bins, patches = plt.hist(volumes_list, num_bins, facecolor='mediumvioletred', histtype='stepfilled')
-    plt.xlabel('Percent of Volume Outside of Mask')
-    plt.ylabel('Number of Holes')
-    plt.title('Histogram of Volume Percentages of Holes Around Border of Survey')
-    plt.show()
-    '''
 
    
 

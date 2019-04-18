@@ -33,6 +33,7 @@ def _main_hole_finder(cell_ID_dict,
                       dr,
                       coord_min, 
                       mask,
+                      mask_resolution,
                       min_dist,
                       max_dist,
                       w_coord,
@@ -71,8 +72,11 @@ def _main_hole_finder(cell_ID_dict,
         minimum coordinates of the survey in x,y,z in Mpc/h
         
     mask : numpy.ndarray of shape (N,M) type bool
-        represents the survey footprint in ra/dec space.  Value of True 
+        represents the survey footprint in scaled ra/dec space.  Value of True 
         indicates that a location is within the survey
+
+    mask_resolution : integer
+        Scale factor of coordinates needed to index mask
     
     min_dist : scalar
         minimum redshift in units of Mpc/h
@@ -162,6 +166,7 @@ def _main_hole_finder(cell_ID_dict,
                                                                                    dr,
                                                                                    coord_min, 
                                                                                    mask,
+                                                                                   mask_resolution,
                                                                                    min_dist,
                                                                                    max_dist,
                                                                                    w_coord,
@@ -177,6 +182,7 @@ def _main_hole_finder(cell_ID_dict,
                                                                                    dr,
                                                                                    coord_min, 
                                                                                    mask,
+                                                                                   mask_resolution,
                                                                                    min_dist,
                                                                                    max_dist,
                                                                                    w_coord,
@@ -202,6 +208,7 @@ def run_single_process(cell_ID_list,
                        dr,
                        coord_min, 
                        mask,
+                       mask_resolution,
                        min_dist,
                        max_dist,
                        w_coord,
@@ -326,7 +333,7 @@ def run_single_process(cell_ID_list,
         ############################################################
         
         timer1 = time.time()
-        temp = not_in_mask(hole_center, mask, min_dist, max_dist)
+        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, max_dist)
         timer2 = time.time()
         PROFILE_mask_times.append(timer2- timer1)
         # Check to make sure that the hole center is still within the survey
@@ -408,7 +415,7 @@ def run_single_process(cell_ID_list,
             
             if len(i_nearest) <= 0:
                 timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_2, mask, min_dist, max_dist)
+                PROFILE_TEMP = not_in_mask(hole_center_2, mask, mask_resolution, min_dist, max_dist)
                 timer2 = time.time()
                 PROFILE_mask_times.append(timer2- timer1)
                 
@@ -468,7 +475,7 @@ def run_single_process(cell_ID_list,
         # Check to make sure that the hole center is still within the survey
         
         timer1 = time.time()
-        temp = not_in_mask(hole_center, mask, min_dist, max_dist)
+        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, max_dist)
         timer2 = time.time()
         PROFILE_mask_times.append(timer2- timer1)
         
@@ -534,7 +541,7 @@ def run_single_process(cell_ID_list,
     
             if len(i_nearest) <= 0:
                 timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_3, mask, min_dist, max_dist)
+                PROFILE_TEMP = not_in_mask(hole_center_3, mask, mask_resolution, min_dist, max_dist)
                 timer2 = time.time()
                 PROFILE_mask_times.append(timer2- timer1)
     
@@ -592,7 +599,7 @@ def run_single_process(cell_ID_list,
     
         # Check to make sure that the hole center is still within the survey
         timer1 = time.time()
-        temp = not_in_mask(hole_center, mask, min_dist, max_dist)
+        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, max_dist)
         timer2 = time.time()
         PROFILE_mask_times.append(timer2- timer1)
         if temp:
@@ -667,7 +674,7 @@ def run_single_process(cell_ID_list,
     
             if len(i_nearest) <= 0:
                 timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_41, mask, min_dist, max_dist)
+                PROFILE_TEMP = not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist)
                 timer2 = time.time()
                 PROFILE_mask_times.append(timer2- timer1)
     
@@ -710,7 +717,7 @@ def run_single_process(cell_ID_list,
                     galaxy_search = False
     
     
-            #elif not in_mask(hole_center_41, mask, [min_dist, max_dist]):
+            #elif not in_mask(hole_center_41, mask, mask_resolution, [min_dist, max_dist]):
             elif PROFILE_TEMP:
                 # Hole is no longer within survey limits
                 galaxy_search = False
@@ -720,8 +727,7 @@ def run_single_process(cell_ID_list,
         
     
         # Calculate potential new hole center
-        #if in_mask(hole_center_41, mask, [min_dist, max_dist]):
-        #if not not_in_mask(hole_center_41, mask, min_dist, max_dist):
+        #if not not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist):
         if in_mask_41:
             hole_center_41 = hole_center + minx41*v3_unit  # shape (1,3)
             #print('______________________')
@@ -771,7 +777,7 @@ def run_single_process(cell_ID_list,
     
             if len(i_nearest) <= 0:
                 timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_42, mask, min_dist, max_dist)
+                PROFILE_TEMP = not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist)
                 timer2 = time.time()
                 PROFILE_mask_times.append(timer2- timer1)
     
@@ -799,7 +805,7 @@ def run_single_process(cell_ID_list,
     
                     galaxy_search = False
     
-            #elif not in_mask(hole_center_42, mask, [min_dist, max_dist]):
+            #elif not in_mask(hole_center_42, mask, mask_resolution, [min_dist, max_dist]):
             elif PROFILE_TEMP:
                 # Hole is no longer within survey limits
                 galaxy_search = False
@@ -809,8 +815,7 @@ def run_single_process(cell_ID_list,
         
     
         # Calculate potential new hole center
-        #if in_mask(hole_center_42, mask, [min_dist, max_dist]):
-        #if not not_in_mask(hole_center_42, mask, min_dist, max_dist):
+        #if not not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist):
         if in_mask_42:
             hole_center_42 = hole_center + minx42*v3_unit  # shape (1,3)
             #print(hole_center_42, 'hc42')
@@ -824,9 +829,9 @@ def run_single_process(cell_ID_list,
         
         
         # Determine which is the 4th nearest galaxy
-        #if in_mask(hole_center_41, mask, [min_dist, max_dist]) and minx41 <= minx42:
+        #if in_mask(hole_center_41, mask, mask_resolution, [min_dist, max_dist]) and minx41 <= minx42:
         timer1 = time.time()
-        not_in_mask_41 = not_in_mask(hole_center_41, mask, min_dist, max_dist)
+        not_in_mask_41 = not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist)
         timer2 = time.time()
         PROFILE_mask_times.append(timer2- timer1)
         
@@ -835,12 +840,11 @@ def run_single_process(cell_ID_list,
             # The first 4th galaxy found is the next closest
             hole_center = hole_center_41
             k4g = k4g1
-        #elif in_mask(hole_center_42, mask, [min_dist, max_dist]):
-        elif not not_in_mask(hole_center_42, mask, min_dist, max_dist):
+        elif not not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist):
             # The second 4th galaxy found is the next closest
             
             timer1 = time.time()
-            not_in_mask(hole_center_42, mask, min_dist, max_dist)
+            not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist)
             timer2 = time.time()
             PROFILE_mask_times.append(timer2- timer1)
             
@@ -849,7 +853,6 @@ def run_single_process(cell_ID_list,
             
             hole_center = hole_center_42
             k4g = k4g2
-        #elif in_mask(hole_center_41, mask, [min_dist, max_dist]):
         elif not not_in_mask_41:
             # The first 4th galaxy found is the next closest
             hole_center = hole_center_41
@@ -984,6 +987,7 @@ def run_single_process_cython(cell_ID_list,
                        dr,
                        coord_min, 
                        mask,
+                       mask_resolution,
                        min_dist,
                        max_dist,
                        w_coord,
@@ -1082,6 +1086,7 @@ def run_single_process_cython(cell_ID_list,
                        dr,
                        coord_min,
                        mask,
+                       mask_resolution,
                        min_dist,
                        max_dist,
                        return_array
@@ -1126,6 +1131,7 @@ def run_single_process_cython(cell_ID_list,
                    dr,
                    coord_min,
                    mask,
+                   mask_resolution,
                    min_dist,
                    max_dist,
                    return_array,
@@ -1190,6 +1196,7 @@ def run_multi_process(cell_ID_list,
                        dr,
                        coord_min, 
                        mask,
+                       mask_resolution,
                        min_dist,
                        max_dist,
                        w_coord,
@@ -1302,6 +1309,7 @@ def run_multi_process(cell_ID_list,
                        dr,
                        coord_min, 
                        deepcopy(mask),
+                       mask_resolution,
                        min_dist,
                        max_dist,
                        deepcopy(w_coord),
@@ -1480,6 +1488,7 @@ def _main_hole_finder_worker(process_id,
                              dr,
                              coord_min, 
                              mask,
+                             mask_resolution,
                              min_dist,
                              max_dist,
                              w_coord,
@@ -1598,6 +1607,7 @@ def _main_hole_finder_worker(process_id,
                                    dr,
                                    coord_min,
                                    mask,
+                                   mask_resolution,
                                    min_dist,
                                    max_dist,
                                    return_array
@@ -1628,6 +1638,7 @@ def _main_hole_finder_worker(process_id,
                                dr,
                                coord_min,
                                mask,
+                               mask_resolution,
                                min_dist,
                                max_dist,
                                return_array,

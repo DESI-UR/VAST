@@ -115,37 +115,51 @@ def mesh_galaxies_dict(galaxy_coords, coord_min, grid_side_length):
 ################################################################################
 
 
-def build_mask(file):
+def build_mask(maskfile, mask_resolution):
     '''
-    Build the survey mask
+    Build the survey mask.  Assumes the coordinates in maskfile have already 
+    been scaled to highest resolution necessary.
 
 
     Parameters:
     ===========
 
-    file : numpy array of shape ()
-        Coordinates that are within the survey limits
+    maskfile : numpy array of shape (2,n)
+        n pairs of RA,dec coordinates that are within the survey limits and are 
+        scaled by the mask_resolution.  Oth row is RA; 1st row is dec.
+
+    mask_resolution : integer
+        Scale factor of coordinates in maskfile
 
 
     Returns:
     ========
 
-    mask : numpy array of shape ()
-        Index coordinate array of the points within the survey limits
+    mask : numpy array of shape (N,M)
+        Boolean array of the entire sky, with points within the survey limits 
+        set to True.  N represents the incremental RA; M represents the 
+        incremental dec.
     '''
 
+    '''
     mask = []
     
-    for i in range(1, 1+len(file)):
+    for i in range(1, 1+len(maskfile)):
         
-        mask.append(np.zeros((i*maskra,i*maskdec),dtype=bool))
+        mask.append(np.zeros((i*maskra, i*maskdec), dtype=bool))
         
-        for j in range(len(file[i-1][0])):
+        for j in range(len(maskfile[i-1][0])):
             
-            mask[i-1][file[i-1][0][j]][file[i-1][1][j]-i*dec_offset] = True
+            mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
             
     mask = np.array(mask)
+    '''
 
+    mask = np.zeros((mask_resolution*maskra, mask_resolution*maskdec), dtype=bool)
+
+    for j in range(len(maskfile[0])):
+
+        mask[ maskfile[0,j], maskfile[1,j] - mask_resolution*dec_offset] = True
 
     return mask
 
@@ -181,7 +195,7 @@ def in_mask_table(coordinates, survey_mask, r_limits):
     return good
 
 
-def in_mask(coordinates, survey_mask, r_limits):
+def in_mask(coordinates, survey_mask, n, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
     '''
@@ -194,7 +208,6 @@ def in_mask(coordinates, survey_mask, r_limits):
         coordinates.shape = (1,3)
 
     r = np.linalg.norm(coordinates, axis=1)
-    n = 1 + (DtoR*r/10.).astype(int)
     ra = np.arctan(coordinates[:,1]/coordinates[:,0])*RtoD
     dec = np.arcsin(coordinates[:,2]/r)*RtoD
 
@@ -206,16 +219,16 @@ def in_mask(coordinates, survey_mask, r_limits):
     angood = []
     for i in range(len(ra)):
         
-        angood.append(survey_mask[n[i]-1][int(n[i]*ra[i])][int(n[i]*dec[i])-n[i]*dec_offset])
+        angood.append( survey_mask[ int(n*ra[i]), int(n*dec[i]) - n*dec_offset])
         
         
-    good = np.logical_and.reduce((np.array(angood), r<= r_limits[1], r >= r_limits[0]))
+    good = np.logical_and.reduce((np.array(angood), r <= r_limits[1], r >= r_limits[0]))
 
     return good
 
 
 
-def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
+def not_in_mask(coordinates, survey_mask_ra_dec, n, rmin, rmax):
     '''
     Determine whether a given set of coordinates falls within the survey.
 
@@ -229,6 +242,9 @@ def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
         the element at [i,j] represents whether or not the ra corresponding to
         i and the dec corresponding to j fall within the mask.  ra and dec
         are both measured in degrees.
+
+    n : integer
+        Scale factor of coordinates in mask
 
     rmin, rmax : scalar, min and max values of survey distance in units of
         Mpc/h
@@ -245,7 +261,6 @@ def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
     if r < rmin or r > rmax:
         return True
 
-    n = 1 + int(DtoR*r/10.)
     ra = np.arctan(coords[1]/coords[0])*RtoD
     dec = np.arcsin(coords[2]/r)*RtoD
 
@@ -254,7 +269,7 @@ def not_in_mask(coordinates, survey_mask_ra_dec, rmin, rmax):
     if ra < 0:
         ra += 360
 
-    return not survey_mask_ra_dec[n-1][int(n*ra)][int(n*dec)-n*dec_offset]
+    return not survey_mask_ra_dec[int(n*ra), int(n*dec) - n*dec_offset]
 
 
 
