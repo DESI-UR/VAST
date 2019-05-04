@@ -8,8 +8,8 @@
 
 
 import sys
-#sys.path.insert(1, '/home/moose/VoidFinder/python/')
-sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
+sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
+#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
 
 from voidfinder import filter_galaxies, find_voids
 from voidfinder.absmag_comovingdist_functions import Distance
@@ -27,19 +27,23 @@ import numpy as np
 
 
 # Number of CPUs available for analysis
-num_cpus = 1
+num_cpus = 4
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
 
 # File header
-in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
-out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+#in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+#out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+
+in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+
 
 # Input file names
 galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #mask_filename = 'cbpdr7mask.dat'           # File format: RA, dec
-mask_filename = 'vollim_dr7_cbp_102709_mask.dat'
+mask_filename = 'vollim_dr7_cbp_102709_mask.pickle'
 
 in_filename = in_directory + galaxies_filename
 mask_filename = in_directory + mask_filename
@@ -138,7 +142,7 @@ if 'Rgal' not in infile.columns:
 #
 ################################################################################
 
-'''
+
 coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, mask_resolution, 
                                                min_dist, max_dist, survey_name, 
                                                mag_cut, rm_isolated)
@@ -146,7 +150,7 @@ coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, mask_resolution
 temp_outfile = open("filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
 temp_outfile.close()
-'''
+
 
 
 

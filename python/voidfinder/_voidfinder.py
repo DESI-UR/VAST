@@ -125,13 +125,14 @@ def _main_hole_finder(cell_ID_dict,
     
     
     
-    empty_cell_counter = 0
+    #empty_cell_counter = 0
         
     ################################################################################
     #
     # Pop all the relevant grid cell IDs onto the job queue
     #
     ################################################################################
+    '''
     cell_ID_list = []
 
     for i in range(ngrid[0]):
@@ -148,10 +149,14 @@ def _main_hole_finder(cell_ID_dict,
                     
                     cell_ID_list.append(check_bin_ID)
                     
-                    empty_cell_counter += 1
+                    #empty_cell_counter += 1
+    '''
+    cell_ID_list = CellIDGenerator(ngrid[0], ngrid[1], ngrid[2], cell_ID_dict)
+    #num_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
     
     if verbose:
         print("cell_ID_list finish time: ", time.time() - start_time)
+        print("Len cell_ID_dict (eliminated cells): ", len(cell_ID_dict))
     
     ################################################################################
     # Run single or multi-processed
@@ -197,7 +202,90 @@ def _main_hole_finder(cell_ID_dict,
     
     
 
-
+class CellIDGenerator(object):
+    
+    def __init__(self, grid_dim_1, grid_dim_2, grid_dim_3, cell_ID_dict):
+        
+        self.num_grid_1 = grid_dim_1
+        self.num_grid_2 = grid_dim_2
+        self.num_grid_3 = grid_dim_3
+        
+        self.i = -1
+        self.j = -1
+        self.k = -1
+        
+        self.cell_ID_dict = cell_ID_dict
+        
+    def reset(self):
+        
+        self.i = -1
+        self.j = -1
+        self.k = -1
+        
+    def __iter__(self):
+        
+        return self
+    
+    def __next__(self):
+        
+        found_valid = False
+        
+        while not found_valid:
+            
+            next_cell_ID = self.gen_cell_ID()
+        
+            if next_cell_ID not in self.cell_ID_dict:
+                
+                break
+            
+        return next_cell_ID
+    
+    def __len__(self):
+        
+        return self.num_grid_1*self.num_grid_2*self.num_grid_3 - len(self.cell_ID_dict)
+        
+        
+    def gen_cell_ID(self):
+        
+        inc_j = False
+        
+        if self.k >= (self.num_grid_3 - 1) or self.k < 0:
+            
+            inc_j = True
+        
+        inc_i = False
+        
+        if (inc_j and self.j >= (self.num_grid_2 - 1)) or self.j < 0:
+            
+            inc_i = True
+            
+            
+        #print(inc_i, self.i, self.j, self.k)
+            
+        self.k = (self.k + 1) % self.num_grid_3
+        
+        if inc_j:
+            
+            self.j = (self.j + 1) % self.num_grid_2
+            
+        if inc_i:
+            
+            self.i += 1
+            
+            if self.i >= self.num_grid_1:
+                
+                raise StopIteration    
+        
+        out_cell_ID = (self.i, self.j, self.k)
+        
+        return out_cell_ID
+        
+        
+        
+        
+        
+        
+        
 
 
 
@@ -304,6 +392,8 @@ def run_single_process(cell_ID_list,
     for hole_center_coords in cell_ID_list:
                     
         num_cells_processed += 1
+        
+        #print(hole_center_coords)
         
         
         PROFILE_loop_start_time = time.time()
@@ -981,7 +1071,7 @@ def run_single_process(cell_ID_list,
     
 
     
-def run_single_process_cython(cell_ID_list, 
+def run_single_process_cython(cell_ID_gen, 
                        ngrid, 
                        dl, 
                        dr,
@@ -1025,7 +1115,7 @@ def run_single_process_cython(cell_ID_list,
 
     empty_cell_counter = 0
     
-    n_empty_cells = len(cell_ID_list)
+    n_empty_cells = len(cell_ID_gen)
     
     #return_array = np.empty(4, dtype=np.float64)
     
@@ -1120,52 +1210,90 @@ def run_single_process_cython(cell_ID_list,
     '''
     
     
-    i_j_k_array = np.array(cell_ID_list, dtype=np.int64)
     
-    return_array = np.empty((n_empty_cells, 4), dtype=np.float64)
-        
-    main_algorithm(i_j_k_array,
-                   galaxy_tree,
-                   w_coord,
-                   dl, 
-                   dr,
-                   coord_min,
-                   mask,
-                   mask_resolution,
-                   min_dist,
-                   max_dist,
-                   return_array,
-                   1  #verbose level
-                   )
-        
     
-    print("Exited main algorithm returned to python")
+    num_processed = 0
     
+    num_in_batch = 0
+    
+    cell_ID_list = []
+    
+    
+    return_array = np.empty((batch_size, 4), dtype=np.float64)
+    
+    for curr_ID in cell_ID_gen:
         
-    for row in return_array:
         
-        x_val = row[0]
-        y_val = row[1]
-        z_val = row[2]
-        r_val = row[3]
         
-        if not np.isnan(x_val):
+        if (verbose > 0 and num_processed % 10000 == 0):
+        
+            print("Processing cell "+str(num_processed)+" of "+str(n_empty_cells))
+            
+        num_processed += 1
+        
+        
+        if num_in_batch < batch_size:
+            
+            cell_ID_list.append(curr_ID)
+            
+            num_in_batch += 1
+            
+            
+        if num_in_batch == batch_size or num_processed == n_empty_cells:
+    
+            
+            i_j_k_array = np.array(cell_ID_list, dtype=np.int64)
+            
+            #return_array = np.empty((n_empty_cells, 4), dtype=np.float64)
+            if len(cell_ID_list) != return_array.shape[0]:
                 
-            myvoids_x.append(x_val)
-            #x_val = hole_center[0,0]
+                return_array = np.empty((len(cell_ID_list), 4), dtype=np.float64)
+                
+            main_algorithm(i_j_k_array,
+                           galaxy_tree,
+                           w_coord,
+                           dl, 
+                           dr,
+                           coord_min,
+                           mask,
+                           mask_resolution,
+                           min_dist,
+                           max_dist,
+                           return_array,
+                           0  #verbose level
+                           )
+                
             
-            myvoids_y.append(y_val)
-            #y_val = hole_center[0,1]
+            #print("Exited main algorithm returned to python")
             
-            myvoids_z.append(z_val)
-            #z_val = hole_center[0,2]
-            
-            myvoids_r.append(r_val)
-            #r_val = hole_radius
-            
-            n_holes += 1
-        
-        
+                
+            for row in return_array:
+                
+                x_val = row[0]
+                y_val = row[1]
+                z_val = row[2]
+                r_val = row[3]
+                
+                if not np.isnan(x_val):
+                        
+                    myvoids_x.append(x_val)
+                    #x_val = hole_center[0,0]
+                    
+                    myvoids_y.append(y_val)
+                    #y_val = hole_center[0,1]
+                    
+                    myvoids_z.append(z_val)
+                    #z_val = hole_center[0,2]
+                    
+                    myvoids_r.append(r_val)
+                    #r_val = hole_radius
+                    
+                    n_holes += 1
+                    
+            num_in_batch = 0
+            cell_ID_list = []
+                
+                
         
     '''
     print('Plotting single cell processing times distribution')
@@ -1190,7 +1318,7 @@ def run_single_process_cython(cell_ID_list,
     
 
 
-def run_multi_process(cell_ID_list, 
+def run_multi_process(cell_ID_gen, 
                        ngrid, 
                        dl, 
                        dr,
@@ -1231,7 +1359,7 @@ def run_multi_process(cell_ID_list,
     
     # Number of empty cells
     #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
-    n_empty_cells = len(cell_ID_list)
+    n_empty_cells = len(cell_ID_gen)
     
     
     
@@ -1396,7 +1524,7 @@ def run_multi_process(cell_ID_list,
         for proc_idx, worker_waiting in enumerate(workers_waiting):
             
             
-            if curr_cell_idx > len(cell_ID_list):
+            if curr_cell_idx > n_empty_cells:
                 break
             
             
@@ -1408,12 +1536,24 @@ def run_multi_process(cell_ID_list,
                 
                 for _ in range(num_put):
                     
-                    if curr_cell_idx > len(cell_ID_list):
+                    if curr_cell_idx > n_empty_cells:
                         break
                 
-                    job_queues[proc_idx].put(cell_ID_list[curr_cell_idx:(curr_cell_idx+batch_size)])
+                
+                    chunk_list = []
+                    chunk_add = 0
                     
-                    curr_cell_idx += batch_size
+                    for _ in range(batch_size):
+                        try:
+                            chunk_list.append(next(cell_ID_gen))
+                        except StopIteration:
+                            break
+                        else:
+                            chunk_add += 1
+                
+                    job_queues[proc_idx].put(chunk_list)
+                    
+                    curr_cell_idx += chunk_add
                 
             
             
@@ -1421,12 +1561,23 @@ def run_multi_process(cell_ID_list,
                 
                 #put an extra item on the queue for a worker who said they are waiting
                 
-                if curr_cell_idx > len(cell_ID_list):
+                if curr_cell_idx > n_empty_cells:
                     break
                 
-                job_queues[proc_idx].put(cell_ID_list[curr_cell_idx:(curr_cell_idx+batch_size)])
+                chunk_list = []
+                chunk_add = 0
                 
-                curr_cell_idx += batch_size
+                for _ in range(batch_size):
+                    try:
+                        chunk_list.append(next(cell_ID_gen))
+                    except StopIteration:
+                        break
+                    else:
+                        chunk_add += 1
+                
+                job_queues[proc_idx].put(chunk_list)
+                
+                curr_cell_idx += chunk_add
                 
                 workers_waiting[proc_idx] = False        
         

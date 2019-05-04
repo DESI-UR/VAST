@@ -27,7 +27,7 @@ import numpy as np
 
 
 # Number of CPUs available for analysis
-num_cpus = 1
+num_cpus = 4
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr12n_'
