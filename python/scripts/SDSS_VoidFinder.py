@@ -27,7 +27,7 @@ import numpy as np
 
 
 # Number of CPUs available for analysis
-num_cpus = 4
+num_cpus = 7
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -147,7 +147,7 @@ coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, mask_resolution
                                                min_dist, max_dist, survey_name, 
                                                mag_cut, rm_isolated)
 
-temp_outfile = open("filter_galaxies_output.pickle", 'wb')
+temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
 temp_outfile.close()
 
@@ -161,7 +161,7 @@ temp_outfile.close()
 ################################################################################
 
 
-temp_infile = open("filter_galaxies_output.pickle", 'rb')
+temp_infile = open(survey_name + "filter_galaxies_output.pickle", 'rb')
 coord_min_table, mask, ngrid = pickle.load(temp_infile)
 temp_infile.close()
 

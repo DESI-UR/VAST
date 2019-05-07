@@ -21,6 +21,12 @@ from queue import Empty
 
 from copy import deepcopy
 
+import pickle
+
+from astropy.table import Table
+
+from .table_functions import to_array
+
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
@@ -1400,10 +1406,10 @@ def run_multi_process(cell_ID_gen,
     
     return_queue = Queue()
 
-    max_cpus = cpu_count() - 1
+    max_cpus = cpu_count()
     
     if (num_cpus is None) or (num_cpus > max_cpus):
-       
+          
         num_cpus = max_cpus
     
     processes = []
@@ -1431,16 +1437,16 @@ def run_multi_process(cell_ID_gen,
         workers_waiting.append(True)
         
         worker_args = (proc_idx,
-                       deepcopy(galaxy_tree), 
+                       galaxy_tree, 
                        ngrid, 
                        dl, 
                        dr,
                        coord_min, 
-                       deepcopy(mask),
+                       mask,
                        mask_resolution,
                        min_dist,
                        max_dist,
-                       deepcopy(w_coord),
+                       w_coord,
                        curr_job_queue,
                        return_queue)
         
@@ -1648,6 +1654,29 @@ def _main_hole_finder_worker(process_id,
                              ):
     
     #galaxy_tree = neighbors.KDTree(w_coord)
+    
+    '''
+    w_coord_table = Table.read('SDSS_dr7_' + 'wall_gal_file.txt', format='ascii.commented_header')
+    w_coord = to_array(w_coord_table)
+        
+        
+    temp_infile = open("filter_galaxies_output.pickle", 'rb')
+    coord_min_table, mask, ngrid = pickle.load(temp_infile)
+    temp_infile.close()
+    del coord_min_table
+    
+    
+    mask = mask.astype(np.uint8)
+    
+    
+    #print(type(w_coord))
+    
+    w_coord_2 = np.copy(w_coord)
+    
+    galaxy_tree = neighbors.KDTree(w_coord_2)
+    '''
+    print("Process id: ", process_id, id(mask), id(w_coord), id(galaxy_tree), w_coord.__array_interface__['data'][0])
+    
     
     ################################################################################
     #
