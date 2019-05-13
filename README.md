@@ -5,3 +5,17 @@ The VoidFinder algorithm by [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/a
 ## Citation
 
 Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566..641H) and [El-Ad & Piran (1997)](http://adsabs.harvard.edu/abs/1997ApJ...491..421E) when using this algorithm.
+
+
+
+
+## Building & Running Voidfinder
+Voidfinder now includes some cythonized code for speed.  To build this code, enter the 
+/python/voidfinder/ directory and run:
+
+cython -a *.pyx
+
+python setup.py build_ext --inplace
+
+then from the /python/scripts/ directory edit the paths in whichever run script desired and run
+as normal (example: python SDSS_Voidfinder.py)

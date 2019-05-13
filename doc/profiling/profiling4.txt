@@ -1,0 +1,93 @@
+
+#################################################################
+
+Multi process with cython version.
+
+produced files:
+
+
+#################################################################
+
+
+Galaxy grid indices computed
+Growing holes
+cell_ID_list finish time:  0.10798454284667969
+KDTree creation time: 0.0327305793762207
+Worker processes started time:  0.0525054931640625
+Processed 10000 cells of 390860
+Processed 20000 cells of 390860
+Processed 30000 cells of 390860
+Processed 40000 cells of 390860
+Processed 50000 cells of 390860
+Processed 60000 cells of 390860
+Processed 70000 cells of 390860
+Processed 80000 cells of 390860
+Processed 90000 cells of 390860
+Processed 100000 cells of 390860
+Processed 110000 cells of 390860
+Processed 120000 cells of 390860
+Processed 130000 cells of 390860
+Processed 140000 cells of 390860
+Processed 150000 cells of 390860
+Processed 160000 cells of 390860
+Processed 170000 cells of 390860
+Processed 180000 cells of 390860
+Processed 190000 cells of 390860
+Processed 200000 cells of 390860
+Processed 210000 cells of 390860
+Processed 220000 cells of 390860
+Processed 230000 cells of 390860
+Processed 240000 cells of 390860
+Processed 250000 cells of 390860
+Processed 260000 cells of 390860
+Processed 270000 cells of 390860
+Processed 280000 cells of 390860
+Processed 290000 cells of 390860
+Processed 300000 cells of 390860
+Processed 310000 cells of 390860
+Processed 320000 cells of 390860
+Processed 330000 cells of 390860
+Processed 340000 cells of 390860
+Processed 350000 cells of 390860
+Processed 360000 cells of 390860
+Processed 370000 cells of 390860
+Processed 380000 cells of 390860
+Processed 390000 cells of 390860
+Main task finish time:  60.82845211029053
+Time process:  60.4879264831543 num:  95000
+Time process:  60.20752286911011 num:  124860
+Time process:  60.65287780761719 num:  82000
+Time process:  60.70853877067566 num:  89000
+Num empty cells:  390860
+Found a total of 113587 potential voids.
+Time to find all holes = 61.06739807128906
+Sorting holes by size
+Holes are sorted.
+Time to sort holes = 0.08807706832885742
+Removing holes with at least 10% of their volume outside the mask
+Combining holes into unique voids
+Maximal spheres identified
+Number of unique voids is 831
+Time to combine holes into voids = 31.942742347717285
+
+
+
+######################################################################
+# python multiprocess version
+# vollim_dr7_cbp_102709.dat
+# 120606 galaxies in sample
+######################################################################
+
+4 physical cores on test machine, 8 logical
+
+1 core = 142 sec (one core doing all work)
+2 core = 76 sec (2 worker cores processing cells and one parent process accumulating results)
+3 core = 58 sec (3 worker 1 parent)
+4 core = 61 sec (4 worker 1 parent)
+5 core = 62 sec (5 worker 1 parent)
+6 core = 67 sec (6 worker 1 parent)
+7 core = 87 sec (7 worker 1 parent)
+
+
+
+
