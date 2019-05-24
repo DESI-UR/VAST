@@ -21,3 +21,5 @@ python setup.py build_ext --inplace
 
 then from the `/python/scripts/` directory edit the paths in whichever run script desired and run
 as normal (example: `python SDSS_Voidfinder.py`).
+
+The current version of VoidFinder is written to run with Python 3.
