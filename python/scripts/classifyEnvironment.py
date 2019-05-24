@@ -58,6 +58,7 @@ galaxy_file_format = 'ecsv'
 
 if galaxy_file_format == 'ecsv':
     galaxies = QTable.read( galaxy_file, format='ascii.ecsv')
+    DtoR = 1.
 else:
     galaxies = Table.read( galaxy_file, format='ascii.' + galaxy_file_format)
 
@@ -72,6 +73,7 @@ else:
 
 # Convert redshift to distance
 galaxies_r = c*galaxies['NSA_redshift']/H
+
 
 # Calculate x-coordinates
 galaxies_x = galaxies_r*np.cos(galaxies['NSA_DEC']*DtoR)*np.cos(galaxies['NSA_RA']*DtoR)
