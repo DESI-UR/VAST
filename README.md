@@ -10,12 +10,14 @@ Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566
 
 
 ## Building & Running Voidfinder
-Voidfinder now includes some cythonized code for speed.  To build this code, enter the 
-/python/voidfinder/ directory and run:
+VoidFinder now includes some cythonized code for speed.  To build this code, enter the 
+`/python/voidfinder/` directory and run:
 
+```
 cython -a *.pyx
 
 python setup.py build_ext --inplace
+```
 
-then from the /python/scripts/ directory edit the paths in whichever run script desired and run
-as normal (example: python SDSS_Voidfinder.py)
+then from the `/python/scripts/` directory edit the paths in whichever run script desired and run
+as normal (example: `python SDSS_Voidfinder.py`).
