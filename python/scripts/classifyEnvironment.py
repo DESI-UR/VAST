@@ -11,6 +11,7 @@
 import numpy as np
 
 from astropy.table import QTable, Table
+import astropy.units as u
 
 import sys
 sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python')
@@ -51,7 +52,14 @@ voids['voidID'] == index number identifying to which void the sphere belongs
 #galaxy_file = input('Galaxy data file (with extension): ')
 galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/RotationCurves/master_file.txt'
 
-galaxies = QTable.read(galaxy_file, format='ascii.ecsv')
+galaxy_file_format = 'ecsv'
+
+
+
+if galaxy_file_format == 'ecsv':
+    galaxies = QTable.read( galaxy_file, format='ascii.ecsv')
+else:
+    galaxies = Table.read( galaxy_file, format='ascii.' + galaxy_file_format)
 
 
 ################################################################################
@@ -99,4 +107,7 @@ for i in range(len(galaxies)):
 # Output file name
 outfile = galaxy_file[:-4] + '_vflag.txt'
 
-galaxies.write(outfile, format='ascii.ecsv', overwrite=True)
+if galaxy_file_format == 'ecsv':
+    galaxies.write(outfile, format='ascii.ecsv', overwrite=True)
+else:
+    galaxies.write( outfile, format='ascii.' + galaxy_file_format, overwrite=True)
