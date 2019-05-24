@@ -6,11 +6,12 @@ Determines whether or not a galaxy is a void, wall, edge, or unclassifiable
 galaxy.
 '''
 
+import pickle
 
 import numpy as np
 #from astropy.table import Table
 
-from voidfinder_functions import build_mask, not_in_mask
+from .voidfinder_functions import build_mask, not_in_mask
 
 maskra = 360
 maskdec = 180
@@ -20,9 +21,11 @@ dec_offset = -90
 
 
 # Read in survey mask
-survey_mask = np.load('/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/vollim_dr7_cbp_102709_mask.npy')
+mask_infile = open('/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/dr7_mask.pickle', 'rb')
+mask_resolution, maskfile = pickle.load(mask_infile)
+mask_infile.close()
 
-mask = build_mask(survey_mask)
+mask = build_mask(maskfile, mask_resolution)
 '''
 survey_mask = Table.read('SDSSdr7/cbpdr7mask.dat', format='ascii.commented_header')  # SDSS DR7
 
@@ -30,6 +33,7 @@ survey_mask = Table.read('SDSSdr7/cbpdr7mask.dat', format='ascii.commented_heade
 mask = np.zeros((maskra, maskdec), dtype=np.bool)
 mask[survey_mask['ra'].astype(int), survey_mask['dec'].astype(int) - dec_offset] = True
 '''
+
 # Distance limits (units of Mpc/h, taken from voids_sdss.py)
 rmin = 0
 rmax = 300
@@ -78,7 +82,7 @@ def determine_vflag(x, y, z, voids):
         coord_array = np.array([[x,y,z]])
 
         # Check to see if the galaxy is within the survey
-        if not_in_mask(coord_array, mask, rmin, rmax):
+        if not_in_mask(coord_array, mask, mask_resolution, rmin, rmax):
             # Galaxy is outside the survey mask
             vflag = -9
 
@@ -104,7 +108,7 @@ def determine_vflag(x, y, z, voids):
             i = 0
             while vflag == 0 and i <= 5:
                 # Check to see if any of these are outside the survey
-                if not_in_mask(extreme_coords[i].reshape(1,3), mask, rmin, rmax):
+                if not_in_mask(extreme_coords[i].reshape(1,3), mask, mask_resolution, rmin, rmax):
                     # Galaxy is within 10 Mpc/h of the survey edge
                     vflag = 2
                 i += 1

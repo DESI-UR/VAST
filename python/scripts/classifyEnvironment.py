@@ -10,11 +10,11 @@
 
 import numpy as np
 
-from astropy.table import Table
+from astropy.table import QTable, Table
 
 import sys
-sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder')
-from vflag import determine_vflag
+sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python')
+from voidfinder.vflag import determine_vflag
 
 
 ################################################################################
@@ -50,11 +50,8 @@ voids['voidID'] == index number identifying to which void the sphere belongs
 
 #galaxy_file = input('Galaxy data file (with extension): ')
 galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/RotationCurves/master_file.txt'
-#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_found.txt'
-#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/vflag_not_classified.txt'
-#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/void_reclassification.txt'
-#galaxy_file = '/Users/kellydouglass/Documents/Research/Rotation_curves/wall_reclassification.txt'
-galaxies = Table.read(galaxy_file, format='ascii.ecsv')
+
+galaxies = QTable.read(galaxy_file, format='ascii.ecsv')
 
 
 ################################################################################
