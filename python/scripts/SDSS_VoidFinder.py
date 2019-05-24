@@ -8,10 +8,11 @@
 
 
 import sys
-sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
-#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
+#sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
+sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
 
 from voidfinder import filter_galaxies, find_voids
+from voidfinder.multizmask import generate_mask
 from voidfinder.absmag_comovingdist_functions import Distance
 
 from astropy.table import Table
@@ -26,27 +27,25 @@ import numpy as np
 ################################################################################
 
 
-# Number of CPUs available for analysis
-num_cpus = 7
+# Number of CPUs available for analysis.
+# A value of None will use one less than all available CPUs.
+num_cpus = None
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
 
 # File header
-#in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
-#out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
 
-in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
-out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+#in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+#out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
 
 
-# Input file names
+# Input file name
 galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-#mask_filename = 'cbpdr7mask.dat'           # File format: RA, dec
-mask_filename = 'vollim_dr7_cbp_102709_mask.pickle'
 
 in_filename = in_directory + galaxies_filename
-mask_filename = in_directory + mask_filename
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -98,12 +97,6 @@ out2_filename = out_directory + galaxies_filename[:-4] + out2_suffix  # List of 
 
 infile = Table.read(in_filename, format='ascii.commented_header')
 
-#maskfile = Table.read(mask_filename, format='ascii.commented_header')
-#maskfile = np.load(mask_filename)
-mask_infile = open(mask_filename, 'rb')
-mask_resolution, maskfile = pickle.load(mask_infile)
-mask_infile.close()
-
 
 #-------------------------------------------------------------------------------
 # Print min and max distances
@@ -136,11 +129,33 @@ if 'Rgal' not in infile.columns:
     infile['Rgal'] = Distance(infile['z'], Omega_M, h)
 #-------------------------------------------------------------------------------
 
+
+
+################################################################################
+#
+#   GENERATE MASK
+#
+################################################################################
+
+
+maskfile, mask_resolution = generate_mask(infile)
+
+temp_outfile = open(survey_name + 'mask.pickle', 'wb')
+pickle.dump((mask_resolution, maskfile), temp_outfile)
+temp_outfile.close()
+
+
+
 ################################################################################
 #
 #   FILTER GALAXIES
 #
 ################################################################################
+
+
+temp_infile = open(survey_name + 'mask.pickle', 'rb')
+mask_resolution, maskfile = pickle.load(temp_infile)
+temp_infile.close()
 
 
 coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, mask_resolution, 

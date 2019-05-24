@@ -44,7 +44,7 @@ def _main_hole_finder(cell_ID_dict,
                       max_dist,
                       w_coord,
                       batch_size=1000,
-                      verbose=True,
+                      verbose=False,
                       num_cpus=1):
     '''
     Description:
@@ -1675,7 +1675,7 @@ def _main_hole_finder_worker(process_id,
     
     galaxy_tree = neighbors.KDTree(w_coord_2)
     '''
-    print("Process id: ", process_id, id(mask), id(w_coord), id(galaxy_tree), w_coord.__array_interface__['data'][0])
+    #print("Process id: ", process_id, id(mask), id(w_coord), id(galaxy_tree), w_coord.__array_interface__['data'][0])
     
     
     ################################################################################
