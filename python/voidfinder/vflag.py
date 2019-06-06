@@ -1,38 +1,15 @@
-'''
-voidfinder.vflag
-================
-
-Determines whether or not a galaxy is a void, wall, edge, or unclassifiable
-galaxy.
-'''
-
-import pickle
 
 import numpy as np
 #from astropy.table import Table
 
-from .voidfinder_functions import build_mask, not_in_mask
+from .voidfinder_functions import not_in_mask
+
+
 
 maskra = 360
 maskdec = 180
 dec_offset = -90
 
-
-
-
-# Read in survey mask
-mask_infile = open('/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/dr7_mask.pickle', 'rb')
-mask_resolution, maskfile = pickle.load(mask_infile)
-mask_infile.close()
-
-mask = build_mask(maskfile, mask_resolution)
-'''
-survey_mask = Table.read('SDSSdr7/cbpdr7mask.dat', format='ascii.commented_header')  # SDSS DR7
-
-# Make mask
-mask = np.zeros((maskra, maskdec), dtype=np.bool)
-mask[survey_mask['ra'].astype(int), survey_mask['dec'].astype(int) - dec_offset] = True
-'''
 
 # Distance limits (units of Mpc/h, taken from voids_sdss.py)
 rmin = 0
@@ -46,7 +23,44 @@ rmax = 300
 ################################################################################
 
 
-def determine_vflag(x, y, z, voids):
+def determine_vflag(x, y, z, voids, mask, mask_resolution):
+    '''
+    Determines whether or not a galaxy is a void, wall, edge, or unclassifiable
+    galaxy.
+
+
+    Parameters:
+    ===========
+
+    x : float
+        x-position of object in units of Mpc/h
+
+    y : float
+        y-position of object in units of Mpc/h
+
+    z : float
+        z-position of object in units of Mpc/h
+
+    voids : astropy table
+        List of holes defining the void regions.  Columns consist of the center 
+        of each hole (x,y,z) in units of Mpc/h, the hole radii, and the void 
+        identifier for each hole.
+
+    mask : numpy boolean array of shape (n,m)
+        True values correspond to ra,dec coordinates which lie within the 
+        survey footprint.
+
+
+    Returns:
+    ========
+
+    vflag : integer
+        0 = wall galaxy
+        1 = void galaxy
+        2 = edge galaxy (too close to survey boundary to determine)
+        9 = outside survey footprint
+    '''
+
 
     ############################################################################
     #   INTRO CALCULATIONS, INITIALIZATIONS
@@ -84,7 +98,7 @@ def determine_vflag(x, y, z, voids):
         # Check to see if the galaxy is within the survey
         if not_in_mask(coord_array, mask, mask_resolution, rmin, rmax):
             # Galaxy is outside the survey mask
-            vflag = -9
+            vflag = 9
 
         else:
             # Galaxy is within the survey mask, but is not within a void
