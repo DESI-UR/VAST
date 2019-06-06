@@ -92,6 +92,8 @@ galaxies_z = galaxies_r*np.sin(galaxies['NSA_DEC']*DtoR)
 ################################################################################
 
 
+galaxies['vflag'] = -9
+
 for i in range(len(galaxies)):
 
     #print('Galaxy #', galaxies['NSA_index'][i])
