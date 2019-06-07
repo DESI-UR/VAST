@@ -68,8 +68,6 @@ class Zones:
         zlinks = [[[] for _ in range(len(zones))] for _ in range(2)]       
         print("Linking zones...")
         for i in range(len(vol)):
-            if i in np.array(range(1000))*1000:
-                print(str(i/1000) + ' out of 1000')
             ns = nei[i]
             z1 = lut[i]
             for n in ns:
