@@ -84,7 +84,8 @@ class Zones:
                         zlinks[1][z2].append(0.)
                     j  = np.where(zlinks[0][z1] == z2)[0][0]
                     k  = np.where(zlinks[0][z2] == z1)[0][0]
-                    ml = np.amax([zlinks[1][z1][j],vol[i],vol[n]])
+                    nl = np.amin([vol[i],vol[n]])
+                    ml = np.amax([zlinks[1][z1][j],nl])
                     zlinks[1][z1][j] = ml
                     zlinks[1][z2][k] = ml
         self.zlinks = zlinks
