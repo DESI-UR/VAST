@@ -96,10 +96,8 @@ class Voids:
         zlinks = zon.zlinks
         print("Sorting links...")
         zl1   = np.array(list(flatten(zlinks[1])))
-        srt   = np.argsort(-1.*zl1)
-        zl1   = zl1[srt]
-        zlu   = np.unique(zl1)
-        zl0   = np.array(list(flatten(zlinks[0])))[srt]
+        zlu   = -1.*np.sort(-1.*np.unique(zl1))
+        zl0   = np.array(list(flatten(zlinks[0])))
         zlut  = [np.unique(zl0[np.where(zl1==zl)[0]]).tolist() for zl in zlu]
         voids = []
         mvols = []
