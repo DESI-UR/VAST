@@ -95,11 +95,12 @@ class Voids:
         zvols  = np.array(zon.zvols)
         zlinks = zon.zlinks
         print("Sorting links...")
-        zu,zi = np.unique(list(flatten(zlinks[1])),return_index=True)
-        srt   = np.argsort(-1.*zu)
-        zu    = zu[srt]
-        lut1  = (np.array(list(flatten([[i]*len(zlinks[0][i]) for i in range(len(zlinks[0]))])))[zi])[srt]
-        lut2  = (np.array(list(flatten(zlinks[0])))[zi])[srt]
+        zl1   = np.array(list(flatten(zlinks[1])))
+        srt   = np.argsort(-1.*zl1)
+        zl1   = zl1[srt]
+        zlu   = np.unique(zl1)
+        zl0   = np.array(list(flatten(zlinks[0])))[srt]
+        zlut  = [np.unique(zl0[np.where(zl1==zl)[0]]).tolist() for zl in zlu]
         voids = []
         mvols = []
         ovols = []
@@ -107,36 +108,25 @@ class Voids:
         mvlut = np.array(zvols)
         ovlut = np.array(zvols)
         print("Expanding voids...")
-        for i in range(len(zu)):
-            lvol  = zu[i]
-            mvol1 = mvlut[lut1[i]]
-            mvol2 = mvlut[lut2[i]]
-            if mvol1 > mvol2:
-                voids.append([])
-                ovols.append([])
-                vcomp = np.where(vlut==vlut[lut2[i]])[0]
-                for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
-                    ocomp = np.where(ovlut[vcomp]==ov)
-                    voids[-1].append(vcomp[ocomp].tolist())
-                    ovols[-1].append(ov)
-                ovols[-1].append(lvol)
-                mvols.append(mvol2)
-                vlut[vcomp]  = vlut[lut1[i]]
-                mvlut[vcomp] = mvol1
-                ovlut[vcomp] = lvol
-            elif mvol1 > mvol2:
-                voids.append([])
-                ovols.append([])
-                vcomp = np.where(vlut==vlut[lut1[i]])[0]
-                for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
-                    ocomp = np.where(ovlut[vcomp]==ov)
-                    voids[-1].append(vcomp[ocomp].tolist())
-                    ovols[-1].append(ov)
-                ovols[-1].append(lvol)
-                mvols.append(mvol1)
-                vlut[vcomp]  = vlut[lut2[i]]
-                mvlut[vcomp] = mvol2
-                ovlut[vcomp] = lvol
+        for i in range(len(zlu)):
+            lvol  = zlu[i]
+            mxvls = mvlut[zlut[i]]
+            mvarg = np.argmax(mxvls)
+            mxvol = mxvls[mvarg]
+            for j in zlut[i]:
+                if mvlut[j] < mxvol:                
+                    voids.append([])
+                    ovols.append([])
+                    vcomp = np.where(vlut==vlut[j])[0]
+                    for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
+                        ocomp = np.where(ovlut[vcomp]==ov)[0]
+                        voids[-1].append(vcomp[ocomp].tolist())
+                        ovols[-1].append(ov)
+                    ovols[-1].append(lvol)
+                    mvols.append(mvlut[j])
+                    vlut[vcomp]  = vlut[zlut[i]][mvarg]
+                    mvlut[vcomp] = mxvol
+                    ovlut[vcomp] = lvol
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols
