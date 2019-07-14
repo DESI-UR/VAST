@@ -16,10 +16,8 @@ class Catalog:
     def __init__(self,fname,nside):
         hdulist = fits.open(fname)
         z    = hdulist[1].data['z']
-        zcut = np.logical_and(z>0.4,z<0.7)
-        z    = z[zcut]
-        ra   = hdulist[1].data['ra'][zcut]
-        dec  = hdulist[1].data['dec'][zcut]
+        ra   = hdulist[1].data['ra']
+        dec  = hdulist[1].data['dec']
         mask = np.zeros(hp.nside2npix(nside),dtype=bool)
         for i in range(len(ra)):
             pid = hp.ang2pix(nside,ra[i],dec[i],lonlat=True)
