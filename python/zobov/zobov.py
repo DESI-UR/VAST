@@ -1,37 +1,64 @@
 import numpy as np
+import healpy as hp
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM
 from scipy.spatial import ConvexHull, Voronoi, Delaunay
 from scipy import stats
 import collections
 
-#tess  = Tesselation(infile)
+#ctlg  = Catalog(infile,256)
+#tess  = Tesselation(ctlg)
 #zones = Zones(tess)
 #voids = Voids(zones)
 #voids_sorted = voids.vSort()
 
-class Tesselation:
-    def __init__(self,fname):
+class Catalog:
+    def __init__(self,fname,nside):
         hdulist = fits.open(fname)
-        print("Extracting coordinates...")
-        z   = hdulist[1].data['z']
-        ra  = hdulist[1].data['ra']
-        dec = hdulist[1].data['dec']
-        c1,c2,c3 = toCoord(z,ra,dec)
-        coords = np.array([c1,c2,c3]).T
+        z    = hdulist[1].data['z']
+        zcut = np.logical_and(z>0.4,z<0.7)
+        z    = z[zcut]
+        ra   = hdulist[1].data['ra'][zcut]
+        dec  = hdulist[1].data['dec'][zcut]
+        mask = np.zeros(hp.nside2npix(nside),dtype=bool)
+        for i in range(len(ra)):
+            pid = hp.ang2pix(nside,ra[i],dec[i],lonlat=True)
+            mask[pid] = True
+        self.mask  = mask
+        c1,c2,c3   = toCoord(z,ra,dec)
+        self.coord = np.array([c1,c2,c3]).T
+
+class Tesselation:
+    def __init__(self,cat):
+        coords = cat.coord
         print("Tesselating...")
         Vor = Voronoi(coords)
-        print("Triangulating...")
-        Del = Delaunay(coords)
         ver = Vor.vertices
         reg = np.array(Vor.regions)[Vor.point_region]
         del Vor
+        ve2 = ver.T
+        vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2])
+        vph = np.arctan2(ve2[1],ve2[0])
+        vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
+        crh = np.array([np.sqrt((c**2.).sum()) for c in coords])
+        rmx = np.amax(crh)
+        rmn = np.amin(crh)
         print("Computing volumes...")
         vol = np.zeros(len(reg))
-        cut = np.array([-1 not in r for r in reg])
+        cu1 = np.array([-1 not in r for r in reg])
+        cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]])
+        msk = cat.mask
+        nsd = hp.npix2nside(len(msk))
+        pid = hp.ang2pix(nsd,vth,vph)
+        imk = msk[pid]
+        cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]])
+        cut = np.array(range(len(vol)))
+        cut = cut[cu1][cu2][cu3]
         hul = [ConvexHull(ver[r]) for r in reg[cut]]
         vol[cut] = np.array([h.volume for h in hul])
         self.volumes = vol
+        print("Triangulating...")
+        Del = Delaunay(coords)
         sim = Del.simplices
         nei = []
         lut = [[] for _ in range(len(vol))]
@@ -128,8 +155,15 @@ class Voids:
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols
-    def vSort(self,method=2,minsig=2):
-        if method==1:
+    def vSort(self,method=0,minsig=2,minvol=100):
+        if method==0:
+            voids = []
+            for i in range(len(self.ovols)):
+                vl = self.ovols[i][-1]
+                if vl < minvol:
+                    break
+                voids.append([c for q in self.voids[i] for c in q])
+        elif method==1:
             voids = [[c for q in v for c in q] for v in self.voids]
         elif method==2:
             voids = []
