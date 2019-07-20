@@ -159,27 +159,3 @@ class Voids:
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols
-    def vSort(self,method=0,minsig=2,minvol=100):
-        if method==0:
-            voids = []
-            for i in range(len(self.ovols)):
-                vl = self.ovols[i][-1]
-                if vl < minvol:
-                    break
-                voids.append([c for q in self.voids[i] for c in q])
-        elif method==1:
-            voids = [[c for q in v for c in q] for v in self.voids]
-        elif method==2:
-            voids = []
-            for i in range(len(self.mvols)):
-                vh = self.mvols[i]
-                vl = self.ovols[i][-1]
-                r  = vh / vl
-                p  = P(r)
-                if stats.norm.isf(p/2.) >= minsig:
-                    voids.append([c for q in self.voids[i] for c in q])
-        elif method==3:
-            print("Coming soon")
-        else:
-            print("Choose a valid method")
-        return voids
