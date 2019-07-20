@@ -1,15 +1,19 @@
 import numpy as np
 import collections
-from astropy.cosmology import FlatLambdaCDM
+import astropy.units as u
+from astropy.cosmology import FlatLambdaCDM, z_at_value
+from scipy import interpolate
 
 H0   = 100
 Om_m = 0.3
 c    = 3e6
+zstp = 5e-5
+D2R  = np.pi/180.
+
+Kos = FlatLambdaCDM(H0,Om_m)
 
 #changes to comoving coordinates
 def toCoord(z,ra,dec):
-    D2R = np.pi/180.
-    Kos = FlatLambdaCDM(H0,Om_m)
     r = Kos.comoving_distance(z)
     r = np.array([d.value for d in r])
     #r = c*z/H0
@@ -18,14 +22,30 @@ def toCoord(z,ra,dec):
     c3 = r*np.sin(dec*D2R)
     return c1,c2,c3
 
+#changes to sky coordinates
+def toSky(cs):
+    c1 = cs.T[0]
+    c2 = cs.T[1]
+    c3 = cs.T[2]
+    r   = np.sqrt(c1**2.+c2**2.+c3**2.)
+    dec = np.arcsin(c3/r)/D2R
+    ra  = np.arccos(c1/np.sqrt(c1**2.+c2**2.))/D2R
+    zmn = z_at_value(Kos.comoving_distance,np.amin(r)*u.Mpc)
+    zmx = z_at_value(Kos.comoving_distance,np.amax(r)*u.Mpc)
+    zmn = zmn-(zstp+zmn%zstp)
+    zmx = zmx+(2*zstp-zmx%zstp)
+    ct  = np.array([np.linspace(zmn,zmx,int(np.ceil(zmn/zstp))),Kos.comoving_distance(np.linspace(zmn,zmx,int(np.ceil(zmn/zstp)))).value]).T
+    r2z = interpolate.pchip(*ct[:,::-1].T)
+    z = r2z(r)
+    return z,ra,dec
+
+#checks which points are within a sphere
 def inSphere(cs,r,coords):
-    inx = np.logical_and(coords[0]>cs[0]-r,coords[0]<cs[0]+r)
-    iny = np.logical_and(coords[1]>cs[1]-r,coords[1]<cs[1]+r)
-    inz = np.logical_and(coords[2]>cs[2]-r,coords[2]<cs[2]+r)
-    inc = np.product([inx,iny,inz],dtype=bool,axis=0)
-    inS = np.sqrt(np.sum((cs.reshape(len(inc),1)-coords.T[inc].T)**2.,axis=1))>r
-    inc[inS] = False
-    return inc
+    return np.sum((cs.reshape(3,1)-coords.T)**2.,axis=0)<r**2.
+
+#finds the weighted center of tracers' Voronoi cells
+def wCen(vols,coords):
+    return np.sum(vols.reshape(len(vols),1)*coords,axis=0)/np.sum(vols)
 
 #probability a void is fake
 def P(r):
