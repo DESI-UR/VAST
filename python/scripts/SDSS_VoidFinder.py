@@ -29,7 +29,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = None
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -57,6 +57,10 @@ max_dist = 300. # z = 0.107 -> 313 h-1 Mpc   z = 0.087 -> 257 h-1 Mpc
 # Cosmology
 Omega_M = 0.3
 h = 1
+
+# Distance metric
+#dist_metric = 'comoving'
+dist_metric = 'redshift'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -70,17 +74,17 @@ rm_isolated = True
 #-------------------------------------------------------------------------------
 # Output file names
 if mag_cut and rm_isolated:
-    out1_suffix = '_maximal.txt'
-    out2_suffix = '_holes.txt'
+    out1_suffix = '_' + dist_metric + '_maximal.txt'
+    out2_suffix = '_' + dist_metric + '_holes.txt'
 elif rm_isolated:
-    out1_suffix = '_maximal_noMagCut.txt'
-    out2_suffix = '_holes_noMagCut.txt'
+    out1_suffix = '_' + dist_metric + '_maximal_noMagCut.txt'
+    out2_suffix = '_' + dist_metric + '_holes_noMagCut.txt'
 elif mag_cut:
-    out1_suffix = '_maximal_keepIsolated.txt'
-    out2_suffix = '_holes_keepIsolated.txt'
+    out1_suffix = '_' + dist_metric + '_maximal_keepIsolated.txt'
+    out2_suffix = '_' + dist_metric + '_holes_keepIsolated.txt'
 else:
-    out1_suffix = '_maximal_noFiltering.txt'
-    out2_suffix = 'holes_noFiltering.txt'
+    out1_suffix = '_' + dist_metric + '_maximal_noFiltering.txt'
+    out2_suffix = '_' + dist_metric + 'holes_noFiltering.txt'
 
 out1_filename = out_directory + galaxies_filename[:-4] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
 out2_filename = out_directory + galaxies_filename[:-4] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
@@ -108,11 +112,16 @@ if determine_parameters:
     # Maximum distance
     max_z = max(infile['z'])
 
-    # Convert redshift to comoving distance
-    dist_limits = Distance([min_z, max_z], Omega_M, h)
+    if dist_metric == 'comoving':
+        # Convert redshift to comoving distance
+        dist_limits = Distance([min_z, max_z], Omega_M, h)
+        units = 'Mpc/h'
+    else:
+        dist_limits = [min_z, max_z]
+        units = ''
 
-    print('Minimum distance =', dist_limits[0], 'Mpc/h')
-    print('Maximum distance =', dist_limits[1], 'Mpc/h')
+    print('Minimum distance =', dist_limits[0], units)
+    print('Maximum distance =', dist_limits[1], units)
 
     exit()
 #-------------------------------------------------------------------------------
@@ -125,7 +134,7 @@ if 'rabsmag' not in infile.columns:
 
 #-------------------------------------------------------------------------------
 # Calculate comoving distance
-if 'Rgal' not in infile.columns:
+if dist_metric == 'comoving' and 'Rgal' not in infile.columns:
     infile['Rgal'] = Distance(infile['z'], Omega_M, h)
 #-------------------------------------------------------------------------------
 
@@ -138,7 +147,7 @@ if 'Rgal' not in infile.columns:
 ################################################################################
 
 
-maskfile, mask_resolution = generate_mask(infile)
+maskfile, mask_resolution = generate_mask(infile, dist_metric, h, Omega_M)
 
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
 pickle.dump((mask_resolution, maskfile), temp_outfile)
@@ -158,9 +167,11 @@ mask_resolution, maskfile = pickle.load(temp_infile)
 temp_infile.close()
 
 
-coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, mask_resolution, 
-                                               min_dist, max_dist, survey_name, 
-                                               mag_cut, rm_isolated)
+coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, 
+                                               mask_resolution, min_dist, 
+                                               max_dist, survey_name, mag_cut, 
+                                               rm_isolated, dist_metric, h)
+
 
 temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)

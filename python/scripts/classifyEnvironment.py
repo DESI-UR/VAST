@@ -19,6 +19,7 @@ import sys
 sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python')
 from voidfinder.vflag import determine_vflag
 from voidfinder.voidfinder_functions import build_mask
+from voidfinder.absmag_comovingdist_functions import Distance
 
 
 ################################################################################
@@ -31,6 +32,8 @@ from voidfinder.voidfinder_functions import build_mask
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
 void_filename = '../voidfinder/data/vollim_dr7_cbp_102709_holes.txt'
+
+dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -42,9 +45,9 @@ mask_filename = '../voidfinder/data/dr7_mask.pickle'
 # FILE OF OBJECTS TO BE CLASSIFIED
 
 #galaxy_file = input('Galaxy data file (with extension): ')
-galaxy_filename = '/Users/kellydouglass/Documents/Research/Rotation_curves/RotationCurves/master_file.txt'
+galaxy_filename = '/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag.txt'
 
-galaxy_file_format = 'ecsv'
+galaxy_file_format = 'commented_header'
 #-------------------------------------------------------------------------------
 
 
@@ -56,8 +59,11 @@ galaxy_file_format = 'ecsv'
 
 
 c = 3e5 # km/s
+
 h = 1
 H = 100*h
+
+Omega_M = 0.3 # 0.26 for KIAS-VAGC
 
 DtoR = np.pi/180
 
@@ -105,17 +111,22 @@ mask = build_mask(maskfile, mask_resolution)
 
 
 # Convert redshift to distance
-galaxies_r = c*galaxies['NSA_redshift']/H
+if dist_metric == 'comoving':
+    if 'Rgal' not in galaxies.columns:
+        galaxies['Rgal'] = Distance(galaxies['redshift'], Omega_M, h)
+    galaxies_r = galaxies['Rgal']
+else:
+    galaxies_r = c*galaxies['redshift']/H
 
 
 # Calculate x-coordinates
-galaxies_x = galaxies_r*np.cos(galaxies['NSA_DEC']*DtoR)*np.cos(galaxies['NSA_RA']*DtoR)
+galaxies_x = galaxies_r*np.cos(galaxies['dec']*DtoR)*np.cos(galaxies['ra']*DtoR)
 
 # Calculate y-coordinates
-galaxies_y = galaxies_r*np.cos(galaxies['NSA_DEC']*DtoR)*np.sin(galaxies['NSA_RA']*DtoR)
+galaxies_y = galaxies_r*np.cos(galaxies['dec']*DtoR)*np.sin(galaxies['ra']*DtoR)
 
 # Calculate z-coordinates
-galaxies_z = galaxies_r*np.sin(galaxies['NSA_DEC']*DtoR)
+galaxies_z = galaxies_r*np.sin(galaxies['dec']*DtoR)
 
 
 ################################################################################
@@ -144,7 +155,7 @@ for i in range(len(galaxies)):
 
 # Output file name
 galaxy_file_name, extension = galaxy_filename.split('.')
-outfile = galaxy_file_name + '_vflag.txt'
+outfile = galaxy_file_name + '_vflag_' + dist_metric + '.txt'
 
 
 if galaxy_file_format == 'ecsv':

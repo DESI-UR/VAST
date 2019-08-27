@@ -28,10 +28,12 @@ DtoR = np.pi/180.
 RtoD = 180./np.pi
 
 
-def filter_galaxies(infile, maskfile, mask_resolution, min_dist, max_dist, survey_name, mag_cut_flag, rm_isolated_flag):
+def filter_galaxies(infile, maskfile, mask_resolution, min_dist, max_dist, 
+                    survey_name, mag_cut_flag, rm_isolated_flag, 
+                    distance_metric, h):
     '''
-    Filter the input galaxy catalog, removing galaxies fainter than some limit and 
-    removing isolated galaxies.
+    Filter the input galaxy catalog, removing galaxies fainter than some limit 
+    and removing isolated galaxies.
 
 
     Parameters:
@@ -64,6 +66,15 @@ def filter_galaxies(infile, maskfile, mask_resolution, min_dist, max_dist, surve
         Determines whether or not to remove isolated galaxies.  True will remove 
         the isolated galaxies.
 
+    distance_metric : string
+        Distance metric to use in calculations.  Options are 'comoving' 
+        (distance dependent on cosmology) and 'redshift' (distance 
+        independent of cosmology).
+
+    h : float
+        Fractional value of Hubble's constant.  Default value is 1 (where 
+        H0 = 100h).
+
 
     Returns:
     ========
@@ -91,9 +102,13 @@ def filter_galaxies(infile, maskfile, mask_resolution, min_dist, max_dist, surve
         infile = mag_cut(infile,-20)
 
     # Convert galaxy coordinates to Cartesian
-    xin = infile['Rgal']*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
-    yin = infile['Rgal']*np.sin(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
-    zin = infile['Rgal']*np.sin(infile['dec']*DtoR)
+    if distance_metric == 'comoving':
+        r_gal = infile['Rgal']
+    else:
+        r_gal = c*infile['redshift']/(100*h)
+    xin = r_gal*np.cos(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
+    yin = r_gal*np.sin(infile['ra']*DtoR)*np.cos(infile['dec']*DtoR)
+    zin = r_gal*np.sin(infile['dec']*DtoR)
     coord_in_table = Table([xin, yin, zin], names=('x','y','z'))
 
     # Cartesian coordinate minima
