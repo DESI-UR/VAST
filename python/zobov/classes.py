@@ -5,12 +5,6 @@ from scipy.spatial import ConvexHull, Voronoi, Delaunay
 
 from util import toCoord, flatten
 
-#ctlg  = Catalog(infile,256)
-#tess  = Tesselation(ctlg)
-#zones = Zones(tess)
-#voids = Voids(zones)
-#voids_sorted = voids.vSort()
-
 class Catalog:
     def __init__(self,fname,nside):
         hdulist = fits.open(fname)

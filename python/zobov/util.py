@@ -37,6 +37,7 @@ def toSky(cs):
     ct  = np.array([np.linspace(zmn,zmx,int(np.ceil(zmn/zstp))),Kos.comoving_distance(np.linspace(zmn,zmx,int(np.ceil(zmn/zstp)))).value]).T
     r2z = interpolate.pchip(*ct[:,::-1].T)
     z = r2z(r)
+    #z = H0*r/c
     return z,ra,dec
 
 #checks which points are within a sphere
@@ -46,6 +47,18 @@ def inSphere(cs,r,coords):
 #finds the weighted center of tracers' Voronoi cells
 def wCen(vols,coords):
     return np.sum(vols.reshape(len(vols),1)*coords,axis=0)/np.sum(vols)
+
+#converts tracers and void effective radius to ellipsoid semi-major axes
+def getSMA(vrad,coords):
+    iTen = np.zeros((3,3))
+    for p in coords:
+        iTen = iTen + np.array([[p[1]**2.+p[2]**2.,0,0],[0,p[0]**2.+p[2]**2.,0],[0,0,p[0]**2.+p[1]**2.]])
+        iTen = iTen - np.array([[0,p[0]*p[1],p[0]*p[2]],[p[0]*p[1],0,p[1]*p[2]],[p[0]*p[2],p[1]*p[2],0]])
+    eival,eivec = np.linalg.eig(iTen)
+    eival = eival**.25
+    rfac = vrad/(np.product(eival)**(1./3))
+    eival = eival*rfac
+    return eival.reshape(3,1)*eivec.T
 
 #probability a void is fake
 def P(r):
