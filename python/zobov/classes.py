@@ -56,7 +56,7 @@ class Tesselation:
         vol[cut] = np.array([h.volume for h in hul])
         self.volumes = vol
         print("Triangulating...")
-        Del = Delaunay(coords)
+        Del = Delaunay(coords,qhull_options='QJ')
         sim = Del.simplices
         nei = []
         lut = [[] for _ in range(len(vol))]

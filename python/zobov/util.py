@@ -29,7 +29,7 @@ def toSky(cs):
     c3 = cs.T[2]
     r   = np.sqrt(c1**2.+c2**2.+c3**2.)
     dec = np.arcsin(c3/r)/D2R
-    ra  = np.arccos(c1/np.sqrt(c1**2.+c2**2.))/D2R
+    ra  = (np.arccos(c1/np.sqrt(c1**2.+c2**2.))*np.sign(c2)/D2R)%360
     zmn = z_at_value(Kos.comoving_distance,np.amin(r)*u.Mpc)
     zmx = z_at_value(Kos.comoving_distance,np.amax(r)*u.Mpc)
     zmn = zmn-(zstp+zmn%zstp)
