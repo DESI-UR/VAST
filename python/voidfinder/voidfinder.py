@@ -259,11 +259,63 @@ def filter_galaxies(infile, maskfile, mask_resolution, min_dist, max_dist,
 
 
 
-def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution, out1_filename, out2_filename, survey_name, num_cpus):
+def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, 
+               mask_resolution, out1_filename, out2_filename, survey_name, 
+               num_cpus, verbose=False):
+    '''
+    Description:
+    ============
+    
+    Using the VoidFinder algorithm, this function grows spheres in each empty 
+    grid cell of the galaxy distribution.  It then combines these spheres into 
+    unique voids, identifying a maximal sphere for each void.
+
+
+    Parameters:
+    ===========
+
+    ngrid : numpy array of shape (3,)
+        Number of cells in each cartesian direction.
+
+    min_dist : float
+        Minimum distance (in Mpc/h) of the galaxy distribution
+
+    max_dist : float
+        Maximum distance (in Mpc/h) of the galaxy distribution
+
+    coord_min_table : astropy table
+        Minimum values of the galaxy coordinates in x, y, and z.
+
+    mask : numpy array of shape ()
+        Index array of the coordinates that are within the survey footprint
+
+    mask_resolution : integer
+        Scale factor of coordinates in maskfile
+
+    out1_filename : string
+        Name of file for maximal spheres.
+
+    out2_filename : string
+        Name of file for all void holes.
+
+    survey_name : string
+        Name of survey
+
+    num_cpus : integer or None
+        Number of CPUs on which to run the sphere growth function.  A value of 
+        None will use all but one of the available cores.
+
+        Note: Multi-threading DOES NOT currently work on Mac OS systems.
+
+    verbose : boolean (default = False)
+        Determines whether or not debugging print statements will be executed.  
+        Default is False (statements will not print).
+    '''
     
 
     
-    w_coord_table = Table.read(survey_name + 'wall_gal_file.txt', format='ascii.commented_header')
+    w_coord_table = Table.read(survey_name + 'wall_gal_file.txt', 
+                               format='ascii.commented_header')
     w_coord = to_array(w_coord_table)
 
     coord_min = to_vector(coord_min_table)
@@ -271,11 +323,11 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
 
 
 
-    ################################################################################
+    ############################################################################
     #
     #   SET UP CELL GRID DISTRIBUTION
     #
-    ################################################################################
+    ############################################################################
     '''
     print('Setting up grid of wall galaxies')
 
@@ -290,14 +342,14 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
     cell_ID_dict = mesh_galaxies_dict(w_coord, coord_min, dl)
 
 
-    print('Galaxy grid indices computed')
+    print('Galaxy grid indices computed', flush=True)
     
 
-    ################################################################################
+    ############################################################################
     #
     #   GROW HOLES
     #
-    ################################################################################
+    ############################################################################
 
     
 
@@ -315,7 +367,7 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
                                                                             min_dist,
                                                                             max_dist,
                                                                             w_coord,
-                                                                            verbose=True,
+                                                                            verbose=verbose,
                                                                             num_cpus=num_cpus)
 
     print('Found a total of', n_holes, 'potential voids.', flush=True)
@@ -323,17 +375,18 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
     print('Time to find all holes =', time.time() - tot_hole_start, flush=True)
     
 
-    ################################################################################
+    ############################################################################
     #
     #   SORT HOLES BY SIZE
     #
-    ################################################################################
+    ############################################################################
 
     sort_start = time.time()
 
     print('Sorting holes by size', flush=True)
 
-    potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=('x','y','z','radius'))
+    potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], 
+                                  names=('x','y','z','radius'))
 
     # Need to sort the potential voids into size order
     potential_voids_table.sort('radius')
@@ -352,48 +405,53 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
 
     sort_end = time.time()
 
-    print('Holes are sorted.',flush=True)
-    print('Time to sort holes =', sort_end-sort_start,flush=True)
+    print('Holes are sorted.', flush=True)
+    print('Time to sort holes =', sort_end-sort_start, flush=True)
 
-    ################################################################################
+    ############################################################################
     #
     #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
     #
-    ################################################################################
+    ############################################################################
 
-    print('Removing holes with at least 10% of their volume outside the mask',flush=True)
+    print('Removing holes with at least 10% of their volume outside the mask', 
+          flush=True)
 
-    potential_voids_table = volume_cut(potential_voids_table, mask, mask_resolution, [min_dist, max_dist])
+    potential_voids_table = volume_cut(potential_voids_table, mask, 
+                                       mask_resolution, [min_dist, max_dist])
 
-    potential_voids_table.write(survey_name + 'potential_voids_list.txt', format='ascii.commented_header', overwrite=True)
+    potential_voids_table.write(survey_name + 'potential_voids_list.txt', 
+                                format='ascii.commented_header', overwrite=True)
 
-    ################################################################################
+    ############################################################################
     #
     #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
     #
-    ################################################################################
+    ############################################################################
 
     combine_start = time.time()
 
-    print('Combining holes into unique voids',flush=True)
+    print('Combining holes into unique voids', flush=True)
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
 
-    print('Number of unique voids is', len(maximal_spheres_table),flush=True)
+    print('Number of unique voids is', len(maximal_spheres_table), flush=True)
 
     # Save list of all void holes
-    myvoids_table.write(out2_filename, format='ascii.commented_header', overwrite=True)
+    myvoids_table.write(out2_filename, format='ascii.commented_header', 
+                        overwrite=True)
 
     combine_end = time.time()
 
-    print('Time to combine holes into voids =', combine_end-combine_start,flush=True)
+    print('Time to combine holes into voids =', combine_end-combine_start, 
+          flush=True)
 
     '''
-    ################################################################################
+    ############################################################################
     #
     #   COMPUTE VOLUME OF EACH VOID
     #
-    ################################################################################
+    ############################################################################
     print('Compute void volumes')
 
     # Initialize void volume array
@@ -421,11 +479,11 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
         void_vol[i] = (rad**3)*nsph/nran
     
     
-    ################################################################################
+    ############################################################################
     #
     #   IDENTIFY VOID GALAXIES
     #
-    ################################################################################
+    ############################################################################
     print('Assign field galaxies to voids')
 
     # Count the number of galaxies in each void
@@ -448,20 +506,20 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
     f_coord.write(voidgals_filename, format='ascii.commented_header')
     '''
 
-    ################################################################################
+    ############################################################################
     #
     #   MAXIMAL HOLE FOR EACH VOID
     #
-    ################################################################################
+    ############################################################################
 
     save_maximals(maximal_spheres_table, out1_filename)
 
     '''
-    ################################################################################
+    ############################################################################
     #
     #   VOID REGION SIZES
     #
-    ################################################################################
+    ############################################################################
 
 
     # Initialize

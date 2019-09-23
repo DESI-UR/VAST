@@ -133,11 +133,11 @@ def _main_hole_finder(cell_ID_dict,
     
     #empty_cell_counter = 0
         
-    ################################################################################
+    ############################################################################
     #
     # Pop all the relevant grid cell IDs onto the job queue
     #
-    ################################################################################
+    ############################################################################
     '''
     cell_ID_list = []
 
@@ -161,12 +161,14 @@ def _main_hole_finder(cell_ID_dict,
     #num_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
     
     if verbose:
-        print("cell_ID_list finish time: ", time.time() - start_time)
-        print("Len cell_ID_dict (eliminated cells): ", len(cell_ID_dict))
+        print("cell_ID_list finish time: ", time.time() - start_time, 
+              flush=True)
+        print("Len cell_ID_dict (eliminated cells): ", len(cell_ID_dict), 
+              flush=True)
     
-    ################################################################################
+    ############################################################################
     # Run single or multi-processed
-    ################################################################################
+    ############################################################################
     
     if isinstance(num_cpus, int) and num_cpus == 1:
         
@@ -315,11 +317,11 @@ def run_single_process(cell_ID_list,
     
     
     
-    ################################################################################
+    ############################################################################
     #
     # Profiling parameters
     #
-    ################################################################################
+    ############################################################################
     
     #PROFILE_total_query_time = 0.0
     
@@ -342,13 +344,13 @@ def run_single_process(cell_ID_list,
     
     
     
-    ################################################################################
+    ############################################################################
     #
     # Initialize some output containers and counter variables
     #
-    ################################################################################
+    ############################################################################
     
-    print("Running single-process mode")
+    print("Running single-process mode", flush=True)
     
     #hole_times = []
     
@@ -371,13 +373,14 @@ def run_single_process(cell_ID_list,
     #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
     n_empty_cells = len(cell_ID_list)
     
-    ################################################################################
+    ############################################################################
     #
     #   BUILD NEAREST-NEIGHBOR TREE
-    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing sklearn interface
-    #   nearest neighbor finder for the galaxies in x,y,z space
+    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing 
+    #   sklearn interface nearest neighbor finder for the galaxies in x,y,z 
+    #   space
     #
-    ################################################################################
+    ############################################################################
     
     if verbose:
         
@@ -387,12 +390,13 @@ def run_single_process(cell_ID_list,
     
     if verbose:
         
-        print('KDTree creation time:', time.time() - kdtree_start_time)
+        print('KDTree creation time:', time.time() - kdtree_start_time, 
+              flush=True)
     
     
-    ################################################################################
+    ############################################################################
     # Main loop
-    ################################################################################
+    ############################################################################
     num_cells_processed = 0
     
     for hole_center_coords in cell_ID_list:
@@ -409,7 +413,8 @@ def run_single_process(cell_ID_list,
             
             if num_cells_processed % 10000 == 0:
                 
-               print('Processed', num_cells_processed, 'cells of', n_empty_cells)
+               print('Processed', num_cells_processed, 'cells of', n_empty_cells, 
+                     flush=True)
         
         
         #if num_cells_processed % 10000 == 0:
@@ -424,12 +429,13 @@ def run_single_process(cell_ID_list,
         #hole_center = to_vector(hole_center_table)
         
         
-        ############################################################
+        ########################################################################
         # Check to make sure in mask
-        ############################################################
+        ########################################################################
         
         timer1 = time.time()
-        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, max_dist)
+        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, 
+                           max_dist)
         timer2 = time.time()
         PROFILE_mask_times.append(timer2- timer1)
         # Check to make sure that the hole center is still within the survey
@@ -440,14 +446,14 @@ def run_single_process(cell_ID_list,
             continue
         
         
-        ############################################################
+        ########################################################################
         #
         # Find Galaxy 1 (closest to cell center)
         #
-        # and calculate Unit vector pointing from cell 
-        # center to the closest galaxy
+        # and calculate Unit vector pointing from cell center to the closest 
+        # galaxy
         #
-        ############################################################
+        ########################################################################
         PROFILE_1_start = time.time()
         
         
@@ -465,19 +471,18 @@ def run_single_process(cell_ID_list,
         
         PROFILE_1_time = time.time() - PROFILE_1_start
     
-        ############################################################
+        ########################################################################
         #
         # Find Galaxy 2 
         #
-        # We are going to shift the center of the hole by dr along 
-        # the direction of the vector pointing from the nearest 
-        # galaxy to the center of the empty cell.  From there, we 
-        # will search within a radius of length the distance between 
-        # the center of the hole and the first galaxy from the 
-        # center of the hole to find the next nearest neighbors.  
-        # From there, we will minimize top/bottom to find which one 
-        # is the next nearest galaxy that bounds the hole.
-        ############################################################
+        # We are going to shift the center of the hole by dr along the direction 
+        # of the vector pointing from the nearest galaxy to the center of the 
+        # empty cell.  From there, we will search within a radius of length the 
+        # distance between the center of the hole and the first galaxy from the 
+        # center of the hole to find the next nearest neighbors.  From there, we 
+        # will minimize top/bottom to find which one is the next nearest galaxy 
+        # that bounds the hole.
+        ########################################################################
         
         PROFILE_2_start = time.time()
     
@@ -511,7 +516,8 @@ def run_single_process(cell_ID_list,
             
             if len(i_nearest) <= 0:
                 timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_2, mask, mask_resolution, min_dist, max_dist)
+                PROFILE_TEMP = not_in_mask(hole_center_2, mask, mask_resolution, 
+                                           min_dist, max_dist)
                 timer2 = time.time()
                 PROFILE_mask_times.append(timer2- timer1)
                 
@@ -559,9 +565,9 @@ def run_single_process(cell_ID_list,
     
         PROFILE_2_time = time.time() - PROFILE_2_start
     
-        ############################################################
+        ########################################################################
         # Update hole center
-        ############################################################
+        ########################################################################
         
         # Calculate new hole center
         hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)  # shape (1,)
@@ -686,9 +692,9 @@ def run_single_process(cell_ID_list,
         PROFILE_3_time = time.time() - PROFILE_3_start
         
         
-        ############################################################
+        ########################################################################
         # Update hole center
-        ############################################################
+        ########################################################################
         hole_center = hole_center + minx3*v2_unit  # shape (1,3)
         
         hole_radius = np.linalg.norm(hole_center - w_coord[k1g])  # shape ()
@@ -710,9 +716,9 @@ def run_single_process(cell_ID_list,
         # Find Galaxy 4 
         #
         # Process is very similar as before, except we do not know if we have to 
-        # move above or below the plane.  Therefore, we will find the next closest 
-        # if we move above the plane, and the next closest if we move below the 
-        # plane.
+        # move above or below the plane.  Therefore, we will find the next 
+        # closest if we move above the plane, and the next closest if we move 
+        # below the plane.
         ########################################################################
         
         PROFILE_4_start = time.time()
@@ -770,7 +776,8 @@ def run_single_process(cell_ID_list,
     
             if len(i_nearest) <= 0:
                 timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist)
+                PROFILE_TEMP = not_in_mask(hole_center_41, mask, 
+                                           mask_resolution, min_dist, max_dist)
                 timer2 = time.time()
                 PROFILE_mask_times.append(timer2- timer1)
     
@@ -782,27 +789,17 @@ def run_single_process(cell_ID_list,
     
                 # Calculate vector pointing from hole center to next nearest galaxies
                 Dcenter = w_coord[i_nearest] - hole_center  # shape (N,3)
-                #print('Dcenter shape:', Dcenter.shape)
                 
                 bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)  # shape (N,)
-                #print('bot shape:', bot.shape)
                 
                 top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
-                #print('top shape:', top.shape)
                 
                 x41 = top/bot  # shape (N,)
-                #print('x41 shape:', x41.shape)
     
                 # Locate positive values of x41
                 valid_idx = np.where(x41 > 0)[0]  # shape (n,)
-                #print('valid_idx shape:', valid_idx.shape)
     
-                #if valid_idx.shape[0] == 1:
-                #    k4g1 = i_nearest[valid_idx[0]]
-                #    minx41 = x41[valid_idx[0]]
-                #    galaxy_search = False
-                #    
-                #elif valid_idx.shape[0] > 1:
+
                 if len(valid_idx) > 0:
                     # Find index of 4th nearest galaxy
                     k4g1_x41 = valid_idx[x41[valid_idx].argmin()]
@@ -818,17 +815,13 @@ def run_single_process(cell_ID_list,
                 # Hole is no longer within survey limits
                 galaxy_search = False
                 in_mask_41 = False
-    
-        #print('Found first potential 4th galaxy')
-        
+
     
         # Calculate potential new hole center
         #if not not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist):
         if in_mask_41:
             hole_center_41 = hole_center + minx41*v3_unit  # shape (1,3)
-            #print('______________________')
-            #print(hole_center_41, 'hc41')
-            #print('hole_radius_41', np.linalg.norm(hole_center_41 - w_coord[k1g]))
+
        
         ########################################################################
         # Repeat same search, but shift the hole center in the other direction 
@@ -873,7 +866,8 @@ def run_single_process(cell_ID_list,
     
             if len(i_nearest) <= 0:
                 timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist)
+                PROFILE_TEMP = not_in_mask(hole_center_42, mask, 
+                                           mask_resolution, min_dist, max_dist)
                 timer2 = time.time()
                 PROFILE_mask_times.append(timer2- timer1)
     
@@ -906,17 +900,12 @@ def run_single_process(cell_ID_list,
                 # Hole is no longer within survey limits
                 galaxy_search = False
                 in_mask_42 = False
-    
-        #print('Found second potential 4th galaxy')
         
     
         # Calculate potential new hole center
         #if not not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist):
         if in_mask_42:
             hole_center_42 = hole_center + minx42*v3_unit  # shape (1,3)
-            #print(hole_center_42, 'hc42')
-            #print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
-            #print('minx41:', minx41, '   minx42:', minx42)
         
         
         ########################################################################
@@ -927,7 +916,8 @@ def run_single_process(cell_ID_list,
         # Determine which is the 4th nearest galaxy
         #if in_mask(hole_center_41, mask, mask_resolution, [min_dist, max_dist]) and minx41 <= minx42:
         timer1 = time.time()
-        not_in_mask_41 = not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist)
+        not_in_mask_41 = not_in_mask(hole_center_41, mask, mask_resolution, 
+                                     min_dist, max_dist)
         timer2 = time.time()
         PROFILE_mask_times.append(timer2- timer1)
         
@@ -936,7 +926,8 @@ def run_single_process(cell_ID_list,
             # The first 4th galaxy found is the next closest
             hole_center = hole_center_41
             k4g = k4g1
-        elif not not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist):
+        elif not not_in_mask(hole_center_42, mask, mask_resolution, min_dist, 
+                             max_dist):
             # The second 4th galaxy found is the next closest
             
             timer1 = time.time()
@@ -1012,58 +1003,64 @@ def run_single_process(cell_ID_list,
     
     total_time = time.time() - PROFILE_total_start
     
-    print("Total time: ", total_time)
-    print("Loop time: ", np.sum(PROFILE_loop_times))
-    print("Query time: ", np.sum(PROFILE_query_times))
-    print("Mask time: ", np.sum(PROFILE_mask_times))
-    print("Total loops: ", len(PROFILE_loop_times))
-    print("Total queries: ", len(PROFILE_query_times))
-    print("Total masks: ", len(PROFILE_mask_times))
-    print("Total (void-cell) time: ", np.sum(PROFILE_void_times))
-    print("Section 1 (void) time: ", np.sum(PROFILE_section_1_times))
-    print("Section 2 (void) time: ", np.sum(PROFILE_section_2_times))
-    print("Section 3 (void) time: ", np.sum(PROFILE_section_3_times))
-    print("Section 4 (void) time: ", np.sum(PROFILE_section_4_times))
+    if verbose:
+        print("Total time: ", total_time, flush=True)
+        print("Loop time: ", np.sum(PROFILE_loop_times), flush=True)
+        print("Query time: ", np.sum(PROFILE_query_times), flush=True)
+        print("Mask time: ", np.sum(PROFILE_mask_times), flush=True)
+        print("Total loops: ", len(PROFILE_loop_times), flush=True)
+        print("Total queries: ", len(PROFILE_query_times), flush=True)
+        print("Total masks: ", len(PROFILE_mask_times), flush=True)
+        print("Total (void-cell) time: ", np.sum(PROFILE_void_times), 
+              flush=True)
+        print("Section 1 (void) time: ", np.sum(PROFILE_section_1_times), 
+              flush=True)
+        print("Section 2 (void) time: ", np.sum(PROFILE_section_2_times), 
+              flush=True)
+        print("Section 3 (void) time: ", np.sum(PROFILE_section_3_times), 
+              flush=True)
+        print("Section 4 (void) time: ", np.sum(PROFILE_section_4_times), 
+              flush=True)
     
     
     
-    fig = plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_loop_times, bins=50)
-    plt.title("All Single Cell processing times (sec)")
-    #plt.show()
-    plt.savefig("Cell_time_dist.png")
-    plt.close()
+        fig = plt.figure(figsize=(14,10))
+        plt.hist(PROFILE_loop_times, bins=50)
+        plt.title("All Single Cell processing times (sec)")
+        #plt.show()
+        plt.savefig("Cell_time_dist.png")
+        plt.close()
     
-    fig = plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_query_times, bins=50)
-    plt.title("All Query KDTree times (sec)")
-    #plt.show()
-    plt.savefig("Query_time_dist.png")
-    plt.close()
+        fig = plt.figure(figsize=(14,10))
+        plt.hist(PROFILE_query_times, bins=50)
+        plt.title("All Query KDTree times (sec)")
+        #plt.show()
+        plt.savefig("Query_time_dist.png")
+        plt.close()
     
-    fig = plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_mask_times, bins=50)
-    plt.title("All calls to not_in_mask times (sec)")
-    #plt.show()
-    plt.savefig("not_in_mask_time_dist.png")
-    plt.close()
+        fig = plt.figure(figsize=(14,10))
+        plt.hist(PROFILE_mask_times, bins=50)
+        plt.title("All calls to not_in_mask times (sec)")
+        #plt.show()
+        plt.savefig("not_in_mask_time_dist.png")
+        plt.close()
     
-    fig = plt.figure(figsize=(19.2,12))
-    top_left = plt.subplot(221)
-    top_right = plt.subplot(222)
-    bot_left = plt.subplot(223)
-    bot_right = plt.subplot(224)
-    top_left.hist(PROFILE_section_1_times, bins=50)
-    top_right.hist(PROFILE_section_2_times, bins=50)
-    bot_left.hist(PROFILE_section_3_times, bins=50)
-    bot_right.hist(PROFILE_section_4_times, bins=50)
-    top_left.set_title("(Void cells only) Section 1 times (sec)")
-    top_right.set_title("(Void cells only) Section 2 times (sec)")
-    bot_left.set_title("(Void cells only) Section 3 times (sec)")
-    bot_right.set_title("(Void cells only) Section 4 times (sec)")
-    #plt.show()
-    plt.savefig("void_cell_section_breakdown_dist.png")
-    plt.close()
+        fig = plt.figure(figsize=(19.2,12))
+        top_left = plt.subplot(221)
+        top_right = plt.subplot(222)
+        bot_left = plt.subplot(223)
+        bot_right = plt.subplot(224)
+        top_left.hist(PROFILE_section_1_times, bins=50)
+        top_right.hist(PROFILE_section_2_times, bins=50)
+        bot_left.hist(PROFILE_section_3_times, bins=50)
+        bot_right.hist(PROFILE_section_4_times, bins=50)
+        top_left.set_title("(Void cells only) Section 1 times (sec)")
+        top_right.set_title("(Void cells only) Section 2 times (sec)")
+        bot_left.set_title("(Void cells only) Section 3 times (sec)")
+        bot_right.set_title("(Void cells only) Section 4 times (sec)")
+        #plt.show()
+        plt.savefig("void_cell_section_breakdown_dist.png")
+        plt.close()
     
     
     
@@ -1092,22 +1089,22 @@ def run_single_process_cython(cell_ID_gen,
                        num_cpus=None):
     
     
-    ################################################################################
+    ############################################################################
     #
     # Profiling
     #
-    ################################################################################
+    ############################################################################
     
     PROFILE_loop_times = []
     
     
-    ################################################################################
+    ############################################################################
     #
     # Initialize some output containers and counter variables
     #
-    ################################################################################
+    ############################################################################
     
-    print("Running single-process mode")
+    print("Running single-process mode", flush=True)
     
     myvoids_x = []
     
@@ -1125,21 +1122,23 @@ def run_single_process_cython(cell_ID_gen,
     
     #return_array = np.empty(4, dtype=np.float64)
     
-    ################################################################################
-    # Convert the mask to an array of uint8 values for running in the cython code
-    ################################################################################
+    ############################################################################
+    # Convert the mask to an array of uint8 values for running in the cython 
+    # code
+    ############################################################################
     
     
     mask = mask.astype(np.uint8)
     
     
-    ################################################################################
+    ############################################################################
     #
     #   BUILD NEAREST-NEIGHBOR TREE
-    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing sklearn interface
-    #   nearest neighbor finder for the galaxies in x,y,z space
+    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing 
+    #   sklearn interface nearest neighbor finder for the galaxies in x,y,z 
+    #   space
     #
-    ################################################################################
+    ############################################################################
     
     if verbose:
         
@@ -1149,75 +1148,16 @@ def run_single_process_cython(cell_ID_gen,
     
     if verbose:
         
-        print('KDTree creation time:', time.time() - kdtree_start_time)
+        print('KDTree creation time:', time.time() - kdtree_start_time, 
+              flush=True)
     
     
-    ################################################################################
+    ############################################################################
     # Main loop
-    ################################################################################
-    '''
-    num_cells_processed = 0
+    ############################################################################
+
     
-    for hole_center_coords in cell_ID_list:
-                    
-        num_cells_processed += 1
         
-        PROFILE_loop_start_time = time.time()
-        
-        if verbose:
-            
-            if num_cells_processed % 10000 == 0:
-                
-               print('Processed', num_cells_processed, 'cells of', n_empty_cells)
-        
-        i, j, k = hole_center_coords
-        
-        
-        main_algorithm(i,
-                       j,
-                       k,
-                       galaxy_tree,
-                       w_coord,
-                       dl, 
-                       dr,
-                       coord_min,
-                       mask,
-                       mask_resolution,
-                       min_dist,
-                       max_dist,
-                       return_array
-                       )
-        
-        x_val = return_array[0]
-        y_val = return_array[1]
-        z_val = return_array[2]
-        r_val = return_array[3]
-        
-        
-        
-        if not np.isnan(x_val):
-                
-            myvoids_x.append(x_val)
-            #x_val = hole_center[0,0]
-            
-            myvoids_y.append(y_val)
-            #y_val = hole_center[0,1]
-            
-            myvoids_z.append(z_val)
-            #z_val = hole_center[0,2]
-            
-            myvoids_r.append(r_val)
-            #r_val = hole_radius
-            
-            n_holes += 1
-        
-        
-        PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-    '''
-    
-    
-    
-    
     num_processed = 0
     
     num_in_batch = 0
@@ -1233,7 +1173,8 @@ def run_single_process_cython(cell_ID_gen,
         
         if (verbose > 0 and num_processed % 10000 == 0):
         
-            print("Processing cell "+str(num_processed)+" of "+str(n_empty_cells))
+            print("Processing cell "+str(num_processed)+" of "+str(n_empty_cells), 
+                  flush=True)
             
         num_processed += 1
         
@@ -1269,8 +1210,8 @@ def run_single_process_cython(cell_ID_gen,
                            0  #verbose level
                            )
                 
-            
-            #print("Exited main algorithm returned to python")
+            if verbose:
+                print("Exited main algorithm returned to python", flush=True)
             
                 
             for row in return_array:
@@ -1301,17 +1242,18 @@ def run_single_process_cython(cell_ID_gen,
                 
                 
         
-    '''
-    print('Plotting single cell processing times distribution')
-    plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_loop_times, bins=50)
-    plt.title("All Single Cell processing times Cython (sec)")
-    plt.xlabel('Time [s]')
-    plt.ylabel('Count')
-    #plt.show()
-    plt.savefig("Cell_time_dist_Cython.png")
-    plt.close()
-    '''
+    if verbose:
+        print('Plotting single cell processing times distribution', flush=True)
+
+        plt.figure(figsize=(14,10))
+        plt.hist(PROFILE_loop_times, bins=50)
+        plt.title("All Single Cell processing times Cython (sec)")
+        plt.xlabel('Time [s]')
+        plt.ylabel('Count')
+        #plt.show()
+        plt.savefig("Cell_time_dist_Cython.png")
+        plt.close()
+    
         
     return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
 
@@ -1341,11 +1283,11 @@ def run_multi_process(cell_ID_gen,
     
     start_time = time.time()
     
-    ################################################################################
+    ############################################################################
     #
     # Initialize some output containers and counter variables
     #
-    ################################################################################
+    ############################################################################
     #hole_times = []
     
     # Initialize list of hole details
@@ -1369,20 +1311,21 @@ def run_multi_process(cell_ID_gen,
     
     
     
-    ################################################################################
+    ############################################################################
     # mask needs to be 1 byte per bool to match the cython dtype
-    ################################################################################
+    ############################################################################
     
     mask = mask.astype(np.uint8)
     
     
-    ################################################################################
+    ############################################################################
     #
     #   BUILD NEAREST-NEIGHBOR TREE
-    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing sklearn interface
-    #   nearest neighbor finder for the galaxies in x,y,z space
+    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing 
+    #   sklearn interface nearest neighbor finder for the galaxies in x,y,z 
+    #   space
     #
-    ################################################################################
+    ############################################################################
     
     if verbose:
         
@@ -1392,14 +1335,15 @@ def run_multi_process(cell_ID_gen,
     
     if verbose:
         
-        print('KDTree creation time:', time.time() - kdtree_start_time)
+        print('KDTree creation time:', time.time() - kdtree_start_time, 
+              flush=True)
     
     
-    ################################################################################
+    ############################################################################
     #
     # Set up worker processes
     #
-    ################################################################################
+    ############################################################################
     
     
     #job_queue = Queue()
@@ -1459,13 +1403,16 @@ def run_multi_process(cell_ID_gen,
         num_active_processes += 1
 
     if verbose:
-        print("Worker processes started time: ", time.time() - start_time)
-    ################################################################################
+        print("Worker processes started time: ", time.time() - start_time, 
+              flush=True)
+
+    ############################################################################
     #
-    # Listen on the return_queue for results
-    # and feed workers when they become inactive
+    # Listen on the return_queue for results and feed workers when they become 
+    # inactive
     #
-    ################################################################################
+    ############################################################################
+
     num_cells_processed = 0
     
     curr_cell_idx = 0
@@ -1524,7 +1471,7 @@ def run_multi_process(cell_ID_gen,
                 
                         if num_cells_processed % 10000 == 0:
                             
-                           print('Processed', num_cells_processed, 'cells of', n_empty_cells)
+                           print('Processed', num_cells_processed, 'cells of', n_empty_cells, flush=True)
                 
                 
         for proc_idx, worker_waiting in enumerate(workers_waiting):
@@ -1589,13 +1536,13 @@ def run_multi_process(cell_ID_gen,
         
                 
     if verbose:
-        print("Main task finish time: ", time.time() - start_time)
+        print("Main task finish time: ", time.time() - start_time, flush=True)
                 
-    ################################################################################
+    ############################################################################
     #
     # Clean up worker processes
     #
-    ################################################################################
+    ############################################################################
     
     for proc_idx in range(num_cpus):
         
@@ -1623,7 +1570,7 @@ def run_multi_process(cell_ID_gen,
         
     if verbose:
         
-        print("Num empty cells: ", n_empty_cells)
+        print("Num empty cells: ", n_empty_cells, flush=True)
         
     return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
                     
@@ -1653,36 +1600,15 @@ def _main_hole_finder_worker(process_id,
                              return_queue
                              ):
     
-    #galaxy_tree = neighbors.KDTree(w_coord)
-    
-    '''
-    w_coord_table = Table.read('SDSS_dr7_' + 'wall_gal_file.txt', format='ascii.commented_header')
-    w_coord = to_array(w_coord_table)
-        
-        
-    temp_infile = open("filter_galaxies_output.pickle", 'rb')
-    coord_min_table, mask, ngrid = pickle.load(temp_infile)
-    temp_infile.close()
-    del coord_min_table
-    
-    
-    mask = mask.astype(np.uint8)
-    
-    
-    #print(type(w_coord))
-    
-    w_coord_2 = np.copy(w_coord)
-    
-    galaxy_tree = neighbors.KDTree(w_coord_2)
-    '''
+
     #print("Process id: ", process_id, id(mask), id(w_coord), id(galaxy_tree), w_coord.__array_interface__['data'][0])
     
     
-    ################################################################################
+    ############################################################################
     #
     # Profiling parameters
     #
-    ################################################################################
+    ############################################################################
     
     worker_lifetime_start = time.time()
     time_main = 0.0
@@ -1701,13 +1627,14 @@ def _main_hole_finder_worker(process_id,
     time_returning = 0
     
     
-    ################################################################################
+    ############################################################################
     #
     # exit_process - flag for reading an exit command off the queue
-    # is_waiting - flag for state of whether this worker is working or waiting for data
+    # is_waiting - flag for state of whether this worker is working or waiting 
+    #              for data
     # return_array - some memory for cython code to pass return values back to
     #
-    ################################################################################
+    ############################################################################
     
     exit_process = False
     
@@ -1767,46 +1694,7 @@ def _main_hole_finder_worker(process_id,
                 main_proc_start_time = time.time()
                 
                 cell_ID_list = message
-                '''
-                for hole_center_coords in cell_ID_list:
-                    
-                    num_cells_processed += 1
-                    
-                    #if num_cells_processed % 10000 == 0:
-                    #    print("Processed: ", num_cells_processed, "time: ", time.time() - worker_lifetime_start, "main: ", time_main, "empty: ", time_empty)
-                    
-                    i, j, k = hole_center_coords
-                    
-                    
-                    main_algorithm(i,
-                                   j,
-                                   k,
-                                   galaxy_tree,
-                                   w_coord,
-                                   dl, 
-                                   dr,
-                                   coord_min,
-                                   mask,
-                                   mask_resolution,
-                                   min_dist,
-                                   max_dist,
-                                   return_array
-                                   )
-                    
-                    x_val = return_array[0]
-                    y_val = return_array[1]
-                    z_val = return_array[2]
-                    r_val = return_array[3]
-                    
-                    
-                    put_start = time.time()
-                    return_queue.put(("data", (x_val, y_val, z_val, r_val)))
-                    time_returning += time.time() - put_start
-                    
-                '''
-                    
-                    
-                    
+                
                 i_j_k_array = np.array(cell_ID_list, dtype=np.int64)
     
                 return_array = np.empty((len(cell_ID_list), 4), dtype=np.float64)
@@ -1824,31 +1712,6 @@ def _main_hole_finder_worker(process_id,
                                return_array,
                                0  #verbose level
                                )
-                '''
-                for row in return_array:
-                    
-                    x_val = row[0]
-                    y_val = row[1]
-                    z_val = row[2]
-                    r_val = row[3]
-                    
-                    if not np.isnan(x_val):
-                            
-                        myvoids_x.append(x_val)
-                        #x_val = hole_center[0,0]
-                        
-                        myvoids_y.append(y_val)
-                        #y_val = hole_center[0,1]
-                        
-                        myvoids_z.append(z_val)
-                        #z_val = hole_center[0,2]
-                        
-                        myvoids_r.append(r_val)
-                        #r_val = hole_radius
-                        
-                        n_holes += 1
-                '''
-                
                 
                 num_cells_processed += return_array.shape[0]
                 
@@ -1860,16 +1723,16 @@ def _main_hole_finder_worker(process_id,
                     
                 time_main += time.time() - main_proc_start_time
                 
-                #print("Processed2: ", num_cells_processed, "time: ", time.time() - worker_lifetime_start, "main: ", time_main, time_empty)
+                #print("Processed2: ", num_cells_processed, "time: ", time.time() - worker_lifetime_start, "main: ", time_main, time_empty, flush=True)
                     
     return_queue.put(("Done", None))
     
-    #print("Worker lifetime: ", time.time() - worker_lifetime_start)
-    print("Time process: ", time_main, "num: ", num_cells_processed)
-    #print("Time sleeping: ", time_sleeping)
-    #print("Time returning: ", time_returning)
-    #print("Time message: ", time_message)
-    #print("Msg chks: ", num_message_checks, "Cells procd: ", num_cells_processed, "Empty puts: ", num_empty_job_put, "total loop: ", total_loops)
+    #print("Worker lifetime: ", time.time() - worker_lifetime_start, flush=True)
+    print("Time process: ", time_main, "num: ", num_cells_processed, flush=True)
+    #print("Time sleeping: ", time_sleeping, flush=True)
+    #print("Time returning: ", time_returning, flush=True)
+    #print("Time message: ", time_message, flush=True)
+    #print("Msg chks: ", num_message_checks, "Cells procd: ", num_cells_processed, "Empty puts: ", num_empty_job_put, "total loop: ", total_loops, flush=True)
     
     return None
     
