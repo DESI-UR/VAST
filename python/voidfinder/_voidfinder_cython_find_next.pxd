@@ -36,7 +36,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                             #ITYPE_t[:] nearest_neighbor_x_ratio_index, \
                             ITYPE_t[:] nearest_neighbor_index, \
                             DTYPE_F64_t[:] min_x_ratio, \
-                            DTYPE_B_t[:] in_mask) #except *
+                            DTYPE_B_t[:] in_mask,
+                            DTYPE_F64_t[:] PROFILE_kdtree_time) #except *
 
 
 

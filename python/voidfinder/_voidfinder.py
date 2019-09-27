@@ -1,9 +1,16 @@
 
 
 
+import multiprocessing
 
 
+multiprocessing.set_start_method('spawn')
 
+
+import fcntl
+import mmap
+import struct
+import socket
 
 import numpy as np
 
@@ -15,7 +22,11 @@ from .voidfinder_functions import not_in_mask
 
 from ._voidfinder_cython import main_algorithm
 
-from multiprocessing import Queue, Process, cpu_count
+
+
+from multiprocessing import Queue, Process, cpu_count, RLock, Value, Array
+
+from ctypes import c_int64, c_double, c_float
 
 from queue import Empty
 
@@ -44,7 +55,8 @@ def _main_hole_finder(cell_ID_dict,
                       max_dist,
                       w_coord,
                       batch_size=1000,
-                      verbose=False,
+                      verbose=0,
+                      print_after=10000,
                       num_cpus=1):
     '''
     Description:
@@ -96,9 +108,9 @@ def _main_hole_finder(cell_ID_dict,
     batch_size : scalar float
         Number of empty cells to pass into each process.  Initialized to 1000.
 
-    verbose : boolean
-        Flag to determine whether or not to display status messages while 
-        running.  Default is True (print statements).
+    verbose : int
+        value to determine whether or not to display status messages while 
+        running.  0 is off, 1 is print after N updates, 2 is full debugging prints.
 
     num_cpus : scalar float
         Number of CPUs to use in parallel.  Default is 1.  Set to None to use 
@@ -157,12 +169,17 @@ def _main_hole_finder(cell_ID_dict,
                     
                     #empty_cell_counter += 1
     '''
+    
+    #cell_ID_list = CellIDGenerator(ngrid[0], ngrid[1], ngrid[2], cell_ID_dict, start_from=0, stop_after=40000000)
+    #cell_ID_list = CellIDGenerator(ngrid[0], ngrid[1], ngrid[2], cell_ID_dict, start_from=40000000, stop_after=40000000)
+    
     cell_ID_list = CellIDGenerator(ngrid[0], ngrid[1], ngrid[2], cell_ID_dict)
+    
     #num_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
     
-    if verbose:
-        print("cell_ID_list finish time: ", time.time() - start_time)
-        print("Len cell_ID_dict (eliminated cells): ", len(cell_ID_dict))
+    if verbose > 0:
+        print("cell_ID_list finish time: ", time.time() - start_time, flush=True)
+        print("Len cell_ID_dict (eliminated cells): ", len(cell_ID_dict), flush=True)
     
     ################################################################################
     # Run single or multi-processed
@@ -183,11 +200,12 @@ def _main_hole_finder(cell_ID_dict,
                                                                                    w_coord,
                                                                                    batch_size=batch_size,
                                                                                    verbose=verbose,
+                                                                                   print_after=print_after,
                                                                                    num_cpus=num_cpus
                                                                                    )
     else:
         
-        myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes = run_multi_process(cell_ID_list, 
+        myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes = run_multi_process(cell_ID_dict, 
                                                                                    ngrid, 
                                                                                    dl, 
                                                                                    dr,
@@ -199,6 +217,7 @@ def _main_hole_finder(cell_ID_dict,
                                                                                    w_coord,
                                                                                    batch_size=batch_size,
                                                                                    verbose=verbose,
+                                                                                   print_after=print_after,
                                                                                    num_cpus=num_cpus
                                                                                    )
     
@@ -210,23 +229,192 @@ def _main_hole_finder(cell_ID_dict,
 
 class CellIDGenerator(object):
     
-    def __init__(self, grid_dim_1, grid_dim_2, grid_dim_3, cell_ID_dict):
+    def __init__(self, grid_dim_1, grid_dim_2, grid_dim_3, cell_ID_dict, start_from=None, stop_after=None):
         
         self.num_grid_1 = grid_dim_1
         self.num_grid_2 = grid_dim_2
         self.num_grid_3 = grid_dim_3
         
-        self.i = -1
-        self.j = -1
-        self.k = -1
+        #self.i = -1
+        #self.j = -1
+        #self.k = -1
+        
+        self.i = Value(c_int64, -1, lock=False) #we will protect all access with a lock in the next method
+        self.j = Value(c_int64, -1, lock=False)
+        self.k = Value(c_int64, -1, lock=False)
+        
+        self.out_idx = Value(c_int64, 0, lock=False)
         
         self.cell_ID_dict = cell_ID_dict
         
+        self.lock = RLock()
+        
+        self.num_returned = 0
+        
+        self.stop_after = stop_after
+        
+        #Can't calculate ijk using moduluses because it isnt a 1-to-1
+        #calculation because some positions get skipped over due to known
+        #empties
+        if start_from is not None:
+            
+            self.start_from = start_from
+            
+            for idx in range(start_from):
+            
+                next(self)
+                
+                self.num_returned = 0
+                
+        else:
+            self.start_from = 0
+        
     def reset(self):
         
-        self.i = -1
-        self.j = -1
-        self.k = -1
+        self.i.value = -1
+        self.j.value = -1
+        self.k.value = -1
+        
+        self.out_idx.value = 0
+        
+    def __iter__(self):
+        
+        return self
+    
+    def __next__(self):
+        
+        self.lock.acquire()
+        
+        if self.stop_after is not None and self.num_returned >= self.stop_after:
+            raise StopIteration
+        
+        found_valid = False
+        
+        while not found_valid:
+            
+            next_cell_ID = self.gen_cell_ID()
+        
+            if next_cell_ID not in self.cell_ID_dict:
+                
+                break
+            
+        self.num_returned += 1
+            
+        self.lock.release()
+            
+        return next_cell_ID
+    
+    def __len__(self):
+        
+        return self.num_grid_1*self.num_grid_2*self.num_grid_3 - len(self.cell_ID_dict)
+        
+        
+    def gen_cell_ID(self):
+        
+        inc_j = False
+        
+        if self.k.value >= (self.num_grid_3 - 1) or self.k.value < 0:
+            
+            inc_j = True
+        
+        inc_i = False
+        
+        if (inc_j and self.j.value >= (self.num_grid_2 - 1)) or self.j.value < 0:
+            
+            inc_i = True
+            
+            
+        #print(inc_i, self.i, self.j, self.k)
+            
+        self.k.value = (self.k.value + 1) % self.num_grid_3
+        
+        if inc_j:
+            
+            self.j.value = (self.j.value + 1) % self.num_grid_2
+            
+        if inc_i:
+            
+            self.i.value += 1
+            
+            if self.i.value >= self.num_grid_1:
+                
+                raise StopIteration    
+        
+        out_cell_ID = (self.i.value, self.j.value, self.k.value)
+        
+        return out_cell_ID
+    
+    def gen_cell_ID_batch(self, batch_size, output_array=None):
+        
+        if output_array is None:
+            output_array = np.empty((batch_size, 3), dtype=np.int64)
+        
+        self.lock.acquire()
+        
+        last_call = False
+        
+        for idx in range(batch_size):
+            
+            try:
+                
+                cell_ID = next(self)
+                
+            except StopIteration:
+                
+                last_call = True
+                
+                break
+            
+            output_array[idx,0] = cell_ID[0]
+            output_array[idx,1] = cell_ID[1]
+            output_array[idx,2] = cell_ID[2]
+            
+        
+        
+        out_idx = self.out_idx.value
+        
+        self.out_idx.value += batch_size
+        
+        self.lock.release()
+        
+        if last_call:
+            
+            return output_array[0:idx], out_idx
+        
+        else:
+        
+            return output_array, out_idx
+        
+        
+        
+        
+        
+        
+
+
+class MultiCellIDGenerator(object):
+    
+    def __init__(self, 
+                 grid_dim_1, 
+                 grid_dim_2, 
+                 grid_dim_3, 
+                 cell_ID_dict,
+                 cell_ID_gen_file_handle,
+                 cell_ID_gen_memory
+                 ):
+        
+        self.num_grid_1 = grid_dim_1
+        
+        self.num_grid_2 = grid_dim_2
+        
+        self.num_grid_3 = grid_dim_3
+        
+        self.cell_ID_dict = cell_ID_dict
+        
+        self.cell_ID_gen_file_handle = cell_ID_gen_file_handle
+        
+        self.cell_ID_gen_memory = cell_ID_gen_memory
+        
         
     def __iter__(self):
         
@@ -253,45 +441,96 @@ class CellIDGenerator(object):
         
     def gen_cell_ID(self):
         
+        
+        
+        i = self.cell_ID_gen_memory[0]
+        j = self.cell_ID_gen_memory[1]
+        k = self.cell_ID_gen_memory[2]
+        
+        
         inc_j = False
         
-        if self.k >= (self.num_grid_3 - 1) or self.k < 0:
+        if k >= (self.num_grid_3 - 1) or k < 0:
             
             inc_j = True
         
         inc_i = False
         
-        if (inc_j and self.j >= (self.num_grid_2 - 1)) or self.j < 0:
+        if (inc_j and j >= (self.num_grid_2 - 1)) or j < 0:
             
             inc_i = True
             
             
         #print(inc_i, self.i, self.j, self.k)
             
-        self.k = (self.k + 1) % self.num_grid_3
+        k = (k + 1) % self.num_grid_3
         
         if inc_j:
             
-            self.j = (self.j + 1) % self.num_grid_2
+            j = (j + 1) % self.num_grid_2
             
         if inc_i:
             
-            self.i += 1
+            i += 1
             
-            if self.i >= self.num_grid_1:
+            if i >= self.num_grid_1:
                 
                 raise StopIteration    
         
-        out_cell_ID = (self.i, self.j, self.k)
+        out_cell_ID = (i, j, k)
+        
+        self.cell_ID_gen_memory[0] = i
+        self.cell_ID_gen_memory[1] = j
+        self.cell_ID_gen_memory[2] = k
         
         return out_cell_ID
+    
+    def gen_cell_ID_batch(self, batch_size, output_array=None):
+        
+        if output_array is None:
+            output_array = np.empty((batch_size, 3), dtype=np.int64)
+        
+        #self.lock.acquire()
+        fcntl.lockf(self.cell_ID_gen_file_handle, fcntl.LOCK_SH)
+        
+        last_call = False
+        
+        for idx in range(batch_size):
+            
+            try:
+                
+                cell_ID = next(self)
+                
+            except StopIteration:
+                
+                last_call = True
+                
+                break
+            
+            output_array[idx,0] = cell_ID[0]
+            output_array[idx,1] = cell_ID[1]
+            output_array[idx,2] = cell_ID[2]
+            
         
         
+        out_idx = self.cell_ID_gen_memory[3]
         
+        out_idx += batch_size
         
+        self.cell_ID_gen_memory[3] = out_idx
         
+        #self.lock.release()
+        fcntl.lockf(self.cell_ID_gen_file_handle, fcntl.LOCK_UN)
         
+        if last_call:
+            
+            return output_array[0:idx], out_idx
         
+        else:
+        
+            return output_array, out_idx
+        
+       
 
 
 
@@ -307,7 +546,8 @@ def run_single_process(cell_ID_list,
                        max_dist,
                        w_coord,
                        batch_size=1000,
-                       verbose=False,
+                       verbose=0,
+                       print_after=10000,
                        num_cpus=None):
     
     
@@ -1088,7 +1328,8 @@ def run_single_process_cython(cell_ID_gen,
                        max_dist,
                        w_coord,
                        batch_size=1000,
-                       verbose=False,
+                       verbose=0,
+                       print_after=10000,
                        num_cpus=None):
     
     
@@ -1100,7 +1341,6 @@ def run_single_process_cython(cell_ID_gen,
     
     PROFILE_loop_times = []
     
-    
     ################################################################################
     #
     # Initialize some output containers and counter variables
@@ -1108,7 +1348,7 @@ def run_single_process_cython(cell_ID_gen,
     ################################################################################
     
     print("Running single-process mode")
-    
+    '''
     myvoids_x = []
     
     myvoids_y = []
@@ -1116,22 +1356,32 @@ def run_single_process_cython(cell_ID_gen,
     myvoids_z = []
     
     myvoids_r = []
-    
+    '''
     n_holes = 0
 
-    empty_cell_counter = 0
+    #empty_cell_counter = 0
     
     n_empty_cells = len(cell_ID_gen)
     
-    #return_array = np.empty(4, dtype=np.float64)
+    #ALLOCATE A BIGASS ARRAY
+    RETURN_ARRAY = np.empty((n_empty_cells, 4), dtype=np.float64)
+    RETURN_ARRAY.fill(np.NAN)
+    
+    
+    PROFILE_ARRAY = np.empty((85000000,3), dtype=np.float64)
+    #RETURN_ARRAY = np.zeros((2000000000, 4), dtype=np.float64)
+    #RETURN_ARRAY.fill(3.5)
+    
+    print("RETURN ARRAY SHAPE: ", RETURN_ARRAY.shape)
+    print(RETURN_ARRAY.nbytes)
+    
+    out_start_idx = 0
     
     ################################################################################
     # Convert the mask to an array of uint8 values for running in the cython code
     ################################################################################
     
-    
     mask = mask.astype(np.uint8)
-    
     
     ################################################################################
     #
@@ -1155,68 +1405,6 @@ def run_single_process_cython(cell_ID_gen,
     ################################################################################
     # Main loop
     ################################################################################
-    '''
-    num_cells_processed = 0
-    
-    for hole_center_coords in cell_ID_list:
-                    
-        num_cells_processed += 1
-        
-        PROFILE_loop_start_time = time.time()
-        
-        if verbose:
-            
-            if num_cells_processed % 10000 == 0:
-                
-               print('Processed', num_cells_processed, 'cells of', n_empty_cells)
-        
-        i, j, k = hole_center_coords
-        
-        
-        main_algorithm(i,
-                       j,
-                       k,
-                       galaxy_tree,
-                       w_coord,
-                       dl, 
-                       dr,
-                       coord_min,
-                       mask,
-                       mask_resolution,
-                       min_dist,
-                       max_dist,
-                       return_array
-                       )
-        
-        x_val = return_array[0]
-        y_val = return_array[1]
-        z_val = return_array[2]
-        r_val = return_array[3]
-        
-        
-        
-        if not np.isnan(x_val):
-                
-            myvoids_x.append(x_val)
-            #x_val = hole_center[0,0]
-            
-            myvoids_y.append(y_val)
-            #y_val = hole_center[0,1]
-            
-            myvoids_z.append(z_val)
-            #z_val = hole_center[0,2]
-            
-            myvoids_r.append(r_val)
-            #r_val = hole_radius
-            
-            n_holes += 1
-        
-        
-        PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-    '''
-    
-    
-    
     
     num_processed = 0
     
@@ -1224,37 +1412,67 @@ def run_single_process_cython(cell_ID_gen,
     
     cell_ID_list = []
     
-    
     return_array = np.empty((batch_size, 4), dtype=np.float64)
     
-    for curr_ID in cell_ID_gen:
-        
-        
-        
-        if (verbose > 0 and num_processed % 10000 == 0):
-        
-            print("Processing cell "+str(num_processed)+" of "+str(n_empty_cells))
-            
-        num_processed += 1
-        
-        
-        if num_in_batch < batch_size:
-            
-            cell_ID_list.append(curr_ID)
-            
-            num_in_batch += 1
-            
-            
-        if num_in_batch == batch_size or num_processed == n_empty_cells:
+    i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
     
+    ################################################################################
+    # PROFILE ARRAY elements are:
+    # 0 - total cell time
+    # 1 - cell exit stage
+    # 2 - kdtree_time
+    ################################################################################
+    PROFILE_array = np.empty((batch_size, 3), dtype=np.float32)
+    PROFILE_samples = []
+    PROFILE_start_time = time.time()
+    PROFILE_sample_time = 5.0
+    
+    
+    exit_condition = False
+    
+    while not exit_condition:
+        
+        ######################################################################
+        # Print progress and profiling statistics
+        ######################################################################
+        if num_processed >= 40000000:
+        #if num_processed >= 8000000:
             
-            i_j_k_array = np.array(cell_ID_list, dtype=np.int64)
+            break
+        
+        if time.time() - PROFILE_start_time > PROFILE_sample_time:
             
-            #return_array = np.empty((n_empty_cells, 4), dtype=np.float64)
-            if len(cell_ID_list) != return_array.shape[0]:
+            PROFILE_samples.append(num_processed)
+            
+            PROFILE_start_time = time.time()
+        
+            if verbose > 0:
+            
+                print("Processing cell "+str(num_processed)+" of "+str(n_empty_cells))
+            
+            if len(PROFILE_samples) > 3:
                 
-                return_array = np.empty((len(cell_ID_list), 4), dtype=np.float64)
+                cells_per_sec = (PROFILE_samples[-1] - PROFILE_samples[-2])/PROFILE_sample_time
                 
+                print(cells_per_sec, "cells per sec")
+                #print("DR: ", dr)
+                
+        ######################################################################
+        # Generate the next batch and run the main algorithm
+        ######################################################################
+        
+        i_j_k_array, out_start_idx = cell_ID_gen.gen_cell_ID_batch(batch_size, i_j_k_array)
+        
+        num_cells_to_process = i_j_k_array.shape[0]
+        
+        if num_cells_to_process > 0:
+
+            if return_array.shape[0] != num_cells_to_process:
+
+                return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
+                
+                PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
+        
             main_algorithm(i_j_k_array,
                            galaxy_tree,
                            w_coord,
@@ -1266,52 +1484,84 @@ def run_single_process_cython(cell_ID_gen,
                            min_dist,
                            max_dist,
                            return_array,
-                           0  #verbose level
+                           0,  #verbose level
+                           PROFILE_array
                            )
-                
-            
-            #print("Exited main algorithm returned to python")
-            
-                
-            for row in return_array:
-                
-                x_val = row[0]
-                y_val = row[1]
-                z_val = row[2]
-                r_val = row[3]
-                
-                if not np.isnan(x_val):
-                        
-                    myvoids_x.append(x_val)
-                    #x_val = hole_center[0,0]
-                    
-                    myvoids_y.append(y_val)
-                    #y_val = hole_center[0,1]
-                    
-                    myvoids_z.append(z_val)
-                    #z_val = hole_center[0,2]
-                    
-                    myvoids_r.append(r_val)
-                    #r_val = hole_radius
-                    
-                    n_holes += 1
-                    
-            num_in_batch = 0
-            cell_ID_list = []
-                
-                
         
-    '''
-    print('Plotting single cell processing times distribution')
-    plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_loop_times, bins=50)
-    plt.title("All Single Cell processing times Cython (sec)")
-    plt.xlabel('Time [s]')
-    plt.ylabel('Count')
-    #plt.show()
-    plt.savefig("Cell_time_dist_Cython.png")
-    plt.close()
-    '''
+            #print("Exited main algorithm returned to python")
+            #print(return_array.shape, out_start_idx)
+            
+            RETURN_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0]),:] = return_array
+            
+            PROFILE_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0]),:] = PROFILE_array
+            
+            n_holes += np.sum(np.logical_not(np.isnan(return_array[:,0])))
+            
+            num_processed += return_array.shape[0]
+            
+        else:
+            
+            exit_condition = True
+        
+    outfile = open("/home/moose/VoidFinder/doc/profiling/single_thread_profile.pickle", 'wb')
+    pickle.dump(PROFILE_samples, outfile)
+    outfile.close()    
+    
+    
+    if verbose > 0:
+        
+        
+        PROFILE_ARRAY_SUBSET = PROFILE_ARRAY[0:num_processed]
+        '''
+        fig, axes = plt.subplots(3,3, figsize=(10,10))
+        
+        fig.suptitle("All Cell Processing Times [s]")
+        
+        axes_list = []
+        
+        axes_list.append(axes[0,0])
+        axes_list.append(axes[0,1])
+        axes_list.append(axes[0,2])
+        axes_list.append(axes[1,0])
+        axes_list.append(axes[1,1])
+        axes_list.append(axes[1,2])
+        axes_list.append(axes[2,0])
+        '''
+        for idx in range(7):
+            
+            #curr_axes = axes_list[idx]
+            
+            
+            curr_idx = PROFILE_ARRAY_SUBSET[:,1] == idx
+            
+            curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 0]
+            
+            if idx == 0:
+                outfile = open("/home/moose/VoidFinder/doc/profiling/Cell_Processing_Times_SingleThreadCython.pickle", 'wb')
+                pickle.dump(curr_data, outfile)
+                outfile.close()
+            
+            plot_cell_processing_times(curr_data, idx, "Single")
+            
+            curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 2]
+            
+            plot_cell_kdtree_times(curr_data, idx, 'Single')
+        
+        
+        
+        
+        
+    if verbose > 2:
+        print('Plotting single cell processing times distribution')
+        plt.figure(figsize=(14,10))
+        plt.hist(PROFILE_loop_times, bins=50)
+        plt.title("All Single Cell processing times Cython (sec)")
+        plt.xlabel('Time [s]')
+        plt.ylabel('Count')
+        #plt.show()
+        plt.savefig("Cell_time_dist_Cython.png")
+        plt.close()
+    
         
     return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
 
@@ -1324,7 +1574,7 @@ def run_single_process_cython(cell_ID_gen,
     
 
 
-def run_multi_process(cell_ID_gen, 
+def run_multi_process(cell_ID_dict, 
                        ngrid, 
                        dl, 
                        dr,
@@ -1335,38 +1585,85 @@ def run_multi_process(cell_ID_gen,
                        max_dist,
                        w_coord,
                        batch_size=1000,
-                       verbose=False,
-                       num_cpus=1):
+                       verbose=0,
+                       print_after=10000,
+                       num_cpus=None):
     
+    
+    
+    max_cpus = cpu_count()
+    
+    if (num_cpus is None) or (num_cpus > max_cpus):
+          
+        num_cpus = max_cpus
     
     start_time = time.time()
+    
+    SOCKET_PATH = "/tmp/voidfinder.sock"
+    
+    RESULT_BUFFER_PATH = "/tmp/voidfinder_result_buffer.dat"
+    
+    CELL_ID_BUFFER_PATH = "/tmp/voidfinder_cell_ID_gen.dat"
+    
+    PROFILE_BUFFER_PATH = "/tmp/voidfinder_profile_buffer.dat"
     
     ################################################################################
     #
     # Initialize some output containers and counter variables
     #
     ################################################################################
-    #hole_times = []
-    
-    # Initialize list of hole details
-    myvoids_x = []
-    
-    myvoids_y = []
-    
-    myvoids_z = []
-    
-    myvoids_r = []
-    
-    # Number of holes found
     n_holes = 0
 
-    # Counter for the number of empty cells
-    #empty_cell_counter = 0
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
     
-    # Number of empty cells
-    #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
-    n_empty_cells = len(cell_ID_gen)
+    result_buffer = open(RESULT_BUFFER_PATH, 'w+b') #USE WB HERE BUT USE 'r+b' IN CHILD WORKERS
+    #https://docs.python.org/3.7/library/functions.html#open
     
+    result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
+    
+    result_buffer.write(b"0"*result_buffer_length)
+    
+    result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
+    
+    RETURN_ARRAY = np.frombuffer(result_mmap_buffer, dtype=c_double)
+    
+    RETURN_ARRAY.shape = (n_empty_cells, 4)
+    
+    RETURN_ARRAY.fill(np.NAN)
+    
+    ################################################################################
+    # Memory for PROFILING
+    ################################################################################
+    PROFILE_buffer = open(PROFILE_BUFFER_PATH, 'w+b')
+    
+    PROFILE_buffer_length = 85000000*3*4 #float32 so 4 bytes per element
+    
+    PROFILE_buffer.write(b"0"*PROFILE_buffer_length)
+    
+    PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
+    
+    PROFILE_ARRAY = np.frombuffer(PROFILE_mmap_buffer, dtype=c_float)
+    
+    PROFILE_ARRAY.shape = (85000000, 3)
+    
+    PROFILE_ARRAY.fill(np.NAN)
+    
+    ################################################################################
+    # Build Cell ID generator
+    ################################################################################
+    cell_ID_buffer = open(CELL_ID_BUFFER_PATH, 'w+b')
+    
+    cell_ID_buffer_length = 4*8 #need 4 8-byte integers: i, j, k, out_idx
+    
+    cell_ID_buffer.write(b"0"*cell_ID_buffer_length)
+    
+    cell_ID_mmap_buffer = mmap.mmap(cell_ID_buffer.fileno(), cell_ID_buffer_length)
+    
+    cell_ID_mem_array = np.frombuffer(cell_ID_mmap_buffer, dtype=np.int64)
+    
+    cell_ID_mem_array.shape = (4,)
+    
+    cell_ID_mem_array.fill(0)
     
     
     ################################################################################
@@ -1374,7 +1671,6 @@ def run_multi_process(cell_ID_gen,
     ################################################################################
     
     mask = mask.astype(np.uint8)
-    
     
     ################################################################################
     #
@@ -1401,42 +1697,23 @@ def run_multi_process(cell_ID_gen,
     #
     ################################################################################
     
-    
-    #job_queue = Queue()
+    command_queue = Queue()
     
     return_queue = Queue()
 
-    max_cpus = cpu_count()
-    
-    if (num_cpus is None) or (num_cpus > max_cpus):
-          
-        num_cpus = max_cpus
-    
     processes = []
-    
-    job_queues = []
     
     workers_waiting = []
     
     num_active_processes = 0
     
-    #num_cell_per_process = int(np.ceil(len(cell_ID_list)/num_cpus))
-    
     for proc_idx in range(num_cpus):
         
-        #start_idx = proc_idx*num_cell_per_process
-        
-        #end_idx = (proc_idx+1)*num_cell_per_process
-        
-        #worker_cell_IDs = cell_ID_list[start_idx:end_idx]
-        
-        curr_job_queue = Queue()
-        
-        job_queues.append(curr_job_queue)
-        
-        workers_waiting.append(True)
-        
         worker_args = (proc_idx,
+                       command_queue,
+                       return_queue,
+                       
+                       cell_ID_dict,
                        galaxy_tree, 
                        ngrid, 
                        dl, 
@@ -1447,8 +1724,12 @@ def run_multi_process(cell_ID_gen,
                        min_dist,
                        max_dist,
                        w_coord,
-                       curr_job_queue,
-                       return_queue)
+                       
+                       batch_size,
+                       RESULT_BUFFER_PATH,
+                       CELL_ID_BUFFER_PATH,
+                       PROFILE_BUFFER_PATH,
+                       )
         
         p = Process(target=_main_hole_finder_worker, args=worker_args)
         
@@ -1468,18 +1749,43 @@ def run_multi_process(cell_ID_gen,
     ################################################################################
     num_cells_processed = 0
     
-    curr_cell_idx = 0
     
-    while num_cells_processed < n_empty_cells:
+    ################################################################################
+    # PROFILING VARIABLES
+    ################################################################################
+    PROFILE_process_start_time = time.time()
+    PROFILE_samples = []
+    PROFILE_start_time = time.time()
+    PROFILE_sample_time = 5.0
+    
+    
+    ################################################################################
+    # LOOP TO LISTEN FOR RESULTS WHILE WORKERS WORKING
+    ################################################################################
+    
+    #while num_cells_processed < n_empty_cells:
+    while num_cells_processed < 80000000:
         
+        
+        if time.time() - PROFILE_start_time > PROFILE_sample_time:
+            PROFILE_samples.append(num_cells_processed)
+            PROFILE_start_time = time.time()
+            
+            if verbose > 0:
+                
+                print('Processed', num_cells_processed, 'cells of', n_empty_cells, time.time() - PROFILE_process_start_time)
+                
+                if len(PROFILE_samples) > 3:
+                    cells_per_sec = (PROFILE_samples[-1] - PROFILE_samples[-2])/PROFILE_sample_time
+                    print(cells_per_sec, "cells per sec")
+            
         try:
             
-            message = return_queue.get(False)
+            message = return_queue.get(timeout=2.0)
             
         except Empty:
             
             pass
-            #time.sleep(.01)
             
         else:
             
@@ -1487,119 +1793,60 @@ def run_multi_process(cell_ID_gen,
                 
                 num_active_processes -= 1
                 
-            elif message[0] == "empty_job":
-                
-                workers_waiting[message[1]] = True
-                
             elif message[0] == "data":
                 
-                #append to the correct lists and stuff
+                num_cells_processed += message[1]
+                
+                n_holes += message[2]
                 
                 
-                return_array = message[1]
                 
-                for row in return_array:
-                
-                    x_val = row[0]
-                    y_val = row[1] 
-                    z_val = row[2] 
-                    r_val = row[3]
-                    
-                    if not np.isnan(x_val):
-                    
-                        myvoids_x.append(x_val)
-            
-                        myvoids_y.append(y_val)
-                        
-                        myvoids_z.append(z_val)
-                        
-                        myvoids_r.append(r_val)
-                        
-                        n_holes += 1
-                    
-                    num_cells_processed += 1
-                
-                
-                    if verbose:
-                
-                        if num_cells_processed % 10000 == 0:
-                            
-                           print('Processed', num_cells_processed, 'cells of', n_empty_cells)
-                
-                
-        for proc_idx, worker_waiting in enumerate(workers_waiting):
-            
-            
-            if curr_cell_idx > n_empty_cells:
-                break
-            
-            
-            curr_qsize = job_queues[proc_idx].qsize()
-            
-            if job_queues[proc_idx].qsize() < 3:
-                
-                num_put = 3 - curr_qsize
-                
-                for _ in range(num_put):
-                    
-                    if curr_cell_idx > n_empty_cells:
-                        break
-                
-                
-                    chunk_list = []
-                    chunk_add = 0
-                    
-                    for _ in range(batch_size):
-                        try:
-                            chunk_list.append(next(cell_ID_gen))
-                        except StopIteration:
-                            break
-                        else:
-                            chunk_add += 1
-                
-                    job_queues[proc_idx].put(chunk_list)
-                    
-                    curr_cell_idx += chunk_add
-                
-            
-            
-            if worker_waiting:
-                
-                #put an extra item on the queue for a worker who said they are waiting
-                
-                if curr_cell_idx > n_empty_cells:
-                    break
-                
-                chunk_list = []
-                chunk_add = 0
-                
-                for _ in range(batch_size):
-                    try:
-                        chunk_list.append(next(cell_ID_gen))
-                    except StopIteration:
-                        break
-                    else:
-                        chunk_add += 1
-                
-                job_queues[proc_idx].put(chunk_list)
-                
-                curr_cell_idx += chunk_add
-                
-                workers_waiting[proc_idx] = False        
+    ################################################################################
+    # PROFILING - SAVE OFF RESULTS
+    ################################################################################
+    
+    outfile = open("/home/moose/VoidFinder/doc/profiling/multi_thread_profile.pickle", 'wb')
+    
+    pickle.dump(PROFILE_samples, outfile)
+    
+    outfile.close()
+    
+    if verbose > 0:
         
-                
-    if verbose:
-        print("Main task finish time: ", time.time() - start_time)
-                
+        PROFILE_ARRAY_SUBSET = PROFILE_ARRAY[0:num_cells_processed]
+        
+        for idx in range(7):
+            
+            #curr_axes = axes_list[idx]
+            
+            curr_idx = PROFILE_ARRAY_SUBSET[:,1] == idx
+            
+            curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 0]
+            
+            if idx == 0:
+                outfile = open("/home/moose/VoidFinder/doc/profiling/Cell_Processing_Times_MultiThreadCython.pickle", 'wb')
+                pickle.dump(curr_data, outfile)
+                outfile.close()
+            
+            plot_cell_processing_times(curr_data, idx, "Multi")
+            
+            curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 2]
+            
+            plot_cell_kdtree_times(curr_data, idx, 'Multi')
+        
     ################################################################################
     #
     # Clean up worker processes
     #
     ################################################################################
     
+    if verbose:
+        
+        print("Main task finish time: ", time.time() - start_time)
+    
     for proc_idx in range(num_cpus):
         
-        job_queues[proc_idx].put(u"exit")
+        command_queue.put(u"exit")
         
     while num_active_processes > 0:
         
@@ -1625,7 +1872,15 @@ def run_multi_process(cell_ID_gen,
         
         print("Num empty cells: ", n_empty_cells)
         
-    return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
+    ################################################################################
+    # Close the unneeded file handles to the shared memory, and return the file
+    # handle to the result memory buffer
+    ################################################################################
+    cell_ID_buffer.close()
+    
+    PROFILE_buffer.close()
+        
+    return result_buffer, n_holes
                     
     
     
@@ -1639,6 +1894,10 @@ def run_multi_process(cell_ID_gen,
 
 
 def _main_hole_finder_worker(process_id,
+                             command_queue,
+                             return_queue,
+                             
+                             cell_ID_dict,
                              galaxy_tree, 
                              ngrid, 
                              dl, 
@@ -1649,8 +1908,11 @@ def _main_hole_finder_worker(process_id,
                              min_dist,
                              max_dist,
                              w_coord,
-                             job_queue,
-                             return_queue
+                             
+                             batch_size,
+                             RESULT_BUFFER_PATH,
+                             CELL_ID_BUFFER_PATH,
+                             PROFILE_BUFFER_PATH,
                              ):
     
     #galaxy_tree = neighbors.KDTree(w_coord)
@@ -1676,6 +1938,60 @@ def _main_hole_finder_worker(process_id,
     galaxy_tree = neighbors.KDTree(w_coord_2)
     '''
     #print("Process id: ", process_id, id(mask), id(w_coord), id(galaxy_tree), w_coord.__array_interface__['data'][0])
+    
+    
+    
+    
+    
+    
+    
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
+    
+    result_buffer = open(RESULT_BUFFER_PATH, 'r+b')
+    
+    result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
+    
+    result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
+    
+    RETURN_ARRAY = np.frombuffer(result_mmap_buffer, dtype=c_double)
+    
+    RETURN_ARRAY.shape = (n_empty_cells, 4)
+    
+    
+    
+    ################################################################################
+    # Memory for PROFILING
+    ################################################################################
+    PROFILE_buffer = open(PROFILE_BUFFER_PATH, 'r+b')
+    
+    PROFILE_buffer_length = 85000000*3*4 #float32 so 4 bytes per element
+    
+    PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
+    
+    PROFILE_ARRAY = np.frombuffer(PROFILE_mmap_buffer, dtype=c_float)
+    
+    PROFILE_ARRAY.shape = (85000000, 3)
+    
+    
+    ################################################################################
+    # Build Cell ID generator
+    ################################################################################
+    cell_ID_buffer = open(CELL_ID_BUFFER_PATH, 'r+b')
+    
+    cell_ID_buffer_length = 4*8 #need 4 8-byte integers: i, j, k, out_idx
+    
+    cell_ID_mmap_buffer = mmap.mmap(cell_ID_buffer.fileno(), cell_ID_buffer_length)
+    
+    cell_ID_mem_array = np.frombuffer(cell_ID_mmap_buffer, dtype=np.int64)
+    
+    cell_ID_mem_array.shape = (4,)
+    
+    cell_ID_gen = MultiCellIDGenerator(ngrid[0],
+                                       ngrid[1],
+                                       ngrid[2],
+                                       cell_ID_dict,
+                                       cell_ID_buffer,
+                                       cell_ID_mem_array)
     
     
     ################################################################################
@@ -1704,16 +2020,18 @@ def _main_hole_finder_worker(process_id,
     ################################################################################
     #
     # exit_process - flag for reading an exit command off the queue
-    # is_waiting - flag for state of whether this worker is working or waiting for data
+    #
     # return_array - some memory for cython code to pass return values back to
     #
     ################################################################################
     
     exit_process = False
     
-    is_waiting = False
+    return_array = np.empty((batch_size, 4), dtype=np.float64)
     
-    return_array = np.empty(4, dtype=np.float64)
+    PROFILE_array = np.empty((batch_size, 3), dtype=np.float32)
+    
+    i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
     
     while not exit_process:
         
@@ -1721,156 +2039,180 @@ def _main_hole_finder_worker(process_id,
         
         try:
             
-            num_message_checks += 1
-            
-            message_time_start = time.time()
-            
-            message = job_queue.get(False)
+            message = command_queue.get(False) #Don't block
             
         except Empty:
             
-            if is_waiting:
+            pass
                 
-                time.sleep(.01)
-                
-                time_sleeping += time.time() - message_time_start
-                
-            else:
-                
-                put_start = time.time()
-                
-                return_queue.put(("empty_job", process_id))
-                
-                time_returning += time.time() - put_start
-            
-                is_waiting = True
-                
-                num_empty_job_put += 1
-                
-            time_empty += time.time() - message_time_start
-                
-            
         else:
-            
-            curr_msg_check_time = time.time() - message_time_start
-            
-            time_message += curr_msg_check_time
-            
-            is_waiting = False
             
             if isinstance(message, str) and message == 'exit':
                 
                 exit_process = True
+        
+        
+        ################################################################################
+        # Locked access to cell ID generation
+        ################################################################################
+        i_j_k_array, out_start_idx = cell_ID_gen.gen_cell_ID_batch(batch_size, i_j_k_array)
+        
+        
+        
+        ################################################################################
+        #
+        ################################################################################
+        num_cells_to_process = i_j_k_array.shape[0]
+        
+        if num_cells_to_process > 0:
+
+            if return_array.shape[0] != num_cells_to_process:
+
+                return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
                 
-            else:
+                PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
                 
-                main_proc_start_time = time.time()
+            main_algorithm(i_j_k_array,
+                           galaxy_tree,
+                           w_coord,
+                           dl, 
+                           dr,
+                           coord_min,
+                           mask,
+                           mask_resolution,
+                           min_dist,
+                           max_dist,
+                           return_array,
+                           0,  #verbose level
+                           PROFILE_array
+                           )
+            
+            num_cells_processed += return_array.shape[0]
+            
+            RETURN_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0])] = return_array
+            
+            PROFILE_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0]),:] = PROFILE_array
+            
+            n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])))
+            
+            return_queue.put(("data", return_array.shape[0], n_hole))
+            
+        else:
+            
+            exit_process = True
                 
-                cell_ID_list = message
-                '''
-                for hole_center_coords in cell_ID_list:
-                    
-                    num_cells_processed += 1
-                    
-                    #if num_cells_processed % 10000 == 0:
-                    #    print("Processed: ", num_cells_processed, "time: ", time.time() - worker_lifetime_start, "main: ", time_main, "empty: ", time_empty)
-                    
-                    i, j, k = hole_center_coords
-                    
-                    
-                    main_algorithm(i,
-                                   j,
-                                   k,
-                                   galaxy_tree,
-                                   w_coord,
-                                   dl, 
-                                   dr,
-                                   coord_min,
-                                   mask,
-                                   mask_resolution,
-                                   min_dist,
-                                   max_dist,
-                                   return_array
-                                   )
-                    
-                    x_val = return_array[0]
-                    y_val = return_array[1]
-                    z_val = return_array[2]
-                    r_val = return_array[3]
-                    
-                    
-                    put_start = time.time()
-                    return_queue.put(("data", (x_val, y_val, z_val, r_val)))
-                    time_returning += time.time() - put_start
-                    
-                '''
-                    
-                    
-                    
-                i_j_k_array = np.array(cell_ID_list, dtype=np.int64)
-    
-                return_array = np.empty((len(cell_ID_list), 4), dtype=np.float64)
-                    
-                main_algorithm(i_j_k_array,
-                               galaxy_tree,
-                               w_coord,
-                               dl, 
-                               dr,
-                               coord_min,
-                               mask,
-                               mask_resolution,
-                               min_dist,
-                               max_dist,
-                               return_array,
-                               0  #verbose level
-                               )
-                '''
-                for row in return_array:
-                    
-                    x_val = row[0]
-                    y_val = row[1]
-                    z_val = row[2]
-                    r_val = row[3]
-                    
-                    if not np.isnan(x_val):
-                            
-                        myvoids_x.append(x_val)
-                        #x_val = hole_center[0,0]
-                        
-                        myvoids_y.append(y_val)
-                        #y_val = hole_center[0,1]
-                        
-                        myvoids_z.append(z_val)
-                        #z_val = hole_center[0,2]
-                        
-                        myvoids_r.append(r_val)
-                        #r_val = hole_radius
-                        
-                        n_holes += 1
-                '''
-                
-                
-                num_cells_processed += return_array.shape[0]
-                
-                put_start = time.time()
-                return_queue.put(("data", return_array))
-                time_returning += time.time() - put_start
-                    
-                    
-                    
-                time_main += time.time() - main_proc_start_time
-                
-                #print("Processed2: ", num_cells_processed, "time: ", time.time() - worker_lifetime_start, "main: ", time_main, time_empty)
-                    
     return_queue.put(("Done", None))
     
-    #print("Worker lifetime: ", time.time() - worker_lifetime_start)
-    print("Time process: ", time_main, "num: ", num_cells_processed)
-    #print("Time sleeping: ", time_sleeping)
-    #print("Time returning: ", time_returning)
-    #print("Time message: ", time_message)
-    #print("Msg chks: ", num_message_checks, "Cells procd: ", num_cells_processed, "Empty puts: ", num_empty_job_put, "total loop: ", total_loops)
-    
     return None
+
+
+
+
+
+
+
+
+
+
+
+def plot_cell_processing_times(curr_data, idx, single_or_multi):
+    
+    
+    if curr_data.shape[0] > 0:
+    
+        plt.hist(curr_data, bins=50)
+        
+        curr_title = ""
+        #curr_title += "Cell Processing Times [s]\n"
+        curr_title += "Cell Exit Stage: " + str(idx) + "\n"
+        curr_title += "Total vals: " + str(curr_data.shape[0])
+        
+        plt.title(curr_title)
+        
+        
+        x_min = curr_data.min()
+        x_max = curr_data.max()
+        
+        x_range = x_max - x_min
+        
+        x_ticks = np.linspace(x_min - .05*x_range, x_max + .05*x_range, 5)
+        x_ticks = x_ticks[1:-1]
+        x_tick_labels = ["{:.2E}".format(x_tick) for x_tick in x_ticks]
+        
+        
+        
+        plt.xticks(x_ticks, x_tick_labels)
+        
+        plt.ylabel("Cell Count")
+        plt.xlabel("Cell Processing Time [s]")
+        
+        plt.savefig("Cell_Processing_Times_"+single_or_multi+"ThreadCython_"+str(idx)+".png")
+        plt.close()
+
+def plot_cell_kdtree_times(curr_data, idx, single_or_multi):
+    
+    if curr_data.shape[0] > 0:
+    
+        plt.hist(curr_data, bins=50)
+        
+        curr_title = ""
+        #curr_title += "Cell Processing Times [s]\n"
+        curr_title += "Cell Exit Stage: " + str(idx) + "\n"
+        curr_title += "Total vals: " + str(curr_data.shape[0])
+        
+        plt.title(curr_title)
+        
+        
+        x_min = curr_data.min()
+        x_max = curr_data.max()
+        
+        x_range = x_max - x_min
+        
+        x_ticks = np.linspace(x_min - .05*x_range, x_max + .05*x_range, 5)
+        x_ticks = x_ticks[1:-1]
+        x_tick_labels = ["{:.2E}".format(x_tick) for x_tick in x_ticks]
+        
+        
+        
+        plt.xticks(x_ticks, x_tick_labels)
+        
+        plt.ylabel("Cell Count")
+        plt.xlabel("KDTree Processing Time [s]")
+        
+        plt.savefig("Cell_KDTree_Times_"+single_or_multi+"ThreadCython_"+str(idx)+".png")
+        plt.close()
+
+
+
+
+class LockedWrapper():
+        
+    def __init__(self, galaxy_tree):
+        
+        self.tree = galaxy_tree
+        
+        self.lock = RLock()
+        
+    def query_radius(self, *args, **kwargs):
+        
+        self.lock.acquire()
+        
+        results = self.tree.query_radius(*args, **kwargs)
+        
+        self.lock.release()
+        
+        return results
+    
+    def query(self, *args, **kwargs):
+        
+        self.lock.acquire()
+        
+        results = self.tree.query(*args, **kwargs)
+        
+        self.lock.release()
+        
+        return results
+
+
     
     

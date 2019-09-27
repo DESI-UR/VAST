@@ -1,5 +1,14 @@
 #VoidFinder Function to do just about everything
 
+
+
+
+
+
+
+
+
+
 import numpy as np
 
 from astropy.table import Table
@@ -259,7 +268,57 @@ def filter_galaxies(infile, maskfile, mask_resolution, min_dist, max_dist,
 
 
 
-def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution, out1_filename, out2_filename, survey_name, num_cpus):
+def find_voids(ngrid, 
+               min_dist, 
+               max_dist, 
+               coord_min_table, 
+               mask, 
+               mask_resolution, 
+               out1_filename, 
+               out2_filename, 
+               survey_name, 
+               num_cpus,
+               verbose=1,
+               print_after=10000):
+    """
+    Main entry point for VoidFinder.
+    
+    Parameters
+    ----------
+    
+    ngrid
+    
+    min_dist : float
+    
+    max_dist : float
+    
+    coord_min_table
+    
+    mask :
+    
+    mask_resolution
+    
+    out1_filename
+    
+    out2_filename
+    
+    survey_name
+    
+    num_cpus : int or None
+        number of cpus to use while running the main algorithm.  None will result
+        in using multiprocessing.cpu_count number of cpus
+        
+    verbose : int
+        level of verbosity to print during running, 0 indicates off, 1 indicates
+        to print after every 'print_after' cells have been processed, and 2 indicates
+        to print all debugging statements
+        
+    print_after : int
+        number of cells to print an update statement after
+    
+    
+    """
+    
     
 
     
@@ -315,7 +374,8 @@ def find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution
                                                                             min_dist,
                                                                             max_dist,
                                                                             w_coord,
-                                                                            verbose=True,
+                                                                            verbose=verbose,
+                                                                            print_after=print_after,
                                                                             num_cpus=num_cpus)
 
     print('Found a total of', n_holes, 'potential voids.', flush=True)

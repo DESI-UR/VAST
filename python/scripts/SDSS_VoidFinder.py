@@ -7,9 +7,13 @@
 ################################################################################
 
 
+
+
+
+
 import sys
-#sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
-sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
+sys.path.insert(1, '/home/moose/VoidFinder/python/')
+#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
 
 from voidfinder import filter_galaxies, find_voids
 from voidfinder.multizmask import generate_mask
@@ -29,21 +33,21 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 1
+num_cpus = None
 
 #-------------------------------------------------------------------------------
-survey_name = 'SDSS_dr7_'
+survey_name = 'SDSS_dr12_'
 
 # File header
-in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
-out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+#in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
+#out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
 
-#in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
-#out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+in_directory = '/home/moose/VoidFinder/python/voidfinder/data/'
+out_directory = '/home/moose/VoidFinder/python/voidfinder/data/'
 
 
 # Input file name
-galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
+galaxies_filename = 'dr12r.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 
 in_filename = in_directory + galaxies_filename
 #-------------------------------------------------------------------------------
@@ -51,16 +55,16 @@ in_filename = in_directory + galaxies_filename
 #-------------------------------------------------------------------------------
 # Survey parameters
 determine_parameters = False
-min_dist = 0
-max_dist = 300. # z = 0.107 -> 313 h-1 Mpc   z = 0.087 -> 257 h-1 Mpc
+min_dist = 1000.0
+max_dist = 1800.0 # z = 0.107 -> 313 h-1 Mpc   z = 0.087 -> 257 h-1 Mpc
 
 # Cosmology
 Omega_M = 0.3
 h = 1
 
 # Distance metric
-#dist_metric = 'comoving'
-dist_metric = 'redshift'
+dist_metric = 'comoving'
+#dist_metric = 'redshift'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -107,10 +111,10 @@ infile = Table.read(in_filename, format='ascii.commented_header')
 if determine_parameters:
 
     # Minimum distance
-    min_z = min(infile['z'])
+    min_z = min(infile['redshift'])
 
     # Maximum distance
-    max_z = max(infile['z'])
+    max_z = max(infile['redshift'])
 
     if dist_metric == 'comoving':
         # Convert redshift to comoving distance
@@ -146,14 +150,14 @@ if dist_metric == 'comoving' and 'Rgal' not in infile.columns:
 #
 ################################################################################
 
-
+'''
 maskfile, mask_resolution = generate_mask(infile, dist_metric, h, Omega_M)
 
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
 pickle.dump((mask_resolution, maskfile), temp_outfile)
 temp_outfile.close()
 
-
+'''
 
 ################################################################################
 #
@@ -166,7 +170,7 @@ temp_infile = open(survey_name + 'mask.pickle', 'rb')
 mask_resolution, maskfile = pickle.load(temp_infile)
 temp_infile.close()
 
-
+'''
 coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile, 
                                                mask_resolution, min_dist, 
                                                max_dist, survey_name, mag_cut, 
@@ -176,7 +180,7 @@ coord_min_table, mask, ngrid = filter_galaxies(infile, maskfile,
 temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, ngrid), temp_outfile)
 temp_outfile.close()
-
+'''
 
 
 
@@ -192,5 +196,25 @@ coord_min_table, mask, ngrid = pickle.load(temp_infile)
 temp_infile.close()
 
 
-find_voids(ngrid, min_dist, max_dist, coord_min_table, mask, mask_resolution, 
-           out1_filename, out2_filename, survey_name, num_cpus)
+find_voids(ngrid, 
+           min_dist, 
+           max_dist, 
+           coord_min_table, 
+           mask, 
+           mask_resolution, 
+           out1_filename, 
+           out2_filename, 
+           survey_name, 
+           num_cpus,
+           verbose=1,
+           print_after=1000000)
+
+
+
+
+
+
+
+
+
+

@@ -30,7 +30,7 @@ from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 #from libc.stdlib cimport malloc, free
 
 
-
+import time
 
 
 
@@ -70,7 +70,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            
                            ITYPE_t[:] nearest_neighbor_index,           #return variable
                            DTYPE_F64_t[:] min_x_ratio,                  #return variable
-                           DTYPE_B_t[:] in_mask                         #return variable
+                           DTYPE_B_t[:] in_mask,                         #return variable
+                           DTYPE_F64_t[:] PROFILE_kdtree_time
                            
                            ): 
                            #) except *:              
@@ -229,9 +230,6 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     
     cdef DTYPE_B_t[:] boolean_nearest_memview
     
-    ############################################################################
-    #
-    ############################################################################
     
     
     ############################################################################
@@ -250,9 +248,12 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     
     
     
+    ############################################################################
+    # PROFILING VARIABLES
+    ############################################################################
     
     
-    
+    cdef DTYPE_F64_t PROFILE_kdtree_time_collect
     
     
     
@@ -278,7 +279,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
     while galaxy_search:
 
-
+        dr *= 1.1
+        
         ############################################################################
         # shift hole center
         ############################################################################
@@ -314,7 +316,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         # use KDtree to find the galaxies within our target sphere
         ############################################################################
 
+        PROFILE_kdtree_time_collect = time.time()
+
         i_nearest = galaxy_tree.query_radius(temp_hole_center_memview, r=search_radius)
+        
+        PROFILE_kdtree_time[0] += time.time() - PROFILE_kdtree_time_collect
 
         i_nearest = i_nearest[0]
 
