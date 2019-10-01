@@ -278,6 +278,7 @@ def find_voids(ngrid,
                out2_filename, 
                survey_name, 
                num_cpus,
+               batch_size=1000,
                verbose=1,
                print_after=10000):
     """
@@ -374,6 +375,7 @@ def find_voids(ngrid,
                                                                             min_dist,
                                                                             max_dist,
                                                                             w_coord,
+                                                                            batch_size=batch_size,
                                                                             verbose=verbose,
                                                                             print_after=print_after,
                                                                             num_cpus=num_cpus)

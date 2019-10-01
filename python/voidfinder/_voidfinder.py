@@ -4,13 +4,18 @@
 import multiprocessing
 
 
-multiprocessing.set_start_method('spawn')
+#multiprocessing.set_start_method('spawn')
+
+import os
+import sys
 
 
 import fcntl
 import mmap
 import struct
 import socket
+import select
+import atexit
 
 import numpy as np
 
@@ -400,7 +405,8 @@ class MultiCellIDGenerator(object):
                  grid_dim_3, 
                  cell_ID_dict,
                  cell_ID_gen_file_handle,
-                 cell_ID_gen_memory
+                 cell_ID_gen_memory,
+                 cell_ID_gen_mmap
                  ):
         
         self.num_grid_1 = grid_dim_1
@@ -414,6 +420,13 @@ class MultiCellIDGenerator(object):
         self.cell_ID_gen_file_handle = cell_ID_gen_file_handle
         
         self.cell_ID_gen_memory = cell_ID_gen_memory
+        
+        self.cell_ID_gen_mmap = cell_ID_gen_mmap
+        
+        self.i = np.empty(1, dtype=np.int64)
+        self.j = np.empty(1, dtype=np.int64)
+        self.k = np.empty(1, dtype=np.int64)
+        self.out_idx = np.empty(1, dtype=np.int64)
         
         
     def __iter__(self):
@@ -443,55 +456,75 @@ class MultiCellIDGenerator(object):
         
         
         
-        i = self.cell_ID_gen_memory[0]
-        j = self.cell_ID_gen_memory[1]
-        k = self.cell_ID_gen_memory[2]
+        #i = self.cell_ID_gen_memory[0]
+        #j = self.cell_ID_gen_memory[1]
+        #k = self.cell_ID_gen_memory[2]
         
         
         inc_j = False
         
-        if k >= (self.num_grid_3 - 1) or k < 0:
+        if self.k[0] >= (self.num_grid_3 - 1) or self.k[0] < 0:
             
             inc_j = True
         
         inc_i = False
         
-        if (inc_j and j >= (self.num_grid_2 - 1)) or j < 0:
+        if (inc_j and self.j[0] >= (self.num_grid_2 - 1)) or self.j[0] < 0:
             
             inc_i = True
             
             
         #print(inc_i, self.i, self.j, self.k)
             
-        k = (k + 1) % self.num_grid_3
+        self.k[0] = (self.k[0] + 1) % self.num_grid_3
         
         if inc_j:
             
-            j = (j + 1) % self.num_grid_2
+            self.j[0] = (self.j[0] + 1) % self.num_grid_2
             
         if inc_i:
             
-            i += 1
+            self.i[0] += 1
             
-            if i >= self.num_grid_1:
+            if self.i[0] >= self.num_grid_1:
                 
                 raise StopIteration    
         
-        out_cell_ID = (i, j, k)
+        out_cell_ID = (self.i[0], self.j[0], self.k[0])
         
-        self.cell_ID_gen_memory[0] = i
-        self.cell_ID_gen_memory[1] = j
-        self.cell_ID_gen_memory[2] = k
+        #self.cell_ID_gen_memory[0] = i
+        #self.cell_ID_gen_memory[1] = j
+        #self.cell_ID_gen_memory[2] = k
         
         return out_cell_ID
     
     def gen_cell_ID_batch(self, batch_size, output_array=None):
         
         if output_array is None:
+            
             output_array = np.empty((batch_size, 3), dtype=np.int64)
         
-        #self.lock.acquire()
-        fcntl.lockf(self.cell_ID_gen_file_handle, fcntl.LOCK_SH)
+        
+        fcntl.lockf(self.cell_ID_gen_file_handle, fcntl.LOCK_EX)
+        
+        self.cell_ID_gen_mmap.seek(0)
+        
+        i_bytes = self.cell_ID_gen_mmap.read(8)
+        j_bytes = self.cell_ID_gen_mmap.read(8)
+        k_bytes = self.cell_ID_gen_mmap.read(8)
+        out_idx_bytes = self.cell_ID_gen_mmap.read(8)
+        
+        
+        #print(len(i_bytes), i_bytes)
+        
+        self.i[0] = struct.unpack("=q", i_bytes)[0]
+        self.j[0] = struct.unpack("=q", j_bytes)[0]
+        self.k[0] = struct.unpack("=q", k_bytes)[0]
+        self.out_idx[0] = struct.unpack("=q", out_idx_bytes)[0]
+        
+        return_out_idx = self.out_idx[0]
+        
+        
         
         last_call = False
         
@@ -513,22 +546,35 @@ class MultiCellIDGenerator(object):
             
         
         
-        out_idx = self.cell_ID_gen_memory[3]
+        #out_idx = self.cell_ID_gen_memory[3]
         
-        out_idx += batch_size
+        #out_idx += batch_size
         
-        self.cell_ID_gen_memory[3] = out_idx
+        #self.cell_ID_gen_memory[3] = out_idx
         
-        #self.lock.release()
+        self.out_idx[0] += batch_size
+        
+        out_bytes = b""
+        out_bytes += struct.pack("=q", self.i[0])
+        out_bytes += struct.pack("=q", self.j[0])
+        out_bytes += struct.pack("=q", self.k[0])
+        out_bytes += struct.pack("=q", self.out_idx[0])
+        
+        self.cell_ID_gen_mmap.seek(0)
+        
+        self.cell_ID_gen_mmap.write(out_bytes)
+        
+        self.cell_ID_gen_mmap.flush()
+    
         fcntl.lockf(self.cell_ID_gen_file_handle, fcntl.LOCK_UN)
         
         if last_call:
             
-            return output_array[0:idx], out_idx
+            return output_array[0:idx], return_out_idx
         
         else:
         
-            return output_array, out_idx
+            return output_array, return_out_idx
         
        
 
@@ -1422,6 +1468,7 @@ def run_single_process_cython(cell_ID_gen,
     # 1 - cell exit stage
     # 2 - kdtree_time
     ################################################################################
+    PROFILE_process_start_time = time.time()
     PROFILE_array = np.empty((batch_size, 3), dtype=np.float32)
     PROFILE_samples = []
     PROFILE_start_time = time.time()
@@ -1435,7 +1482,7 @@ def run_single_process_cython(cell_ID_gen,
         ######################################################################
         # Print progress and profiling statistics
         ######################################################################
-        if num_processed >= 40000000:
+        if num_processed >= 80000000:
         #if num_processed >= 8000000:
             
             break
@@ -1448,7 +1495,7 @@ def run_single_process_cython(cell_ID_gen,
         
             if verbose > 0:
             
-                print("Processing cell "+str(num_processed)+" of "+str(n_empty_cells))
+                print("Processing cell "+str(num_processed)+" of "+str(n_empty_cells), time.time() - PROFILE_process_start_time)
             
             if len(PROFILE_samples) > 3:
                 
@@ -1503,7 +1550,7 @@ def run_single_process_cython(cell_ID_gen,
             
             exit_condition = True
         
-    outfile = open("/home/moose/VoidFinder/doc/profiling/single_thread_profile.pickle", 'wb')
+    outfile = open("/home/oneills2/VoidFinder/doc/profiling/single_thread_profile.pickle", 'wb')
     pickle.dump(PROFILE_samples, outfile)
     outfile.close()    
     
@@ -1537,7 +1584,7 @@ def run_single_process_cython(cell_ID_gen,
             curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 0]
             
             if idx == 0:
-                outfile = open("/home/moose/VoidFinder/doc/profiling/Cell_Processing_Times_SingleThreadCython.pickle", 'wb')
+                outfile = open("/home/oneills2/VoidFinder/doc/profiling/Cell_Processing_Times_SingleThreadCython.pickle", 'wb')
                 pickle.dump(curr_data, outfile)
                 outfile.close()
             
@@ -1599,6 +1646,8 @@ def run_multi_process(cell_ID_dict,
     
     start_time = time.time()
     
+    CONFIG_PATH = "/tmp/voidfinder_config.pickle"
+    
     SOCKET_PATH = "/tmp/voidfinder.sock"
     
     RESULT_BUFFER_PATH = "/tmp/voidfinder_result_buffer.dat"
@@ -1623,13 +1672,13 @@ def run_multi_process(cell_ID_dict,
     
     result_buffer.write(b"0"*result_buffer_length)
     
-    result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
+    #result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
     
-    RETURN_ARRAY = np.frombuffer(result_mmap_buffer, dtype=c_double)
+    #RETURN_ARRAY = np.frombuffer(result_mmap_buffer, dtype=c_double)
     
-    RETURN_ARRAY.shape = (n_empty_cells, 4)
+    #RETURN_ARRAY.shape = (n_empty_cells, 4)
     
-    RETURN_ARRAY.fill(np.NAN)
+    #RETURN_ARRAY.fill(np.NAN)
     
     ################################################################################
     # Memory for PROFILING
@@ -1640,13 +1689,13 @@ def run_multi_process(cell_ID_dict,
     
     PROFILE_buffer.write(b"0"*PROFILE_buffer_length)
     
-    PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
+    #PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
     
-    PROFILE_ARRAY = np.frombuffer(PROFILE_mmap_buffer, dtype=c_float)
+    #PROFILE_ARRAY = np.frombuffer(PROFILE_mmap_buffer, dtype=c_float)
     
-    PROFILE_ARRAY.shape = (85000000, 3)
+    #PROFILE_ARRAY.shape = (85000000, 3)
     
-    PROFILE_ARRAY.fill(np.NAN)
+    #PROFILE_ARRAY.fill(np.NAN)
     
     ################################################################################
     # Build Cell ID generator
@@ -1655,22 +1704,57 @@ def run_multi_process(cell_ID_dict,
     
     cell_ID_buffer_length = 4*8 #need 4 8-byte integers: i, j, k, out_idx
     
-    cell_ID_buffer.write(b"0"*cell_ID_buffer_length)
+    cell_ID_buffer.write(b"\x00"*cell_ID_buffer_length)
     
-    cell_ID_mmap_buffer = mmap.mmap(cell_ID_buffer.fileno(), cell_ID_buffer_length)
+    cell_ID_buffer.flush()
     
-    cell_ID_mem_array = np.frombuffer(cell_ID_mmap_buffer, dtype=np.int64)
+    #data = cell_ID_buffer.read()
+    #print("Cell ID Buffer length: ", len(data), cell_ID_buffer_length)
     
-    cell_ID_mem_array.shape = (4,)
+    #cell_ID_mmap_buffer = mmap.mmap(cell_ID_buffer.fileno(), cell_ID_buffer_length)
     
-    cell_ID_mem_array.fill(0)
+    #cell_ID_mem_array = np.frombuffer(cell_ID_mmap_buffer, dtype=np.int64)
+    
+    #cell_ID_mem_array.shape = (4,)
+    
+    #cell_ID_mem_array.fill(0)
     
     
     ################################################################################
     # mask needs to be 1 byte per bool to match the cython dtype
     ################################################################################
     
-    mask = mask.astype(np.uint8)
+    print("Grid: ", ngrid)
+    
+    
+    config_object = (SOCKET_PATH,
+                     RESULT_BUFFER_PATH,
+                     CELL_ID_BUFFER_PATH,
+                     PROFILE_BUFFER_PATH,
+                     cell_ID_dict, 
+                     ngrid, 
+                       dl, 
+                       dr,
+                       coord_min, 
+                       mask.astype(np.uint8),
+                       mask_resolution,
+                       min_dist,
+                       max_dist,
+                       w_coord,
+                       batch_size,
+                       verbose,
+                       print_after,
+                       num_cpus
+                     )
+    
+    outfile = open(CONFIG_PATH, 'wb')
+    
+    pickle.dump(config_object, outfile)
+    
+    outfile.close()
+    
+    
+    #mask = mask.astype(np.uint8)
     
     ################################################################################
     #
@@ -1679,7 +1763,7 @@ def run_multi_process(cell_ID_dict,
     #   nearest neighbor finder for the galaxies in x,y,z space
     #
     ################################################################################
-    
+    '''
     if verbose:
         
         kdtree_start_time = time.time()
@@ -1690,13 +1774,13 @@ def run_multi_process(cell_ID_dict,
         
         print('KDTree creation time:', time.time() - kdtree_start_time)
     
-    
+    '''
     ################################################################################
     #
     # Set up worker processes
     #
     ################################################################################
-    
+    '''
     command_queue = Queue()
     
     return_queue = Queue()
@@ -1738,9 +1822,90 @@ def run_multi_process(cell_ID_dict,
         processes.append(p)
         
         num_active_processes += 1
-
+    '''
+    ################################################################################
+    # Register some functions to be called when the python interpreter exits
+    # to clean up any leftover file memory on disk or socket files, etc
+    ################################################################################
+    def cleanup_config():
+        
+        os.remove(CONFIG_PATH)
+        
+    def cleanup_socket():
+        
+        os.remove(SOCKET_PATH)
+        
+    def cleanup_result():
+        
+        os.remove(RESULT_BUFFER_PATH)
+        
+    def cleanup_cellID():
+        
+        os.remove(CELL_ID_BUFFER_PATH)
+        
+    def cleanup_profile():
+        
+        os.remove(PROFILE_BUFFER_PATH)
+        
+        
+    atexit.register(cleanup_config)
+    atexit.register(cleanup_socket)
+    atexit.register(cleanup_result)
+    atexit.register(cleanup_cellID)
+    atexit.register(cleanup_profile)
+    
+    ################################################################################
+    # Start the worker processes
+    ################################################################################
+        
+    listener_socket = socket.socket(socket.AF_UNIX)
+    
+    listener_socket.bind(SOCKET_PATH)
+    
+    listener_socket.listen(num_cpus)
+        
+    processes = []
+    
+    for proc_idx in range(num_cpus):
+        
+        p = Process(target=_main_hole_finder_startup, args=(proc_idx, CONFIG_PATH))
+        
+        p.start()
+        
+        processes.append(p)
+        
+    #Not sure if we need to join the processes or not, I think maybe we don't
+    #for p in processes:
+        
+    #    p.join()
+    
+    #Connect child processes
+    
+    num_active_processes = 0
+    
+    worker_sockets = []
+    
+    message_buffers = []
+    
+    socket_index = {}
+    
+    for idx in range(num_cpus):
+        
+        worker_sock, worker_addr = listener_socket.accept()
+        
+        worker_sockets.append(worker_sock)
+        
+        num_active_processes += 1
+        
+        message_buffers.append(b"")
+        
+        #print("Creating socket: ", worker_sock.fileno())
+        
+        socket_index[worker_sock.fileno()] = idx
+        
     if verbose:
         print("Worker processes started time: ", time.time() - start_time)
+    
     ################################################################################
     #
     # Listen on the return_queue for results
@@ -1756,15 +1921,37 @@ def run_multi_process(cell_ID_dict,
     PROFILE_process_start_time = time.time()
     PROFILE_samples = []
     PROFILE_start_time = time.time()
-    PROFILE_sample_time = 5.0
+    PROFILE_sample_time = 30.0
     
     
     ################################################################################
     # LOOP TO LISTEN FOR RESULTS WHILE WORKERS WORKING
     ################################################################################
+    empty1 = []
+    empty2 = []
     
-    #while num_cells_processed < n_empty_cells:
-    while num_cells_processed < 80000000:
+    select_timeout = 2.0
+    
+    sent_exit_commands = False
+    
+    while num_active_processes > 0:
+        
+        
+        #Debugging stop early condition
+        
+        if num_cells_processed >= 80000000:
+        #if num_cells_processed >= n_empty_cells:
+        
+            print("Breaking debug loop", num_cells_processed, num_active_processes)
+            
+            for idx in range(num_cpus):
+                
+                worker_sockets[idx].send(b"exit")
+                
+            sent_exit_commands = True
+            
+            break
+        
         
         
         if time.time() - PROFILE_start_time > PROFILE_sample_time:
@@ -1779,6 +1966,130 @@ def run_multi_process(cell_ID_dict,
                     cells_per_sec = (PROFILE_samples[-1] - PROFILE_samples[-2])/PROFILE_sample_time
                     print(cells_per_sec, "cells per sec")
             
+            
+        read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, select_timeout)
+        
+        if read_socks:
+            
+            for worker_sock in read_socks:
+                
+                curr_read = worker_sock.recv(1024)
+                
+                #print("Reading sock: ", worker_sock.fileno(), curr_read)
+                
+                sock_idx = socket_index[worker_sock.fileno()]
+                
+                
+                curr_message_buffer = message_buffers[sock_idx]
+                
+                curr_message_buffer += curr_read
+                
+                #message_buffer += curr_read
+                '''
+                if b"\n" not in message_buffers[sock_idx]:
+                    
+                    messages = []
+                    
+                else:
+                
+                    messages = message_buffers[sock_idx].split(b"\n")
+                
+                    message_buffers[sock_idx] = messages[-1]
+                '''
+                #print("MESSAGES: ", messages)
+                
+                messages = []
+                
+                if len(curr_message_buffer) > 0:
+                
+                    messages_remaining_in_buffer = True
+                    
+                else:
+                    
+                    messages_remaining_in_buffer = False
+                    
+                #print("Process Buffer? ", messages_remaining_in_buffer)
+                
+                while messages_remaining_in_buffer:
+                
+                    #print("Processing buffer: ", sock_idx, len(curr_message_buffer))
+                    
+                    #print(type(curr_message_buffer))
+                    
+                    #https://stackoverflow.com/questions/28249597/why-do-i-get-an-int-when-i-index-bytes
+                    #implicitly converts the 0th byte to an integer
+                    msg_fields = curr_message_buffer[0]
+                    
+                    #print("Head char: ", head_char)
+                    
+                    #print(type(head_char))
+                
+                    #msg_fields = struct.unpack('b', head_char)[0]
+                    
+                    #print("Msg fields: ", msg_fields)
+                    
+                    msg_len = 1 + 8*msg_fields
+                    
+                    #print("Message len: ", msg_len)
+                    
+                    if len(curr_message_buffer) >= msg_len:
+                    
+                        curr_msg = curr_message_buffer[1:msg_len]
+                        
+                        #print("Curr msg: ", curr_msg)
+                        
+                        messages.append(curr_msg)
+                        
+                        curr_message_buffer = curr_message_buffer[msg_len:]
+                        
+                        #print(curr_message_buffer[msg_len:])
+                        #print(curr_message_buffer)
+                        
+                        if len(curr_message_buffer) > 0:
+                            
+                            messages_remaining_in_buffer = True
+                            
+                        else:
+                            
+                            messages_remaining_in_buffer = False
+                            
+                    #else:
+                    #    messages_remaining_in_buffer = False
+                            
+                        
+                message_buffers[sock_idx] = curr_message_buffer
+                    
+                
+                for message in messages:
+                    
+                    if message == b"":
+                        continue
+                    
+                    message_type = struct.unpack("=q", message[0:8])[0]
+                    
+                    if message_type == 0:
+                        
+                        try:
+                            num_result = struct.unpack("=q", message[8:16])[0]
+                            num_hole = struct.unpack("=q", message[16:24])[0]
+                        except struct.error as e:
+                            print("Error on message: ", message)
+                            raise e
+                        
+                        num_cells_processed += num_result
+                        n_holes += num_hole
+                        
+                    elif message_type == 1:
+                        
+                        num_active_processes -= 1
+                    
+    if not sent_exit_commands:
+        
+        for idx in range(num_cpus):
+                
+            worker_sockets[idx].send(b"exit")
+            
+        '''
         try:
             
             message = return_queue.get(timeout=2.0)
@@ -1798,6 +2109,7 @@ def run_multi_process(cell_ID_dict,
                 num_cells_processed += message[1]
                 
                 n_holes += message[2]
+        '''
                 
                 
                 
@@ -1805,13 +2117,15 @@ def run_multi_process(cell_ID_dict,
     # PROFILING - SAVE OFF RESULTS
     ################################################################################
     
-    outfile = open("/home/moose/VoidFinder/doc/profiling/multi_thread_profile.pickle", 'wb')
+    outfile = open("/home/oneills2/VoidFinder/doc/profiling/multi_thread_profile.pickle", 'wb')
     
     pickle.dump(PROFILE_samples, outfile)
     
     outfile.close()
     
     if verbose > 0:
+        
+        PROFILE_ARRAY = np.memmap(PROFILE_buffer, dtype=np.float32, shape=(85000000,3))
         
         PROFILE_ARRAY_SUBSET = PROFILE_ARRAY[0:num_cells_processed]
         
@@ -1824,7 +2138,7 @@ def run_multi_process(cell_ID_dict,
             curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 0]
             
             if idx == 0:
-                outfile = open("/home/moose/VoidFinder/doc/profiling/Cell_Processing_Times_MultiThreadCython.pickle", 'wb')
+                outfile = open("/home/oneills2/VoidFinder/doc/profiling/Cell_Processing_Times_MultiThreadCython.pickle", 'wb')
                 pickle.dump(curr_data, outfile)
                 outfile.close()
             
@@ -1844,33 +2158,9 @@ def run_multi_process(cell_ID_dict,
         
         print("Main task finish time: ", time.time() - start_time)
     
-    for proc_idx in range(num_cpus):
-        
-        command_queue.put(u"exit")
-        
-    while num_active_processes > 0:
-        
-        try:
-            
-            message = return_queue.get(False)
-            
-        except Empty:
-            
-            time.sleep(.1)
-            
-        else:
-            
-            if message[0] == 'Done':
-                
-                num_active_processes -= 1
-                
     for p in processes:
         
-        p.join(None)
-        
-    if verbose:
-        
-        print("Num empty cells: ", n_empty_cells)
+        p.join(None) #block till join
         
     ################################################################################
     # Close the unneeded file handles to the shared memory, and return the file
@@ -1887,12 +2177,38 @@ def run_multi_process(cell_ID_dict,
     
     
     
+def _main_hole_finder_startup(worker_idx, config_path):
+    """
+    Helper function called from run_multi_process() to help
+    create worker processes for voidfinder parallelization.
+    Basically creates a new python process via os.execv()
+    and gives that new process the location of a 
+    configuration pickle file which it can read in to 
+    configure itself.
+    """
+    
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    worker_script_name = os.path.join(curr_dir, "_voidfinder_worker_startup.py")
+    
+    #Shouldn't strictly be necessary to add this next parameter cause theoretically
+    #the voidfinder package should be installed in the python environment, but for now
+    #lets ensure that the voidfinder directory is in the path for the worker process
+    voidfinder_dir = os.path.abspath(os.path.join(curr_dir, ".."))
+    
+    working_dir = os.getcwd()
+    
+    args = ["VoidFinderWorker", worker_script_name, voidfinder_dir, working_dir, str(worker_idx), config_path]
+    
+    print(sys.executable, args)
+    
+    os.execv(sys.executable, args)
     
     
     
 
 
-
+'''
 def _main_hole_finder_worker(process_id,
                              command_queue,
                              return_queue,
@@ -1914,6 +2230,9 @@ def _main_hole_finder_worker(process_id,
                              CELL_ID_BUFFER_PATH,
                              PROFILE_BUFFER_PATH,
                              ):
+'''
+
+def _main_hole_finder_worker(worker_idx, config_path):
     
     #galaxy_tree = neighbors.KDTree(w_coord)
     
@@ -1939,10 +2258,60 @@ def _main_hole_finder_worker(process_id,
     '''
     #print("Process id: ", process_id, id(mask), id(w_coord), id(galaxy_tree), w_coord.__array_interface__['data'][0])
     
+    #print("MAIN HOLE FINDER WORKER: ", worker_idx, config_path)
+    
+    ################################################################################
+    #
+    ################################################################################
+    infile = open(config_path, 'rb')
+    
+    config = pickle.load(infile)
+    
+    infile.close()
     
     
+    SOCKET_PATH = config[0]
+    RESULT_BUFFER_PATH = config[1]
+    CELL_ID_BUFFER_PATH = config[2]
+    PROFILE_BUFFER_PATH = config[3]
+    cell_ID_dict = config[4]
+    ngrid = config[5]
+    dl = config[6]
+    dr = config[7]
+    coord_min = config[8]
+    mask = config[9]
+    mask_resolution = config[10]
+    min_dist = config[11]
+    max_dist = config[12]
+    w_coord = config[13]
+    batch_size = config[14]
+    verbose = config[15]
+    print_after = config[16]
+    num_cpus = config[17]
+
+
+
+    worker_socket = socket.socket(socket.AF_UNIX)
+    
+    worker_socket.connect(SOCKET_PATH)
+    
+    worker_socket.setblocking(False)
     
     
+
+    if verbose:
+        
+        kdtree_start_time = time.time()
+
+    galaxy_tree = neighbors.KDTree(w_coord)
+    
+    if verbose:
+        
+        print('KDTree creation time:', time.time() - kdtree_start_time)
+    
+    ################################################################################
+    #
+    ################################################################################
     
     
     n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
@@ -1951,13 +2320,13 @@ def _main_hole_finder_worker(process_id,
     
     result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
     
-    result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
+    #result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
     
-    RETURN_ARRAY = np.frombuffer(result_mmap_buffer, dtype=c_double)
+    #RETURN_ARRAY = np.frombuffer(result_mmap_buffer, dtype=c_double)
     
-    RETURN_ARRAY.shape = (n_empty_cells, 4)
+    #RETURN_ARRAY.shape = (n_empty_cells, 4)
     
-    
+    RETURN_ARRAY = np.memmap(result_buffer, dtype=np.float64, shape=(n_empty_cells, 4))
     
     ################################################################################
     # Memory for PROFILING
@@ -1966,12 +2335,13 @@ def _main_hole_finder_worker(process_id,
     
     PROFILE_buffer_length = 85000000*3*4 #float32 so 4 bytes per element
     
-    PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
+    #PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
     
-    PROFILE_ARRAY = np.frombuffer(PROFILE_mmap_buffer, dtype=c_float)
+    #PROFILE_ARRAY = np.frombuffer(PROFILE_mmap_buffer, dtype=c_float)
     
-    PROFILE_ARRAY.shape = (85000000, 3)
+    #PROFILE_ARRAY.shape = (85000000, 3)
     
+    PROFILE_ARRAY = np.memmap(PROFILE_buffer, dtype=np.float32, shape=(85000000,3))
     
     ################################################################################
     # Build Cell ID generator
@@ -1991,7 +2361,8 @@ def _main_hole_finder_worker(process_id,
                                        ngrid[2],
                                        cell_ID_dict,
                                        cell_ID_buffer,
-                                       cell_ID_mem_array)
+                                       cell_ID_mem_array,
+                                       cell_ID_mmap_buffer)
     
     
     ################################################################################
@@ -2025,6 +2396,9 @@ def _main_hole_finder_worker(process_id,
     #
     ################################################################################
     
+    
+    received_exit_command = False
+    
     exit_process = False
     
     return_array = np.empty((batch_size, 4), dtype=np.float64)
@@ -2033,23 +2407,27 @@ def _main_hole_finder_worker(process_id,
     
     i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
     
+    worker_sockets = [worker_socket]
+    empty1 = []
+    empty2 = []
+    
     while not exit_process:
         
         total_loops += 1
         
-        try:
+        read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, 0)
+        
+        if read_socks:
             
-            message = command_queue.get(False) #Don't block
+            message = worker_socket.recv(1024)
             
-        except Empty:
-            
-            pass
-                
-        else:
-            
-            if isinstance(message, str) and message == 'exit':
+            if len(message) == 4 and message == b'exit':
                 
                 exit_process = True
+                
+                received_exit_command = True
+                
+                continue
         
         
         ################################################################################
@@ -2057,7 +2435,7 @@ def _main_hole_finder_worker(process_id,
         ################################################################################
         i_j_k_array, out_start_idx = cell_ID_gen.gen_cell_ID_batch(batch_size, i_j_k_array)
         
-        
+        #print("Worker: ", worker_idx, i_j_k_array[0,:], out_start_idx)
         
         ################################################################################
         #
@@ -2093,15 +2471,60 @@ def _main_hole_finder_worker(process_id,
             
             PROFILE_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0]),:] = PROFILE_array
             
-            n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])))
+            n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), axis=None, dtype=np.int64)
             
-            return_queue.put(("data", return_array.shape[0], n_hole))
+            if not isinstance(n_hole, np.int64):
+                print("N_hole not integer: ", n_hole, type(n_hole))
+            
+            #return_queue.put(("data", return_array.shape[0], n_hole))
+            out_msg = b""
+            #out_msg += struct.pack("=q", 4)
+            out_msg += struct.pack("b", 3)
+            out_msg += struct.pack("=q", 0)
+            #out_msg += b","
+            out_msg += struct.pack("=q", return_array.shape[0])
+            #out_msg += b","
+            out_msg += struct.pack("=q", n_hole)
+            #out_msg += b"\n"
+            
+            #print(worker_idx, out_msg)
+            
+            worker_socket.send(out_msg)
             
         else:
             
+            out_msg = b""
+            out_msg += struct.pack("b", 1)
+            out_msg += struct.pack("=q", 1)
+            #out_msg += b"\n"
+            
+            worker_socket.send(out_msg)
+            
             exit_process = True
                 
-    return_queue.put(("Done", None))
+    
+    
+    while not received_exit_command:
+        
+        read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, 10.0)
+        
+        if read_socks:
+            
+            message = worker_socket.recv(1024)
+            
+            if len(message) == 4 and message == b'exit':
+                
+                received_exit_command = True
+                
+                continue
+        
+    worker_socket.close()
+    
+    del RETURN_ARRAY #flushes np.memmap 
+    del PROFILE_ARRAY #flushes np.memmap
+    #return_queue.put(("done", None))
+    
+    print("WORKER EXITING GRACEFULLY", worker_idx)
     
     return None
 
@@ -2213,6 +2636,37 @@ class LockedWrapper():
         
         return results
 
-
+if __name__ == "__main__":
+    """
+    For running in multi-process mode, the run_multi_process function above now uses
+    the helper function _main_hole_finder_startup() and os.execv(), which in turn
+    invokes this file _voidfinder.py as a script, and will enter this
+    if __name__ == "__main__" block, where the real worker function is called.
+    
+    The worker then will load a pickled config file based on the 
+    `config_path` argument which the worker can then use to
+    configure itself and connect via socket to the main process.
+    """
+    
+    run_args = sys.argv
+    
+    worker_idx = sys.argv[1]
+    
+    config_path = sys.argv[2]
+    
+    print("WORKER STARTED WITH ARGS: ", sys.argv)
+    
+    _main_hole_finder_worker(worker_idx, config_path)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
