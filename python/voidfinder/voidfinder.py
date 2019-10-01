@@ -365,24 +365,31 @@ def find_voids(ngrid,
 
     print('Growing holes', flush=True)
 
-    myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes = _main_hole_finder(cell_ID_dict, 
-                                                                            ngrid, 
-                                                                            dl, 
-                                                                            dr,
-                                                                            coord_min,
-                                                                            mask,
-                                                                            mask_resolution,
-                                                                            min_dist,
-                                                                            max_dist,
-                                                                            w_coord,
-                                                                            batch_size=batch_size,
-                                                                            verbose=verbose,
-                                                                            print_after=print_after,
-                                                                            num_cpus=num_cpus)
+    x_y_z_r_array, n_holes = _main_hole_finder(cell_ID_dict, 
+                                               ngrid, 
+                                               dl, 
+                                               dr,
+                                               coord_min,
+                                               mask,
+                                               mask_resolution,
+                                               min_dist,
+                                               max_dist,
+                                               w_coord,
+                                               batch_size=batch_size,
+                                               verbose=verbose,
+                                               print_after=print_after,
+                                               num_cpus=num_cpus)
 
     print('Found a total of', n_holes, 'potential voids.', flush=True)
 
     print('Time to find all holes =', time.time() - tot_hole_start, flush=True)
+    
+    
+    DEBUG = True
+    
+    if DEBUG:
+        print(x_y_z_r_array.shape, n_holes)
+        exit()
     
 
     ################################################################################
@@ -395,7 +402,7 @@ def find_voids(ngrid,
 
     print('Sorting holes by size', flush=True)
 
-    potential_voids_table = Table([myvoids_x, myvoids_y, myvoids_z, myvoids_r], names=('x','y','z','radius'))
+    potential_voids_table = Table(x_y_z_r_array, names=('x','y','z','radius'))
 
     # Need to sort the potential voids into size order
     potential_voids_table.sort('radius')

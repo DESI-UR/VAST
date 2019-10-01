@@ -922,7 +922,42 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     return
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+cpdef void main_algorithm_geometric(DTYPE_INT64_t[:,:] i_j_k_array,
+                                    galaxy_tree,
+                                    DTYPE_F64_t[:,:] w_coord,
+                                    DTYPE_F64_t dl, 
+                                    DTYPE_F64_t dr,
+                                    DTYPE_F64_t[:,:] coord_min, 
+                                    DTYPE_B_t[:,:] mask,
+                                    DTYPE_INT32_t mask_resolution,
+                                    DTYPE_F64_t min_dist,
+                                    DTYPE_F64_t max_dist,
+                                    DTYPE_F64_t[:,:] return_array,
+                                    int verbose,
+                                    DTYPE_F32_t[:,:] PROFILE_ARRAY
+                                    ) except *:
+
+    """
+    Like to attempt writing a new main_algorithm which is based around finding
+    the neighbors without a bunch of successive radius queries
     
+    Find neighbor 1 same way - nearest neighbor query.  Now you have a
+    Line of Motion from neighbor 1, through the cell center with an orientation
+    
+    Find 2 arbitrary vectors in the plane to define the plane, then find the first
+    neighbor on the cell center's side of the the plane (hard part, maybe a bunch of k=50 queries)
+     now do 1 radius query using the calculated center on line of motion so that the sphere
+     passes through both the Line of Motion and the neighbor 1 and the new potential neighbor 2
+     to verify that it actually is neighbor 2, and repeat the plane-search process to finde neighbor 3 and 4
+     
+    One way to find which side of a plane a point is on is here:
+    https://math.stackexchange.com/questions/214187/point-on-the-left-or-right-side-of-a-plane-in-3d-space
+    """                                    
+    pass
+
 
 
 

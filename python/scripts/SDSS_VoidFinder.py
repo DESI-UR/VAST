@@ -12,7 +12,7 @@
 
 
 import sys
-sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
+sys.path.insert(1, '/home/moose/VoidFinder/python/')
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
 
 from voidfinder import filter_galaxies, find_voids
@@ -42,8 +42,8 @@ survey_name = 'SDSS_dr12_'
 #in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
 #out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
 
-in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
-out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+in_directory = '/home/moose/VoidFinder/python/voidfinder/data/'
+out_directory = '/home/moose/VoidFinder/python/voidfinder/data/'
 
 
 # Input file name
@@ -206,7 +206,7 @@ find_voids(ngrid,
            out2_filename, 
            survey_name, 
            num_cpus,
-           batch_size=100000,
+           batch_size=10000,
            verbose=1,
            print_after=1000000)
 
