@@ -1626,7 +1626,7 @@ def run_multi_process(cell_ID_dict,
     # dimensions and the total number of previous cells in the cell_ID_dict which
     # we already discovered we do NOT have to check.
     ################################################################################
-    n_holes = 0
+    #n_holes = 0
 
     n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
     
@@ -1685,7 +1685,8 @@ def run_multi_process(cell_ID_dict,
                      batch_size,
                      verbose,
                      print_after,
-                     num_cpus
+                     num_cpus,
+                     DEBUG_DIR
                      )
     
     outfile = open(CONFIG_PATH, 'wb')
@@ -1883,11 +1884,11 @@ def run_multi_process(cell_ID_dict,
                         
                         num_result = struct.unpack("=q", message[8:16])[0]
                         
-                        num_hole = struct.unpack("=q", message[16:24])[0]
+                        #num_hole = struct.unpack("=q", message[16:24])[0]
                         
                         num_cells_processed += num_result
                         
-                        n_holes += num_hole
+                        #n_holes += num_hole
                         
                     elif message_type == 1:
                         
@@ -1928,7 +1929,7 @@ def run_multi_process(cell_ID_dict,
         
         PROFILE_ARRAY = np.memmap(PROFILE_buffer, dtype=np.float32, shape=(85000000,3))
         
-        PROFILE_ARRAY_SUBSET = PROFILE_ARRAY[0:num_cells_processed]
+        PROFILE_ARRAY_SUBSET = PROFILE_ARRAY[0:80000000]
         
         for idx in range(7):
             
@@ -1937,6 +1938,10 @@ def run_multi_process(cell_ID_dict,
             curr_idx = PROFILE_ARRAY_SUBSET[:,1] == idx
             
             curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 0]
+            
+            if idx == 6:
+                
+                print("Count of profile stage 6: ", curr_data.shape[0])
             
             if idx == 0:
                 outfile = open(os.path.join(DEBUG_DIR, "Cell_Processing_Times_MultiThreadCython.pickle"), 'wb')
@@ -1964,8 +1969,10 @@ def run_multi_process(cell_ID_dict,
     result_array.shape = (n_empty_cells, 4)
     
     result_buffer.close()
+    
+    n_holes = np.sum(np.logical_not(np.isnan(result_array[0:80000000,0])), axis=None, dtype=np.int64)
         
-    return result_array, n_holes
+    return result_array[0:80000000], n_holes
                     
     
 def process_message_buffer(curr_message_buffer):
@@ -2053,7 +2060,8 @@ def _main_hole_finder_startup(worker_idx, config_path):
     print(sys.executable, args)
     
     #os.spawnve(os.P_NOWAIT, sys.executable, args, os.environ)
-    os.execve(sys.executable, args, env)
+    #os.execve(sys.executable, args, env)
+    os.execv(sys.executable, args)
     
     
     
@@ -2115,6 +2123,7 @@ def _main_hole_finder_worker(worker_idx, config_path):
     verbose = config[15]
     print_after = config[16]
     num_cpus = config[17]
+    DEBUG_DIR = config[18]
 
 
 
@@ -2155,26 +2164,9 @@ def _main_hole_finder_worker(worker_idx, config_path):
     
     result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
     
-    #RETURN_ARRAY = np.frombuffer(result_mmap_buffer, dtype=c_double)
     
-    #RETURN_ARRAY.shape = (n_empty_cells, 4)
     
-    #RETURN_ARRAY = np.memmap(result_buffer, dtype=np.float64, shape=(n_empty_cells, 4))
     
-    ################################################################################
-    # Memory for PROFILING
-    ################################################################################
-    PROFILE_buffer = open(PROFILE_BUFFER_PATH, 'r+b')
-    
-    PROFILE_buffer_length = 85000000*3*4 #float32 so 4 bytes per element
-    
-    PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
-    
-    #PROFILE_ARRAY = np.frombuffer(PROFILE_mmap_buffer, dtype=c_float)
-    
-    #PROFILE_ARRAY.shape = (85000000, 3)
-    
-    #PROFILE_ARRAY = np.memmap(PROFILE_buffer, dtype=np.float32, shape=(85000000,3))
     
     ################################################################################
     # Build Cell ID generator
@@ -2220,6 +2212,20 @@ def _main_hole_finder_worker(worker_idx, config_path):
     
     time_returning = 0
     
+    ################################################################################
+    # Memory for PROFILING
+    ################################################################################
+    PROFILE_buffer = open(PROFILE_BUFFER_PATH, 'r+b')
+    
+    PROFILE_buffer_length = 85000000*3*4 #float32 so 4 bytes per element
+    
+    PROFILE_mmap_buffer = mmap.mmap(PROFILE_buffer.fileno(), PROFILE_buffer_length)
+    
+    PROFILE_array = np.empty((batch_size, 3), dtype=np.float32)
+    
+    PROFILE_gen_times = []
+    
+    PROFILE_main_times = []
     
     ################################################################################
     #
@@ -2236,13 +2242,15 @@ def _main_hole_finder_worker(worker_idx, config_path):
     
     return_array = np.empty((batch_size, 4), dtype=np.float64)
     
-    PROFILE_array = np.empty((batch_size, 3), dtype=np.float32)
-    
     i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
     
     worker_sockets = [worker_socket]
+    
     empty1 = []
+    
     empty2 = []
+    
+    message_buffer = b""
     
     while not exit_process:
         
@@ -2252,9 +2260,9 @@ def _main_hole_finder_worker(worker_idx, config_path):
         
         if read_socks:
             
-            message = worker_socket.recv(1024)
+            message_buffer += worker_socket.recv(1024)
             
-            if len(message) == 4 and message == b'exit':
+            if len(message_buffer) >= 4 and message_buffer[0:4] == b'exit':
                 
                 exit_process = True
                 
@@ -2266,7 +2274,19 @@ def _main_hole_finder_worker(worker_idx, config_path):
         ################################################################################
         # Locked access to cell ID generation
         ################################################################################
+        PROFILE_gen_start = time.time_ns()
+        
+        
+        
+        
         i_j_k_array, out_start_idx = cell_ID_gen.gen_cell_ID_batch(batch_size, i_j_k_array)
+        
+        
+        
+        
+        PROFILE_gen_end = time.time_ns()
+        
+        PROFILE_gen_times.append((PROFILE_gen_end, PROFILE_gen_start))
         
         #print("Worker: ", worker_idx, i_j_k_array[0,:], out_start_idx)
         
@@ -2276,6 +2296,8 @@ def _main_hole_finder_worker(worker_idx, config_path):
         num_cells_to_process = i_j_k_array.shape[0]
         
         if num_cells_to_process > 0:
+            
+            PROFILE_main_start = time.time_ns()
 
             if return_array.shape[0] != num_cells_to_process:
 
@@ -2315,25 +2337,29 @@ def _main_hole_finder_worker(worker_idx, config_path):
             
             
             
-            n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), axis=None, dtype=np.int64)
+            #n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), axis=None, dtype=np.int64)
             
-            if not isinstance(n_hole, np.int64):
-                print("N_hole not integer: ", n_hole, type(n_hole))
+            #if not isinstance(n_hole, np.int64):
+            #    print("N_hole not integer: ", n_hole, type(n_hole))
             
             #return_queue.put(("data", return_array.shape[0], n_hole))
             out_msg = b""
             #out_msg += struct.pack("=q", 4)
-            out_msg += struct.pack("b", 3)
+            out_msg += struct.pack("b", 2)
             out_msg += struct.pack("=q", 0)
             #out_msg += b","
             out_msg += struct.pack("=q", return_array.shape[0])
             #out_msg += b","
-            out_msg += struct.pack("=q", n_hole)
+            #out_msg += struct.pack("=q", n_hole)
             #out_msg += b"\n"
             
             #print(worker_idx, out_msg)
             
             worker_socket.send(out_msg)
+            
+            PROFILE_main_end = time.time_ns()
+            
+            PROFILE_main_times.append((PROFILE_main_end, PROFILE_main_start, return_array.shape[0]))
             
         else:
             
@@ -2363,6 +2389,10 @@ def _main_hole_finder_worker(worker_idx, config_path):
                 continue
         
     worker_socket.close()
+    
+    outfile = open(os.path.join(DEBUG_DIR, "multi_gen_times_"+str(worker_idx)+".pickle"), 'wb')
+    pickle.dump((PROFILE_gen_times, PROFILE_main_times), outfile)
+    outfile.close()
     
     #del RETURN_ARRAY #flushes np.memmap 
     #del PROFILE_ARRAY #flushes np.memmap

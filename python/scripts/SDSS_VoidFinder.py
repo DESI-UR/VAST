@@ -12,8 +12,9 @@
 
 
 import sys
-sys.path.insert(1, '/home/moose/VoidFinder/python/')
+sys.path.insert(0, '/home/moose/VoidFinder/python/')
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
+
 
 from voidfinder import filter_galaxies, find_voids
 from voidfinder.multizmask import generate_mask
