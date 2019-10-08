@@ -10,8 +10,16 @@ Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566
 
 
 ## Building & Running Voidfinder
-VoidFinder now includes some cythonized code for speed.  To build this code, enter the 
-`/python/voidfinder/` directory and run:
+
+VoidFinder will install like a normal python package via `python setup.py install`
+from this directory ('VoidFinder/VoidFinder/python/')
+
+
+Or, if you're working on it, you can do a `python setup.py develop` which essentially
+installs a symlink into your python environment which points back to this directory.
+
+
+If you're developing VoidFinder and need to rebuild the cython, enter the `/voidfinder/` directory and run:
 
 ```
 cython -a *.pyx
@@ -19,7 +27,4 @@ cython -a *.pyx
 python setup.py build_ext --inplace
 ```
 
-then from the `/python/scripts/` directory edit the paths in whichever run script desired and run
-as normal (example: `python SDSS_Voidfinder.py`).
-
-The current version of VoidFinder is written to run with Python 3.
+The current version of VoidFinder is written to run with Python 3.7.
