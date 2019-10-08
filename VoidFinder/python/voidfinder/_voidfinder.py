@@ -1925,7 +1925,7 @@ def run_multi_process(ngrid,
     #def cleanup_profile():
         
     #    os.remove(PROFILE_BUFFER_PATH)
-    
+    '''
     def possibly_send_exit_commands():
         
         if not sent_exit_commands:
@@ -1933,7 +1933,7 @@ def run_multi_process(ngrid,
             for idx in range(num_cpus):
                 
                 worker_sockets[idx].send(b"exit")
-        
+    '''
     
     
     atexit.register(cleanup_config)
@@ -1942,7 +1942,7 @@ def run_multi_process(ngrid,
     
     atexit.register(cleanup_result)
     
-    atexit.register(possibly_send_exit_commands)
+    #atexit.register(possibly_send_exit_commands)
     
     #atexit.register(cleanup_cellID)
     
