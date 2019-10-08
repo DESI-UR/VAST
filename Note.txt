@@ -1,0 +1,6 @@
+Just putting a note here - the zobov code should really be its own complete
+project on git, it shouldn't be a subset of the VoidFinder repo.  It could still
+be under the DESI/ group of projects but it's really its own thing.
+
+I (Steve) moved it to the top-level of the VoidFinder directory to help
+keep it separate.
