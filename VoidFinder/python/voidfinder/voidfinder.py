@@ -295,7 +295,6 @@ def filter_galaxies(galaxy_table,
 
 
 
-
 def find_voids(void_grid_shape, 
                min_dist, 
                max_dist,
@@ -315,11 +314,16 @@ def find_voids(void_grid_shape,
                print_after=5.0,
                ):
     """
-    Description
-    -----------
+    Description:
+    ============
+    
     
     Main entry point for VoidFinder.  
     
+    Using the VoidFinder algorithm, this function grows spheres in each empty 
+    grid cell of the galaxy distribution.  It then combines these spheres into 
+    unique voids, identifying a maximal sphere for each void.
+
     This algorithm at a high level uses 3 structures to find voids
     in the super-galactic structure of the universe:
     
@@ -440,13 +444,13 @@ def find_voids(void_grid_shape,
     maximal spheres table
     
     """
-    
 
-    ################################################################################
+    
+    ############################################################################
     #
     #   GROW HOLES
     #
-    ################################################################################
+    ############################################################################
 
     if search_grid_edge_length is None:
         
@@ -471,15 +475,16 @@ def find_voids(void_grid_shape,
                                                print_after=print_after,
                                                num_cpus=num_cpus)
 
+
     print('Found a total of', n_holes, 'potential voids.', flush=True)
 
     print('Time to find all holes =', time.time() - tot_hole_start, flush=True)
     
-    ################################################################################
+    ############################################################################
     #
     #   SORT HOLES BY SIZE
     #
-    ################################################################################
+    ############################################################################
 
     sort_start = time.time()
 
@@ -495,45 +500,48 @@ def find_voids(void_grid_shape,
 
     print('Holes are sorted; Time to sort holes =', sort_end-sort_start, flush=True)
 
-    ################################################################################
+
+    ############################################################################
     #
     #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
     #
-    ################################################################################
+    ############################################################################
 
     print('Removing holes with at least 10% of their volume outside the mask', flush=True)
 
-    potential_voids_table = volume_cut(potential_voids_table, mask, mask_resolution, [min_dist, max_dist])
+
+    potential_voids_table = volume_cut(potential_voids_table, mask, 
+                                       mask_resolution, [min_dist, max_dist])
 
     potential_voids_table.write(potential_voids_filename, format='ascii.commented_header', overwrite=True)
 
-    ################################################################################
+    ############################################################################
     #
     #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
     #
-    ################################################################################
+    ############################################################################
 
     combine_start = time.time()
 
-    print('Combining holes into unique voids',flush=True)
+    print('Combining holes into unique voids', flush=True)
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
 
-    print('Number of unique voids is', len(maximal_spheres_table),flush=True)
+    print('Number of unique voids is', len(maximal_spheres_table), flush=True)
 
     # Save list of all void holes
     myvoids_table.write(void_table_filename, format='ascii.commented_header', overwrite=True)
 
     combine_end = time.time()
 
-    print('Time to combine holes into voids =', combine_end-combine_start,flush=True)
+    print('Time to combine holes into voids =', combine_end-combine_start, flush=True)
 
     '''
-    ################################################################################
+    ############################################################################
     #
     #   COMPUTE VOLUME OF EACH VOID
     #
-    ################################################################################
+    ############################################################################
     print('Compute void volumes')
 
     # Initialize void volume array
@@ -561,11 +569,11 @@ def find_voids(void_grid_shape,
         void_vol[i] = (rad**3)*nsph/nran
     
     
-    ################################################################################
+    ############################################################################
     #
     #   IDENTIFY VOID GALAXIES
     #
-    ################################################################################
+    ############################################################################
     print('Assign field galaxies to voids')
 
     # Count the number of galaxies in each void
@@ -588,20 +596,20 @@ def find_voids(void_grid_shape,
     f_coord.write(voidgals_filename, format='ascii.commented_header')
     '''
 
-    ################################################################################
+    ############################################################################
     #
     #   MAXIMAL HOLE FOR EACH VOID
     #
-    ################################################################################
+    ############################################################################
 
     save_maximals(maximal_spheres_table, maximal_spheres_filename)
 
     '''
-    ################################################################################
+    ############################################################################
     #
     #   VOID REGION SIZES
     #
-    ################################################################################
+    ############################################################################
 
 
     # Initialize

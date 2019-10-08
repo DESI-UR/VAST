@@ -95,13 +95,27 @@ class Zobov:
             vrads = vrads[rcut]
             vcens = vcens[dcut][rcut]
             vaxes = vaxes[dcut][rcut]
+            voids = (np.array(voids)[dcut])[rcut]
         rcut  = vrads>minrad
         vrads = vrads[rcut]
         vcens = vcens[rcut]
         vaxes = vaxes[rcut]
+        voids = np.array(voids)[rcut]
+        zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
+        for i in range(len(voids)):
+            for j in voids[i]:
+                if zvoid[j][0]>-0.5:
+                    if len(voids[i])<len(voids[zvoid[j][0]]):
+                        zvoid[j][0] = i
+                    elif len(voids[i])>len(voids[zvoid[j][1]]):
+                        zvoid[j][1] = i
+                else:
+                    zvoid[j][0] = i
+                    zvoid[j][1] = i
         self.vrads = vrads
         self.vcens = vcens
         self.vaxes = vaxes
+        self.zvoid = np.array(zvoid)
     def saveVoids(self):
         if not hasattr(self,'vcens'):
             print("Sort voids first")
@@ -113,6 +127,8 @@ class Zobov:
         vax3 = np.array([vx[2] for vx in self.vaxes]).T
         vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
         vT.write(outdir+catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
+        vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],names=('zone','void0','void1'))
+        vZ.write(outdir+catname+"_zonevoids.dat",format='ascii.commented_header',overwrite=True)
     def saveZones(self):
         if not hasattr(self,'zones'):
             print("Build zones first")
