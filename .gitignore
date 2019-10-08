@@ -12,3 +12,4 @@ VoidFinder/python/voidfinder.egg-info/
 VoidFinder/python/voidfinder/__pycache__/
 VoidFinder/doc/debug_dir
 VoidFinder/doc/profiling
+.settings/
