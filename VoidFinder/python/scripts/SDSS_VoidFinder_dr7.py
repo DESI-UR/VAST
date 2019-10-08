@@ -2,9 +2,6 @@
 
 
 
-
-
-
 ################################################################################
 #
 # If you have control over your python environment, voidfinder can be installed
@@ -22,15 +19,18 @@
 #
 ################################################################################
 
-#import sys
-#sys.path.insert(0, '/home/moose/VoidFinder/VoidFinder/python/')
-#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python/')
+
+import sys
+#sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
+#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
 
 ################################################################################
 #
 #   IMPORT MODULES
 #
 ################################################################################
+
+
 
 from voidfinder import filter_galaxies, find_voids
 from voidfinder.multizmask import generate_mask
@@ -48,23 +48,24 @@ import numpy as np
 #
 ################################################################################
 
+
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
 num_cpus = 4
 
 #-------------------------------------------------------------------------------
-survey_name = 'SDSS_dr12_'
+survey_name = 'SDSS_dr7_'
 
 # File header
-#in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
-#out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/python/voidfinder/data/'
-
 in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
 out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
 
+#in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+#out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+
 
 # Input file name
-galaxies_filename = 'dr12r.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
+galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 
 in_filename = in_directory + galaxies_filename
 #-------------------------------------------------------------------------------
@@ -72,8 +73,8 @@ in_filename = in_directory + galaxies_filename
 #-------------------------------------------------------------------------------
 # Survey parameters
 determine_parameters = False
-min_dist = 1000.0
-max_dist = 1800.0 # z = 0.107 -> 313 h-1 Mpc   z = 0.087 -> 257 h-1 Mpc
+min_dist = 0
+max_dist = 300. # z = 0.107 -> 313 h-1 Mpc   z = 0.087 -> 257 h-1 Mpc
 
 # Cosmology
 Omega_M = 0.3
@@ -128,10 +129,10 @@ galaxy_data_table = Table.read(in_filename, format='ascii.commented_header')
 if determine_parameters:
 
     # Minimum distance
-    min_z = min(galaxy_data_table['redshift'])
+    min_z = min(galaxy_data_table['z'])
 
     # Maximum distance
-    max_z = max(galaxy_data_table['redshift'])
+    max_z = max(galaxy_data_table['z'])
 
     if dist_metric == 'comoving':
         # Convert redshift to comoving distance
@@ -207,6 +208,7 @@ temp_outfile.close()
 
 
 
+
 ################################################################################
 #
 #   FIND VOIDS
@@ -221,15 +223,11 @@ temp_infile.close()
 
 
 
-
-
-
 w_coord_table = Table.read(survey_name + 'wall_gal_file.txt', format='ascii.commented_header')
 
 galaxy_coords = to_array(w_coord_table)
 
 coord_min = to_vector(coord_min_table)
-
 
 
 
@@ -251,6 +249,8 @@ find_voids(grid_shape,
            batch_size=10000,
            verbose=1,
            print_after=5.0)
+
+
 
 
 

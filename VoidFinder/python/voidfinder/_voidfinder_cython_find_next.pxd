@@ -16,6 +16,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                             DTYPE_F64_t direction_mod,\
                             DTYPE_F64_t[:] unit_vector_memview, \
                             galaxy_tree, \
+                            #galaxy_kdtree, \
                             DTYPE_INT64_t[:] nearest_gal_index_list, \
                             ITYPE_t num_neighbors, \
                             DTYPE_F64_t[:,:] w_coord, \
@@ -37,8 +38,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                             #ITYPE_t[:] nearest_neighbor_x_ratio_index, \
                             ITYPE_t[:] nearest_neighbor_index, \
                             DTYPE_F64_t[:] min_x_ratio, \
-                            DTYPE_B_t[:] in_mask,
-                            DTYPE_F64_t[:] PROFILE_kdtree_time) #except *
+                            DTYPE_B_t[:] in_mask)
+                            #DTYPE_F64_t[:] PROFILE_kdtree_time) #except *
 
 
 

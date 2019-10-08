@@ -108,6 +108,7 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 @cython.profile(True)
 cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                           galaxy_tree,
+                          #galaxy_kdtree,
                           DTYPE_F64_t[:,:] w_coord,
                           DTYPE_F64_t dl, 
                           DTYPE_F64_t dr,
@@ -119,7 +120,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                           DTYPE_F64_t[:,:] return_array,
                           Cell_ID_Memory cell_ID_mem,
                           int verbose,
-                          DTYPE_F32_t[:,:] PROFILE_ARRAY
+                          #DTYPE_F32_t[:,:] PROFILE_ARRAY
                           ) except *:
     '''
     
@@ -343,17 +344,16 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
     
     
-    cdef DTYPE_F64_t PROFILE_start_time
-    cdef DTYPE_F64_t[:] PROFILE_kdtree_time = np.zeros(1, dtype=np.float64)
-    PROFILE_kdtree_time[0] = 0.0
-    cdef DTYPE_F64_t PROFILE_kdtree_time_collect = 0.0
-    #cdef DTYPE_F64_t PROFILE_kdtree_time_collect_after = 0.0
+    #cdef DTYPE_F64_t PROFILE_start_time
+    #cdef DTYPE_F64_t[:] PROFILE_kdtree_time = np.zeros(1, dtype=np.float64)
+    #PROFILE_kdtree_time[0] = 0.0
+    #cdef DTYPE_F64_t PROFILE_kdtree_time_collect = 0.0
     
     for working_idx in range(num_cells):
         
         
-        PROFILE_kdtree_time[0] = 0.0
-        PROFILE_start_time = time.time()
+        #PROFILE_kdtree_time[0] = 0.0
+        #PROFILE_start_time = time.time()
         
         
         #Don't do the print statements in the main algorithm
@@ -397,9 +397,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             return_array[working_idx, 3] = NAN
             
             
-            PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
-            PROFILE_ARRAY[working_idx, 1] = 0
-            PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
+            #PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
+            #PROFILE_ARRAY[working_idx, 1] = 0
+            #PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
             
             #return 
             continue
@@ -412,9 +412,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ############################################################
         
         
-        PROFILE_kdtree_time_collect = time.time()
+        #PROFILE_kdtree_time_collect = time.time()
         
-        #neighbor_1_dists, neighbor_1_idxs = galaxy_tree.query(hole_center_memview, k=1)
+        #neighbor_1_dists, neighbor_1_idxs = galaxy_kdtree.query(hole_center_memview, k=1)
         
         #print("Pre query_first")
         
@@ -434,11 +434,16 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         k1g = query_vals.idx
         vector_modulus = query_vals.dist
         
+        
+        #if k1g != <ITYPE_t>(neighbor_1_idxs[0][0]):
+            
+        #    print("Neighbor 1 mismatch: ", k1g, neighbor_1_idxs[0][0])
+        
         #PROFILE_kdtree_time_collect_after = time.time()
         
         #print("Post query_first")
         
-        PROFILE_kdtree_time[0] += time.time() - PROFILE_kdtree_time_collect
+        #PROFILE_kdtree_time[0] += time.time() - PROFILE_kdtree_time_collect
         
         #print("KDTREE1_TIME: ", PROFILE_kdtree_time_collect_after - PROFILE_kdtree_time_collect, flush=True)
         
@@ -499,6 +504,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          -1.0,
                          unit_vector_memview, 
                          galaxy_tree, 
+                         #galaxy_kdtree,
                          nearest_gal_index_list, 
                          1,
                          w_coord, 
@@ -519,7 +525,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          gal_idx_return_mem,        #return variable
                          min_x_return_mem,          #return variable
                          in_mask_return_mem,        #return variable
-                         PROFILE_kdtree_time)
+                         #PROFILE_kdtree_time
+                         )
     
     
         #k2g_x2 = x_ratio_index_return_mem[0]
@@ -541,9 +548,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             return_array[working_idx, 3] = NAN
             
             
-            PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
-            PROFILE_ARRAY[working_idx, 1] = 1
-            PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
+            #PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
+            #PROFILE_ARRAY[working_idx, 1] = 1
+            #PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
             
             #return 
             continue
@@ -589,9 +596,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             return_array[working_idx, 3] = NAN
             
             
-            PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
-            PROFILE_ARRAY[working_idx, 1] = 2
-            PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
+            #PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
+            #PROFILE_ARRAY[working_idx, 1] = 2
+            #PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
             
             #return 
             continue
@@ -661,6 +668,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          1.0,
                          unit_vector_memview, 
                          galaxy_tree, 
+                         #galaxy_kdtree,
                          nearest_gal_index_list, 
                          2,
                          w_coord, 
@@ -681,7 +689,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          gal_idx_return_mem,        #return variable
                          min_x_return_mem,          #return variable
                          in_mask_return_mem,        #return variable
-                         PROFILE_kdtree_time)
+                         #PROFILE_kdtree_time
+                         )
     
         #k3g_x3 = x_ratio_index_return_mem[0]
         
@@ -702,9 +711,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             return_array[working_idx, 3] = NAN
             
             
-            PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
-            PROFILE_ARRAY[working_idx, 1] = 3
-            PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
+            #PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
+            #PROFILE_ARRAY[working_idx, 1] = 3
+            #PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
             
             
             #return 
@@ -750,9 +759,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             return_array[working_idx, 3] = NAN
             
             
-            PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
-            PROFILE_ARRAY[working_idx, 1] = 4
-            PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
+            #PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
+            #PROFILE_ARRAY[working_idx, 1] = 4
+            #PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
             
             #return 
             continue
@@ -836,6 +845,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          1.0,
                          unit_vector_memview, 
                          galaxy_tree, 
+                         #galaxy_kdtree,
                          nearest_gal_index_list, 
                          3,
                          w_coord, 
@@ -856,7 +866,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          gal_idx_return_mem,        #return variable
                          min_x_return_mem,          #return variable
                          in_mask_return_mem,        #return variable
-                         PROFILE_kdtree_time)
+                         #PROFILE_kdtree_time
+                         )
     
         #k4g1_x41 = x_ratio_index_return_mem[0]
                         
@@ -914,6 +925,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          1.0,
                          unit_vector_memview, 
                          galaxy_tree, 
+                         #galaxy_kdtree,
                          nearest_gal_index_list, 
                          3,
                          w_coord, 
@@ -934,7 +946,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                          gal_idx_return_mem,        #return variable
                          min_x_return_mem,          #return variable
                          in_mask_return_mem,        #return variable
-                         PROFILE_kdtree_time)
+                         #PROFILE_kdtree_time
+                         )
     
         #k4g2_x42 = x_ratio_index_return_mem[0]
                         
@@ -999,9 +1012,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
             
             
-            PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
-            PROFILE_ARRAY[working_idx, 1] = 5
-            PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
+            #PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
+            #PROFILE_ARRAY[working_idx, 1] = 5
+            #PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
             
             
             
@@ -1034,9 +1047,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         return_array[working_idx, 3] = hole_radius
         
         
-        PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
-        PROFILE_ARRAY[working_idx, 1] = 6
-        PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
+        #PROFILE_ARRAY[working_idx, 0] = time.time() - PROFILE_start_time
+        #PROFILE_ARRAY[working_idx, 1] = 6
+        #PROFILE_ARRAY[working_idx, 2] = <DTYPE_F32_t>PROFILE_kdtree_time[0]
     
     
     #print("Finished main loop")

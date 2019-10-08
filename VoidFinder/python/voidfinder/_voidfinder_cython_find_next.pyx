@@ -51,6 +51,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            DTYPE_F64_t direction_mod,
                            DTYPE_F64_t[:] unit_vector_memview, 
                            galaxy_tree, 
+                           #galaxy_kdtree,
                            DTYPE_INT64_t[:] nearest_gal_index_list, 
                            ITYPE_t num_neighbors,
                            DTYPE_F64_t[:,:] w_coord, 
@@ -75,7 +76,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            ITYPE_t[:] nearest_neighbor_index,           #return variable
                            DTYPE_F64_t[:] min_x_ratio,                  #return variable
                            DTYPE_B_t[:] in_mask,                         #return variable
-                           DTYPE_F64_t[:] PROFILE_kdtree_time
+                           #DTYPE_F64_t[:] PROFILE_kdtree_time
                            
                            ): 
                            #) except *:              
@@ -261,7 +262,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     ############################################################################
     
     
-    cdef DTYPE_F64_t PROFILE_kdtree_time_collect
+    #cdef DTYPE_F64_t PROFILE_kdtree_time_collect
     
     
     
@@ -324,11 +325,12 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         # use KDtree to find the galaxies within our target sphere
         ############################################################################
 
-        PROFILE_kdtree_time_collect = time.time()
+        #PROFILE_kdtree_time_collect = time.time()
 
         #i_nearest = galaxy_tree.query_radius(temp_hole_center_memview, r=search_radius) #sklearn
         #i_nearest = galaxy_tree.query_ball_point(temp_hole_center_memview, search_radius) #scipy
         i_nearest_memview = _query_shell_radius(galaxy_tree.reference_point_ijk,
+                                                galaxy_tree.w_coord,
                                                 galaxy_tree.coord_min,
                                                 galaxy_tree.dl, 
                                                 galaxy_tree.galaxy_map,
@@ -336,7 +338,18 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                                 temp_hole_center_memview, 
                                                 search_radius) #custom
         
-        PROFILE_kdtree_time[0] += time.time() - PROFILE_kdtree_time_collect
+        
+        #i_nearest = galaxy_kdtree.query_radius(temp_hole_center_memview, r=search_radius)
+        
+        
+        #for idx, element in enumerate(i_nearest[0]):
+            
+        #    if i_nearest[idx] != i_nearest_memview[idx]:
+                
+        #        print("Radius query mismatch")
+        
+        
+        #PROFILE_kdtree_time[0] += time.time() - PROFILE_kdtree_time_collect
         
         
         
@@ -1282,6 +1295,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
 @cython.cdivision(True)
 @cython.profile(True)
 cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
+                                    DTYPE_F64_t[:,:] w_coord, 
                                     DTYPE_F64_t[:,:] coord_min, 
                                     DTYPE_F64_t dl,
                                     dict galaxy_map,
@@ -1308,19 +1322,50 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
     
     cdef ITYPE_t cell_ID_idx
     
+    cdef ITYPE_t idx
+    
+    cdef ITYPE_t curr_galaxy_idx
+    
     #cdef DTYPE_INT64_t[:,:] shell_cell_IDs
     
     cdef DTYPE_INT64_t num_cell_IDs
     
     cdef DTYPE_INT64_t id1, id2, id3
     
-    if search_radius_xyz < 0.5*dl:
+    cdef DTYPE_F64_t search_radius_xyz_sq = search_radius_xyz*search_radius_xyz
+    
+    cdef DTYPE_INT64_t[:] curr_galaxies_idxs
+    
+    cdef DTYPE_F64_t[:] galaxy_xyz
+    
+    cdef DTYPE_F64_t temp1, temp2, temp3, temp4
+    
+    cdef DTYPE_F64_t dist_sq
+    
+    cdef DTYPE_F64_t[:,:] cell_ijk_in_xyz = np.empty((1,3), dtype=np.float64)
+    
+    #if search_radius_xyz < 0.5*dl:
         
-        max_shell = 0
+    #    max_shell = 0
         
-    else:
+    #else:
+    
+    #Calculate the max shell needed to search
         
-        max_shell = <DTYPE_INT64_t>ceil((search_radius_xyz - 0.5*dl)/dl)
+    cell_ijk_in_xyz[0,0] = (reference_point_ijk[0,0] + 0.5)*dl + coord_min[0,0]
+    cell_ijk_in_xyz[0,1] = (reference_point_ijk[0,1] + 0.5)*dl + coord_min[0,1]
+    cell_ijk_in_xyz[0,2] = (reference_point_ijk[0,2] + 0.5)*dl + coord_min[0,2]
+    
+    temp1 = fabs((cell_ijk_in_xyz[0,0] - reference_point_xyz[0,0])/dl)
+    temp4 = temp1
+    temp2 = fabs((cell_ijk_in_xyz[0,1] - reference_point_xyz[0,1])/dl)
+    if temp2 > temp4:
+        temp4 = temp2
+    temp3 = fabs((cell_ijk_in_xyz[0,2] - reference_point_xyz[0,2])/dl)
+    if temp3 > temp4:
+        temp4 = temp3
+    
+    max_shell = <DTYPE_INT64_t>ceil((search_radius_xyz - (0.5-temp4)*dl)/dl)
         
         
     #for current_shell in range(max_shell+1): #+1 to include max_shell
@@ -1347,7 +1392,33 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
         
         if cell_ID in galaxy_map:
             
-            output.append(galaxy_map[cell_ID])
+            #output.append(galaxy_map[cell_ID])
+            
+            curr_galaxies_idxs = galaxy_map[cell_ID]
+            
+            for idx in range(curr_galaxies_idxs.shape[0]):
+                
+                
+                curr_galaxy_idx = <ITYPE_t>curr_galaxies_idxs[idx]
+                
+                galaxy_xyz = w_coord[curr_galaxy_idx]
+                
+                temp1 = galaxy_xyz[0] - reference_point_xyz[0,0]
+                temp2 = galaxy_xyz[1] - reference_point_xyz[0,1]
+                temp3 = galaxy_xyz[2] - reference_point_xyz[0,2]
+                
+                dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
+                
+                if dist_sq < search_radius_xyz_sq:
+                    
+                    output.append(curr_galaxy_idx)
+    
+    
+    
+    #ADD FILTER HERE TO CUT DOWN RESULTS TO ONLY THOSE WHICH ARE
+    # ACTUALLY WITHIN search_radius_xyz OF THE reference_point_xyz
+    
+    
     
     
     #print("query_shell_radius end")
@@ -1359,7 +1430,7 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
         
         #print("query shell radius returning values")
     
-        return np.concatenate(output).astype(np.intp)
+        return np.array(output).astype(np.intp)
     
     else:
         #print("doopydoop")

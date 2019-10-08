@@ -17,6 +17,7 @@ import socket
 import select
 import atexit
 import tempfile
+from psutil import cpu_count
 
 
 import cProfile
@@ -34,7 +35,7 @@ from ._voidfinder_cython_find_next import GalaxyMap, Cell_ID_Memory
 
 
 
-from multiprocessing import Queue, Process, cpu_count, RLock, Value, Array
+from multiprocessing import Queue, Process, RLock, Value, Array
 
 from ctypes import c_int64, c_double, c_float
 
@@ -54,41 +55,52 @@ import matplotlib.pyplot as plt
 
 
 
-def _main_hole_finder(search_grid_shape, 
-                      search_grid_edge_length, 
+def _main_hole_finder(void_grid_shape, 
+                      void_grid_edge_length, 
                       hole_center_iter_dist,
+                      search_grid_edge_length,
                       coord_min, 
                       mask,
                       mask_resolution,
                       min_dist,
                       max_dist,
-                      w_coord,
+                      galaxy_coords,
                       batch_size=1000,
                       verbose=0,
-                      print_after=10000,
+                      print_after=5.0,
                       num_cpus=1):
     '''
     Description
     ===========
 
+    See help(voidfinder.find_voids)
+
     This function is basically a glorified switch between single-threaded mode and
     multi-processed mode of running VoidFinder.
 
-    Grow a sphere in each empty cell until the sphere is bounded by four 
-    galaxies on its surface.
     
     Parameters
     ==========
     
-    search_grid_shape : array or tuple of length 3
+    void_grid_shape : array or tuple of length 3
         the number of grid cells in each of the 3 x,y,z dimensions
     
-    search_grid_edge_length : scalar float
+    void_grid_edge_length : scalar float
         length of each cell in Mpc/h
         
     hole_center_iter_dist : scalar float
         distance to shift hole centers during iterative void hole growing in 
         Mpc/h
+        
+        
+    search_grid_edge_length : float or None
+        edge length in Mpc/h for the secondary grid for finding nearest neighbor
+        galaxies.  If None, will default to 3*void_grid_edge_length (which results
+        in a cell volume of 3^3 = 27 times larger cube volume).  This parameter
+        yields a tradeoff between number of galaxies in a cell, and number of
+        cells to search when growing a sphere.  Too large and many redundant galaxies
+        may be searched, too small and too many cells will need to be searched.
+        (xyz space)
         
     coord_min : numpy.ndarray of shape (1,3) 
         minimum coordinates of the survey in x,y,z in Mpc/h
@@ -102,14 +114,15 @@ def _main_hole_finder(search_grid_shape,
     mask_resolution : integer
         Scale factor of coordinates needed to index mask
     
-    min_dist : scalar
+    min_dist : float
         minimum redshift in units of Mpc/h
         
-    max_dist : scalar
+    max_dist : float
         maximum redshift in units of Mpc/h
         
-    w_coord : numpy.ndarray of shape ()
-        x,y,z coordinates of the galaxies used in building the query tree
+    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
+        coordinates of the galaxies in the survey, units of Mpc/h
+        (xyz space)
 
     batch_size : scalar float
         Number of empty cells to pass into each process.  Initialized to 1000.
@@ -118,9 +131,12 @@ def _main_hole_finder(search_grid_shape,
         value to determine whether or not to display status messages while 
         running.  0 is off, 1 is print after N updates, 2 is full debugging prints.
 
-    num_cpus : scalar float
-        Number of CPUs to use in parallel.  Default is 1.  Set to None to use 
-        maximum number of CPUs available.
+    num_cpus : int or None
+        number of cpus to use while running the main algorithm.  None will result
+        in using number of physical cores on the machine.  Some speedup benefit
+        may be obtained from using additional logical cores via Intel Hyperthreading
+        but with diminishing returns.  This can safely be set above the number of 
+        physical cores without issue if desired.
     
     
     
@@ -148,15 +164,16 @@ def _main_hole_finder(search_grid_shape,
         #n_holes = None
         
         
-        x_y_z_r_array, n_voids = run_single_process_cython(search_grid_shape, 
-                                                           search_grid_edge_length, 
+        x_y_z_r_array, n_voids = run_single_process_cython(void_grid_shape, 
+                                                           void_grid_edge_length, 
                                                            hole_center_iter_dist,
+                                                           search_grid_edge_length,
                                                            coord_min, 
                                                            mask,
                                                            mask_resolution,
                                                            min_dist,
                                                            max_dist,
-                                                           w_coord,
+                                                           galaxy_coords,
                                                            batch_size=batch_size,
                                                            verbose=verbose,
                                                            print_after=print_after,
@@ -169,15 +186,16 @@ def _main_hole_finder(search_grid_shape,
         
     else:
         
-        x_y_z_r_array, n_voids = run_multi_process(search_grid_shape, 
-                                                   search_grid_edge_length, 
+        x_y_z_r_array, n_voids = run_multi_process(void_grid_shape, 
+                                                   void_grid_edge_length, 
                                                    hole_center_iter_dist,
+                                                   search_grid_edge_length,
                                                    coord_min, 
                                                    mask,
                                                    mask_resolution,
                                                    min_dist,
                                                    max_dist,
-                                                   w_coord,
+                                                   galaxy_coords,
                                                    batch_size=batch_size,
                                                    verbose=verbose,
                                                    print_after=print_after,
@@ -1386,27 +1404,27 @@ def run_single_process(cell_ID_list,
     
 
     
-def run_single_process_cython(ngrid, 
-                              dl, 
-                              dr,
+def run_single_process_cython(void_grid_shape, 
+                              void_grid_edge_length, 
+                              hole_center_iter_dist,
+                              search_grid_edge_length,
                               coord_min, 
                               mask,
                               mask_resolution,
                               min_dist,
                               max_dist,
-                              w_coord,
+                              galaxy_coords,
                               batch_size=1000,
                               verbose=0,
-                              print_after=10000,
+                              print_after=5.0,
                               num_cpus=None,
                               DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
                               ):
+    if verbose > 0:
+        start_time = time.time()
     
-    
-    
-    start_time = time.time()
-    
-    print("Running single-process mode", flush=True)
+    if verbose > 1:
+        print("Running single-process mode", flush=True)
     
     ################################################################################
     #
@@ -1416,15 +1434,19 @@ def run_single_process_cython(ngrid,
     #
     ################################################################################
     
-    if verbose:
+    if verbose > 1:
         
         kdtree_start_time = time.time()
-
-    galaxy_tree = GalaxyMap(w_coord, coord_min, 3.0*dl)
-    
-    if verbose:
         
-        print('KDTree creation time:', time.time() - kdtree_start_time, flush=True)
+        
+    from sklearn import neighbors
+    galaxy_kdtree = neighbors.KDTree(galaxy_coords)
+
+    galaxy_tree = GalaxyMap(galaxy_coords, coord_min, search_grid_edge_length)
+    
+    if verbose > 1:
+        
+        print('Galaxy Map creation time:', time.time() - kdtree_start_time, flush=True)
     
     cell_ID_mem = Cell_ID_Memory(len(galaxy_tree.galaxy_map))
     
@@ -1432,10 +1454,7 @@ def run_single_process_cython(ngrid,
     # Create the Cell ID generator
     ################################################################################
     
-    #cell_ID_gen = CellIDGenerator(ngrid[0], ngrid[1], ngrid[2], cell_ID_dict)
-    
-    
-    mesh_indices = ((w_coord - coord_min)/dl).astype(np.int64)
+    mesh_indices = ((galaxy_coords - coord_min)/void_grid_edge_length).astype(np.int64)
         
     cell_ID_dict = {}
         
@@ -1446,7 +1465,9 @@ def run_single_process_cython(ngrid,
         cell_ID_dict[bin_ID] = 1
     
     
-    
+    ################################################################################
+    # Create the Cell ID generator
+    ################################################################################
     
     
     
@@ -1454,9 +1475,12 @@ def run_single_process_cython(ngrid,
     
     out_start_idx = 0
     
-    cell_ID_gen = MultiCellIDGenerator_2(ngrid[0], ngrid[1], ngrid[2], cell_ID_dict)
+    cell_ID_gen = MultiCellIDGenerator_2(void_grid_shape[0], 
+                                         void_grid_shape[1], 
+                                         void_grid_shape[2], 
+                                         cell_ID_dict)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print("Len cell_ID_dict (eliminated cells): ", len(cell_ID_dict), flush=True)
     
@@ -1466,18 +1490,13 @@ def run_single_process_cython(ngrid,
     
     mask = mask.astype(np.uint8)
     
-    
-    
-    
-    
     ################################################################################
     # Main loop
     ################################################################################
     
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(galaxy_tree.nonvoid_cell_ID_dict)
+    n_empty_cells = void_grid_shape[0]*void_grid_shape[1]*void_grid_shape[2] \
+                    - len(cell_ID_dict)
     
-    #n_holes = 0
-
     RETURN_ARRAY = np.empty((n_empty_cells, 4), dtype=np.float64)
     
     RETURN_ARRAY.fill(np.NAN)
@@ -1496,7 +1515,7 @@ def run_single_process_cython(ngrid,
     # 2 - kdtree_time
     ################################################################################
     
-    
+    '''
     PROFILE_COUNT = 80000000
     
     PROFILE_ARRAY = np.empty((85000000,3), dtype=np.float64)
@@ -1512,7 +1531,15 @@ def run_single_process_cython(ngrid,
     PROFILE_start_time = time.time()
     
     PROFILE_sample_time = 5.0
+    '''
     
+    ################################################################################
+    # Set up print timer if verbose is 1 or greater
+    ################################################################################
+    if verbose > 0:
+        
+        print_start_time = time.time()
+        
     
     ################################################################################
     # Mainloop
@@ -1524,9 +1551,7 @@ def run_single_process_cython(ngrid,
     
     while not exit_condition:
         
-        ######################################################################
-        # DEBUGGING CODE
-        ######################################################################
+        '''
         if num_cells_processed >= PROFILE_COUNT:
             
             exit_condition = True
@@ -1554,18 +1579,21 @@ def run_single_process_cython(ngrid,
                 cells_per_sec = (PROFILE_samples[-1] - PROFILE_samples[-2])/curr_sample_interval
                 
                 print(str(round(cells_per_sec, 2)), "cells per sec")
+        '''
+        
+        if verbose > 0:
+            
+            curr_time = time.time()
+            
+            if (curr_time - print_start_time) > print_after:
                 
-        ######################################################################
-        # END DEBUGGING CODE
-        ######################################################################
-                
+                print("Processed cell "+str(num_cells_processed)+" of "+str(n_empty_cells), str(round(curr_time - start_time, 2)))
+            
+                print_start_time = curr_time
+        
         ######################################################################
         # Generate the next batch and run the main algorithm
         ######################################################################
-        
-        #i_j_k_array, out_start_idx = cell_ID_gen.gen_cell_ID_batch(batch_size, i_j_k_array)
-        
-        #num_cells_to_process = i_j_k_array.shape[0]
         
         num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
         
@@ -1579,13 +1607,14 @@ def run_single_process_cython(ngrid,
 
                 return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
                 
-                PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
+                #PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
         
             main_algorithm(i_j_k_array[0:num_write],
                            galaxy_tree,
-                           w_coord,
-                           dl, 
-                           dr,
+                           #galaxy_kdtree,
+                           galaxy_coords,
+                           void_grid_edge_length, 
+                           hole_center_iter_dist,
                            coord_min,
                            mask,
                            mask_resolution,
@@ -1594,31 +1623,30 @@ def run_single_process_cython(ngrid,
                            return_array,
                            cell_ID_mem,
                            0,  
-                           PROFILE_array
+                           #PROFILE_array
                            )
         
             RETURN_ARRAY[out_start_idx:(out_start_idx+num_write),:] = return_array[0:num_write]
             
-            PROFILE_ARRAY[out_start_idx:(out_start_idx+num_write),:] = PROFILE_array[0:num_write]
-            
-            #n_holes += np.sum(np.logical_not(np.isnan(return_array[0:num_write,0])))
+            #PROFILE_ARRAY[out_start_idx:(out_start_idx+num_write),:] = PROFILE_array[0:num_write]
             
             num_cells_processed += num_write
             
             out_start_idx += num_write
-            
-        else:
-            
+        
+        elif num_cells_to_process == 0 and num_cells_processed == n_empty_cells:
+        
             exit_condition = True
             
             
-    if verbose > 0:
+    if verbose > 1:
         
         print("Main task finish time: ", time.time() - start_time)
         
     ######################################################################
     # PROFILING CODE
     ######################################################################
+    '''
     outfile = open(os.path.join(DEBUG_DIR, "single_thread_profile.pickle"), 'wb')
     pickle.dump((PROFILE_sample_times, PROFILE_samples), outfile)
     outfile.close()    
@@ -1651,15 +1679,20 @@ def run_single_process_cython(ngrid,
             plot_cell_kdtree_times(curr_data, idx, 'Single', DEBUG_DIR)
         
     
-    ######################################################################
-    # DEBUGGING CODE
-    ######################################################################
-    
+        
     n_holes = np.sum(np.logical_not(np.isnan(RETURN_ARRAY[0:PROFILE_COUNT,0])), axis=None, dtype=np.int64)
     
     print("N holes: ", n_holes)
+    '''
+    ######################################################################
+    # END PROFILING CODE
+    ######################################################################
     
-    return RETURN_ARRAY, n_holes
+    valid_idx = np.logical_not(np.isnan(RETURN_ARRAY[:,0]))
+    
+    n_holes = np.sum(valid_idx, axis=None, dtype=np.int64)
+    
+    return RETURN_ARRAY[valid_idx,:], n_holes
 
 
 
@@ -1673,6 +1706,7 @@ def run_single_process_cython(ngrid,
 def run_multi_process(ngrid, 
                       dl, 
                       dr,
+                      search_grid_edge_length,
                       coord_min, 
                       mask,
                       mask_resolution,
@@ -1722,8 +1756,8 @@ def run_multi_process(ngrid,
     TODO: Check that /dev/shm actually exists, if not fall back to /tmp
     """
     
-    
-    start_time = time.time()
+    if verbose > 0:
+        start_time = time.time()
     
     ################################################################################
     # Start by converting the num_cpus argument into the real value we will use
@@ -1731,12 +1765,12 @@ def run_multi_process(ngrid,
     #
     # Maybe should use psutil.cpu_count(logical=False) instead of the
     # multiprocessing version?
+    #
     ################################################################################
-    max_cpus = cpu_count()
     
-    if (num_cpus is None) or (num_cpus > max_cpus):
+    if (num_cpus is None):
           
-        num_cpus = max_cpus
+        num_cpus = cpu_count(logical=False)
     
     ################################################################################
     # An output counter for total number of holes found, and calculate the
@@ -1785,6 +1819,7 @@ def run_multi_process(ngrid,
     ################################################################################
     # Memory for PROFILING
     ################################################################################
+    '''
     PROFILE_fd, PROFILE_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     #PROFILE_fd = os.open(PROFILE_BUFFER_PATH, os.O_TRUNC | os.O_CREAT | os.O_RDWR | os.O_CLOEXEC)
@@ -1798,14 +1833,14 @@ def run_multi_process(ngrid,
     #PROFILE_buffer_length = 85000000*3*4 #float32 so 4 bytes per element
     
     #PROFILE_buffer.write(b"0"*PROFILE_buffer_length)
-    
+    '''
     ################################################################################
     # Build Cell ID generator memory
     ################################################################################
-    cell_ID_fd, CELL_ID_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    #cell_ID_fd, CELL_ID_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     #Don't actually need this memory anymore if we use the ijk_start and write_start vals instead
-    os.close(cell_ID_fd)
+    #os.close(cell_ID_fd)
     '''
     #cell_ID_fd = os.open(CELL_ID_BUFFER_PATH, os.O_TRUNC | os.O_CREAT | os.O_RDWR | os.O_CLOEXEC)
     
@@ -1834,8 +1869,8 @@ def run_multi_process(ngrid,
     ################################################################################
     # Dump configuration to a file for worker processes to get it
     ################################################################################
-    
-    print("Grid: ", ngrid)
+    if verbose > 0:
+        print("Grid: ", ngrid, flush=True)
     
     config_object = (SOCKET_PATH,
                      RESULT_BUFFER_PATH,
@@ -1855,6 +1890,7 @@ def run_multi_process(ngrid,
                      verbose,
                      print_after,
                      num_cpus,
+                     search_grid_edge_length,
                      DEBUG_DIR
                      )
     
@@ -1882,14 +1918,23 @@ def run_multi_process(ngrid,
         
         os.remove(RESULT_BUFFER_PATH)
         
-    def cleanup_cellID():
+    #def cleanup_cellID():
         
-        os.remove(CELL_ID_BUFFER_PATH)
+    #    os.remove(CELL_ID_BUFFER_PATH)
         
-    def cleanup_profile():
+    #def cleanup_profile():
         
-        os.remove(PROFILE_BUFFER_PATH)
+    #    os.remove(PROFILE_BUFFER_PATH)
+    
+    def possibly_send_exit_commands():
         
+        if not sent_exit_commands:
+        
+            for idx in range(num_cpus):
+                
+                worker_sockets[idx].send(b"exit")
+        
+    
     
     atexit.register(cleanup_config)
     
@@ -1897,9 +1942,11 @@ def run_multi_process(ngrid,
     
     atexit.register(cleanup_result)
     
-    atexit.register(cleanup_cellID)
+    atexit.register(possibly_send_exit_commands)
     
-    atexit.register(cleanup_profile)
+    #atexit.register(cleanup_cellID)
+    
+    #atexit.register(cleanup_profile)
     
     ################################################################################
     # Start the worker processes
@@ -1918,7 +1965,11 @@ def run_multi_process(ngrid,
     for proc_idx in range(num_cpus):
         
         #p = startup_context.Process(target=_main_hole_finder_startup, args=(proc_idx, CONFIG_PATH))
-        p = startup_context.Process(target=_main_hole_finder_worker, args=(proc_idx, ijk_start, write_start, CONFIG_PATH))
+        p = startup_context.Process(target=_main_hole_finder_worker, 
+                                    args=(proc_idx, 
+                                          ijk_start, 
+                                          write_start, 
+                                          CONFIG_PATH))
         #p = startup_context.Process(target=_main_hole_finder_profile, args=(proc_idx, CONFIG_PATH))
         
         p.start()
@@ -1930,8 +1981,8 @@ def run_multi_process(ngrid,
     # the accept() call below until we get a connection, and make sure we get 
     # exactly num_cpus connections
     ################################################################################
-    
-    print("Waiting on workers to connect")
+    if verbose > 0:
+        print("Waiting on workers to connect", flush=True)
     
     num_active_processes = 0
     
@@ -1960,6 +2011,7 @@ def run_multi_process(ngrid,
     ################################################################################
     # PROFILING VARIABLES
     ################################################################################
+    '''
     PROFILE_process_start_time = time.time()
     
     PROFILE_sample_times = []
@@ -1969,11 +2021,14 @@ def run_multi_process(ngrid,
     PROFILE_start_time = time.time()
     
     PROFILE_sample_time = 5.0
+    '''
     
     
     ################################################################################
     # LOOP TO LISTEN FOR RESULTS WHILE WORKERS WORKING
     ################################################################################
+    if verbose > 0:
+        print_after_time = time.time()
     
     num_cells_processed = 0
     
@@ -1990,6 +2045,7 @@ def run_multi_process(ngrid,
         ################################################################################
         # DEBUGGING CODE
         ################################################################################
+        '''
         if num_cells_processed >= 80000000:
         
             print("Breaking debug loop", num_cells_processed, num_active_processes)
@@ -2024,7 +2080,18 @@ def run_multi_process(ngrid,
                     cells_per_sec = (PROFILE_samples[-1] - PROFILE_samples[-2])/curr_sample_interval
                     
                     print(str(round(cells_per_sec,2)), "cells per sec")
-                    
+        '''
+        
+        if verbose > 0:
+            
+            curr_time = time.time()
+            
+            if (curr_time - print_after_time) > print_after:
+            
+                print('Processed', num_cells_processed, 'cells of', n_empty_cells, str(round(curr_time-start_time,2)))
+                
+                print_after_time = curr_time
+            
         ################################################################################
         # END DEBUGGING CODE
         ################################################################################
@@ -2093,7 +2160,7 @@ def run_multi_process(ngrid,
     ################################################################################
     # PROFILING - SAVE OFF RESULTS
     ################################################################################
-    
+    '''
     outfile = open(os.path.join(DEBUG_DIR, "multi_thread_profile.pickle"), 'wb')
     
     pickle.dump((PROFILE_sample_times, PROFILE_samples), outfile)
@@ -2132,14 +2199,14 @@ def run_multi_process(ngrid,
                 print("Avg Cell KDTree time: ", np.mean(curr_data))
             
             plot_cell_kdtree_times(curr_data, idx, 'Multi', DEBUG_DIR)
-        
+    '''
     ################################################################################
     # Close the unneeded file handles to the shared memory, and return the file
     # handle to the result memory buffer
     ################################################################################
     #cell_ID_buffer.close()
     
-    PROFILE_buffer.close()
+    #PROFILE_buffer.close()
     
     result_buffer.seek(0)
     
@@ -2149,9 +2216,15 @@ def run_multi_process(ngrid,
     
     result_buffer.close()
     
-    n_holes = np.sum(np.logical_not(np.isnan(result_array[0:80000000,0])), axis=None, dtype=np.int64)
+    #n_holes = np.sum(np.logical_not(np.isnan(result_array[0:80000000,0])), axis=None, dtype=np.int64)
+    
+    valid_idx = np.logical_not(np.isnan(result_array[:,0]))
+    
+    n_holes = np.sum(valid_idx, axis=None, dtype=np.int64)
+    
+    #print(result_array.shape, valid_idx.shape, n_holes)
         
-    return result_array[0:80000000], n_holes
+    return result_array[valid_idx,:], n_holes
                     
     
 def process_message_buffer(curr_message_buffer):
@@ -2307,7 +2380,8 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     verbose = config[15]
     print_after = config[16]
     num_cpus = config[17]
-    DEBUG_DIR = config[18]
+    search_grid_edge_length = config[18]
+    DEBUG_DIR = config[19]
 
 
 
@@ -2335,7 +2409,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     #from scipy.spatial import KDTree
     #galaxy_tree = KDTree(w_coord)
     
-    galaxy_tree = GalaxyMap(w_coord, coord_min, 3.0*dl)
+    galaxy_tree = GalaxyMap(w_coord, coord_min, search_grid_edge_length)
     
     
     if verbose:
@@ -2418,6 +2492,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     ################################################################################
     # Memory for PROFILING
     ################################################################################
+    '''
     PROFILE_buffer = open(PROFILE_BUFFER_PATH, 'r+b')
     
     PROFILE_buffer_length = 85000000*3*4 #float32 so 4 bytes per element
@@ -2429,7 +2504,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     PROFILE_gen_times = []
     
     PROFILE_main_times = []
-    
+    '''
     ################################################################################
     #
     # exit_process - flag for reading an exit command off the queue
@@ -2490,13 +2565,13 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
         
         
         
-        PROFILE_gen_start = time.time_ns()
+        #PROFILE_gen_start = time.time_ns()
         
         num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
         
-        PROFILE_gen_end = time.time_ns()
+        #PROFILE_gen_end = time.time_ns()
         
-        PROFILE_gen_times.append((PROFILE_gen_end, PROFILE_gen_start))
+        #PROFILE_gen_times.append((PROFILE_gen_end, PROFILE_gen_start))
         
         #print("Worker: ", worker_idx, i_j_k_array[0,:], out_start_idx)
         
@@ -2507,13 +2582,13 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
         
         if num_cells_to_process > 0:
             
-            PROFILE_main_start = time.time_ns()
+            #PROFILE_main_start = time.time_ns()
 
             if return_array.shape[0] != num_cells_to_process:
 
                 return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
                 
-                PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
+                #PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
                 
             main_algorithm(i_j_k_array[0:num_write],
                            galaxy_tree,
@@ -2528,7 +2603,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
                            return_array,
                            cell_ID_mem,
                            0,  #verbose level
-                           PROFILE_array
+                           #PROFILE_array
                            )
             
             num_cells_processed += num_write
@@ -2554,9 +2629,9 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
             
             
             #PROFILE_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0]),:] = PROFILE_array
-            seek_location = 12*out_start_idx
-            PROFILE_mmap_buffer.seek(seek_location)
-            PROFILE_mmap_buffer.write(PROFILE_array[0:num_write].tobytes())
+            #seek_location = 12*out_start_idx
+            #PROFILE_mmap_buffer.seek(seek_location)
+            #PROFILE_mmap_buffer.write(PROFILE_array[0:num_write].tobytes())
             
             
             
@@ -2580,9 +2655,9 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
             
             worker_socket.send(out_msg)
             
-            PROFILE_main_end = time.time_ns()
+            #PROFILE_main_end = time.time_ns()
             
-            PROFILE_main_times.append((PROFILE_main_end, PROFILE_main_start, return_array.shape[0]))
+            #PROFILE_main_times.append((PROFILE_main_end, PROFILE_main_start, return_array.shape[0]))
             
         else:
             
@@ -2613,9 +2688,9 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
         
     worker_socket.close()
     
-    outfile = open(os.path.join(DEBUG_DIR, "multi_gen_times_"+str(worker_idx)+".pickle"), 'wb')
-    pickle.dump((PROFILE_gen_times, PROFILE_main_times), outfile)
-    outfile.close()
+    #outfile = open(os.path.join(DEBUG_DIR, "multi_gen_times_"+str(worker_idx)+".pickle"), 'wb')
+    #pickle.dump((PROFILE_gen_times, PROFILE_main_times), outfile)
+    #outfile.close()
     
     #del RETURN_ARRAY #flushes np.memmap 
     #del PROFILE_ARRAY #flushes np.memmap
