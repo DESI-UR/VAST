@@ -1,4 +1,19 @@
 
+
+############################################################
+# Installation
+############################################################
+Requires OpenGL >= 1.2
+
+'pip install vispy'
+
+cd into VoidFinder/python/voidfinder/viz and run
+
+'cython -a *.pyx'
+
+'python setup.py build_ext --inplace'
+
+
 ############################################################
 # Notes
 ############################################################
@@ -50,15 +65,29 @@ v - decrease rotation sensitivity
 
 mouse wheel - increase/decrease galaxy size
 
+0 - (zero key) - save screen as png in current directory
+
 
 ############################################################
 # Backlog:
 ############################################################
 
-- reconfigure location within voidfinder repo
-- test on Mac again
+- add index maps from the vertex/triangle data buffers to which void hole they belong to so we can do fancy things
+- add some kind of visual shading or lighting or something to make it easier to see the void spheres as we move
+    through the middle of the cluster
+- fix the png image save on press_0 function, manually add background color (white) in?
 
 
+
+
+
++ (Not going to do, existing way is efficient enough) update green color so that is just modifies the existing triangle colors instead of moving the green sphere around
++ add image save
++ color holes which camera is inside of with green so you know you're inside
+    + (dont do this) set alpha to 1.0 for everything, then set it to .5, .4, .3 for holes that user is within ~ 50mpc of?
++ (had 0 hits) filter out holes which live completely within other holes (might fix problem where some sphere edges have holes in them for no apparent reason?)
++ reconfigure location within voidfinder repo
++ test on Mac again
 + Test on Mac - it works!  Just install vispy
 + Add control bar to canvas for increasing/decreasing mouse sensitivity and such
 + Add key-based mouse sensitivity and such

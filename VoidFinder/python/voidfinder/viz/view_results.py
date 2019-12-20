@@ -10,17 +10,19 @@ from vispy import gloo
 
 from vispy import app
 
+import vispy.io as io
+
 from vispy.util.transforms import perspective, translate, rotate
 
-from vispy.util.quaternion import Quaternion
+#from vispy.util.quaternion import Quaternion
 
-from vispy.visuals.transforms import STTransform
+#from vispy.visuals.transforms import STTransform
 
 from vispy.color import Color
 
-from vispy.geometry import create_box, create_sphere
+#from vispy.geometry import create_box, create_sphere
 
-from vispy import scene
+#from vispy import scene
 
 from sklearn import neighbors
 
@@ -30,7 +32,7 @@ vert = """
 #version 120
 // Uniforms
 // ------------------------------------
-uniform mat4 u_model;
+//uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_projection;
 uniform float u_linewidth;
@@ -58,7 +60,8 @@ void main (void) {
     v_bg_color  = a_bg_color;
     
     //gl_Position = u_projection * u_view * u_model * vec4(a_position,1.0);
-    gl_Position = u_projection * u_view * u_model * a_position;
+    //gl_Position = u_projection * u_view * u_model * a_position;
+    gl_Position = u_projection * u_view * a_position;
     
     gl_PointSize = v_size + 2.*(v_linewidth + 1.5*v_antialias);
 }
@@ -213,9 +216,9 @@ void main()
 
 vert_sphere = """
 
-#version 330 core
+#version 120
 
-uniform mat4 u_model;
+//uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_projection;
 
@@ -229,13 +232,14 @@ varying vec4 v_color;
 void main()
 {
     v_color = color;
-    gl_Position = u_projection * u_view * u_model * position;
+    //gl_Position = u_projection * u_view * u_model * position;
+    gl_Position = u_projection * u_view * position;
 }
 """
 
 frag_sphere = """
 
-#version 330 core
+#version 120
 
 varying vec4 v_color;
 
@@ -249,83 +253,6 @@ void main()
 """
 
 
-#Cube method of making a sphere
-def _cube(rows, cols, depth, radius):
-    # vertices and faces of tessellated cube
-    verts, faces, _ = create_box(1, 1, 1, cols, rows, depth)
-    verts = verts['position']
-
-    # make each vertex to lie on the sphere
-    lengths = np.sqrt((verts*verts).sum(axis=1))
-    verts /= lengths[:, np.newaxis]/radius
-    #return MeshData(vertices=verts, faces=faces)
-    return verts
-
-def _ico(radius, subdivisions):
-    # golden ratio
-    t = (1.0 + np.sqrt(5.0))/2.0
-
-    # vertices of a icosahedron
-    verts = [(-1, t, 0),
-             (1, t, 0),
-             (-1, -t, 0),
-             (1, -t, 0),
-             (0, -1, t),
-             (0, 1, t),
-             (0, -1, -t),
-             (0, 1, -t),
-             (t, 0, -1),
-             (t, 0, 1),
-             (-t, 0, -1),
-             (-t, 0, 1)]
-
-    # faces of the icosahedron
-    faces = [(0, 11, 5),
-             (0, 5, 1),
-             (0, 1, 7),
-             (0, 7, 10),
-             (0, 10, 11),
-             (1, 5, 9),
-             (5, 11, 4),
-             (11, 10, 2),
-             (10, 7, 6),
-             (7, 1, 8),
-             (3, 9, 4),
-             (3, 4, 2),
-             (3, 2, 6),
-             (3, 6, 8),
-             (3, 8, 9),
-             (4, 9, 5),
-             (2, 4, 11),
-             (6, 2, 10),
-             (8, 6, 7),
-             (9, 8, 1)]
-
-    def midpoint(v1, v2):
-        return ((v1[0]+v2[0])/2, (v1[1]+v2[1])/2, (v1[2]+v2[2])/2)
-
-    # subdivision
-    for _ in range(subdivisions):
-        
-        for idx in range(len(faces)):
-            i, j, k = faces[idx]
-            a, b, c = verts[i], verts[j], verts[k]
-            ab, bc, ca = midpoint(a, b), midpoint(b, c), midpoint(c, a)
-            verts += [ab, bc, ca]
-            ij, jk, ki = len(verts)-3, len(verts)-2, len(verts)-1
-            faces.append([i, ij, ki])
-            faces.append([ij, j, jk])
-            faces.append([ki, jk, k])
-            faces[idx] = [jk, ki, ij]
-    verts = np.array(verts)
-    faces = np.array(faces)
-
-    # make each vertex to lie on the sphere
-    lengths = np.sqrt((verts*verts).sum(axis=1))
-    verts /= lengths[:, np.newaxis]/radius
-    return verts
-
-
 class Triangle(object):
     
     def __init__(self, pt1, pt2, pt3):
@@ -333,163 +260,6 @@ class Triangle(object):
         self.pt1 = pt1
         self.pt2 = pt2
         self.pt3 = pt3
-
-def _ico2(radius, subdivisions):
-    # golden ratio
-    t = (1.0 + np.sqrt(5.0))/2.0
-
-    # vertices of a icosahedron
-    verts = [(-1, t, 0),
-             (1, t, 0),
-             (-1, -t, 0),
-             (1, -t, 0),
-             (0, -1, t),
-             (0, 1, t),
-             (0, -1, -t),
-             (0, 1, -t),
-             (t, 0, -1),
-             (t, 0, 1),
-             (-t, 0, -1),
-             (-t, 0, 1)]
-
-    # faces of the icosahedron
-    face_idxs = [(0, 11, 5),
-             (0, 5, 1),
-             (0, 1, 7),
-             (0, 7, 10),
-             (0, 10, 11),
-             (1, 5, 9),
-             (5, 11, 4),
-             (11, 10, 2),
-             (10, 7, 6),
-             (7, 1, 8),
-             (3, 9, 4),
-             (3, 4, 2),
-             (3, 2, 6),
-             (3, 6, 8),
-             (3, 8, 9),
-             (4, 9, 5),
-             (2, 4, 11),
-             (6, 2, 10),
-             (8, 6, 7),
-             (9, 8, 1)]
-
-    ############################################################
-    # Put the initial icosahedron vertices on the unit sphere
-    ############################################################
-    unit_verts = np.zeros((12,3), dtype=np.float32)
-    
-    for idx, vert in enumerate(verts):
-        
-        modulus = np.sqrt(vert[0]*vert[0] + vert[1]*vert[1] + vert[2]*vert[2])
-        
-        unit_verts[idx, 0] = vert[0]/modulus
-        unit_verts[idx, 1] = vert[1]/modulus
-        unit_verts[idx, 2] = vert[2]/modulus
-    
-    ############################################################
-    # Build a list of faces
-    ############################################################
-
-    face_list = []
-    
-    for face_idx in face_idxs:
-        
-        pt1 = unit_verts[face_idx[0]]
-        pt2 = unit_verts[face_idx[1]]
-        pt3 = unit_verts[face_idx[2]]
-        
-        face_list.append(Triangle(pt1, pt2, pt3))
-        
-    ############################################################
-    # Subdivide each triangle - method 1
-    # makes some long thin triangles that dont look that great
-    ############################################################
-    '''
-    for _ in range(subdivisions):
-
-        temp_list = []
-        
-        for curr_triangle in face_list:
-            
-            v1 = curr_triangle.pt1
-            v2 = curr_triangle.pt2
-            v3 = curr_triangle.pt3
-            
-            midpoint = v1 + v2 + v3
-            
-            u_midpoint = midpoint/np.sqrt(np.sum(midpoint*midpoint))
-            
-            
-            tri1 = Triangle(v1, v2, u_midpoint)
-            tri2 = Triangle(v2, v3, u_midpoint)
-            tri3 = Triangle(v3, v1, u_midpoint)
-            
-            temp_list.append(tri1)
-            temp_list.append(tri2)
-            temp_list.append(tri3)
-            
-        face_list = temp_list
-    '''
-    ############################################################
-    # Subdivide each triangle - method 2
-    ############################################################
-    for _ in range(subdivisions):
-
-        temp_list = []
-        
-        for curr_triangle in face_list:
-            
-            v1 = curr_triangle.pt1
-            v2 = curr_triangle.pt2
-            v3 = curr_triangle.pt3
-            
-            
-            m1 = v1 + v2
-            u_m1 = m1/np.sqrt(np.sum(m1*m1))
-            
-            m2 = v2 + v3
-            u_m2 = m2/np.sqrt(np.sum(m2*m2))
-            
-            m3 = v3 + v1
-            u_m3 = m3/np.sqrt(np.sum(m3*m3))
-            
-            
-            
-            
-            tri1 = Triangle(v1, u_m1, u_m3)
-            tri2 = Triangle(v2, u_m1, u_m2)
-            tri3 = Triangle(v3, u_m2, u_m3)
-            tri4 = Triangle(u_m1, u_m2, u_m3)
-            
-            temp_list.append(tri1)
-            temp_list.append(tri2)
-            temp_list.append(tri3)
-            temp_list.append(tri4)
-            
-        face_list = temp_list
-        
-    ############################################################
-    # Convert from a list of triangles to a numpy array
-    ############################################################
-    
-    array_data = []
-    
-    for curr_tri in face_list:
-        
-        array_data.append(curr_tri.pt1.reshape(1,3))
-        array_data.append(curr_tri.pt2.reshape(1,3))
-        array_data.append(curr_tri.pt3.reshape(1,3))
-        
-    out_vertices = np.concatenate(array_data, axis=0)
-    
-    ############################################################
-    # Scale by radius
-    ############################################################
-    
-    out_vertices *= radius
-    
-    return out_vertices
 
 
 
@@ -499,18 +269,44 @@ def _ico2(radius, subdivisions):
 
 
 # ------------------------------------------------------------ Canvas class ---
-class Canvas(app.Canvas):
-#class Canvas(scene.SceneCanvas):
+class VoidFinderCanvas(app.Canvas):
 
     def __init__(self,
                  holes_xyz, 
                  holes_radii, 
                  galaxy_xyz,
-                 unionize_holes=True,
                  galaxy_display_radius=2.0,
-                 canvas_size=(800,600)):
+                 remove_void_intersects=True,
+                 filter_for_degenerate=True,
+                 enable_void_interior_highlight=True,
+                 canvas_size=(800,600),
+                 title="VoidFinder Results",
+                 camera_start_location=None,
+                 camera_start_orientation=None,
+                 start_translation_sensitivity=1.0,
+                 start_rotation_sensitivity=1.0,
+                 galaxy_color=np.array([1.0, 0.0, 0.0, 0.5], dtype=np.float32),
+                 void_hole_color=np.array([0.0, 0.0, 1.0, 0.3], dtype=np.float32),
+                 void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32)
+                 ):
         '''
         Main class for initializing the visualization.
+        
+        Usage:
+        ------
+        
+        from voidfinder.viz import VoidFinderCanvas, load_hole_data, load_galaxy_data
+        
+        holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
+    
+        galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
+    
+        viz = VoidFinderCanvas(holes_xyz, 
+                         holes_radii, 
+                         galaxy_data,
+                         canvas_size=(1600,1200))
+    
+        viz.run()
         
         Notes
         -----
@@ -550,210 +346,146 @@ class Canvas(app.Canvas):
             all be small compared to the void holes, and they don't have
             corresponding radii
             
+        remove_void_intersects : bool, default True
+            turn on (True) or off (False) the clipping of display triangles for
+            void interiors.  When true, removes all the triangles of a void hole
+            sphere which are fully contained inside another void hole, which essentially
+            creates a surface union of void holes which overlap.  Note that for smaller
+            sphere density values, the edge artifacts along the seams where void holes
+            intersect will be more visually apparent
+            
+        filter_for_degenerate : bool, default True
+            if true, filter the holes_xyz and holes_radii for any holes which
+            are completely contained within another hole and remove them
+            
+        enable_void_interior_highlight : bool, default True
+            if True, when a user enters a void sphere, it will highlight the sphere
+            in a different color (default green) so a user knows they are looking out
+            from inside a sphere.  False disables this functionality
+            
         canvas_size : 2-tuple
             (width, height) in pixels for the output visualization
+            
+        title : str
+            value to display at top of the window
+            
+        camera_start_location : ndarray of shape (3,) dtype float32
+            starting location for the camera.  Remember to multiply by -1.0 to go
+            from data coordinates to camera coordinates
+            example: np.zeros(3, dtype=np.float32)
+            
+        camera_start_orientation : ndarray of shape (3,3) dtype float32
+            rotation matrix describing initial camera orientation
+            example: np.eye(3, dtype=np.float32)
+            
+        start_translation_sensitivity : float
+            starting sensitivity for translation keys - wasdrf
+            
+        start_rotation_sensitivity : float
+            starting sensitivity for rotation keys - qeijkl
+            
+        galaxy_color : ndarray shape (4,) dtype float32
+           values from 0.0-1.0 representing RGB and Alpha for the galaxy
+           points
+           
+        void_hole_color : ndarray shape (4,) dtype float32
+           values from 0.0-1.0 representing RGB and Alpha for the voids
+           
+        void_highlight_color : ndarray shape (4,) dtype float32
+           values from 0.0-1.0 representing RGB and Alpha for the void highlight,
+           when the camera enters a void hole it turns the hole this color so you
+           know you're inside IF enable_void_interior_highlight == True
         '''
         
         
         app.Canvas.__init__(self, 
                             keys='interactive', 
                             size=canvas_size)
-        '''
-        scene.SceneCanvas.__init__(self,
-                                   keys='interactive',
-                                   size=canvas_size)
         
+        self.title = title
         
-        self.unfreeze()
-        '''
-        #print(self.app)
-        #print(self.canvas)
+        self.translation_sensitivity = start_translation_sensitivity
         
-        self.title = "VoidFinder Results"
+        self.rotation_sensitivity = start_rotation_sensitivity
         
-        ps = self.pixel_scale
+        self.max_galaxy_display_radius = galaxy_display_radius
         
         self.holes_xyz = holes_xyz
+        
         self.holes_radii = holes_radii
         
-        ######################################################################
-        # Set up some numpy arrays to work with the vispy/OpenGL vertex 
-        # shaders and fragment shaders.  The names (string variables) used
-        # in the below code match up to names used in the vertex and
-        # fragment shader code strings used above
-        ######################################################################
+        if filter_for_degenerate:
+            
+            self.filter_degenerate_holes()
+        
+        self.galaxy_xyz = galaxy_xyz
+        
+        self.remove_void_intersects = remove_void_intersects
+        
+        self.enable_void_interior_highlight = enable_void_interior_highlight
+        
         self.num_hole = holes_xyz.shape[0]
         
         self.num_gal = galaxy_xyz.shape[0]
         
-        self.num_pts = self.num_hole + self.num_gal
+        self.galaxy_color = galaxy_color
         
-        #self.vertex_data = np.zeros(self.num_pts, [('a_position', np.float32, 4),
-        #                                           ('a_bg_color', np.float32, 4),
-        #                                           ('a_fg_color', np.float32, 4),
-        #                                           ('a_size', np.float32)])
+        self.void_hole_color = void_hole_color
         
+        self.void_highlight_color = void_highlight_color
         
-        self.vertex_data = np.zeros(self.num_gal, [('a_position', np.float32, 4),
-                                                   ('a_bg_color', np.float32, 4),
-                                                   ('a_fg_color', np.float32, 4),
-                                                   ('a_size', np.float32)])
-        
-        
+        self.void_highlight_alpha = void_highlight_color[3]
         
         ######################################################################
-        # Concatenate the array of hole locations and galaxy locations
-        # into a single array for the vertex and fragment shaders
-        # Extract the maximum component from all the data to use as a
-        # scale factor to convert from raw xyz space to a (-1.0, 1.0) based
-        # OpenGL camera viewing space
-        ######################################################################
-        #self.all_xyz_coords = np.concatenate((holes_xyz, galaxy_xyz), axis=0)
-        
-        self.all_xyz_coords = galaxy_xyz
-        
-        self.scale_factor = np.max(np.abs(self.all_xyz_coords))
-        
-        ws = np.ones((self.all_xyz_coords.shape[0], 1), dtype=np.float32)
-        
-        #ws[:,0] = np.sum(self.all_xyz_coords*self.all_xyz_coords, axis=1)/(self.scale_factor)
-        
-        self.all_xyzw_coords = np.concatenate((self.all_xyz_coords, ws), axis=1)
-        
-        self.vertex_data['a_position'] = self.all_xyzw_coords
-        
-        self.kdtree = neighbors.KDTree(self.all_xyz_coords)
-        
-        #print(self.all_xyz_coords[0:10])
-        
-        ######################################################################
-        # Create the color arrays in RGBA format for the holes and galaxies
-        # I believe bg color is 'background' and fg is 'foreground' color
-        ######################################################################
-        holes_color = np.array([0.0, 0.0, 1.0, 0.5], dtype=np.float32)
-        
-        gal_color = np.array([1.0, 0.0, 0.0, 0.5], dtype=np.float32)
-        
-        #bg_color_all = np.concatenate((np.tile(holes_color, (self.num_hole,1)), np.tile(gal_color, (self.num_gal,1))), axis=0)
-        
-        bg_color_all = np.tile(gal_color, (self.num_gal,1))
-        
-        
-        self.vertex_data['a_bg_color'] = bg_color_all
-        
-        self.vertex_data['a_fg_color'] = (0.0, 0.0, 0.0, 1.0)
-        
-        #print(self.vertex_data['a_fg_color'])
-        
-        ######################################################################
-        # Since the data is currently being displayed as disks instead of
-        # Spheres, use a fixed radius of 2.0 for galaxies for now since they
-        # are small compared to void holes
-        #
-        # Then concatenate them with the hole radii so they match up
-        # with the concatenated hole and galaxy locations
         #
         ######################################################################
-        sizes_gal = 2.0*np.ones(self.num_gal)
+        self.projection = np.eye(4, dtype=np.float32) #start with orthographic, will modify this
         
-        #self.size_all = np.concatenate((holes_radii, sizes_gal))
-        self.size_all = sizes_gal
+        self.unit_sphere = self.create_sphere(1.0, 3)
         
-        self.vertex_data['a_size'] = self.size_all
+        self.vert_per_sphere = self.unit_sphere.shape[0]
+        
+        self.hole_kdtree = neighbors.KDTree(self.holes_xyz)
+        
+        
         
         ######################################################################
-        # Set up the initial camera location.  Camera is controlled
-        # by setting "self.program['u_view'] = self.view" which becomes
-        # part of:
-        # "gl_Position = u_projection * u_view * u_model * vec4(a_position,1.0);"
-        # 
-        # Currently:
-        #    z axis - forward backward
-        #    y axis - up/down
-        #    x axis - left/right
-        #
-        #
-        # self.view_axis_vector is the xyz vector (plus w dimension) encoding
-        # the current camera direction
-        #
-        # self.view_orientation is:
-        #
-        #  [x_x, x_y, x_z, 0]  x projection row vector
-        #  [y_x, y_y, y_z, 0]  y projection row vector
-        #  [z_x, z_y, z_z, 0]  z projection row vector
-        #  
-        #
         #
         ######################################################################
-        self.view_location = np.mean(holes_xyz, axis=0)
+        self.setup_camera_view(camera_start_location, camera_start_orientation)
         
-        self.view_location[2] += 300.0
+        self.setup_mouse()
         
-        #alpha, x, y, z
-        #self.orientation_quaternion = Quaternion(0.0, 0.0, 1.0, 0.0)
+        self.setup_keyboard()
         
-        #self.view_orientation = np.eye(3, dtype=np.float32)
-        self.orientation_x = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-        self.orientation_y = np.array([0.0, 1.0, 0.0], dtype=np.float32)
-        self.orientation_z = np.array([0.0, 0.0, 1.0], dtype=np.float32)
-        
-        
-        self.translation_sensitivity = 1.0
-        
-        self.rotation_sensitivity = 1.0
-        
-        self.view = np.eye(4, dtype=np.float32)
-        
-        self.view[3,0:3] = -self.view_location
-        
-        
-
         ######################################################################
-        # Set up the OpenGL program stuff
+        #
         ######################################################################
-        u_linewidth = 1.0
         
-        u_antialias = 0.1
+        self.setup_galaxy_program()
         
-        self.program = gloo.Program(vert, frag)
+        self.setup_void_sphere_program()
+            
+        self.setup_highlight_program()
         
-        self.model = np.eye(4, dtype=np.float32)
-        
-        self.projection = np.eye(4, dtype=np.float32)
-
         self.apply_zoom()
-        
-        
-        self.vertex_buffer = gloo.VertexBuffer(self.vertex_data)
-        
-        self.program.bind(self.vertex_buffer)
-        
-        self.program['u_linewidth'] = u_linewidth
-        self.program['u_antialias'] = u_antialias
-        self.program['u_model'] = self.model
-        self.program['u_view'] = self.view
-        self.program['u_size'] = 1.0
-
-        self.theta = 0
-        self.phi = 0
-
-        ######################################################################
-        # Dunno what this does
-        ######################################################################
         
         gloo.set_state('translucent', clear_color='white')
         
         ######################################################################
-        # Set up user input information
+        # Set up a callback to a timer function, mostly to work on keyboard
+        # input at this point
+        # Then show the canvas
         ######################################################################
+        self.timer = app.Timer('auto', connect=self.on_timer, start=True)
         
-        self.translate = 1.0
+        self.show()
+        
+    def setup_keyboard(self):
         
         self.last_keypress_time = time.time()
         
-        self.mouse_state = 0
         
-        self.last_mouse_pos = [0.0, 0.0]
         
         self.keyboard_commands = {"w" : self.press_w,
                                   "s" : self.press_s,
@@ -767,15 +499,14 @@ class Canvas(app.Canvas):
                                   "v" : self.press_v,
                                   'i' : self.press_i,
                                   'k' : self.press_k,
-                                  #'u' : self.press_u,
                                   'l' : self.press_l,
-                                  #'o' : self.press_o,
                                   'j' : self.press_j,
                                   'q' : self.press_q,
                                   'e' : self.press_e}
         
         self.press_once_commands = {" " : self.press_spacebar,
-                                    "p" : self.press_p}
+                                    "p" : self.press_p,
+                                    "0" : self.press_0}
         
         self.keyboard_active = {"w" : 0,
                                 "s" : 0,
@@ -795,213 +526,565 @@ class Canvas(app.Canvas):
                                 "e" : 0,
                                 }
         
-        ######################################################################
-        # Set up a callback to a timer function
-        ######################################################################
-        self.timer = app.Timer('auto', connect=self.on_timer, start=True)#, app=self.app)
-        #self.timer = app.Timer()
-        #self.timer.connect(self.on_timer)
-        #self.timer.start(interval=1.0/60.0)
+        
+    def setup_mouse(self):
         
         
-        #self.test_timer = self.app.Timer(1.0, connect=self.on_timer2, start=True)
+        self.point_size_denominator = 1.0
+        
+        self.mouse_state = 0
+        
+        self.last_mouse_pos = [0.0, 0.0]
+
+
+
+
+    def setup_camera_view(self, start_location=None, start_orientation=None):
+        """
+        Set up the initial camera location.  Camera is controlled by setting
+        the uniform variable 'u_view' on the program objects, example:
+        
+        'self.program['u_view'] = self.view' 
+        
+        which become part of the final object positions:
+        
+        old: "gl_Position = u_projection * u_view * u_model * vec4(a_position,1.0);"
+        new: "gl_Position = u_projection * u_view * a_position;"
+        
+        Note - removed the 'u_model' matrix since it added too much complexity what with
+               all the new functionality I've added to the camera (fly around, interior
+               void green highlight, etc) and made a_position natively a 4-vector
+        
+        
+        Directions: (x,y,z)
+           z axis - forward/backward
+           y axis - up/down
+           x axis - left/right
+    
+        All camera information is encoded in the 4x4 matrix 'self.view'.
+        
+        self.view[0:3, 0:3] - encodes a 3x3 rotation matrix
+        
+        self.view[3, 0:3] - encodes the 1x3 (x,y,z) coordinate of the camera in the 
+                            rotation matrix's frame of reference.
+                            
+        self.view[0:3, 3] - might just be always [0,0,0]?
+        
+        Also need to multiply by -1.0 to go from camera frame of reference to data 
+        coordinates (since "moving the camera" is really "moving everything in the 
+        scene in the opposite direction")
+        
+        ---------------------------------
+        Example decoding actual location:
+        ---------------------------------
+        
+        curr_rot_matrix = self.view[0:3,0:3]
+        
+        view_camera_location = self.view[3,0:3].reshape(1,3)
+        
+        curr_camera_location = -1.0*np.matmul(curr_rot_matrix, view_camera_location.T).T
+        
+        x = curr_camera_location[0]
+        y = curr_camera_location[1]
+        z = curr_camera_location[2]
+        
+        """
+        
+        if start_location is None:
+        
+            start_location = np.mean(self.holes_xyz, axis=0)
+        
+            start_location[2] += 300.0
+            
+            start_location *= -1.0
+        
+        
+        self.view = np.eye(4, dtype=np.float32)
+        
+        self.view[3,0:3] = start_location
+        
+        
+        if start_orientation is not None:
+            
+            self.view[0:3,0:3] = start_orientation
         
         
         
-        ######################################################################
-        # Create triangles at origin
+        
+
+    def setup_galaxy_program(self):
+        """
+        Set up the OpenGL program via vispy that will display each of the
+        galaxy coordinates provided in xyz-space as a gl_PointCoord
+        
+        # Set up some numpy arrays to work with the vispy/OpenGL vertex 
+        # shaders and fragment shaders.  The names (string variables) used
+        # in the below code match up to names used in the vertex and
+        # fragment shader code strings used above
+        
+        # Create the color arrays in RGBA format for the holes and galaxies
+        # I believe bg color is 'background' and fg is 'foreground' color
+        
+        # Since the data is currently being displayed as disks instead of
+        # Spheres, use a fixed radius of 2.0 for galaxies for now since they
+        # are small compared to void holes
         #
-        #test_verts["position"] = np.array([[-20.0, 0.0, 0.0, 1.0],
-        #                                   [20.0, 0.0, 0.0, 1.0],
-        #                                   [0.0, 20.0, 0.0, 1.0],
-        #                                   [40.0, 0.0, 0.0, 1.0],
-        #                                   [80.0, 0.0, 0.0, 1.0],
-        #                                   [60.0, 20.0, 0.0, 1.0]], dtype=np.float32)
-        #
-        #test_verts["color"] = np.array([[1.0, 0.0, 0.0, 1.0],
-        #                                [0.0, 1.0, 0.0, 1.0],
-        #                                [0.0, 0.0, 1.0, 1.0],
-        #                                [1.0, 0.0, 0.0, 1.0],
-        #                                [0.0, 1.0, 0.0, 1.0],
-        #                                [0.0, 0.0, 1.0, 1.0]], dtype=np.float32)
-        ######################################################################
+        """
         
         
         
         ######################################################################
-        # Create a unit sphere composed of triangles for copying
+        # Set up the vertex buffer backend
         ######################################################################
+        self.galaxy_vertex_data = np.zeros(self.num_gal, [('a_position', np.float32, 4),
+                                                          ('a_bg_color', np.float32, 4),
+                                                          ('a_fg_color', np.float32, 4),
+                                                          ('a_size', np.float32)])
+        
+        w_col = np.ones((self.num_gal, 1), dtype=np.float32)
+        
+        self.galaxy_vertex_data['a_position'] = np.concatenate((self.galaxy_xyz, w_col), axis=1)
+        
+        self.galaxy_vertex_data['a_bg_color'] = np.tile(self.galaxy_color, (self.num_gal,1))
+        
+        black = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) #black color
+        
+        self.galaxy_vertex_data['a_fg_color'] = np.tile(black, (self.num_gal,1)) 
+        
+        self.galaxy_vertex_data['a_size'] = self.max_galaxy_display_radius #broadcast to whole array?
+        
+        self.galaxy_point_VB = gloo.VertexBuffer(self.galaxy_vertex_data)
+        
+        ######################################################################
+        # Set up the program to display galaxy points
+        ######################################################################
+        u_linewidth = 1.0
+        
+        u_antialias = 0.0 #0.0==turned this off it looks weird
+        
+        self.galaxy_point_program = gloo.Program(vert, frag)
+    
+        self.galaxy_point_program.bind(self.galaxy_point_VB)
+        
+        self.galaxy_point_program['u_linewidth'] = u_linewidth
+        
+        self.galaxy_point_program['u_antialias'] = u_antialias
+        
+        self.galaxy_point_program['u_view'] = self.view
+        
+        self.galaxy_point_program['u_size'] = 1.0
+
         
         
-        testing = False
+    def setup_void_sphere_program(self):
+        """
+        This vispy program draws all the triangles which compose the spheres
+        representing the void holes
+        """
         
-        if testing:
-            
-            self.holes_xyz = self.holes_xyz[0:100]
-            self.holes_radii = self.holes_radii[0:100]
-            
-            
         
-        self.num_spheres = self.holes_xyz.shape[0]
-            
+        ######################################################################
+        # Initialize some space to hold all the vertices (and w coordinate)
+        # for all the vertices of all the spheres for all the void holes
+        ######################################################################
+        num_sphere_verts = self.vert_per_sphere*self.holes_xyz.shape[0]
         
-        self.unit_sphere = self.create_sphere(1.0, 3)
+        self.void_sphere_coord_data = np.ones((num_sphere_verts,4), dtype=np.float32)
         
-        #print(self.unit_sphere[0:10])
-        
-        #print(np.sum(self.unit_sphere*self.unit_sphere, axis=1)[0:10])
-        
-        self.vert_per_sphere = self.unit_sphere.shape[0]
-        
-        num_sphere_verts = self.vert_per_sphere*self.num_spheres
-        
-        self.sphere_coord_data = np.ones((num_sphere_verts,4), dtype=np.float32)
-        
-        #print(self.sphere_coord_data.shape)
-        
+        ######################################################################
+        # Calculate all the sphere vertex positions and add them to the
+        # vertex array
+        ######################################################################
         for idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
-            
-            #if idx >= self.num_spheres:
-            #    break
-            
-            
-            #scaled_sphere = self.unit_sphere * hole_radius
-            
-            #print(np.mean(np.sqrt(np.sum(scaled_sphere*scaled_sphere,axis=1))), hole_radius)
             
             curr_sphere = (self.unit_sphere * hole_radius) + hole_xyz
             
-            #print(curr_sphere.shape)
-            
             start_idx = idx*self.vert_per_sphere
+            
             end_idx = (idx+1)*self.vert_per_sphere
             
-            #print(start_idx, end_idx)
+            self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
             
-            self.sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
+        ######################################################################
+        # Given there will be a lot of overlap internal to the spheres, 
+        # remove the overlap for better viewing quality
+        ######################################################################
+        if self.remove_void_intersects:
             
-        if unionize_holes:
+            print("Pre intersect-remove vertices: ", self.void_sphere_coord_data.shape[0])
             
-            print("Pre-union vertices: ", self.sphere_coord_data.shape[0])
             
-            self.unionize_hole_data()
+            start_time = time.time()
             
-            num_sphere_verts = self.sphere_coord_data.shape[0]
+            self.remove_hole_intersect_data()
             
-            print("Post-union vertices: ", num_sphere_verts)
-        
-        curr_color = np.array([[0.0, 0.0, 1.0, 0.5]], dtype=np.float32)
-        
-        out_color = np.tile(curr_color, (self.sphere_coord_data.shape[0], 1))
+            remove_time = time.time() - start_time
+            
+            num_sphere_verts = self.void_sphere_coord_data.shape[0]
+            
+            print("Post intersect-remove vertices: ", num_sphere_verts, "time: ", remove_time)
         
         ######################################################################
         #
         ######################################################################
         
-        self.sphere_vertex_buffer = np.zeros(num_sphere_verts, [('position', np.float32, 4),
-                                                                ('color', np.float32, 4)])
+        self.void_sphere_vertex_data = np.zeros(num_sphere_verts, [('position', np.float32, 4),
+                                                                   ('color', np.float32, 4)])
         
+        self.void_sphere_vertex_data["position"] = self.void_sphere_coord_data
+        
+        self.void_sphere_vertex_data["color"] = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
+        
+        self.void_sphere_VB = gloo.VertexBuffer(self.void_sphere_vertex_data)
         
         ######################################################################
         # Set up the sphere-drawing program
         ######################################################################
-        self.sphere_vertex_buffer["position"] = self.sphere_coord_data
         
-        self.sphere_vertex_buffer["color"] = out_color
+        self.void_sphere_program = gloo.Program(vert_sphere, frag_sphere)
         
-        self.program_sphere = gloo.Program(vert_sphere, frag_sphere)
+        self.void_sphere_program.bind(self.void_sphere_VB)
         
-        self.apply_zoom_sphere()
+        self.void_sphere_program['u_view'] = self.view
         
-        curr_vertex_buffer = gloo.VertexBuffer(self.sphere_vertex_buffer)
         
-        self.program_sphere.bind(curr_vertex_buffer)
         
-        self.program_sphere['u_model'] = self.model
         
-        self.program_sphere['u_view'] = self.view
+
+        
+    def setup_highlight_program(self):
+        """
+        Setup the sphere for when a user enters a void so it colors it
+        green (or a different user-specified color) so you know you're 
+        inside a void
+        """
+        
+        self.highlight_state = -1
+        
+        self.highlight_sphere_coord_data = np.ones((self.unit_sphere.shape[0],4), dtype=np.float32)
+        
+        self.highlight_sphere_coord_data[:,0:3] = 10.0*self.unit_sphere
         
         ######################################################################
-        # 
+        #
         ######################################################################
-        self.show()
+        self.highlight_sphere_vertex_data = np.zeros(self.unit_sphere.shape[0], [('position', np.float32, 4),
+                                                                               ('color', np.float32, 4)])
+        
+        self.highlight_sphere_vertex_data["position"] = self.highlight_sphere_coord_data
+        
+        self.highlight_sphere_vertex_data["color"] = np.tile(self.void_highlight_color, (self.highlight_sphere_coord_data.shape[0], 1))
+        
+        self.highlight_sphere_vertex_data["color"][:,3] = 0.0
+        
+        self.highlight_sphere_VB = gloo.VertexBuffer(self.highlight_sphere_vertex_data)
+        
+        ######################################################################
+        #
+        ######################################################################
+        self.highlight_program = gloo.Program(vert_sphere, frag_sphere)
+
+        self.highlight_program.bind(self.highlight_sphere_VB)
+        
+        self.highlight_program['u_view'] = self.view
+        
+        
         
         
     def create_sphere(self, radius, subdivisions=2):
+        """
+        Could put other methods in here, since this is now basically just a wrapper
+        function
+        """
         
-        sphere_vertices = _ico2(radius, subdivisions)
+        sphere_vertices = self.icosahedron_sphere_projection(radius, subdivisions)
         
         return sphere_vertices
     
-    def unionize_hole_data(self):
+    
         
-        valid_vertex_idx = np.ones(self.sphere_coord_data.shape[0], dtype=np.uint8)
+    def icosahedron_sphere_projection(self, radius, subdivisions):
+        """
+        Fixed the method from vispy so that it doesn't contain any interior triangles,
+        just the exterior shell.
+        
+        Starting from an icosahedron of arbitrary size, project all the vertices radially onto
+        the unit sphere.  Then, subdivide each face triangle by creating 4 sub-triangles as
+        follows:
+        
+            /\               /\
+           /  \             /__\
+          /    \   -->     /\  /\
+         /______\         /__\/__\  
+        
+        Tried the centerpoint 3-triangle decomposition but that results in really long spindly
+        surfaces which just aren't good looking, the 4-triangle division looks much 
+        smoother and better overall.
+        
+        Once each triangle has been subdivided, project the 3 new midpoints onto the
+        unit sphere, discard the parent triangle and add the 4 new triangles to the
+        face list.
+        
+        Number of output vertices = 20*3*(4^subdivisions)
+        
+        """
+        # golden ratio
+        t = (1.0 + np.sqrt(5.0))/2.0
+    
+        # vertices of an icosahedron
+        verts = [(-1, t, 0),
+                 (1, t, 0),
+                 (-1, -t, 0),
+                 (1, -t, 0),
+                 (0, -1, t),
+                 (0, 1, t),
+                 (0, -1, -t),
+                 (0, 1, -t),
+                 (t, 0, -1),
+                 (t, 0, 1),
+                 (-t, 0, -1),
+                 (-t, 0, 1)]
+    
+        # index into the vertices list above to get the
+        # faces of the icosahedron
+        face_idxs = [(0, 11, 5),
+                 (0, 5, 1),
+                 (0, 1, 7),
+                 (0, 7, 10),
+                 (0, 10, 11),
+                 (1, 5, 9),
+                 (5, 11, 4),
+                 (11, 10, 2),
+                 (10, 7, 6),
+                 (7, 1, 8),
+                 (3, 9, 4),
+                 (3, 4, 2),
+                 (3, 2, 6),
+                 (3, 6, 8),
+                 (3, 8, 9),
+                 (4, 9, 5),
+                 (2, 4, 11),
+                 (6, 2, 10),
+                 (8, 6, 7),
+                 (9, 8, 1)]
+    
+        ############################################################
+        # Put the initial icosahedron vertices on the unit sphere
+        ############################################################
+        unit_verts = np.zeros((12,3), dtype=np.float32)
+        
+        for idx, vert in enumerate(verts):
+            
+            modulus = np.sqrt(vert[0]*vert[0] + vert[1]*vert[1] + vert[2]*vert[2])
+            
+            unit_verts[idx, 0] = vert[0]/modulus
+            unit_verts[idx, 1] = vert[1]/modulus
+            unit_verts[idx, 2] = vert[2]/modulus
+        
+        ############################################################
+        # Build a list of faces
+        ############################################################
+    
+        face_list = []
+        
+        for face_idx in face_idxs:
+            
+            pt1 = unit_verts[face_idx[0]]
+            pt2 = unit_verts[face_idx[1]]
+            pt3 = unit_verts[face_idx[2]]
+            
+            face_list.append(Triangle(pt1, pt2, pt3))
+            
+        ############################################################
+        # Subdivide each triangle - method 1 (centerpoint, 3-triangle)
+        # makes some long thin triangles that dont look that great
+        ############################################################
+        '''
+        for _ in range(subdivisions):
+    
+            temp_list = []
+            
+            for curr_triangle in face_list:
+                
+                v1 = curr_triangle.pt1
+                v2 = curr_triangle.pt2
+                v3 = curr_triangle.pt3
+                
+                midpoint = v1 + v2 + v3
+                
+                u_midpoint = midpoint/np.sqrt(np.sum(midpoint*midpoint))
+                
+                
+                tri1 = Triangle(v1, v2, u_midpoint)
+                tri2 = Triangle(v2, v3, u_midpoint)
+                tri3 = Triangle(v3, v1, u_midpoint)
+                
+                temp_list.append(tri1)
+                temp_list.append(tri2)
+                temp_list.append(tri3)
+                
+            face_list = temp_list
+        '''
+        ############################################################
+        # Subdivide each triangle - method 2 (4-triangle)
+        ############################################################
+        for _ in range(subdivisions):
+    
+            temp_list = []
+            
+            for curr_triangle in face_list:
+                
+                v1 = curr_triangle.pt1
+                v2 = curr_triangle.pt2
+                v3 = curr_triangle.pt3
+                
+                
+                m1 = v1 + v2
+                u_m1 = m1/np.sqrt(np.sum(m1*m1))
+                
+                m2 = v2 + v3
+                u_m2 = m2/np.sqrt(np.sum(m2*m2))
+                
+                m3 = v3 + v1
+                u_m3 = m3/np.sqrt(np.sum(m3*m3))
+                
+                
+                
+                
+                tri1 = Triangle(v1, u_m1, u_m3)
+                tri2 = Triangle(v2, u_m1, u_m2)
+                tri3 = Triangle(v3, u_m2, u_m3)
+                tri4 = Triangle(u_m1, u_m2, u_m3)
+                
+                temp_list.append(tri1)
+                temp_list.append(tri2)
+                temp_list.append(tri3)
+                temp_list.append(tri4)
+                
+            face_list = temp_list
+            
+        ############################################################
+        # Convert from a list of triangles to a numpy array
+        ############################################################
+        
+        array_data = []
+        
+        for curr_tri in face_list:
+            
+            array_data.append(curr_tri.pt1.reshape(1,3))
+            array_data.append(curr_tri.pt2.reshape(1,3))
+            array_data.append(curr_tri.pt3.reshape(1,3))
+            
+        out_vertices = np.concatenate(array_data, axis=0)
+        
+        ############################################################
+        # Scale by radius
+        ############################################################
+        
+        out_vertices *= radius
+        
+        return out_vertices
+
+    
+    
+    
+    
+    def filter_degenerate_holes(self):
         
         hole_kdtree = neighbors.KDTree(self.holes_xyz)
         
-        neighbor_index = hole_kdtree.query_radius(self.holes_xyz, self.holes_radii)
+        valid_idx = np.ones(self.holes_xyz.shape[0], dtype=np.bool)
         
-        #print(neighbor_index[0].shape)
-        
-        #print(neighbor_index.dtype, neighbor_index.shape)
-        #print(self.holes_xyz.dtype) #do astype float32
-        #print(self.holes_radii.dtype) #do astype float32
-        '''
-        for curr_idx, (close_idx, hole_xyz, hole_radius) in enumerate(zip(neighbor_index, 
-                                                                          self.holes_xyz, 
-                                                                          self.holes_radii)):
+        for curr_idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
             
-            if curr_idx % 100 == 0:
-                print("Unionizing: ", curr_idx)
+            close_index = hole_kdtree.query_radius(hole_xyz.reshape(1,3), hole_radius)
             
-            for neighbor_idx in close_idx:
-                
-                if neighbor_idx == curr_idx:
-                    continue
-                
-                
-                start_idx = neighbor_idx*self.vert_per_sphere
-                
-                end_idx = (neighbor_idx+1)*self.vert_per_sphere
-                
-                
-                vert_dist_components = self.sphere_coord_data[start_idx:end_idx, 0:3] - hole_xyz
-                
-                vert_dists = np.sum(vert_dist_components*vert_dist_components, axis=1)
-                
-                valid_verts = vert_dists >= hole_radius*hole_radius
-                
-                for offset_idx in range(self.vert_per_sphere//3): #integer division by 3 since every triangle has 3 verts
-                    
-                    off_start = 3*offset_idx
-                    
-                    off_end = 3*(offset_idx+1)
-                    
-                    valid_verts[off_start:off_end] = np.any(valid_verts[off_start:off_end])
-                    
-                valid_vertex_idx[start_idx:end_idx] = np.logical_and(valid_verts, valid_vertex_idx[start_idx:end_idx])
-        '''
+            close_index = close_index[0]
+            #[52, 128, 33, 1007, 4556]
+            
+            valid_close_index = close_index[close_index != curr_idx]
+            #[52, 128, 33, 1007, 4556]
+            
+            neighbor_locations = self.holes_xyz[valid_close_index]
+            
+            neighbor_radii = self.holes_radii[valid_close_index]
+            
+            component_distances = neighbor_locations - hole_xyz
+            
+            
+            neighbor_distances = np.sqrt(np.sum(component_distances*component_distances, axis=1))
+            
+            neighbor_reach = neighbor_distances + neighbor_radii
+            
+            invalid_neighbors = valid_close_index[neighbor_reach <= hole_radius]
+            
+            valid_idx[invalid_neighbors] = 0
+            
+        print("Holes filtered: ", np.count_nonzero(valid_idx==0))
         
-        #print("Valid pre: ", np.count_nonzero(valid_vertex_idx))
-        #print(valid_vertex_idx[0:10])
-        #print(np.where(valid_vertex_idx)[0][0:10])
+        self.holes_xyz = self.holes_xyz[valid_idx]
+        
+        self.holes_radii = self.holes_radii[valid_idx]
+            
+            
+    
+    
+    
+    def remove_hole_intersect_data(self):
+        """
+        Given the array of triangle vertices in self.void_sphere_coord_data, and the hole
+        parameters given by self.holes_xyz and self.hole_radii, remove all the
+        triangles from self.void_sphere_coord_data who belong to one hole but live within
+        a different hole
+        
+           ___hole1_____  ___hole2____           ___hole1_____  ___hole2____
+          /             \/            \         /             \/            \
+         /           -->/\ <--         \       /                             \
+        |    remove-->/   \<--remove    \     |                               \
+        \          -->\   /<--          /     \                               /
+         \          -->\/ <--          /       \                             /
+          \            /\             /         \            /\             /
+           \__________/  \___________/           \__________/  \___________/
+        
+        Iterate through each hole in hole_xyz, find all holes who have an intersect
+        with the current hole (via kdtree radius query).
+        
+        Since holes are spherical, any triangle whose all 3 verticies are less than
+        hole_radius away from our current target means that triangle lives within
+        our current hole but is not part of our current hole and can be chopped.
+        """
+        
+        valid_vertex_idx = np.ones(self.void_sphere_coord_data.shape[0], dtype=np.uint8)
+        
+        ######################################################################
+        # correct way to get neighbor index - 2*hole_radii.max()
+        # added a distance check in union_vertex_selection to discard holes
+        # who are more than hole_radius+hole_radius_neighbor apart and
+        # not check those vertices
+        #
+        # Maybe can rework this into a cythonized method that checks against
+        # hole_radius+hole_radius_neighbor up front and then we can discard
+        # the 2ndary check in union_vertex_selection, not sure what's better
+        #
+        ######################################################################
+        
+        
+        
+        neighbor_index = self.hole_kdtree.query_radius(self.holes_xyz, 2.0*self.holes_radii.max())
+        
+        ######################################################################
+        # Create an index of which vertices to keep via the above algorithm
+        ######################################################################
         
         union_vertex_selection(neighbor_index,
                                valid_vertex_idx,
                                self.holes_xyz.astype(np.float32),
                                self.holes_radii.astype(np.float32),
-                               self.sphere_coord_data,
+                               self.void_sphere_coord_data,
                                self.vert_per_sphere)
         
-        #print("Valid post: ", np.count_nonzero(valid_vertex_idx))
-        #print(valid_vertex_idx[0:10])
-        #print(np.where(valid_vertex_idx)[0][0:10])
-        
-        
-        #print(self.sphere_coord_data[valid_vertex_idx].shape)
-        
         #needed to use numpy.where maybe due to uint8 type on valid_vertex_idx?
-        self.sphere_coord_data = self.sphere_coord_data[np.where(valid_vertex_idx)[0]]
+        self.void_sphere_coord_data = self.void_sphere_coord_data[np.where(valid_vertex_idx)[0]]
         
 
     def press_spacebar(self):
@@ -1010,6 +1093,7 @@ class Canvas(app.Canvas):
         position to real coordinate space position
         """
         
+        """
         view_camera_location = self.view[3,0:3].reshape(1,3)
         
         curr_rot_matrix = self.view[0:3,0:3]
@@ -1027,15 +1111,70 @@ class Canvas(app.Canvas):
         self.vertex_buffer.set_data(self.vertex_data)
         
         self.update()
+        """
+        pass
+        
+    def update_highlight_sphere_location(self):
+        """
+        If this setting is enabled, on translation updates check the new position
+        for proximity to the nearest void hole, if inside that hole update the
+        green (or user-colored) sphere to the size and location of the current
+        void hole so the user knows they have entered a void
+        
+        Don't need to call self.update() cause it will be called by
+        self.translate_camera() after this call
+        """
+        
+        view_camera_location = self.view[3,0:3].reshape(1,3)
+        
+        curr_rot_matrix = self.view[0:3,0:3]
+        
+        curr_camera_location = -1.0*np.matmul(curr_rot_matrix, view_camera_location.T).T
+        
+        ind = self.hole_kdtree.query(curr_camera_location, k=1, return_distance=False)
+        
+        hole_idx = ind[0][0]
+        
+        hole_radius = self.holes_radii[hole_idx]
+        
+        hole_xyz = self.holes_xyz[hole_idx]
+        
+        component_dists = hole_xyz - curr_camera_location
+        
+        currently_inside_hole = np.sum(component_dists*component_dists) < hole_radius*hole_radius
+        
+        if self.highlight_state != hole_idx and currently_inside_hole:
+            
+            self.highlight_sphere_vertex_data["position"][:,0:3] = 0.99*hole_radius*self.unit_sphere + hole_xyz
+            
+            self.highlight_sphere_vertex_data["color"][:,3] = self.void_highlight_alpha
+            
+            self.highlight_sphere_VB.set_data(self.highlight_sphere_vertex_data)
+            
+            self.highlight_state = hole_idx
+            
+        elif self.highlight_state == hole_idx and not currently_inside_hole:
+            
+            self.highlight_sphere_vertex_data["color"][:,3] = 0.0
+            
+            self.highlight_state = -1
+            
+        
         
             
     def translate_camera(self, idx, plus_minus):
         
         self.view[3,idx] += plus_minus*self.translation_sensitivity
         
-        self.program['u_view'] = self.view
+        self.galaxy_point_program['u_view'] = self.view
         
-        self.program_sphere["u_view"] = self.view
+        self.void_sphere_program["u_view"] = self.view
+        
+        if self.enable_void_interior_highlight:
+            
+            self.highlight_program["u_view"] = self.view
+        
+            self.update_highlight_sphere_location()
         
         self.update()
         
@@ -1056,9 +1195,13 @@ class Canvas(app.Canvas):
         
         self.view = np.matmul(self.view, curr_rotation)
         
-        self.program['u_view'] = self.view
+        self.galaxy_point_program['u_view'] = self.view
         
-        self.program_sphere["u_view"] = self.view
+        self.void_sphere_program["u_view"] = self.view
+        
+        if self.enable_void_interior_highlight:
+            
+            self.highlight_program["u_view"] = self.view
         
         self.update()
         
@@ -1092,19 +1235,19 @@ class Canvas(app.Canvas):
         
     def press_z(self):
         
-        self.translation_sensitivity *= 1.2
+        self.translation_sensitivity *= 1.1
         
     def press_x(self):
         
-        self.translation_sensitivity /= 1.2
+        self.translation_sensitivity /= 1.1
         
     def press_c(self):
         
-        self.rotation_sensitivity *= 1.2  
+        self.rotation_sensitivity *= 1.1
         
     def press_v(self):
         
-        self.rotation_sensitivity /= 1.2
+        self.rotation_sensitivity /= 1.1
         
     def press_i(self):
         
@@ -1131,20 +1274,43 @@ class Canvas(app.Canvas):
         self.rotate_camera(2, 1.0)
         
     def press_p(self):
+        """
+        Helper function to print current camera location
+        """
         
         curr_camera_location = self.view[3,0:3].reshape(1,3)
         
         curr_rot_matrix = self.view[0:3,0:3]
         
-        val = np.matmul(curr_rot_matrix, curr_camera_location.T)
+        data_coord_camera_location = -1.0*np.matmul(curr_rot_matrix, curr_camera_location.T).T
         
         norm = np.sqrt(np.sum(curr_camera_location*curr_camera_location))
         
-        #print(curr_camera_location)
-        
+        #Print the current view matrix, actual camera location, and distance to origin
+        print("View info: ")
         print(self.view)
-        print(val.T)
+        print(data_coord_camera_location)
         print(norm)
+        
+    def press_0(self):
+        
+        img = self.render()
+        
+        #print(img.shape)
+        
+        alpha_num = "abcdefghijklmnopqrstuvwxyz1234567890"
+        
+        random_sequence = ""
+        
+        for _ in range(6):
+            
+            curr_char = alpha_num[np.random.randint(0,36)]
+            
+            random_sequence += curr_char
+        
+        outname = "voidfinder_" + random_sequence + ".png"
+        
+        io.write_png(outname, img)
         
         
         
@@ -1153,6 +1319,9 @@ class Canvas(app.Canvas):
         """
         Activated when user pressed a key on the keyboard
         """
+        
+        #print(vars(event))
+        
         if event.text in self.keyboard_commands:
             
             self.keyboard_active[event.text] = 1
@@ -1169,64 +1338,47 @@ class Canvas(app.Canvas):
             
             
     def on_key_release(self, event):
+        """
+        Activates when user releases a key
+        """
         
         if event.text in self.keyboard_commands:
-            
-            #print("Release: ", event.text)
             
             self.keyboard_active[event.text] = 0
     
 
     def on_timer(self, event):
-        
-        #print("I am called!")
-        
+        """
+        Callback every .01 seconds or so, mostly to process keyboard 
+        commands for now
+        """
         if time.time() - self.last_keypress_time > 0.02:
             
             for curr_key in self.keyboard_active:
             
                 if self.keyboard_active[curr_key]:
                     
-                    #print("Running command: ", curr_key)
-        
                     self.keyboard_commands[curr_key]()
+                    
         
     def on_resize(self, event):
         
         self.apply_zoom()
+        
 
     def on_mouse_wheel(self, event):
-        
-        pass
-        '''
-        #print(vars(event))
-        #print(dir(event))
-        
-        #print(event)
-        
-        #
-        
-        translate_factor = 5 * -event.delta[1]
-        #self.translate = max(2, self.translate)
-        
-        #print("Before: ", self.view_location, self.translate)
-        
-        self.view_location += translate_factor*self.view_vector
-        
-        self.view = translate(-self.view_location)
-        
-        #print("After: ", self.view_location)
-
-        self.program['u_view'] = self.view
-        '''
+        """
+        Make the galaxies (displayed as gl_PointCoords discs) display radius
+        larger or smaller up to max size
+        """
     
-        self.translate -= event.delta[1]
+        self.point_size_denominator -= event.delta[1]
         
-        #print(self.translate)
+        self.point_size_denominator = max(1.0, self.point_size_denominator)
         
-        self.translate = max(1.0, self.translate)
+        self.point_size_denominator = min(10.0, self.point_size_denominator)
     
-        self.program['u_size'] = 1.0 / self.translate
+        self.galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
         
         self.update()
         
@@ -1239,63 +1391,37 @@ class Canvas(app.Canvas):
             
             self.last_mouse_pos = event.pos
 
+
     def on_mouse_release(self, event):
         
         if self.mouse_state == 1:
+            
             self.mouse_state = 0
+
 
     def on_mouse_move(self, event):
         
         if self.mouse_state == 1 and event.button == 1:
-            '''
-            x_delta = self.last_mouse_pos[0] - event.pos[0]
             
-            y_delta = self.last_mouse_pos[1] - event.pos[1]
-            
-            self.last_mouse_pos = event.pos
-            
-            self.theta -= y_delta/20.0
-            
-            self.phi -= x_delta/20.0
-            
-            self.model = np.dot(rotate(self.theta, (0, 0, 1)), rotate(self.phi, (0, 1, 0)))
-            
-            self.program['u_model'] = self.model
-            
-            self.update()
-            '''
             pass
             
         elif self.mouse_state == 1 and event.button == 2:
             
             pass
-            '''
-            x_delta = self.last_mouse_pos[0] - event.pos[0]
-            
-            y_delta = self.last_mouse_pos[1] - event.pos[1]
-            
-            self.last_mouse_pos = event.pos
-            
-            #self.view_location[0] += x_delta/10.0
-            
-            #self.view_location[1] -= y_delta/10.0
-        
-            self.view = translate(-self.view_location)
-            
-            self.program['u_view'] = self.view
-            
-            self.update()
-            '''
             
             
-
     def on_draw(self, event):
         
         gloo.clear((1, 1, 1, 1))
         
-        self.program.draw('points')
+        self.galaxy_point_program.draw('points')
         
-        self.program_sphere.draw('triangles')
+        self.void_sphere_program.draw('triangles')
+        
+        if self.enable_void_interior_highlight:
+        
+            self.highlight_program.draw('triangles')
+
 
     def apply_zoom(self):
         """
@@ -1307,22 +1433,16 @@ class Canvas(app.Canvas):
         
         self.projection = perspective(60.0, self.size[0]/float(self.size[1]), 0.01, 10000.0)
         
-        self.program['u_projection'] = self.projection
+        self.galaxy_point_program['u_projection'] = self.projection
         
-    def apply_zoom_sphere(self):
-        """
-        For a fov angle of 60 degrees and a near plane of 0.01, 
-        the size of the near viewing plane is .0115 in height and .0153 in width (on 800x600 screen)
-        """
+        self.void_sphere_program['u_projection'] = self.projection
         
-        gloo.set_viewport(0, 0, self.physical_size[0], self.physical_size[1])
+        if self.enable_void_interior_highlight:
+            
+            self.highlight_program['u_projection'] = self.projection
         
-        self.projection = perspective(60.0, self.size[0]/float(self.size[1]), 0.01, 10000.0)
-        
-        self.program_sphere['u_projection'] = self.projection
-        
-        
-
+    def run(self):
+        app.run()
 
 
 if __name__ == "__main__":
@@ -1336,11 +1456,13 @@ if __name__ == "__main__":
     
     print("Galaxies: ", galaxy_data.shape)
     
-    c = Canvas(holes_xyz, 
-               holes_radii, 
-               galaxy_data)
+    viz = VoidFinderCanvas(holes_xyz, 
+                         holes_radii, 
+                         galaxy_data,
+                         canvas_size=(1600,1200))
     
-    app.run()
+    viz.run()
+    #app.run()
     
     
     

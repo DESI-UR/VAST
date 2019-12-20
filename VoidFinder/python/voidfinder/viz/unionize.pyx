@@ -72,6 +72,15 @@ cpdef void union_vertex_selection(neighbor_index, #need int64 types
     cdef DTYPE_F32_t[:] hole_radius_compare = np.zeros((3,), dtype=np.float32)
     cdef DTYPE_F32_t[:] vertex_dist_sq = np.zeros((3,), dtype=np.float32)
     
+    
+    cdef DTYPE_F32_t neighbor_hole_radius
+    cdef DTYPE_F32_t[:] neighbor_hole_xyz
+    
+    
+    cdef DTYPE_F32_t temp1
+    cdef DTYPE_F32_t temp2
+    cdef DTYPE_F32_t temp3
+    
     cdef DTYPE_INT64_t[:] close_idx
     cdef DTYPE_INT64_t neighbor_idx
     
@@ -100,6 +109,33 @@ cpdef void union_vertex_selection(neighbor_index, #need int64 types
                 
                 continue
             
+            ############################################################
+            # Add a quick distance check on hole radii
+            ############################################################
+            neighbor_hole_radius = holes_radii[neighbor_idx]
+            
+            temp1 = neighbor_hole_radius + hole_radius
+            
+            temp2 = temp1*temp1
+            
+            neighbor_hole_xyz = holes_xyz[neighbor_idx]
+            
+            hole_radius_compare[0] = hole_xyz[0] - neighbor_hole_xyz[0]
+            hole_radius_compare[1] = hole_xyz[1] - neighbor_hole_xyz[1]
+            hole_radius_compare[2] = hole_xyz[2] - neighbor_hole_xyz[2]
+            
+            temp3 = hole_radius_compare[0]*hole_radius_compare[0] + \
+                    hole_radius_compare[1]*hole_radius_compare[1] + \
+                    hole_radius_compare[2]*hole_radius_compare[2]
+                    
+            if temp3 > temp2:
+                
+                continue
+            
+            
+            ############################################################
+            # Back to triangle algorithm
+            ############################################################
             start_idx = (<ITYPE_t>neighbor_idx)*vert_per_sphere
             
             #end_idx = ((<ITYPE_t>neighbor_idx)+1)*vert_per_sphere
