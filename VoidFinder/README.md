@@ -19,7 +19,7 @@ Or, if you're working on it, you can do a `python setup.py develop` which essent
 installs a symlink into your python environment which points back to this directory.
 
 
-If you're developing VoidFinder and need to rebuild the cython, enter the `/voidfinder/` directory and run:
+If you're developing VoidFinder and need to rebuild the cython, enter the `/python/voidfinder/` directory and run:
 
 ```
 cython -a *.pyx
