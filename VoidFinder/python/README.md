@@ -12,7 +12,7 @@ Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566
 ## Building & Running Voidfinder
 
 VoidFinder will install like a normal python package via `python setup.py install`
-from this directory ('VoidFinder/VoidFinder/python/')
+from this directory (`Voids/VoidFinder/python/`)
 
 
 Or, if you're working on it, you can do a `python setup.py develop` which essentially
