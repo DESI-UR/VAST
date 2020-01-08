@@ -658,7 +658,7 @@ class VoidFinderCanvas(app.Canvas):
         ######################################################################
         # Set up the program to display galaxy points
         ######################################################################
-        u_linewidth = 1.0
+        u_linewidth = 0.0
         
         u_antialias = 0.0 #0.0==turned this off it looks weird
         
@@ -1449,8 +1449,9 @@ if __name__ == "__main__":
     
     holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
     
-    galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
-    #galaxy_data = load_galaxy_data("dr12r.dat")
+    #galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
+    galaxy_data = load_galaxy_data('kias1033_5.dat')
+    #galaxy_data = load_galaxy_data("dr12n.dat")
     
     print("Holes: ", holes_xyz.shape, holes_radii.shape, holes_flags.shape)
     
@@ -1459,6 +1460,7 @@ if __name__ == "__main__":
     viz = VoidFinderCanvas(holes_xyz, 
                          holes_radii, 
                          galaxy_data,
+                         galaxy_display_radius=10,
                          canvas_size=(1600,1200))
     
     viz.run()
