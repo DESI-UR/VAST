@@ -78,6 +78,7 @@ mouse wheel - increase/decrease galaxy size
 - (Should do, to be able to see all interior void galaxies; Not going to do, existing way is efficient enough) update green color so that it just modifies the existing triangle colors instead of moving the green sphere around
 - color galaxies by void and wall
 - make interior void galaxies opaque when camera is inside the void
+- embed in webpage
 
 
 
