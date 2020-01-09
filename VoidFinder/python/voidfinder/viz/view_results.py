@@ -218,21 +218,40 @@ vert_sphere = """
 
 #version 120
 
-//uniform mat4 u_model;
 uniform mat4 u_view;
 uniform mat4 u_projection;
 
 attribute vec4 position;
-//attribute vec2 texcoord;
-//attribute vec3 normal;
+attribute vec4 normal;
 attribute vec4 color;
 
 varying vec4 v_color;
 
 void main()
 {
-    v_color = color;
-    //gl_Position = u_projection * u_view * u_model * position;
+    //remember - column major indexing in GLSL
+    //wtf, its actually row major based on below code working?
+    
+    vec4 view_camera_position = vec4(u_view[3].x, u_view[3].y, u_view[3].z, 0.0f);
+    
+    //the real position needs to be multiplied by -1.0, but since we are just
+    //going to multiply by -1.0 again later after the dot product, I'm omitting
+    //both multiplications by -1.0
+    
+    vec4 curr_camera_position = -1.0 * u_view * view_camera_position;
+    
+    vec4 diff_position = curr_camera_position - position;
+    
+    diff_position[3] = 0.0f;
+    
+    float color_mod = abs(dot(normalize(diff_position), normal));
+    
+    //color_mod = color_mod / 2.0;
+    //color_mod = color_mod + 0.5;
+    
+    v_color.xyz = color_mod*color.xyz;
+    v_color.w = color.w;
+    
     gl_Position = u_projection * u_view * position;
 }
 """
@@ -278,7 +297,6 @@ class VoidFinderCanvas(app.Canvas):
                  galaxy_display_radius=2.0,
                  remove_void_intersects=True,
                  filter_for_degenerate=True,
-                 enable_void_interior_highlight=True,
                  canvas_size=(800,600),
                  title="VoidFinder Results",
                  camera_start_location=None,
@@ -287,7 +305,9 @@ class VoidFinderCanvas(app.Canvas):
                  start_rotation_sensitivity=1.0,
                  galaxy_color=np.array([1.0, 0.0, 0.0, 0.5], dtype=np.float32),
                  void_hole_color=np.array([0.0, 0.0, 1.0, 0.3], dtype=np.float32),
-                 void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32)
+                 enable_void_interior_highlight=True,
+                 void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32),
+                 SPHERE_TRIANGULARIZATION_DEPTH=3
                  ):
         '''
         Main class for initializing the visualization.
@@ -395,6 +415,12 @@ class VoidFinderCanvas(app.Canvas):
            values from 0.0-1.0 representing RGB and Alpha for the void highlight,
            when the camera enters a void hole it turns the hole this color so you
            know you're inside IF enable_void_interior_highlight == True
+           
+        SPHERE_TRIANGULARIZATION_DEPTH : integer, default 3
+           number of subdivisions in the icosahedron sphere triangularization to make.
+           Total vertices will be num_voids * 20 * 3 * 4^SPHERE_TRIANGULARIZATION_DEPTH
+           so be careful increasing this value above 3.  Default of 3 results in 3840 vertices
+           (1280 triangles) per sphere
         '''
         
         
@@ -439,9 +465,10 @@ class VoidFinderCanvas(app.Canvas):
         ######################################################################
         #
         ######################################################################
+        
         self.projection = np.eye(4, dtype=np.float32) #start with orthographic, will modify this
         
-        self.unit_sphere = self.create_sphere(1.0, 3)
+        self.unit_sphere, self.unit_sphere_normals = self.create_sphere(1.0, SPHERE_TRIANGULARIZATION_DEPTH)
         
         self.vert_per_sphere = self.unit_sphere.shape[0]
         
@@ -465,8 +492,10 @@ class VoidFinderCanvas(app.Canvas):
         self.setup_galaxy_program()
         
         self.setup_void_sphere_program()
+        
+        if self.enable_void_interior_highlight:
             
-        self.setup_highlight_program()
+            self.setup_highlight_program()
         
         self.apply_zoom()
         
@@ -689,11 +718,18 @@ class VoidFinderCanvas(app.Canvas):
         ######################################################################
         num_sphere_verts = self.vert_per_sphere*self.holes_xyz.shape[0]
         
+        #num_sphere_triangles = num_sphere_verts//3
+        
         self.void_sphere_coord_data = np.ones((num_sphere_verts,4), dtype=np.float32)
+        
+        self.void_sphere_normals_data = np.zeros((num_sphere_verts,4), dtype=np.float32)
         
         ######################################################################
         # Calculate all the sphere vertex positions and add them to the
-        # vertex array
+        # vertex array, and the centroid of each triangle
+        # ERRRT - don't need centroids, they're close enough to the vertices
+        # themselves, just use the vertex positions, and a 
+        # a copy of the normals!
         ######################################################################
         for idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
             
@@ -705,6 +741,13 @@ class VoidFinderCanvas(app.Canvas):
             
             self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
             
+            self.void_sphere_normals_data[start_idx:end_idx, 0:3] = self.unit_sphere_normals
+            
+            #for jdx in range(num_sphere_triangles):
+                
+                #self.void_sphere_centroid_data[kdx] = np.mean(curr_sphere[jdx:(jdx+3)], axis=0)
+                
+            
         ######################################################################
         # Given there will be a lot of overlap internal to the spheres, 
         # remove the overlap for better viewing quality
@@ -712,7 +755,6 @@ class VoidFinderCanvas(app.Canvas):
         if self.remove_void_intersects:
             
             print("Pre intersect-remove vertices: ", self.void_sphere_coord_data.shape[0])
-            
             
             start_time = time.time()
             
@@ -729,9 +771,12 @@ class VoidFinderCanvas(app.Canvas):
         ######################################################################
         
         self.void_sphere_vertex_data = np.zeros(num_sphere_verts, [('position', np.float32, 4),
+                                                                   ('normal', np.float32, 4),
                                                                    ('color', np.float32, 4)])
         
         self.void_sphere_vertex_data["position"] = self.void_sphere_coord_data
+        
+        self.void_sphere_vertex_data["normal"] = self.void_sphere_normals_data
         
         self.void_sphere_vertex_data["color"] = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
         
@@ -746,6 +791,8 @@ class VoidFinderCanvas(app.Canvas):
         self.void_sphere_program.bind(self.void_sphere_VB)
         
         self.void_sphere_program['u_view'] = self.view
+        
+        
         
         
         
@@ -769,7 +816,7 @@ class VoidFinderCanvas(app.Canvas):
         #
         ######################################################################
         self.highlight_sphere_vertex_data = np.zeros(self.unit_sphere.shape[0], [('position', np.float32, 4),
-                                                                               ('color', np.float32, 4)])
+                                                                                 ('color', np.float32, 4)])
         
         self.highlight_sphere_vertex_data["position"] = self.highlight_sphere_coord_data
         
@@ -797,9 +844,9 @@ class VoidFinderCanvas(app.Canvas):
         function
         """
         
-        sphere_vertices = self.icosahedron_sphere_projection(radius, subdivisions)
+        sphere_vertices, sphere_normals = self.icosahedron_sphere_projection(radius, subdivisions)
         
-        return sphere_vertices
+        return sphere_vertices, sphere_normals
     
     
         
@@ -965,9 +1012,14 @@ class VoidFinderCanvas(app.Canvas):
             
         ############################################################
         # Convert from a list of triangles to a numpy array
+        # And calculate the normal vector for each triangle.  Copy
+        # the normal vector for each triangle for each of the 3
+        # vertices
         ############################################################
         
         array_data = []
+        
+        normal_vectors = []
         
         for curr_tri in face_list:
             
@@ -975,7 +1027,22 @@ class VoidFinderCanvas(app.Canvas):
             array_data.append(curr_tri.pt2.reshape(1,3))
             array_data.append(curr_tri.pt3.reshape(1,3))
             
+            
+            edge_1 = curr_tri.pt2 - curr_tri.pt1
+            edge_2 = curr_tri.pt3 - curr_tri.pt1
+            
+            normal_vec = np.cross(edge_1, edge_2)
+            
+            normal_vec /= np.sqrt(np.sum(normal_vec*normal_vec))
+            
+            #Copy once for each vertex
+            normal_vectors.append(normal_vec.reshape(1,3))
+            normal_vectors.append(normal_vec.reshape(1,3))
+            normal_vectors.append(normal_vec.reshape(1,3))
+            
         out_vertices = np.concatenate(array_data, axis=0)
+        
+        out_normals = np.concatenate(normal_vectors, axis=0)
         
         ############################################################
         # Scale by radius
@@ -983,7 +1050,7 @@ class VoidFinderCanvas(app.Canvas):
         
         out_vertices *= radius
         
-        return out_vertices
+        return out_vertices, out_normals
 
     
     
@@ -1084,7 +1151,12 @@ class VoidFinderCanvas(app.Canvas):
                                self.vert_per_sphere)
         
         #needed to use numpy.where maybe due to uint8 type on valid_vertex_idx?
-        self.void_sphere_coord_data = self.void_sphere_coord_data[np.where(valid_vertex_idx)[0]]
+        
+        keep_idx = np.where(valid_vertex_idx)[0]
+        
+        self.void_sphere_coord_data = self.void_sphere_coord_data[keep_idx]
+        
+        self.void_sphere_normals_data = self.void_sphere_normals_data[keep_idx]
         
 
     def press_spacebar(self):
@@ -1294,9 +1366,13 @@ class VoidFinderCanvas(app.Canvas):
         
     def press_0(self):
         
-        img = self.render()
+        img = self.render().copy()
         
-        #print(img.shape)
+        print(img.shape)
+        
+        print(img[500,900])
+        
+        img[:,:,3] = 255
         
         alpha_num = "abcdefghijklmnopqrstuvwxyz1234567890"
         
@@ -1449,11 +1525,13 @@ if __name__ == "__main__":
     
     holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
     
-    #galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
-    galaxy_data = load_galaxy_data('kias1033_5.dat')
+    galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
+    #galaxy_data = load_galaxy_data('kias1033_5.dat')
     #galaxy_data = load_galaxy_data("dr12n.dat")
     
     print("Holes: ", holes_xyz.shape, holes_radii.shape, holes_flags.shape)
+    
+    print(len(np.unique(holes_flags)))
     
     print("Galaxies: ", galaxy_data.shape)
     
@@ -1461,6 +1539,8 @@ if __name__ == "__main__":
                          holes_radii, 
                          galaxy_data,
                          galaxy_display_radius=10,
+                         enable_void_interior_highlight=False,
+                         SPHERE_TRIANGULARIZATION_DEPTH=3,
                          canvas_size=(1600,1200))
     
     viz.run()

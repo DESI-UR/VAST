@@ -72,9 +72,11 @@ mouse wheel - increase/decrease galaxy size
 # Backlog:
 ############################################################
 
+- fix the png image save on press_0 function, manually add background color (white) in?
+- video recording capability
 - add index maps from the vertex/triangle data buffers to which void hole they belong to so we can do fancy things
 - add some kind of visual shading or lighting or something to make it easier to see the void spheres as we move through the middle of the cluster
-- fix the png image save on press_0 function, manually add background color (white) in?
+
 - (Should do, to be able to see all interior void galaxies; Not going to do, existing way is efficient enough) update green color so that it just modifies the existing triangle colors instead of moving the green sphere around
 - color galaxies by void and wall
 - make interior void galaxies opaque when camera is inside the void
