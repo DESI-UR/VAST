@@ -72,20 +72,18 @@ mouse wheel - increase/decrease galaxy size
 # Backlog:
 ############################################################
 
-- fix the png image save on press_0 function, manually add background color (white) in?
-- video recording capability
-- add index maps from the vertex/triangle data buffers to which void hole they belong to so we can do fancy things
-- add some kind of visual shading or lighting or something to make it easier to see the void spheres as we move through the middle of the cluster
 
-- (Should do, to be able to see all interior void galaxies; Not going to do, existing way is efficient enough) update green color so that it just modifies the existing triangle colors instead of moving the green sphere around
-- color galaxies by void and wall
-- make interior void galaxies opaque when camera is inside the void
+- video recording capability
+- color by void group instead of all blue or constant
+? add index maps from the vertex/triangle data buffers to which void hole they belong to so we can do fancy things
 - embed in webpage
 
 
-
-
-
++ fix the png image save on press_0 function, manually add background color (white) in?
++ add some kind of visual shading or lighting or something to make it easier to see the void spheres as we move through the middle of the cluster
++ (Not necessary with new lighting model) color galaxies by void and wall
++ (Not necessary, can see inside voids now with new lighting model) Should do, to be able to see all interior void galaxies; Not going to do, existing way is efficient enough) update green color so that it just modifies the existing triangle colors instead of moving the green sphere around
++ (Not necessary with new lighting model - just set void alpha to opaque) make interior void galaxies opaque when camera is inside the void
 + add image save
 + color holes which camera is inside of with green so you know you're inside
     + (dont do this) set alpha to 1.0 for everything, then set it to .5, .4, .3 for holes that user is within ~ 50mpc of?

@@ -230,24 +230,44 @@ varying vec4 v_color;
 void main()
 {
     //remember - column major indexing in GLSL
-    //wtf, its actually row major based on below code working?
+    //since its column major, the u_view matrix is essentially the transpose
+    //of the self.view matrix in the python below.  So to get the xyz positions we're
+    //going to pull them from the 4th column instead of the 4th row, and when we do the
+    //matrix multiplication to convert from view space to world space position, to
+    //multiply on the left with the u_view matrix we need to use the transpose:
+    //vec4 curr_camera_position = -1.0 * transpose(u_view) * view_camera_position;
+    //or we can multiply on the right with it natively
     
-    vec4 view_camera_position = vec4(u_view[3].x, u_view[3].y, u_view[3].z, 0.0f);
+    vec4 view_camera_position = vec4(u_view[3][0], u_view[3][1], u_view[3][2], 0.0f);
     
-    //the real position needs to be multiplied by -1.0, but since we are just
-    //going to multiply by -1.0 again later after the dot product, I'm omitting
-    //both multiplications by -1.0
+    vec4 curr_camera_position = -1.0 * view_camera_position * u_view;
     
-    vec4 curr_camera_position = -1.0 * u_view * view_camera_position;
+    vec4 position_difference = curr_camera_position - position;
     
-    vec4 diff_position = curr_camera_position - position;
+    position_difference[3] = 0.0f;
     
-    diff_position[3] = 0.0f;
+    float position_distance = length(position_difference);
     
-    float color_mod = abs(dot(normalize(diff_position), normal));
+    float angle_color_mod = abs(dot(normalize(position_difference), normal));
     
-    //color_mod = color_mod / 2.0;
-    //color_mod = color_mod + 0.5;
+    //float dist_color_mod = 100.0/(position_distance*position_distance);
+    //dist_color_mod = min(1.0, dist_color_mod);
+    
+    
+    float dist_color_mod = 1.0f;
+    
+    if(position_distance > 2.719)
+    {
+        float dist_color_mod = 1.0/log(position_distance);
+    }
+    
+    
+    
+    angle_color_mod = angle_color_mod * 0.8 + 0.2;
+    
+    dist_color_mod = dist_color_mod * 0.8 + 0.2;
+    
+    float color_mod = angle_color_mod*dist_color_mod;
     
     v_color.xyz = color_mod*color.xyz;
     v_color.w = color.w;
@@ -288,7 +308,7 @@ class Triangle(object):
 
 
 # ------------------------------------------------------------ Canvas class ---
-class VoidFinderCanvas(app.Canvas):
+class VoidRender(app.Canvas):
 
     def __init__(self,
                  holes_xyz, 
@@ -303,8 +323,8 @@ class VoidFinderCanvas(app.Canvas):
                  camera_start_orientation=None,
                  start_translation_sensitivity=1.0,
                  start_rotation_sensitivity=1.0,
-                 galaxy_color=np.array([1.0, 0.0, 0.0, 0.5], dtype=np.float32),
-                 void_hole_color=np.array([0.0, 0.0, 1.0, 0.3], dtype=np.float32),
+                 galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
+                 void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
                  enable_void_interior_highlight=True,
                  void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32),
                  SPHERE_TRIANGULARIZATION_DEPTH=3
@@ -315,7 +335,7 @@ class VoidFinderCanvas(app.Canvas):
         Usage:
         ------
         
-        from voidfinder.viz import VoidFinderCanvas, load_hole_data, load_galaxy_data
+        from voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
         
         holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
     
@@ -1535,13 +1555,14 @@ if __name__ == "__main__":
     
     print("Galaxies: ", galaxy_data.shape)
     
-    viz = VoidFinderCanvas(holes_xyz, 
-                         holes_radii, 
-                         galaxy_data,
-                         galaxy_display_radius=10,
-                         enable_void_interior_highlight=False,
-                         SPHERE_TRIANGULARIZATION_DEPTH=3,
-                         canvas_size=(1600,1200))
+    viz = VoidRender(holes_xyz, 
+                          holes_radii, 
+                          galaxy_data,
+                          galaxy_display_radius=10,
+                          enable_void_interior_highlight=False,
+                          void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
+                          SPHERE_TRIANGULARIZATION_DEPTH=3,
+                          canvas_size=(1600,1200))
     
     viz.run()
     #app.run()
