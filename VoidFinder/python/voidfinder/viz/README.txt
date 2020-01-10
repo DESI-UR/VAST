@@ -72,13 +72,15 @@ mouse wheel - increase/decrease galaxy size
 # Backlog:
 ############################################################
 
-
 - video recording capability
 - color by void group instead of all blue or constant
 ? add index maps from the vertex/triangle data buffers to which void hole they belong to so we can do fancy things
 - embed in webpage
 
 
+
+
++ added mouse navigation (left click pitch/yaw right click forward/back)
 + fix the png image save on press_0 function, manually add background color (white) in?
 + add some kind of visual shading or lighting or something to make it easier to see the void spheres as we move through the middle of the cluster
 + (Not necessary with new lighting model) color galaxies by void and wall

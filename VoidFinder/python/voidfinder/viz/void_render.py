@@ -1,5 +1,9 @@
 
 
+import os
+
+import subprocess
+
 import numpy as np
 
 from load_results import load_hole_data, load_galaxy_data
@@ -258,14 +262,14 @@ void main()
     
     if(position_distance > 2.719)
     {
-        float dist_color_mod = 1.0/log(position_distance);
+        float dist_color_mod = 1.0/log(2.0*position_distance);
     }
     
     
     
     angle_color_mod = angle_color_mod * 0.8 + 0.2;
     
-    dist_color_mod = dist_color_mod * 0.8 + 0.2;
+    dist_color_mod = dist_color_mod * 0.9 + 0.1;
     
     float color_mod = angle_color_mod*dist_color_mod;
     
@@ -325,8 +329,8 @@ class VoidRender(app.Canvas):
                  start_rotation_sensitivity=1.0,
                  galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
                  void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
-                 enable_void_interior_highlight=True,
-                 void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32),
+                 #enable_void_interior_highlight=True,
+                 #void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32),
                  SPHERE_TRIANGULARIZATION_DEPTH=3
                  ):
         '''
@@ -468,7 +472,7 @@ class VoidRender(app.Canvas):
         
         self.remove_void_intersects = remove_void_intersects
         
-        self.enable_void_interior_highlight = enable_void_interior_highlight
+        #self.enable_void_interior_highlight = enable_void_interior_highlight
         
         self.num_hole = holes_xyz.shape[0]
         
@@ -478,9 +482,9 @@ class VoidRender(app.Canvas):
         
         self.void_hole_color = void_hole_color
         
-        self.void_highlight_color = void_highlight_color
+        #self.void_highlight_color = void_highlight_color
         
-        self.void_highlight_alpha = void_highlight_color[3]
+        #self.void_highlight_alpha = void_highlight_color[3]
         
         ######################################################################
         #
@@ -505,6 +509,10 @@ class VoidRender(app.Canvas):
         
         self.setup_keyboard()
         
+        self.recording = False
+        
+        self.recording_frames = []
+        
         ######################################################################
         #
         ######################################################################
@@ -513,9 +521,9 @@ class VoidRender(app.Canvas):
         
         self.setup_void_sphere_program()
         
-        if self.enable_void_interior_highlight:
+        #if self.enable_void_interior_highlight:
             
-            self.setup_highlight_program()
+        #    self.setup_highlight_program()
         
         self.apply_zoom()
         
@@ -555,6 +563,7 @@ class VoidRender(app.Canvas):
         
         self.press_once_commands = {" " : self.press_spacebar,
                                     "p" : self.press_p,
+                                    "m" : self.press_m,
                                     "0" : self.press_0}
         
         self.keyboard_active = {"w" : 0,
@@ -1252,7 +1261,57 @@ class VoidRender(app.Canvas):
             self.highlight_state = -1
             
         
+    def read_front_buffer(self):
         
+        
+        
+        type_ = gloo.gl.GL_UNSIGNED_BYTE
+        
+        viewport = gloo.gl.glGetParameter(gloo.gl.GL_VIEWPORT)
+        
+        x, y, w, h = viewport
+        
+        #x = 0
+        #y = 0
+        #w = 1800
+        #h = 1000
+        
+        gloo.gl.glPixelStorei(gloo.gl.GL_PACK_ALIGNMENT, 1)  # PACK, not UNPACK
+        '''
+        if mode == 'depth':
+            fmt = gloo.gl.GL_DEPTH_COMPONENT
+            shape = (h, w, 1)
+        elif mode == 'stencil':
+            fmt = gloo.gl.GL_STENCIL_INDEX8
+            shape = (h, w, 1)
+        elif alpha:
+        
+            fmt = gloo.gl.GL_RGBA
+            shape = (h, w, 4)
+        
+        else:
+            fmt = gloo.gl.GL_RGB
+            shape = (h, w, 3)
+        '''
+        
+        fmt = gloo.gl.GL_RGBA
+        shape = (h, w, 4)
+        
+        im = gloo.gl.glReadPixels(x, y, w, h, fmt, type_)
+        
+        gloo.gl.glPixelStorei(gloo.gl.GL_PACK_ALIGNMENT, 4)
+        
+        # reshape, flip, and return
+        if not isinstance(im, np.ndarray):
+            
+            np_dtype = np.uint8 if type_ == gloo.gl.GL_UNSIGNED_BYTE else np.float32
+            
+            im = np.frombuffer(im, np_dtype)
+    
+        im.shape = shape
+        im = im[::-1, ...]  # flip the image
+        
+        return im.copy()
             
     def translate_camera(self, idx, plus_minus):
         
@@ -1261,16 +1320,29 @@ class VoidRender(app.Canvas):
         self.galaxy_point_program['u_view'] = self.view
         
         self.void_sphere_program["u_view"] = self.view
-        
+        '''
         if self.enable_void_interior_highlight:
             
             self.highlight_program["u_view"] = self.view
         
             self.update_highlight_sphere_location()
+        '''
         
+        '''
         self.update()
         
+        if self.recording:
+            
+            #img = self.render().copy()
+            
+            img = self.read_front_buffer()
+        
+            img[:,:,3] = 255
+            
+            self.recording_frames.append(img)
+        '''
         #app.Canvas.update(self)
+        
         
         
     def rotate_camera(self, idx, plus_minus):
@@ -1290,13 +1362,26 @@ class VoidRender(app.Canvas):
         self.galaxy_point_program['u_view'] = self.view
         
         self.void_sphere_program["u_view"] = self.view
-        
+        '''
         if self.enable_void_interior_highlight:
             
             self.highlight_program["u_view"] = self.view
+        '''
         
+        
+        '''
         self.update()
         
+        if self.recording:
+            
+            #img = self.render().copy()
+            
+            img = self.read_front_buffer()
+        
+            img[:,:,3] = 255
+            
+            self.recording_frames.append(img)
+        '''
         #app.Canvas.update(self)
         
         
@@ -1362,7 +1447,7 @@ class VoidRender(app.Canvas):
         self.rotate_camera(2, -1.0)
         
     def press_e(self):
-        
+                
         self.rotate_camera(2, 1.0)
         
     def press_p(self):
@@ -1384,6 +1469,95 @@ class VoidRender(app.Canvas):
         print(data_coord_camera_location)
         print(norm)
         
+    def press_m(self):
+        
+        print("Pressed m!")
+        
+        if self.recording:
+            
+            print("Writing frames...")
+            
+            #Write to png and save video
+            
+            random_ID = self.random_string()
+            
+            ffmpeg_list_filename = random_ID+".txt"
+            
+            ffmpeg_list_file = open(ffmpeg_list_filename, 'wb')
+            
+            ffmpeg_file_list = []
+            
+            for idx, frame in enumerate(self.recording_frames):
+                
+                outname = random_ID + "_frame_" + str(idx) + ".png"
+                
+                ffmpeg_file_list.append(outname)
+                
+                outpath = os.path.join(os.getcwd(), outname)
+                
+                ffmpeg_list_file.write("file ".encode("utf-8")+outpath.encode('utf-8')+"\n".encode('utf-8'))
+        
+                io.write_png(outname, frame)
+                
+            ############################################################
+            # Use FFMPEG to convert from frames to an mp4
+            ############################################################
+            
+            print("FFMPEG compiling video...")
+            
+            #command = "ffmpeg -r 10 -f concat -safe 0 -i "+ffmpeg_list_filename+' -c:v libx264 -vsync vfr -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -pix_fmt yuv420p '+random_ID+".mp4"
+            
+            
+            #print(command)
+            
+            command = ["ffmpeg", 
+                       "-r", "25",
+                       "-f", "concat",
+                       "-safe", "0",
+                       "-i", ffmpeg_list_filename,
+                       "-c:v", "libx264",
+                       "-vsync", "vfr",
+                       "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+                       "-pix_fmt", "yuv420p",
+                       random_ID+".mp4"]
+            
+            #proc = subprocess.Popen(["ffmpeg", "-i", ffmpeg_list_filename, "-c:v libx264", random_ID+".mp4"])
+            #proc = subprocess.Popen(command, shell=True)
+            proc = subprocess.Popen(command)
+            
+            exit_code = proc.wait()
+            
+            ############################################################
+            # Clean up the memory and disk resources
+            ############################################################
+            
+            print("Cleaning disk...")
+            
+            self.recording_frames = []
+            
+            for curr_name in ffmpeg_file_list:
+                
+                os.remove(curr_name)
+                
+            os.remove(ffmpeg_list_filename)
+            
+            ############################################################
+            # All done
+            ############################################################
+            print("Finished!")
+            
+            self.recording = False
+        
+        else:
+            
+            #Start recording
+            
+            self.recording = True
+            
+            pass
+        
+        
+        
     def press_0(self):
         
         img = self.render().copy()
@@ -1394,21 +1568,25 @@ class VoidRender(app.Canvas):
         
         img[:,:,3] = 255
         
-        alpha_num = "abcdefghijklmnopqrstuvwxyz1234567890"
-        
-        random_sequence = ""
-        
-        for _ in range(6):
-            
-            curr_char = alpha_num[np.random.randint(0,36)]
-            
-            random_sequence += curr_char
+        random_sequence = self.random_string()
         
         outname = "voidfinder_" + random_sequence + ".png"
         
         io.write_png(outname, img)
         
+    def random_string(self, num=6):
         
+        alpha_num = "abcdefghijklmnopqrstuvwxyz1234567890"
+        
+        random_sequence = ""
+        
+        for _ in range(num):
+            
+            curr_char = alpha_num[np.random.randint(0,36)]
+            
+            random_sequence += curr_char
+            
+        return random_sequence
         
 
     def on_key_press(self, event):
@@ -1456,6 +1634,19 @@ class VoidRender(app.Canvas):
                     
                     self.keyboard_commands[curr_key]()
                     
+        self.update()
+        
+        if self.recording:
+            
+            #img = self.render().copy()
+            
+            img = self.read_front_buffer()
+        
+            img[:,:,3] = 255
+            
+            self.recording_frames.append(img)
+        
+        
         
     def on_resize(self, event):
         
@@ -1499,11 +1690,70 @@ class VoidRender(app.Canvas):
         
         if self.mouse_state == 1 and event.button == 1:
             
+            #print(vars(event))
+            
+            curr_x = event.pos[0]
+            curr_y = event.pos[1]
+            
+            
+            curr_x_delta = self.last_mouse_pos[0] - curr_x
+            curr_y_delta = self.last_mouse_pos[1] - curr_y
+            '''
+            print(self.last_mouse_pos, event.pos)
+            
+            print("Last y - curr y: ", self.last_mouse_pos[1], curr_y)
+            print("Last x - curr x: ", self.last_mouse_pos[0], curr_x)
+            
+            print("Curr x delta: ", curr_x_delta)
+            print("Curr y delta: ", curr_y_delta)
+            '''
+            self.last_mouse_pos = event.pos
+            
+            if abs(curr_x_delta) > abs(curr_y_delta):
+                
+                curr_y_delta = 0
+                
+            else:
+                
+                curr_x_delta = 0
+            
+            if curr_y_delta < 0:
+                
+                self.rotate_camera(0, -1.0)
+                
+            elif curr_y_delta > 0:
+                
+                self.rotate_camera(0, 1.0)
+                
+            if curr_x_delta < 0:
+                
+                self.rotate_camera(1, -1.0)
+                
+            elif curr_x_delta > 0:
+                
+                self.rotate_camera(1, 1.0)
+            
+            
             pass
             
         elif self.mouse_state == 1 and event.button == 2:
             
-            pass
+            #curr_x = event.pos[0]
+            curr_y = event.pos[1]
+            
+            
+            #curr_x_delta = self.last_mouse_pos[0] - curr_x
+            curr_y_delta = self.last_mouse_pos[1] - curr_y
+            
+            self.last_mouse_pos = event.pos
+            
+            if curr_y_delta < 0:
+                
+                self.translate_camera(2, 1.0)
+                
+            elif curr_y_delta > 0:
+                
+                self.translate_camera(2, -1.0)
             
             
     def on_draw(self, event):
@@ -1513,11 +1763,11 @@ class VoidRender(app.Canvas):
         self.galaxy_point_program.draw('points')
         
         self.void_sphere_program.draw('triangles')
-        
+        '''
         if self.enable_void_interior_highlight:
         
             self.highlight_program.draw('triangles')
-
+        '''
 
     def apply_zoom(self):
         """
@@ -1532,11 +1782,11 @@ class VoidRender(app.Canvas):
         self.galaxy_point_program['u_projection'] = self.projection
         
         self.void_sphere_program['u_projection'] = self.projection
-        
+        '''
         if self.enable_void_interior_highlight:
             
             self.highlight_program['u_projection'] = self.projection
-        
+        '''
     def run(self):
         app.run()
 
@@ -1559,7 +1809,6 @@ if __name__ == "__main__":
                           holes_radii, 
                           galaxy_data,
                           galaxy_display_radius=10,
-                          enable_void_interior_highlight=False,
                           void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
                           SPHERE_TRIANGULARIZATION_DEPTH=3,
                           canvas_size=(1600,1200))
