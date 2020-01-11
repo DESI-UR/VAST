@@ -4,6 +4,7 @@ Visualization module for VoidFinder results.
 
 Requires OpenGL >= 1.2
 vispy >= 0.6.3
+optionally requires ffmpeg available on PATH for video recording
 
 Usage:
 ------

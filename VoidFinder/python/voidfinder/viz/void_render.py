@@ -373,6 +373,13 @@ class VoidRender(app.Canvas):
         z - increase translation sensitivity
         x - decrease translation sensitivity
         
+        m - start/stop video recording NOTE:  MAY TAKE A LOT OF RAM
+        0 - screenshot
+        
+        Left mouse click - pitch & yaw
+        Right mouse click - translate forward & backward
+        Mouse Wheel - increase & decrease galaxy size
+        
         Parameters
         ----------
         
@@ -432,7 +439,7 @@ class VoidRender(app.Canvas):
            values from 0.0-1.0 representing RGB and Alpha for the galaxy
            points
            
-        void_hole_color : ndarray shape (4,) dtype float32
+        void_hole_color : ndarray shape (4,) or (num_void,4) dtype float32
            values from 0.0-1.0 representing RGB and Alpha for the voids
            
         void_highlight_color : ndarray shape (4,) dtype float32
@@ -751,6 +758,8 @@ class VoidRender(app.Canvas):
         
         self.void_sphere_coord_data = np.ones((num_sphere_verts,4), dtype=np.float32)
         
+        self.void_sphere_coord_map = np.empty(num_sphere_verts, dtype=np.int64)
+        
         self.void_sphere_normals_data = np.zeros((num_sphere_verts,4), dtype=np.float32)
         
         ######################################################################
@@ -769,6 +778,8 @@ class VoidRender(app.Canvas):
             end_idx = (idx+1)*self.vert_per_sphere
             
             self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
+            
+            self.void_sphere_coord_map[start_idx:end_idx] = idx
             
             self.void_sphere_normals_data[start_idx:end_idx, 0:3] = self.unit_sphere_normals
             
@@ -807,7 +818,19 @@ class VoidRender(app.Canvas):
         
         self.void_sphere_vertex_data["normal"] = self.void_sphere_normals_data
         
-        self.void_sphere_vertex_data["color"] = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
+        if self.void_hole_color.shape[0] == self.num_hole:
+            
+            void_hole_colors = np.empty((self.void_sphere_coord_data.shape[0], 4), dtype=np.float32)
+            
+            for idx, hole_idx in enumerate(self.void_sphere_coord_map):
+                
+                void_hole_colors[idx,:] = self.void_hole_color[hole_idx,:]
+            
+        else:
+        
+            void_hole_colors = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
+        
+        self.void_sphere_vertex_data["color"] = void_hole_colors
         
         self.void_sphere_VB = gloo.VertexBuffer(self.void_sphere_vertex_data)
         
@@ -1172,20 +1195,29 @@ class VoidRender(app.Canvas):
         # Create an index of which vertices to keep via the above algorithm
         ######################################################################
         
+        smooth_seams = False
+        
         union_vertex_selection(neighbor_index,
                                valid_vertex_idx,
                                self.holes_xyz.astype(np.float32),
                                self.holes_radii.astype(np.float32),
                                self.void_sphere_coord_data,
-                               self.vert_per_sphere)
+                               self.vert_per_sphere,
+                               smooth_seams
+                               )
         
         #needed to use numpy.where maybe due to uint8 type on valid_vertex_idx?
         
         keep_idx = np.where(valid_vertex_idx)[0]
         
         self.void_sphere_coord_data = self.void_sphere_coord_data[keep_idx]
-        
+    
         self.void_sphere_normals_data = self.void_sphere_normals_data[keep_idx]
+        
+        self.void_sphere_coord_map = self.void_sphere_coord_map[keep_idx]
+        
+        
+        
         
 
     def press_spacebar(self):
@@ -1801,7 +1833,35 @@ if __name__ == "__main__":
     
     print("Holes: ", holes_xyz.shape, holes_radii.shape, holes_flags.shape)
     
-    print(len(np.unique(holes_flags)))
+    hole_IDs = np.unique(holes_flags)
+    
+    num_hole_groups = len(hole_IDs)
+    
+    from vispy.color import Colormap
+    
+    cm = Colormap(['#880000',
+                   '#EEEE00',
+                   "#008800",
+                   '#EE00EE',
+                   '#000088',
+                   '#EE00EE'])
+    
+    hole_color_vals = cm.map(np.linspace(0, 1.0, num_hole_groups))
+    
+    print(hole_color_vals.shape)
+    
+    void_hole_colors = np.empty((holes_xyz.shape[0],4), dtype=np.float32)
+    
+    for idx in range(void_hole_colors.shape[0]):
+        
+        hole_group = holes_flags[idx] 
+        
+        #print(hole_group)
+        
+        void_hole_colors[idx,:] = hole_color_vals[hole_group-1] #uhg you used 1-based indexing WHY? :D
+            
+    
+    
     
     print("Galaxies: ", galaxy_data.shape)
     
@@ -1809,8 +1869,9 @@ if __name__ == "__main__":
                           holes_radii, 
                           galaxy_data,
                           galaxy_display_radius=10,
-                          void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
-                          SPHERE_TRIANGULARIZATION_DEPTH=3,
+                          #void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
+                          void_hole_color=void_hole_colors,
+                          SPHERE_TRIANGULARIZATION_DEPTH=4,
                           canvas_size=(1600,1200))
     
     viz.run()

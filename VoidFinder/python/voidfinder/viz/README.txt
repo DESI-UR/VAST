@@ -13,6 +13,12 @@ cd into VoidFinder/python/voidfinder/viz and run
 
 'python setup.py build_ext --inplace'
 
+Optional (required for video recording):
+
+Install ffmpeg
+
+sudo apt install ffmpeg
+
 
 ############################################################
 # Notes
@@ -63,9 +69,12 @@ x - decrease translation sensitivity
 c - increase rotation sensitivity
 v - decrease rotation sensitivity
 
-mouse wheel - increase/decrease galaxy size
+m - start/stop video recording NOTE:  MAY TAKE A LOT OF RAM
+0 - screenshot
 
-0 - (zero key) - save screen as png in current directory
+Left mouse click - pitch & yaw
+Right mouse click - translate forward & backward
+Mouse Wheel - increase & decrease galaxy size
 
 
 ############################################################
