@@ -8,7 +8,7 @@ import numpy as np
 
 from load_results import load_hole_data, load_galaxy_data
 
-from unionize import union_vertex_selection
+from unionize import union_vertex_selection, seam_vertex_adjustment
 
 from vispy import gloo
 
@@ -1193,9 +1193,8 @@ class VoidRender(app.Canvas):
         
         ######################################################################
         # Create an index of which vertices to keep via the above algorithm
+        # needed to use numpy.where maybe due to uint8 type on valid_vertex_idx?
         ######################################################################
-        
-        smooth_seams = False
         
         union_vertex_selection(neighbor_index,
                                valid_vertex_idx,
@@ -1203,10 +1202,7 @@ class VoidRender(app.Canvas):
                                self.holes_radii.astype(np.float32),
                                self.void_sphere_coord_data,
                                self.vert_per_sphere,
-                               smooth_seams
                                )
-        
-        #needed to use numpy.where maybe due to uint8 type on valid_vertex_idx?
         
         keep_idx = np.where(valid_vertex_idx)[0]
         
@@ -1215,6 +1211,49 @@ class VoidRender(app.Canvas):
         self.void_sphere_normals_data = self.void_sphere_normals_data[keep_idx]
         
         self.void_sphere_coord_map = self.void_sphere_coord_map[keep_idx]
+        
+        
+        ######################################################################
+        # Optionally adjust vertices of triangles on sphere seams.
+        #
+        # First, build a new mapping between void/sphere ID and where and 
+        # how many vertices it still has in the vertex arrays since they 
+        # no longer will have exactly self.vert_per_sphere vertices 
+        ######################################################################
+        
+        smooth_seams = False
+        
+        if smooth_seams:
+            
+            hole_vertex_map = np.empty((self.holes_xyz.shape[0], 2), dtype=np.int64)
+            
+            hole_vertex_map.fill(-1)
+            
+            out_idx = 0
+            
+            for idx in range(self.holes_xyz.shape[0]):
+                
+                start_idx = idx*self.vert_per_sphere
+                end_idx = (idx+1)*self.vert_per_sphere
+                
+                curr_selection = valid_vertex_idx[start_idx:end_idx]
+                
+                num_valid = np.count_nonzero(curr_selection)
+                
+                if num_valid > 0:
+                    
+                    hole_vertex_map[idx,0] = out_idx
+                    hole_vertex_map[idx,1] = num_valid
+                    
+                    out_idx += num_valid
+                
+            seam_vertex_adjustment(neighbor_index,
+                                   hole_vertex_map,
+                                   self.holes_xyz.astype(np.float32),
+                                   self.holes_radii.astype(np.float32),
+                                   self.void_sphere_coord_data,
+                                   )
+        
         
         
         
@@ -1871,7 +1910,7 @@ if __name__ == "__main__":
                           galaxy_display_radius=10,
                           #void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
                           void_hole_color=void_hole_colors,
-                          SPHERE_TRIANGULARIZATION_DEPTH=4,
+                          SPHERE_TRIANGULARIZATION_DEPTH=3,
                           canvas_size=(1600,1200))
     
     viz.run()
