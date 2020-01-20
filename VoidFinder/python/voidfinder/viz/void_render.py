@@ -32,6 +32,8 @@ from sklearn import neighbors
 
 import time
 
+import gc
+
 vert = """
 #version 120
 // Uniforms
@@ -459,6 +461,8 @@ class VoidRender(app.Canvas):
                             keys='interactive', 
                             size=canvas_size)
         
+        #self.measure_fps()
+        
         self.title = title
         
         self.translation_sensitivity = start_translation_sensitivity
@@ -471,6 +475,8 @@ class VoidRender(app.Canvas):
         
         self.holes_radii = holes_radii
         
+        self.void_hole_color = void_hole_color
+        
         if filter_for_degenerate:
             
             self.filter_degenerate_holes()
@@ -481,13 +487,13 @@ class VoidRender(app.Canvas):
         
         #self.enable_void_interior_highlight = enable_void_interior_highlight
         
-        self.num_hole = holes_xyz.shape[0]
+        self.num_hole = self.holes_xyz.shape[0]
         
-        self.num_gal = galaxy_xyz.shape[0]
+        self.num_gal = self.galaxy_xyz.shape[0]
         
         self.galaxy_color = galaxy_color
         
-        self.void_hole_color = void_hole_color
+        
         
         #self.void_highlight_color = void_highlight_color
         
@@ -516,6 +522,12 @@ class VoidRender(app.Canvas):
         
         self.setup_keyboard()
         
+        self.script_running = False
+        
+        self.script = []
+        
+        self.script_idx = 0
+        
         self.recording = False
         
         self.recording_frames = []
@@ -541,6 +553,7 @@ class VoidRender(app.Canvas):
         # input at this point
         # Then show the canvas
         ######################################################################
+        
         self.timer = app.Timer('auto', connect=self.on_timer, start=True)
         
         self.show()
@@ -566,12 +579,15 @@ class VoidRender(app.Canvas):
                                   'l' : self.press_l,
                                   'j' : self.press_j,
                                   'q' : self.press_q,
-                                  'e' : self.press_e}
+                                  'e' : self.press_e,
+                                  '-' : self.mouse_wheel_down,
+                                  '+' : self.mouse_wheel_up}
         
         self.press_once_commands = {" " : self.press_spacebar,
                                     "p" : self.press_p,
                                     "m" : self.press_m,
-                                    "0" : self.press_0}
+                                    "0" : self.press_0,
+                                    "n" : self.press_n}
         
         self.keyboard_active = {"w" : 0,
                                 "s" : 0,
@@ -752,6 +768,9 @@ class VoidRender(app.Canvas):
         # Initialize some space to hold all the vertices (and w coordinate)
         # for all the vertices of all the spheres for all the void holes
         ######################################################################
+        
+        #print("Creating sphere memory")
+        
         num_sphere_verts = self.vert_per_sphere*self.holes_xyz.shape[0]
         
         #num_sphere_triangles = num_sphere_verts//3
@@ -769,15 +788,20 @@ class VoidRender(app.Canvas):
         # themselves, just use the vertex positions, and a 
         # a copy of the normals!
         ######################################################################
+        
+        #print("Calculating sphere positions")
+        
         for idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
             
-            curr_sphere = (self.unit_sphere * hole_radius) + hole_xyz
+            #curr_sphere = (self.unit_sphere * hole_radius) + hole_xyz
             
             start_idx = idx*self.vert_per_sphere
             
             end_idx = (idx+1)*self.vert_per_sphere
             
-            self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
+            #self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
+            
+            self.void_sphere_coord_data[start_idx:end_idx, 0:3] = (self.unit_sphere * hole_radius) + hole_xyz
             
             self.void_sphere_coord_map[start_idx:end_idx] = idx
             
@@ -786,6 +810,8 @@ class VoidRender(app.Canvas):
             #for jdx in range(num_sphere_triangles):
                 
                 #self.void_sphere_centroid_data[kdx] = np.mean(curr_sphere[jdx:(jdx+3)], axis=0)
+                
+            #gc.collect()
                 
             
         ######################################################################
@@ -827,6 +853,8 @@ class VoidRender(app.Canvas):
                 void_hole_colors[idx,:] = self.void_hole_color[hole_idx,:]
             
         else:
+            
+            print(self.void_hole_color.shape, self.num_hole)
         
             void_hole_colors = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
         
@@ -1141,9 +1169,19 @@ class VoidRender(app.Canvas):
             
         print("Holes filtered: ", np.count_nonzero(valid_idx==0))
         
+        if self.void_hole_color.shape[0] == self.holes_xyz.shape[0]:
+            
+            #print(self.void_hole_color.shape)
+            
+            self.void_hole_color = self.void_hole_color[valid_idx]
+            
+            #print(self.void_hole_color.shape)
+        
         self.holes_xyz = self.holes_xyz[valid_idx]
         
         self.holes_radii = self.holes_radii[valid_idx]
+        
+        
             
             
     
@@ -1205,6 +1243,8 @@ class VoidRender(app.Canvas):
                                )
         
         keep_idx = np.where(valid_vertex_idx)[0]
+        
+        #print("Keep idx: ", len(keep_idx))
         
         self.void_sphere_coord_data = self.void_sphere_coord_data[keep_idx]
     
@@ -1540,13 +1580,156 @@ class VoidRender(app.Canvas):
         print(data_coord_camera_location)
         print(norm)
         
+        
+    def press_n(self):
+        """
+        Run a pre-defined script that takes you on a tour through the universe
+        """
+        
+        
+        if self.script_running:
+            
+            pass
+        
+        else:
+            
+            start_location = np.mean(self.holes_xyz, axis=0)
+        
+            start_location[2] += 600.0
+            
+            start_location *= -1.0
+            
+            self.translation_sensitivity = 1.0
+        
+            self.rotation_sensitivity = 1.0
+            
+            self.point_size_denominator = 1.0
+            
+            
+            self.setup_camera_view(start_location)
+            
+            set_1 = [
+                    [('+')]*5,
+                    [('x')]*2,
+                    [('w')]*1,
+                    [('s')]*1,
+                    [("_")]*60,
+                    [('w')]*450,
+                    [('w', '-')],
+                    [('w', 'x', 'v')]*3,
+                    [('w', '-')],
+                    [('w')]*25,
+                    [('w', 'x')]*3,
+                    [('w')]*25,
+                    [('w', '-')],
+                    [('w', 'v')]*2,
+                    [('w', 'j')]*90,
+                    [('w')]*10,
+                    [('w', 'x')]*3,
+                    [('w', 'c')]*2,
+                    [('w', 'e')]*80,
+                    [('w', 'x')]*5,
+                    [('w', 'v', 'x')]*9,
+                    [('w', 'i')]*325,
+                    [('w', '-')],
+                    [('w', 'j', 'k')]*50,
+                    [('w', 'q')]*150,
+                    [('w', 'i')]*100,
+                    [('w')]*100,
+                    [('w', 'q')]*150,
+                    [('w', 'i')]*80,
+                    [('w', 'z')]*5,
+                    [('w')]*150,
+                    [('w', 'q', 'k')]*150,
+                    [('w', 'c')]*5,
+                    [('w', 'q', 'i')]*150,
+                    [('w', 'i')]*30,
+                    [('w')]*100,
+                    [('w', 'v')]*10,
+                    [('w', 'k')]*100,
+                    [('w')]*200,
+                    [('w', 'c')]*10,
+                    [('w', 'z')],
+                    [('w', 'e', 'i')]*100,
+                    [('w', 'x')]*5,
+                    [('w', 'a', 'l')]*65,
+                    [('w', 'z')]*15,
+                    [('w')]*75,
+                    [('w', 'x')]*10,
+                    [('w', 'd', 'j')]*100,
+                    [('d', 'j', 'v')]*10,
+                    [('s', 'd', 'j')]*300,
+                    [('w', 'v')]*10,
+                    [('w', 'k', 'l')]*150,
+                    [('w', 'z')]*5,
+                    [('w', 'd', 'j')]*100,
+                    [('w', 'k', 'j')]*50,
+                    [('w', 'j')]*25,
+                    [('w', 'z')]*5,
+                    [('w')]*42,
+                    [('w', 'c')]*15,
+                    [('w', 'j', 'i')]*90,
+                    [('w', 'j', 'q')]*35,
+                    [('w', 'j')]*25,
+                    [('w')]*25,
+                    [('w', 'c')]*5,
+                    [('w', 'j', 'q', 'i')]*50,
+                    [('w', 'i')]*50,
+                    [('w', 'e')]*20,
+                    [('w', 'e', 'i')]*50,
+                    [('w', 'e', 'i', 'l')]*50,
+                    [('w', 'k', 'c')]*5,
+                    [('w', 'k')]*45,
+                    [('w', 'k', 'c')]*5,
+                    [('w', 'k')]*45,
+                    [('w', 'v', 'x')]*10,
+                    [('w', 'i', 'x')]*10,
+                    [('w', 'i', 'v', 'x')]*10,
+                    [('w', 'i')]*15,
+                    [('w', 'v')]*5,
+                    [('w', 'z')]*10,
+                    [('w')]*35,
+                    [('w', 'a', 'r', 'l')]*200,
+                    [('a', 'r', 'l')]*300,
+                    [('a', 'r', 'l', 'k')]*300,
+                    [('a', 's', 'l', 'k')]*300,
+                    [('s', 'z')]*10,
+                    [('s')]*100,
+                    [('s', 'z')]*10,
+                    [('s', 'c')]*8,
+                    [('s', 'i')]*100,
+                    [('s', '+')],
+                    [('s')]*25,
+                    [('s', '+')],
+                    [('s')]*50,
+                    [('s', 'z')]*15,
+                    [('s', '+')],
+                    [('s')]*125,
+                    [('s', '+')],
+                    [('s')]*25,
+                    
+                    ]
+            
+            self.script = []
+            
+            for element in set_1:
+            
+                self.script.extend(element)
+            
+            print("Len script: ", len(self.script))
+            
+            self.script_idx = 0
+            
+            self.script_running = True
+        
+        
     def press_m(self):
         
         print("Pressed m!")
         
         if self.recording:
             
-            print("Writing frames...")
+            print("Writing frames... ("+str(len(self.recording_frames))+")")
             
             #Write to png and save video
             
@@ -1582,7 +1765,7 @@ class VoidRender(app.Canvas):
             #print(command)
             
             command = ["ffmpeg", 
-                       "-r", "25",
+                       "-r", "60",
                        "-f", "concat",
                        "-safe", "0",
                        "-i", ffmpeg_list_filename,
@@ -1625,7 +1808,7 @@ class VoidRender(app.Canvas):
             
             self.recording = True
             
-            pass
+            
         
         
         
@@ -1633,9 +1816,9 @@ class VoidRender(app.Canvas):
         
         img = self.render().copy()
         
-        print(img.shape)
+        #print(img.shape)
         
-        print(img[500,900])
+        #print(img[500,900])
         
         img[:,:,3] = 255
         
@@ -1691,12 +1874,55 @@ class VoidRender(app.Canvas):
             
             self.keyboard_active[event.text] = 0
     
+    
+    def yield_next_script_commands(self):
+        
+        for element in self.script:
+            
+            print(element)
+            
+            yield element
+            
+        return None
+        
 
     def on_timer(self, event):
         """
         Callback every .01 seconds or so, mostly to process keyboard 
         commands for now
         """
+        
+        
+        requires_update = False
+        
+        
+        if self.script_running:
+            
+            requires_update = True
+            
+            commands = self.script[self.script_idx]
+            
+            self.script_idx += 1
+            
+            for command in commands:
+                
+                if command in self.keyboard_commands:
+                    self.keyboard_commands[command]()
+                    
+            if self.script_idx >= len(self.script):
+                
+                self.script_running = False
+                
+                
+            
+            
+        
+        
+        
+        
+        
+        
+        
         if time.time() - self.last_keypress_time > 0.02:
             
             for curr_key in self.keyboard_active:
@@ -1705,17 +1931,21 @@ class VoidRender(app.Canvas):
                     
                     self.keyboard_commands[curr_key]()
                     
-        self.update()
+                    requires_update = True
+                    
+        if requires_update:
+            
+            self.update()
         
-        if self.recording:
+            if self.recording:
+                
+                #img = self.render().copy()
+                
+                img = self.read_front_buffer()
             
-            #img = self.render().copy()
-            
-            img = self.read_front_buffer()
-        
-            img[:,:,3] = 255
-            
-            self.recording_frames.append(img)
+                img[:,:,3] = 255
+                
+                self.recording_frames.append(img)
         
         
         
@@ -1723,6 +1953,30 @@ class VoidRender(app.Canvas):
         
         self.apply_zoom()
         
+        
+    def mouse_wheel_down(self):
+        
+        self.point_size_denominator -= 1.0
+        
+        self.point_size_denominator = max(1.0, self.point_size_denominator)
+        
+        self.point_size_denominator = min(10.0, self.point_size_denominator)
+    
+        self.galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
+        
+        self.update()
+        
+    def mouse_wheel_up(self):
+        
+        self.point_size_denominator += 1.0
+        
+        self.point_size_denominator = max(1.0, self.point_size_denominator)
+        
+        self.point_size_denominator = min(10.0, self.point_size_denominator)
+    
+        self.galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
+        
+        self.update()
 
     def on_mouse_wheel(self, event):
         """
@@ -1908,10 +2162,13 @@ if __name__ == "__main__":
                           holes_radii, 
                           galaxy_data,
                           galaxy_display_radius=10,
-                          #void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
+                          filter_for_degenerate=True,
+                          remove_void_intersects=True,
+                          start_rotation_sensitivity=0.5,
+                          #void_hole_color=np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32),
                           void_hole_color=void_hole_colors,
-                          SPHERE_TRIANGULARIZATION_DEPTH=3,
-                          canvas_size=(1600,1200))
+                          SPHERE_TRIANGULARIZATION_DEPTH=4,
+                          canvas_size=(1600,1000))
     
     viz.run()
     #app.run()
