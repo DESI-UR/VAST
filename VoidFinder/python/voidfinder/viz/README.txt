@@ -81,14 +81,20 @@ Mouse Wheel - increase & decrease galaxy size
 # Backlog:
 ############################################################
 
-- video recording capability
-- color by void group instead of all blue or constant
-? add index maps from the vertex/triangle data buffers to which void hole they belong to so we can do fancy things
+- Finish the "Seam Adjustment" code so that it actually works
+- Adjust array of normal vectors so that it doesnt contain 3 copies of each normal,
+    instead just keep 1 copy and add an indexbuffer that points all 3 vertices to
+    the same row?  I think this is possible in openGL just need to review that
+    process and see if I can get it working, will save memory.
+- Attempt to interleave the Nearest Neighbor queries in order starting from maximum to minimum sized objects so that
+    as we iterate through, we can reduce the size of the next radius_query() since the new maximum radius will be
+    smaller than the original maximum radius since that will have been exhausted by doing the max sphere first
 - embed in webpage
+? add index maps from the vertex/triangle data buffers to which void hole they belong to so we can do fancy things
 
 
-
-
++ video recording capability
++ (Done outside of VoidRender class) color by void group instead of all blue or constant
 + added mouse navigation (left click pitch/yaw right click forward/back)
 + fix the png image save on press_0 function, manually add background color (white) in?
 + add some kind of visual shading or lighting or something to make it easier to see the void spheres as we move through the middle of the cluster
