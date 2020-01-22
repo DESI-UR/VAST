@@ -10,6 +10,8 @@ from load_results import load_hole_data, load_galaxy_data
 
 from unionize import union_vertex_selection, seam_vertex_adjustment
 
+from neighborize import build_neighbor_index, build_grouped_neighbor_index
+
 from vispy import gloo
 
 from vispy import app
@@ -34,6 +36,7 @@ import time
 
 import gc
 
+#Vertex shader for the Galaxy Vispy Program
 vert = """
 #version 120
 // Uniforms
@@ -72,7 +75,7 @@ void main (void) {
     gl_PointSize = v_size + 2.*(v_linewidth + 1.5*v_antialias);
 }
 """
-
+#Fragment shader for the Galaxy Vispy Program
 frag = """
 #version 120
 // Constants
@@ -219,7 +222,7 @@ void main()
 """
 
 
-
+#Vertex shader for the Void Sphere Vispy Program
 vert_sphere = """
 
 #version 120
@@ -282,6 +285,7 @@ void main()
 }
 """
 
+#Fragment shader for the Void Sphere Vispy Program
 frag_sphere = """
 
 #version 120
@@ -299,7 +303,9 @@ void main()
 
 
 class Triangle(object):
-    
+    """
+    Simple helper class for icosahedron sphere triangularization.
+    """
     def __init__(self, pt1, pt2, pt3):
         
         self.pt1 = pt1
@@ -310,18 +316,15 @@ class Triangle(object):
 
 
 
-
-
-
-# ------------------------------------------------------------ Canvas class ---
 class VoidRender(app.Canvas):
 
     def __init__(self,
                  holes_xyz=None, 
-                 holes_radii=None, 
+                 holes_radii=None,
+                 holes_group_IDs=None,
                  galaxy_xyz=None,
                  galaxy_display_radius=2.0,
-                 remove_void_intersects=True,
+                 remove_void_intersects=1,
                  filter_for_degenerate=True,
                  canvas_size=(800,600),
                  title="VoidFinder Results",
@@ -331,8 +334,6 @@ class VoidRender(app.Canvas):
                  start_rotation_sensitivity=1.0,
                  galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
                  void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
-                 #enable_void_interior_highlight=True,
-                 #void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32),
                  SPHERE_TRIANGULARIZATION_DEPTH=3
                  ):
         '''
@@ -348,9 +349,9 @@ class VoidRender(app.Canvas):
         galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
     
         viz = VoidFinderCanvas(holes_xyz, 
-                         holes_radii, 
-                         galaxy_data,
-                         canvas_size=(1600,1200))
+                               holes_radii, 
+                               galaxy_data,
+                               canvas_size=(1600,1200))
     
         viz.run()
         
@@ -391,6 +392,9 @@ class VoidRender(app.Canvas):
         holes_radii : (N,) numpy.ndarray
             length of the hole radii in xyz coordinates
             
+        holes_group_IDs : (N,) numpy.ndarray of integers
+            Void group to which a given hole belongs according to VoidFinder
+            
         galaxy_xyz : (N,3) numpy.ndarray
             xyz coordinates of the galaxy locations
             
@@ -399,7 +403,10 @@ class VoidRender(app.Canvas):
             all be small compared to the void holes, and they don't have
             corresponding radii
             
-        remove_void_intersects : bool, default True
+        remove_void_intersects : int, default 1
+            0 - turn off
+            1 - remove all intersections
+            2 - remove intersections only within predefined Void Groups based on hole_group_IDs
             turn on (True) or off (False) the clipping of display triangles for
             void interiors.  When true, removes all the triangles of a void hole
             sphere which are fully contained inside another void hole, which essentially
@@ -492,6 +499,8 @@ class VoidRender(app.Canvas):
             self.holes_xyz = holes_xyz
         
             self.holes_radii = holes_radii
+            
+            self.holes_group_IDs = holes_group_IDs
             
             self.void_hole_color = void_hole_color
             
@@ -832,7 +841,8 @@ class VoidRender(app.Canvas):
         # Given there will be a lot of overlap internal to the spheres, 
         # remove the overlap for better viewing quality
         ######################################################################
-        if self.remove_void_intersects:
+        
+        if self.remove_void_intersects > 0:
             
             print("Pre intersect-remove vertices: ", self.void_sphere_coord_data.shape[0])
             
@@ -845,6 +855,7 @@ class VoidRender(app.Canvas):
             num_sphere_verts = self.void_sphere_coord_data.shape[0]
             
             print("Post intersect-remove vertices: ", num_sphere_verts, "time: ", remove_time)
+            
         
         ######################################################################
         #
@@ -860,19 +871,28 @@ class VoidRender(app.Canvas):
         
         if self.void_hole_color.shape[0] == self.num_hole:
             
+            print("Coloring based on self.void_hole_color of shape: ", self.void_hole_color.shape)
+            
             void_hole_colors = np.empty((self.void_sphere_coord_data.shape[0], 4), dtype=np.float32)
             
             for idx, hole_idx in enumerate(self.void_sphere_coord_map):
                 
                 void_hole_colors[idx,:] = self.void_hole_color[hole_idx,:]
+                
+            print(void_hole_colors.min(), void_hole_colors.max())
             
         else:
             
-            print(self.void_hole_color.shape, self.num_hole)
+            #print(self.void_hole_color.shape, self.num_hole)
+            print("Coloring all voids same color")
         
             void_hole_colors = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
+            
+            print(void_hole_colors.min(), void_hole_colors.max())
         
         self.void_sphere_vertex_data["color"] = void_hole_colors
+        
+        print("Void Sphere program vertices: ", self.void_sphere_vertex_data["position"].shape)
         
         self.void_sphere_VB = gloo.VertexBuffer(self.void_sphere_vertex_data)
         
@@ -1182,17 +1202,14 @@ class VoidRender(app.Canvas):
             close_index = hole_kdtree.query_radius(hole_xyz.reshape(1,3), hole_radius)
             
             close_index = close_index[0]
-            #[52, 128, 33, 1007, 4556]
             
             valid_close_index = close_index[close_index != curr_idx]
-            #[52, 128, 33, 1007, 4556]
             
             neighbor_locations = self.holes_xyz[valid_close_index]
             
             neighbor_radii = self.holes_radii[valid_close_index]
             
             component_distances = neighbor_locations - hole_xyz
-            
             
             neighbor_distances = np.sqrt(np.sum(component_distances*component_distances, axis=1))
             
@@ -1206,15 +1223,15 @@ class VoidRender(app.Canvas):
         
         if self.void_hole_color.shape[0] == self.holes_xyz.shape[0]:
             
-            #print(self.void_hole_color.shape)
-            
             self.void_hole_color = self.void_hole_color[valid_idx]
-            
-            #print(self.void_hole_color.shape)
         
         self.holes_xyz = self.holes_xyz[valid_idx]
         
         self.holes_radii = self.holes_radii[valid_idx]
+        
+        self.holes_group_IDs = self.holes_group_IDs[valid_idx]
+        
+        return None
         
         
             
@@ -1244,6 +1261,15 @@ class VoidRender(app.Canvas):
         Since holes are spherical, any triangle whose all 3 verticies are less than
         hole_radius away from our current target means that triangle lives within
         our current hole but is not part of our current hole and can be chopped.
+        
+        
+        Also based on self.remove_void_intersects value:
+        0 - this function won't be called
+        1 - Remove all intersections
+        2 - use self.holes_group_IDs to only remove intersects from predefined void
+               groups by only allowing members of this group to be considered neighbors
+        
+        
         """
         
         valid_vertex_idx = np.ones(self.void_sphere_coord_data.shape[0], dtype=np.uint8)
@@ -1260,10 +1286,46 @@ class VoidRender(app.Canvas):
         #
         ######################################################################
         
+        hole_order = np.argsort(self.holes_radii)
         
+        hole_order = hole_order[::-1]
+        
+        #print(hole_order.shape, hole_order[0:10], hole_order.dtype)
+        #print(self.holes_radii[hole_order][0:10])
+        
+        if self.remove_void_intersects == 1:
+            
+            neighbor_index = build_neighbor_index(self.hole_kdtree,
+                                                  hole_order.astype(np.int64),
+                                                  self.holes_xyz.astype(np.float32),
+                                                  self.holes_radii.astype(np.float32))
+            
+        elif self.remove_void_intersects == 2:
+            
+            neighbor_index = build_grouped_neighbor_index(self.hole_kdtree,
+                                                          hole_order.astype(np.int64),
+                                                          self.holes_xyz.astype(np.float32),
+                                                          self.holes_radii.astype(np.float32),
+                                                          self.holes_group_IDs.astype(np.int32))
+        
+        
+        
+        '''
+        cython_sum = 0
+        for elem in neighbor_index:
+            cython_sum += len(elem)
+            
+        
+        print("Cython neighbor index: ", cython_sum)
         
         neighbor_index = self.hole_kdtree.query_radius(self.holes_xyz, 2.0*self.holes_radii.max())
         
+        python_sum = 0
+        for elem in neighbor_index:
+            python_sum += len(elem)
+        
+        print("Python neighbor index: ", python_sum)
+        '''
         ######################################################################
         # Create an index of which vertices to keep via the above algorithm
         # needed to use numpy.where maybe due to uint8 type on valid_vertex_idx?
@@ -1852,13 +1914,51 @@ class VoidRender(app.Canvas):
         
     def press_0(self):
         
-        img = self.render().copy()
+        #img = self.render().copy()
+        
+        img = self.read_front_buffer()
         
         #print(img.shape)
         
         #print(img[500,900])
         
-        img[:,:,3] = 255
+        """
+        Fix the alpha compositing using:
+        https://en.wikipedia.org/wiki/Alpha_compositing
+        
+        Color_out = color_foreground + color_background*(1- alpha_foreground)
+        
+        IF the raster is premultiplied alpha color.  Otherwise gotta use the more complex one.
+        
+        
+        """
+        
+        #if not hasattr(self, background_color_array):
+            
+        #    self.background_color_array = np.empty((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        #    self.background_color_array.fill(255) #white
+        
+        
+        #partial_transparency_index = img[:,:,3] < 255
+        
+        #print(partial_transparency_index.shape, np.sum(partial_transparency_index))
+        
+        #mod_percentages = 1.0 - img[partial_transparency_index,3]/255.0
+        
+        #mod_values = 255*mod_percentages
+        
+        #(255*(1 - x/255)) = 255 - x
+        
+        #composite_modifier_values = 255 - img[partial_transparency_index,3]
+        
+        #print(composite_modifier_values.shape)
+        
+        
+        
+        
+        #img[:,:,3] = 255
+        
+        #img[partial_transparency_index,:] += composite_modifier_values
         
         random_sequence = self.random_string()
         
@@ -1990,7 +2090,7 @@ class VoidRender(app.Canvas):
             
             img = self.read_front_buffer()
         
-            img[:,:,3] = 255
+            #img[:,:,3] = 255
             
             self.recording_frames.append(img)
         
@@ -2223,14 +2323,14 @@ if __name__ == "__main__":
     
     print("Galaxies: ", galaxy_data.shape)
     
-    viz = VoidRender(holes_xyz, 
-                     holes_radii,
-                     #None,
-                     #None,
-                     galaxy_data,
+    viz = VoidRender(holes_xyz=holes_xyz, 
+                     holes_radii=holes_radii,
+                     holes_group_IDs=holes_flags,
+                     galaxy_xyz=galaxy_data,
                      galaxy_display_radius=10,
-                     void_hole_color=np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32),
-                     #void_hole_color=void_hole_colors,
+                     remove_void_intersects=1,
+                     #void_hole_color=np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32),
+                     void_hole_color=void_hole_colors,
                      SPHERE_TRIANGULARIZATION_DEPTH=3,
                      canvas_size=(1600,1200))
     
