@@ -16,7 +16,7 @@ import astropy.units as u
 import pickle
 
 import sys
-sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python')
+sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
 from voidfinder.vflag import determine_vflag
 from voidfinder.voidfinder_functions import build_mask
 from voidfinder.absmag_comovingdist_functions import Distance
@@ -31,14 +31,14 @@ from voidfinder.absmag_comovingdist_functions import Distance
 
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
-void_filename = '../voidfinder/data/vollim_dr7_cbp_102709_holes.txt'
+void_filename = '../../data/vollim_dr7_cbp_102709_comoving_holes.txt'
 
 dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # SURVEY MASK FILE
-mask_filename = '../voidfinder/data/dr7_mask.pickle'
+mask_filename = '../../data/dr7_mask.pickle'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -152,7 +152,7 @@ for i in range(len(galaxies)):
 #
 ################################################################################
 
-
+'''
 # Output file name
 galaxy_file_name, extension = galaxy_filename.split('.')
 outfile = galaxy_file_name + '_vflag_' + dist_metric + '.txt'
@@ -162,3 +162,4 @@ if galaxy_file_format == 'ecsv':
     galaxies.write( outfile, format='ascii.ecsv', overwrite=True)
 else:
     galaxies.write( outfile, format='ascii.' + galaxy_file_format, overwrite=True)
+'''
