@@ -15,8 +15,8 @@ import astropy.units as u
 
 import pickle
 
-import sys
-sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
+#import sys
+#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
 from voidfinder.vflag import determine_vflag
 from voidfinder.voidfinder_functions import build_mask
 from voidfinder.absmag_comovingdist_functions import Distance
@@ -73,7 +73,7 @@ DtoR = np.pi/180
 #   IMPORT DATA
 #
 ################################################################################
-
+print('Importing data')
 
 # Read in list of void holes
 voids = Table.read(void_filename, format='ascii.commented_header')
@@ -101,14 +101,14 @@ mask_infile.close()
 
 mask = build_mask(maskfile, mask_resolution)
 
-
+print('Data and mask imported')
 ################################################################################
 #
-#   CONVERT GALAXY ra,dec,z TO x,y,z
+# CONVERT GALAXY ra,dec,z TO x,y,z
 #
+# Conversions are from http://www.physics.drexel.edu/~pan/VoidCatalog/README
 ################################################################################
-'''Conversions are from http://www.physics.drexel.edu/~pan/VoidCatalog/README'''
-
+print('Converting coordinate system')
 
 # Convert redshift to distance
 if dist_metric == 'comoving':
@@ -128,13 +128,13 @@ galaxies_y = galaxies_r*np.cos(galaxies['dec']*DtoR)*np.sin(galaxies['ra']*DtoR)
 # Calculate z-coordinates
 galaxies_z = galaxies_r*np.sin(galaxies['dec']*DtoR)
 
-
+print('Coordinates converted')
 ################################################################################
 #
 #   IDENTIFY LARGE-SCALE ENVIRONMENT
 #
 ################################################################################
-
+print('Identifying environment')
 
 galaxies['vflag'] = -9
 
@@ -145,14 +145,14 @@ for i in range(len(galaxies)):
     galaxies['vflag'][i] = determine_vflag( galaxies_x[i], galaxies_y[i], galaxies_z[i], 
                                             voids, mask, mask_resolution)
 
-
+print('Environments identified')
 ################################################################################
 #
 #   SAVE RESULTS
 #
 ################################################################################
 
-'''
+
 # Output file name
 galaxy_file_name, extension = galaxy_filename.split('.')
 outfile = galaxy_file_name + '_vflag_' + dist_metric + '.txt'
@@ -162,4 +162,3 @@ if galaxy_file_format == 'ecsv':
     galaxies.write( outfile, format='ascii.ecsv', overwrite=True)
 else:
     galaxies.write( outfile, format='ascii.' + galaxy_file_format, overwrite=True)
-'''

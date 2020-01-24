@@ -28,7 +28,7 @@ setup_keywords['description'] = 'VoidFinder package'
 setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
 setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
 setup_keywords['license'] = 'BSD'
-setup_keywords['url'] = 'https://github.com/DESI-UR/VoidFinder'
+setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
 setup_keywords['version'] = '0.1.1'
 #
 # Use README.md as a long_description.
@@ -53,12 +53,12 @@ setup_keywords['packages'] = ['voidfinder']
 extensions = [
               Extension("voidfinder._voidfinder_cython_find_next", 
                         ["voidfinder/_voidfinder_cython_find_next.pyx"],
-                        include_dirs=[numpy.get_include()],
+                        include_dirs=[".", numpy.get_include()],
                         library_dirs=["m"]),
                         
               Extension("voidfinder._voidfinder_cython", 
                         ["voidfinder/_voidfinder_cython.pyx"],
-                        include_dirs=[numpy.get_include()],
+                        include_dirs=[".", numpy.get_include()],
                         library_dirs=["m"])
               ]
 
