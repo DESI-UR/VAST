@@ -20,7 +20,7 @@
 ################################################################################
 
 
-import sys
+#import sys
 #sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
 
@@ -51,17 +51,20 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 4
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
 
 # File header
-in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
-out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+#in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+#out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
 
 #in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
 #out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+
+in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
+out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
 
 
 # Input file name
@@ -168,13 +171,13 @@ if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
 #
 ################################################################################
 
-'''
+
 pre_mask, mask_resolution = generate_mask(galaxy_data_table, dist_metric, h, Omega_M)
 
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
 pickle.dump((pre_mask, mask_resolution), temp_outfile)
 temp_outfile.close()
-'''
+
 
 
 ################################################################################
@@ -188,7 +191,7 @@ temp_infile = open(survey_name + 'mask.pickle', 'rb')
 pre_mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
-'''
+
 coord_min_table, mask, grid_shape = filter_galaxies(galaxy_data_table, 
                                                     pre_mask, 
                                                     mask_resolution, 
@@ -204,7 +207,7 @@ coord_min_table, mask, grid_shape = filter_galaxies(galaxy_data_table,
 temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
 pickle.dump((coord_min_table, mask, grid_shape), temp_outfile)
 temp_outfile.close()
-'''
+
 
 
 

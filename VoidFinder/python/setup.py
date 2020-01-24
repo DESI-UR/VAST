@@ -44,7 +44,8 @@ setup_keywords['provides'] = [setup_keywords['name']]
 setup_keywords['requires'] = ['Python (>3.7.0)']
 setup_keywords['zip_safe'] = False
 setup_keywords['use_2to3'] = False
-setup_keywords['packages'] = ['voidfinder']
+setup_keywords['packages'] = ['voidfinder', 
+                              'voidfinder.viz']
 #setup_keywords['package_dir'] = {'': 'python'}
 #setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 #setup_keywords['test_suite'] = 'nose.collector'
@@ -59,7 +60,22 @@ extensions = [
               Extension("voidfinder._voidfinder_cython", 
                         ["voidfinder/_voidfinder_cython.pyx"],
                         include_dirs=[".", numpy.get_include()],
+                        library_dirs=["m"]),
+
+              Extension("voidfinder.viz.unionize",
+                        ["voidfinder/viz/unionize.pyx"],
+                        include_dirs=[numpy.get_include()],
+                        library_dirs=["m"]),
+    
+              Extension("voidfinder.viz.neighborize",
+                        ["voidfinder/viz/neighborize.pyx"],
+                        include_dirs=[numpy.get_include()],
                         library_dirs=["m"])
+
+
+
+
+
               ]
 
 setup_keywords["ext_modules"] = cythonize(extensions)

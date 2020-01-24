@@ -6,35 +6,27 @@ import subprocess
 
 import numpy as np
 
-from load_results import load_hole_data, load_galaxy_data
+from .unionize import union_vertex_selection, seam_vertex_adjustment
 
-from unionize import union_vertex_selection, seam_vertex_adjustment
+from .neighborize import build_neighbor_index, build_grouped_neighbor_index
 
-from neighborize import build_neighbor_index, build_grouped_neighbor_index
-
-from vispy import gloo
-
-from vispy import app
+from vispy import app, gloo
 
 import vispy.io as io
 
 from vispy.util.transforms import perspective, translate, rotate
 
-#from vispy.util.quaternion import Quaternion
-
-#from vispy.visuals.transforms import STTransform
-
-from vispy.color import Color
-
-#from vispy.geometry import create_box, create_sphere
-
-#from vispy import scene
+#from vispy.color import Color
 
 from sklearn import neighbors
 
 import time
 
-import gc
+#import gc
+
+
+
+
 
 #Vertex shader for the Galaxy Vispy Program
 vert = """
@@ -2282,6 +2274,12 @@ class VoidRender(app.Canvas):
 
 
 if __name__ == "__main__":
+
+
+    from vispy.color import Colormap
+
+    from voidfinder.viz.load_results import load_hole_data, load_galaxy_data
+
     
     holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
     
@@ -2295,7 +2293,6 @@ if __name__ == "__main__":
     
     num_hole_groups = len(hole_IDs)
     
-    from vispy.color import Colormap
     
     cm = Colormap(['#880000',
                    '#EEEE00',
