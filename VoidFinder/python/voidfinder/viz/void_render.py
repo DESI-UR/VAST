@@ -10,6 +10,8 @@ from load_results import load_hole_data, load_galaxy_data
 
 from unionize import union_vertex_selection, seam_vertex_adjustment
 
+from neighborize import build_neighbor_index, build_grouped_neighbor_index
+
 from vispy import gloo
 
 from vispy import app
@@ -32,6 +34,9 @@ from sklearn import neighbors
 
 import time
 
+import gc
+
+#Vertex shader for the Galaxy Vispy Program
 vert = """
 #version 120
 // Uniforms
@@ -70,7 +75,7 @@ void main (void) {
     gl_PointSize = v_size + 2.*(v_linewidth + 1.5*v_antialias);
 }
 """
-
+#Fragment shader for the Galaxy Vispy Program
 frag = """
 #version 120
 // Constants
@@ -217,7 +222,7 @@ void main()
 """
 
 
-
+#Vertex shader for the Void Sphere Vispy Program
 vert_sphere = """
 
 #version 120
@@ -280,6 +285,7 @@ void main()
 }
 """
 
+#Fragment shader for the Void Sphere Vispy Program
 frag_sphere = """
 
 #version 120
@@ -297,7 +303,9 @@ void main()
 
 
 class Triangle(object):
-    
+    """
+    Simple helper class for icosahedron sphere triangularization.
+    """
     def __init__(self, pt1, pt2, pt3):
         
         self.pt1 = pt1
@@ -308,18 +316,15 @@ class Triangle(object):
 
 
 
-
-
-
-# ------------------------------------------------------------ Canvas class ---
 class VoidRender(app.Canvas):
 
     def __init__(self,
-                 holes_xyz, 
-                 holes_radii, 
-                 galaxy_xyz,
+                 holes_xyz=None, 
+                 holes_radii=None,
+                 holes_group_IDs=None,
+                 galaxy_xyz=None,
                  galaxy_display_radius=2.0,
-                 remove_void_intersects=True,
+                 remove_void_intersects=1,
                  filter_for_degenerate=True,
                  canvas_size=(800,600),
                  title="VoidFinder Results",
@@ -329,8 +334,6 @@ class VoidRender(app.Canvas):
                  start_rotation_sensitivity=1.0,
                  galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
                  void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
-                 #enable_void_interior_highlight=True,
-                 #void_highlight_color=np.array([0.0, 1.0, 0.0, 0.3], dtype=np.float32),
                  SPHERE_TRIANGULARIZATION_DEPTH=3
                  ):
         '''
@@ -346,9 +349,9 @@ class VoidRender(app.Canvas):
         galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
     
         viz = VoidFinderCanvas(holes_xyz, 
-                         holes_radii, 
-                         galaxy_data,
-                         canvas_size=(1600,1200))
+                               holes_radii, 
+                               galaxy_data,
+                               canvas_size=(1600,1200))
     
         viz.run()
         
@@ -389,6 +392,9 @@ class VoidRender(app.Canvas):
         holes_radii : (N,) numpy.ndarray
             length of the hole radii in xyz coordinates
             
+        holes_group_IDs : (N,) numpy.ndarray of integers
+            Void group to which a given hole belongs according to VoidFinder
+            
         galaxy_xyz : (N,3) numpy.ndarray
             xyz coordinates of the galaxy locations
             
@@ -397,7 +403,10 @@ class VoidRender(app.Canvas):
             all be small compared to the void holes, and they don't have
             corresponding radii
             
-        remove_void_intersects : bool, default True
+        remove_void_intersects : int, default 1
+            0 - turn off
+            1 - remove all intersections
+            2 - remove intersections only within predefined Void Groups based on hole_group_IDs
             turn on (True) or off (False) the clipping of display triangles for
             void interiors.  When true, removes all the triangles of a void hole
             sphere which are fully contained inside another void hole, which essentially
@@ -454,10 +463,15 @@ class VoidRender(app.Canvas):
            (1280 triangles) per sphere
         '''
         
+        if holes_xyz is None and galaxy_xyz is None:
+            raise ValueError("holex_xyz and galaxy_xyz cannot both be None, or there's nothing to display!")
+        
         
         app.Canvas.__init__(self, 
                             keys='interactive', 
                             size=canvas_size)
+        
+        #self.measure_fps()
         
         self.title = title
         
@@ -467,54 +481,77 @@ class VoidRender(app.Canvas):
         
         self.max_galaxy_display_radius = galaxy_display_radius
         
-        self.holes_xyz = holes_xyz
+        ######################################################################
+        # Allow user to show just voids of just galaxies
+        ######################################################################
         
-        self.holes_radii = holes_radii
+        self.holes_enabled = holes_xyz is not None
         
-        if filter_for_degenerate:
+        self.galaxies_enabled = galaxy_xyz is not None
+        
+        self.enabled_programs = []
+        
+        ######################################################################
+        #
+        ######################################################################
+        if self.holes_enabled:
             
-            self.filter_degenerate_holes()
+            self.holes_xyz = holes_xyz
         
-        self.galaxy_xyz = galaxy_xyz
+            self.holes_radii = holes_radii
+            
+            self.holes_group_IDs = holes_group_IDs
+            
+            self.void_hole_color = void_hole_color
+            
+            if filter_for_degenerate:
+                
+                self.filter_degenerate_holes()
+                
+            self.num_hole = holes_xyz.shape[0]
+            
+            self.remove_void_intersects = remove_void_intersects
+            
+            self.unit_sphere, self.unit_sphere_normals = self.create_sphere(1.0, SPHERE_TRIANGULARIZATION_DEPTH)
         
-        self.remove_void_intersects = remove_void_intersects
+            self.vert_per_sphere = self.unit_sphere.shape[0]
+            
+            self.hole_kdtree = neighbors.KDTree(self.holes_xyz)
+            
+            self.setup_void_sphere_program()
         
-        #self.enable_void_interior_highlight = enable_void_interior_highlight
+        ######################################################################
+        #
+        ######################################################################
+        if self.galaxies_enabled:
+            
+            self.galaxy_xyz = galaxy_xyz
         
-        self.num_hole = holes_xyz.shape[0]
+            self.num_gal = galaxy_xyz.shape[0]
         
-        self.num_gal = galaxy_xyz.shape[0]
+            self.galaxy_color = galaxy_color
+            
+            self.setup_galaxy_program()
         
-        self.galaxy_color = galaxy_color
         
-        self.void_hole_color = void_hole_color
         
-        #self.void_highlight_color = void_highlight_color
-        
-        #self.void_highlight_alpha = void_highlight_color[3]
         
         ######################################################################
         #
         ######################################################################
         
-        self.projection = np.eye(4, dtype=np.float32) #start with orthographic, will modify this
         
-        self.unit_sphere, self.unit_sphere_normals = self.create_sphere(1.0, SPHERE_TRIANGULARIZATION_DEPTH)
-        
-        self.vert_per_sphere = self.unit_sphere.shape[0]
-        
-        self.hole_kdtree = neighbors.KDTree(self.holes_xyz)
-        
-        
-        
-        ######################################################################
-        #
-        ######################################################################
         self.setup_camera_view(camera_start_location, camera_start_orientation)
         
         self.setup_mouse()
         
         self.setup_keyboard()
+        
+        self.script_running = False
+        
+        self.script = []
+        
+        self.script_idx = 0
         
         self.recording = False
         
@@ -524,13 +561,6 @@ class VoidRender(app.Canvas):
         #
         ######################################################################
         
-        self.setup_galaxy_program()
-        
-        self.setup_void_sphere_program()
-        
-        #if self.enable_void_interior_highlight:
-            
-        #    self.setup_highlight_program()
         
         self.apply_zoom()
         
@@ -541,6 +571,7 @@ class VoidRender(app.Canvas):
         # input at this point
         # Then show the canvas
         ######################################################################
+        
         self.timer = app.Timer('auto', connect=self.on_timer, start=True)
         
         self.show()
@@ -566,12 +597,15 @@ class VoidRender(app.Canvas):
                                   'l' : self.press_l,
                                   'j' : self.press_j,
                                   'q' : self.press_q,
-                                  'e' : self.press_e}
+                                  'e' : self.press_e,
+                                  '-' : self.mouse_wheel_down,
+                                  '+' : self.mouse_wheel_up}
         
         self.press_once_commands = {" " : self.press_spacebar,
                                     "p" : self.press_p,
                                     "m" : self.press_m,
-                                    "0" : self.press_0}
+                                    "0" : self.press_0,
+                                    "n" : self.press_n}
         
         self.keyboard_active = {"w" : 0,
                                 "s" : 0,
@@ -657,21 +691,24 @@ class VoidRender(app.Canvas):
         
         if start_location is None:
         
-            start_location = np.mean(self.holes_xyz, axis=0)
+            if self.holes_enabled:
+                start_location = np.mean(self.holes_xyz, axis=0)
+            else:
+                start_location = np.mean(self.galaxy_xyz, axis=0)
         
             start_location[2] += 300.0
             
             start_location *= -1.0
         
-        
         self.view = np.eye(4, dtype=np.float32)
         
         self.view[3,0:3] = start_location
         
-        
         if start_orientation is not None:
             
             self.view[0:3,0:3] = start_orientation
+            
+        self.projection = np.eye(4, dtype=np.float32) #start with orthographic, will modify this
         
         
         
@@ -735,9 +772,11 @@ class VoidRender(app.Canvas):
         
         self.galaxy_point_program['u_antialias'] = u_antialias
         
-        self.galaxy_point_program['u_view'] = self.view
+        #self.galaxy_point_program['u_view'] = self.view
         
         self.galaxy_point_program['u_size'] = 1.0
+        
+        self.enabled_programs.append((self.galaxy_point_program, "points"))
 
         
         
@@ -752,6 +791,9 @@ class VoidRender(app.Canvas):
         # Initialize some space to hold all the vertices (and w coordinate)
         # for all the vertices of all the spheres for all the void holes
         ######################################################################
+        
+        #print("Creating sphere memory")
+        
         num_sphere_verts = self.vert_per_sphere*self.holes_xyz.shape[0]
         
         #num_sphere_triangles = num_sphere_verts//3
@@ -769,15 +811,20 @@ class VoidRender(app.Canvas):
         # themselves, just use the vertex positions, and a 
         # a copy of the normals!
         ######################################################################
+        
+        #print("Calculating sphere positions")
+        
         for idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
             
-            curr_sphere = (self.unit_sphere * hole_radius) + hole_xyz
+            #curr_sphere = (self.unit_sphere * hole_radius) + hole_xyz
             
             start_idx = idx*self.vert_per_sphere
             
             end_idx = (idx+1)*self.vert_per_sphere
             
-            self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
+            #self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
+            
+            self.void_sphere_coord_data[start_idx:end_idx, 0:3] = (self.unit_sphere * hole_radius) + hole_xyz
             
             self.void_sphere_coord_map[start_idx:end_idx] = idx
             
@@ -787,12 +834,15 @@ class VoidRender(app.Canvas):
                 
                 #self.void_sphere_centroid_data[kdx] = np.mean(curr_sphere[jdx:(jdx+3)], axis=0)
                 
+            #gc.collect()
+                
             
         ######################################################################
         # Given there will be a lot of overlap internal to the spheres, 
         # remove the overlap for better viewing quality
         ######################################################################
-        if self.remove_void_intersects:
+        
+        if self.remove_void_intersects > 0:
             
             print("Pre intersect-remove vertices: ", self.void_sphere_coord_data.shape[0])
             
@@ -805,6 +855,7 @@ class VoidRender(app.Canvas):
             num_sphere_verts = self.void_sphere_coord_data.shape[0]
             
             print("Post intersect-remove vertices: ", num_sphere_verts, "time: ", remove_time)
+            
         
         ######################################################################
         #
@@ -820,17 +871,28 @@ class VoidRender(app.Canvas):
         
         if self.void_hole_color.shape[0] == self.num_hole:
             
+            print("Coloring based on self.void_hole_color of shape: ", self.void_hole_color.shape)
+            
             void_hole_colors = np.empty((self.void_sphere_coord_data.shape[0], 4), dtype=np.float32)
             
             for idx, hole_idx in enumerate(self.void_sphere_coord_map):
                 
                 void_hole_colors[idx,:] = self.void_hole_color[hole_idx,:]
+                
+            print(void_hole_colors.min(), void_hole_colors.max())
             
         else:
+            
+            #print(self.void_hole_color.shape, self.num_hole)
+            print("Coloring all voids same color")
         
             void_hole_colors = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
+            
+            print(void_hole_colors.min(), void_hole_colors.max())
         
         self.void_sphere_vertex_data["color"] = void_hole_colors
+        
+        print("Void Sphere program vertices: ", self.void_sphere_vertex_data["position"].shape)
         
         self.void_sphere_VB = gloo.VertexBuffer(self.void_sphere_vertex_data)
         
@@ -842,12 +904,33 @@ class VoidRender(app.Canvas):
         
         self.void_sphere_program.bind(self.void_sphere_VB)
         
-        self.void_sphere_program['u_view'] = self.view
+        #self.void_sphere_program['u_view'] = self.view
+        
+        self.enabled_programs.append((self.void_sphere_program, "triangles"))
         
         
         
         
+    def setup_axis_program(self):
         
+        self.axis_data = np.zeros(self.num_gal, [('a_position', np.float32, 4),
+                                                          ('a_bg_color', np.float32, 4),
+                                                          ('a_fg_color', np.float32, 4),
+                                                          ('a_size', np.float32)])
+        
+        w_col = np.ones((self.num_gal, 1), dtype=np.float32)
+        
+        self.galaxy_vertex_data['a_position'] = np.concatenate((self.galaxy_xyz, w_col), axis=1)
+        
+        self.galaxy_vertex_data['a_bg_color'] = np.tile(self.galaxy_color, (self.num_gal,1))
+        
+        black = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) #black color
+        
+        self.galaxy_vertex_data['a_fg_color'] = np.tile(black, (self.num_gal,1)) 
+        
+        self.galaxy_vertex_data['a_size'] = self.max_galaxy_display_radius #broadcast to whole array?
+        
+        self.galaxy_point_VB = gloo.VertexBuffer(self.galaxy_vertex_data)
         
 
         
@@ -1119,17 +1202,14 @@ class VoidRender(app.Canvas):
             close_index = hole_kdtree.query_radius(hole_xyz.reshape(1,3), hole_radius)
             
             close_index = close_index[0]
-            #[52, 128, 33, 1007, 4556]
             
             valid_close_index = close_index[close_index != curr_idx]
-            #[52, 128, 33, 1007, 4556]
             
             neighbor_locations = self.holes_xyz[valid_close_index]
             
             neighbor_radii = self.holes_radii[valid_close_index]
             
             component_distances = neighbor_locations - hole_xyz
-            
             
             neighbor_distances = np.sqrt(np.sum(component_distances*component_distances, axis=1))
             
@@ -1141,9 +1221,19 @@ class VoidRender(app.Canvas):
             
         print("Holes filtered: ", np.count_nonzero(valid_idx==0))
         
+        if self.void_hole_color.shape[0] == self.holes_xyz.shape[0]:
+            
+            self.void_hole_color = self.void_hole_color[valid_idx]
+        
         self.holes_xyz = self.holes_xyz[valid_idx]
         
         self.holes_radii = self.holes_radii[valid_idx]
+        
+        self.holes_group_IDs = self.holes_group_IDs[valid_idx]
+        
+        return None
+        
+        
             
             
     
@@ -1171,6 +1261,15 @@ class VoidRender(app.Canvas):
         Since holes are spherical, any triangle whose all 3 verticies are less than
         hole_radius away from our current target means that triangle lives within
         our current hole but is not part of our current hole and can be chopped.
+        
+        
+        Also based on self.remove_void_intersects value:
+        0 - this function won't be called
+        1 - Remove all intersections
+        2 - use self.holes_group_IDs to only remove intersects from predefined void
+               groups by only allowing members of this group to be considered neighbors
+        
+        
         """
         
         valid_vertex_idx = np.ones(self.void_sphere_coord_data.shape[0], dtype=np.uint8)
@@ -1187,10 +1286,46 @@ class VoidRender(app.Canvas):
         #
         ######################################################################
         
+        hole_order = np.argsort(self.holes_radii)
         
+        hole_order = hole_order[::-1]
+        
+        #print(hole_order.shape, hole_order[0:10], hole_order.dtype)
+        #print(self.holes_radii[hole_order][0:10])
+        
+        if self.remove_void_intersects == 1:
+            
+            neighbor_index = build_neighbor_index(self.hole_kdtree,
+                                                  hole_order.astype(np.int64),
+                                                  self.holes_xyz.astype(np.float32),
+                                                  self.holes_radii.astype(np.float32))
+            
+        elif self.remove_void_intersects == 2:
+            
+            neighbor_index = build_grouped_neighbor_index(self.hole_kdtree,
+                                                          hole_order.astype(np.int64),
+                                                          self.holes_xyz.astype(np.float32),
+                                                          self.holes_radii.astype(np.float32),
+                                                          self.holes_group_IDs.astype(np.int32))
+        
+        
+        
+        '''
+        cython_sum = 0
+        for elem in neighbor_index:
+            cython_sum += len(elem)
+            
+        
+        print("Cython neighbor index: ", cython_sum)
         
         neighbor_index = self.hole_kdtree.query_radius(self.holes_xyz, 2.0*self.holes_radii.max())
         
+        python_sum = 0
+        for elem in neighbor_index:
+            python_sum += len(elem)
+        
+        print("Python neighbor index: ", python_sum)
+        '''
         ######################################################################
         # Create an index of which vertices to keep via the above algorithm
         # needed to use numpy.where maybe due to uint8 type on valid_vertex_idx?
@@ -1205,6 +1340,8 @@ class VoidRender(app.Canvas):
                                )
         
         keep_idx = np.where(valid_vertex_idx)[0]
+        
+        #print("Keep idx: ", len(keep_idx))
         
         self.void_sphere_coord_data = self.void_sphere_coord_data[keep_idx]
     
@@ -1388,9 +1525,10 @@ class VoidRender(app.Canvas):
         
         self.view[3,idx] += plus_minus*self.translation_sensitivity
         
-        self.galaxy_point_program['u_view'] = self.view
+        #self.galaxy_point_program['u_view'] = self.view
         
-        self.void_sphere_program["u_view"] = self.view
+        #self.void_sphere_program["u_view"] = self.view
+        
         '''
         if self.enable_void_interior_highlight:
             
@@ -1430,9 +1568,11 @@ class VoidRender(app.Canvas):
         
         self.view = np.matmul(self.view, curr_rotation)
         
-        self.galaxy_point_program['u_view'] = self.view
+        #self.galaxy_point_program['u_view'] = self.view
         
-        self.void_sphere_program["u_view"] = self.view
+        #self.void_sphere_program["u_view"] = self.view
+        
+        
         '''
         if self.enable_void_interior_highlight:
             
@@ -1540,13 +1680,156 @@ class VoidRender(app.Canvas):
         print(data_coord_camera_location)
         print(norm)
         
+        
+    def press_n(self):
+        """
+        Run a pre-defined script that takes you on a tour through the universe
+        """
+        
+        
+        if self.script_running:
+            
+            pass
+        
+        else:
+            
+            start_location = np.mean(self.holes_xyz, axis=0)
+        
+            start_location[2] += 600.0
+            
+            start_location *= -1.0
+            
+            self.translation_sensitivity = 1.0
+        
+            self.rotation_sensitivity = 1.0
+            
+            self.point_size_denominator = 1.0
+            
+            
+            self.setup_camera_view(start_location)
+            
+            set_1 = [
+                    [('+')]*5,
+                    [('x')]*2,
+                    [('w')]*1,
+                    [('s')]*1,
+                    [("_")]*60,
+                    [('w')]*450,
+                    [('w', '-')],
+                    [('w', 'x', 'v')]*3,
+                    [('w', '-')],
+                    [('w')]*25,
+                    [('w', 'x')]*3,
+                    [('w')]*25,
+                    [('w', '-')],
+                    [('w', 'v')]*2,
+                    [('w', 'j')]*90,
+                    [('w')]*10,
+                    [('w', 'x')]*3,
+                    [('w', 'c')]*2,
+                    [('w', 'e')]*80,
+                    [('w', 'x')]*5,
+                    [('w', 'v', 'x')]*9,
+                    [('w', 'i')]*325,
+                    [('w', '-')],
+                    [('w', 'j', 'k')]*50,
+                    [('w', 'q')]*150,
+                    [('w', 'i')]*100,
+                    [('w')]*100,
+                    [('w', 'q')]*150,
+                    [('w', 'i')]*80,
+                    [('w', 'z')]*5,
+                    [('w')]*150,
+                    [('w', 'q', 'k')]*150,
+                    [('w', 'c')]*5,
+                    [('w', 'q', 'i')]*150,
+                    [('w', 'i')]*30,
+                    [('w')]*100,
+                    [('w', 'v')]*10,
+                    [('w', 'k')]*100,
+                    [('w')]*200,
+                    [('w', 'c')]*10,
+                    [('w', 'z')],
+                    [('w', 'e', 'i')]*100,
+                    [('w', 'x')]*5,
+                    [('w', 'a', 'l')]*65,
+                    [('w', 'z')]*15,
+                    [('w')]*75,
+                    [('w', 'x')]*10,
+                    [('w', 'd', 'j')]*100,
+                    [('d', 'j', 'v')]*10,
+                    [('s', 'd', 'j')]*300,
+                    [('w', 'v')]*10,
+                    [('w', 'k', 'l')]*150,
+                    [('w', 'z')]*5,
+                    [('w', 'd', 'j')]*100,
+                    [('w', 'k', 'j')]*50,
+                    [('w', 'j')]*25,
+                    [('w', 'z')]*5,
+                    [('w')]*42,
+                    [('w', 'c')]*15,
+                    [('w', 'j', 'i')]*90,
+                    [('w', 'j', 'q')]*35,
+                    [('w', 'j')]*25,
+                    [('w')]*25,
+                    [('w', 'c')]*5,
+                    [('w', 'j', 'q', 'i')]*50,
+                    [('w', 'i')]*50,
+                    [('w', 'e')]*20,
+                    [('w', 'e', 'i')]*50,
+                    [('w', 'e', 'i', 'l')]*50,
+                    [('w', 'k', 'c')]*5,
+                    [('w', 'k')]*45,
+                    [('w', 'k', 'c')]*5,
+                    [('w', 'k')]*45,
+                    [('w', 'v', 'x')]*10,
+                    [('w', 'i', 'x')]*10,
+                    [('w', 'i', 'v', 'x')]*10,
+                    [('w', 'i')]*15,
+                    [('w', 'v')]*5,
+                    [('w', 'z')]*10,
+                    [('w')]*35,
+                    [('w', 'a', 'r', 'l')]*200,
+                    [('a', 'r', 'l')]*300,
+                    [('a', 'r', 'l', 'k')]*300,
+                    [('a', 's', 'l', 'k')]*300,
+                    [('s', 'z')]*10,
+                    [('s')]*100,
+                    [('s', 'z')]*10,
+                    [('s', 'c')]*8,
+                    [('s', 'i')]*100,
+                    [('s', '+')],
+                    [('s')]*25,
+                    [('s', '+')],
+                    [('s')]*50,
+                    [('s', 'z')]*15,
+                    [('s', '+')],
+                    [('s')]*125,
+                    [('s', '+')],
+                    [('s')]*25,
+                    
+                    ]
+            
+            self.script = []
+            
+            for element in set_1:
+            
+                self.script.extend(element)
+            
+            print("Len script: ", len(self.script))
+            
+            self.script_idx = 0
+            
+            self.script_running = True
+        
+        
     def press_m(self):
         
         print("Pressed m!")
         
         if self.recording:
             
-            print("Writing frames...")
+            print("Writing frames... ("+str(len(self.recording_frames))+")")
             
             #Write to png and save video
             
@@ -1582,7 +1865,7 @@ class VoidRender(app.Canvas):
             #print(command)
             
             command = ["ffmpeg", 
-                       "-r", "25",
+                       "-r", "60",
                        "-f", "concat",
                        "-safe", "0",
                        "-i", ffmpeg_list_filename,
@@ -1625,19 +1908,57 @@ class VoidRender(app.Canvas):
             
             self.recording = True
             
-            pass
+            
         
         
         
     def press_0(self):
         
-        img = self.render().copy()
+        #img = self.render().copy()
         
-        print(img.shape)
+        img = self.read_front_buffer()
         
-        print(img[500,900])
+        #print(img.shape)
         
-        img[:,:,3] = 255
+        #print(img[500,900])
+        
+        """
+        Fix the alpha compositing using:
+        https://en.wikipedia.org/wiki/Alpha_compositing
+        
+        Color_out = color_foreground + color_background*(1- alpha_foreground)
+        
+        IF the raster is premultiplied alpha color.  Otherwise gotta use the more complex one.
+        
+        
+        """
+        
+        #if not hasattr(self, background_color_array):
+            
+        #    self.background_color_array = np.empty((img.shape[0], img.shape[1], 3), dtype=np.uint8)
+        #    self.background_color_array.fill(255) #white
+        
+        
+        #partial_transparency_index = img[:,:,3] < 255
+        
+        #print(partial_transparency_index.shape, np.sum(partial_transparency_index))
+        
+        #mod_percentages = 1.0 - img[partial_transparency_index,3]/255.0
+        
+        #mod_values = 255*mod_percentages
+        
+        #(255*(1 - x/255)) = 255 - x
+        
+        #composite_modifier_values = 255 - img[partial_transparency_index,3]
+        
+        #print(composite_modifier_values.shape)
+        
+        
+        
+        
+        #img[:,:,3] = 255
+        
+        #img[partial_transparency_index,:] += composite_modifier_values
         
         random_sequence = self.random_string()
         
@@ -1691,12 +2012,53 @@ class VoidRender(app.Canvas):
             
             self.keyboard_active[event.text] = 0
     
+    
+    def yield_next_script_commands(self):
+        
+        for element in self.script:
+            
+            print(element)
+            
+            yield element
+            
+        return None
+        
 
     def on_timer(self, event):
         """
         Callback every .01 seconds or so, mostly to process keyboard 
         commands for now
         """
+        
+        requires_update = False
+        
+        ######################################################################
+        # Run whatever script commands need to be run.  If we're running a
+        # script, always set requires_update
+        ######################################################################
+        if self.script_running:
+            
+            requires_update = True
+            
+            commands = self.script[self.script_idx]
+            
+            self.script_idx += 1
+            
+            for command in commands:
+                
+                if command in self.keyboard_commands:
+                    
+                    self.keyboard_commands[command]()
+                    
+            if self.script_idx >= len(self.script):
+                
+                self.script_running = False
+                
+                
+            
+        ######################################################################
+        # Run any active keyboard commands
+        ######################################################################
         if time.time() - self.last_keypress_time > 0.02:
             
             for curr_key in self.keyboard_active:
@@ -1705,15 +2067,30 @@ class VoidRender(app.Canvas):
                     
                     self.keyboard_commands[curr_key]()
                     
-        self.update()
-        
-        if self.recording:
+                    requires_update = True
+                    
+        ######################################################################
+        # If we did anything that requires a redraw, update the uniform
+        # variable with the new camera location for each enabled program,
+        # then call self.update() to redraw everything
+        ######################################################################
+        if requires_update:
             
-            #img = self.render().copy()
+            for curr_program, draw_type in self.enabled_programs:
+                
+                curr_program["u_view"] = self.view
+            
+            self.update()
+        
+        ######################################################################
+        # Lastly, if we're recording, grab the frame after its been drawn
+        # from the front buffer and save it to memory
+        ######################################################################
+        if self.recording:
             
             img = self.read_front_buffer()
         
-            img[:,:,3] = 255
+            #img[:,:,3] = 255
             
             self.recording_frames.append(img)
         
@@ -1723,6 +2100,30 @@ class VoidRender(app.Canvas):
         
         self.apply_zoom()
         
+        
+    def mouse_wheel_down(self):
+        
+        self.point_size_denominator -= 1.0
+        
+        self.point_size_denominator = max(1.0, self.point_size_denominator)
+        
+        self.point_size_denominator = min(10.0, self.point_size_denominator)
+    
+        self.galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
+        
+        self.update()
+        
+    def mouse_wheel_up(self):
+        
+        self.point_size_denominator += 1.0
+        
+        self.point_size_denominator = max(1.0, self.point_size_denominator)
+        
+        self.point_size_denominator = min(10.0, self.point_size_denominator)
+    
+        self.galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
+        
+        self.update()
 
     def on_mouse_wheel(self, event):
         """
@@ -1831,33 +2232,51 @@ class VoidRender(app.Canvas):
         
         gloo.clear((1, 1, 1, 1))
         
-        self.galaxy_point_program.draw('points')
+        #self.galaxy_point_program.draw('points')
         
-        self.void_sphere_program.draw('triangles')
-        '''
-        if self.enable_void_interior_highlight:
+        #self.void_sphere_program.draw('triangles')
         
-            self.highlight_program.draw('triangles')
-        '''
+        for curr_program, draw_type in self.enabled_programs:
+            
+            curr_program.draw(draw_type)
+        
+        
+        
 
     def apply_zoom(self):
         """
         For a fov angle of 60 degrees and a near plane of 0.01, 
         the size of the near viewing plane is .0115 in height and .0153 in width (on 800x600 screen)
+        
+        Assuming this won't have any OpenGL programs which don't take the u_projection and
+        u_view uniform variables
         """
         
         gloo.set_viewport(0, 0, self.physical_size[0], self.physical_size[1])
         
         self.projection = perspective(60.0, self.size[0]/float(self.size[1]), 0.01, 10000.0)
         
+        '''
         self.galaxy_point_program['u_projection'] = self.projection
         
+        self.galaxy_point_program['u_view'] = self.view
+        
         self.void_sphere_program['u_projection'] = self.projection
+        
+        self.void_sphere_program['u_view'] = self.view
         '''
-        if self.enable_void_interior_highlight:
+        
+        for curr_program, draw_type in self.enabled_programs:
             
-            self.highlight_program['u_projection'] = self.projection
-        '''
+            curr_program["u_projection"] = self.projection
+            
+            curr_program["u_view"] = self.view
+        
+        
+        
+        
+        
+        
     def run(self):
         app.run()
 
@@ -1904,14 +2323,16 @@ if __name__ == "__main__":
     
     print("Galaxies: ", galaxy_data.shape)
     
-    viz = VoidRender(holes_xyz, 
-                          holes_radii, 
-                          galaxy_data,
-                          galaxy_display_radius=10,
-                          #void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
-                          void_hole_color=void_hole_colors,
-                          SPHERE_TRIANGULARIZATION_DEPTH=3,
-                          canvas_size=(1600,1200))
+    viz = VoidRender(holes_xyz=holes_xyz, 
+                     holes_radii=holes_radii,
+                     holes_group_IDs=holes_flags,
+                     galaxy_xyz=galaxy_data,
+                     galaxy_display_radius=10,
+                     remove_void_intersects=1,
+                     #void_hole_color=np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32),
+                     void_hole_color=void_hole_colors,
+                     SPHERE_TRIANGULARIZATION_DEPTH=3,
+                     canvas_size=(1600,1200))
     
     viz.run()
     #app.run()

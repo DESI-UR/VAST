@@ -10,13 +10,20 @@ import numpy
 
 extensions = [
     
-    
-    
-    
-    
     Extension(
         "unionize",
         ["unionize.pyx"],
+        include_dirs=[numpy.get_include()+"/numpy"],
+        libraries=["m"],
+        #extra_compile_args=['-fopenmp'],
+        #extra_link_args=['-fopenmp']
+        
+        
+        ),
+    
+    Extension(
+        "neighborize",
+        ["neighborize.pyx"],
         include_dirs=[numpy.get_include()+"/numpy"],
         libraries=["m"],
         #extra_compile_args=['-fopenmp'],
