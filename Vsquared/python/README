@@ -1,0 +1,7 @@
+#Cosmological paramaters can be modified at the top of util.py, voidfinding parameters and input/output files at the top of zobov.py. To find voids and save void and zone information, run (in the zobov directory):
+
+from zobov import Zobov
+newZobov = Zobov(0,3) #if intermediate steps were saved (the default), run Zobov(4,4) instead
+newZobov.sortVoids()
+newZobov.saveVoids()
+newZobov.saveZones()
