@@ -15,8 +15,8 @@ import astropy.units as u
 
 import pickle
 
-import sys
-sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python')
+#import sys
+#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
 from voidfinder.vflag import determine_vflag
 from voidfinder.voidfinder_functions import build_mask
 from voidfinder.absmag_comovingdist_functions import Distance
@@ -31,14 +31,14 @@ from voidfinder.absmag_comovingdist_functions import Distance
 
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
-void_filename = '../voidfinder/data/vollim_dr7_cbp_102709_holes.txt'
+void_filename = '../../data/vollim_dr7_cbp_102709_comoving_holes.txt'
 
 dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # SURVEY MASK FILE
-mask_filename = '../voidfinder/data/dr7_mask.pickle'
+mask_filename = '../../data/dr7_mask.pickle'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ DtoR = np.pi/180
 #   IMPORT DATA
 #
 ################################################################################
-
+print('Importing data')
 
 # Read in list of void holes
 voids = Table.read(void_filename, format='ascii.commented_header')
@@ -101,14 +101,14 @@ mask_infile.close()
 
 mask = build_mask(maskfile, mask_resolution)
 
-
+print('Data and mask imported')
 ################################################################################
 #
-#   CONVERT GALAXY ra,dec,z TO x,y,z
+# CONVERT GALAXY ra,dec,z TO x,y,z
 #
+# Conversions are from http://www.physics.drexel.edu/~pan/VoidCatalog/README
 ################################################################################
-'''Conversions are from http://www.physics.drexel.edu/~pan/VoidCatalog/README'''
-
+print('Converting coordinate system')
 
 # Convert redshift to distance
 if dist_metric == 'comoving':
@@ -128,13 +128,13 @@ galaxies_y = galaxies_r*np.cos(galaxies['dec']*DtoR)*np.sin(galaxies['ra']*DtoR)
 # Calculate z-coordinates
 galaxies_z = galaxies_r*np.sin(galaxies['dec']*DtoR)
 
-
+print('Coordinates converted')
 ################################################################################
 #
 #   IDENTIFY LARGE-SCALE ENVIRONMENT
 #
 ################################################################################
-
+print('Identifying environment')
 
 galaxies['vflag'] = -9
 
@@ -145,7 +145,7 @@ for i in range(len(galaxies)):
     galaxies['vflag'][i] = determine_vflag( galaxies_x[i], galaxies_y[i], galaxies_z[i], 
                                             voids, mask, mask_resolution)
 
-
+print('Environments identified')
 ################################################################################
 #
 #   SAVE RESULTS

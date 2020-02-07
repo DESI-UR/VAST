@@ -6,11 +6,14 @@ from astropy.table import Table
 from util import toSky, inSphere, wCen, getSMA, P, flatten
 from classes import Catalog, Tesselation, Zones, Voids
 
-infile  = "./data/vollim_dr7_cbp_102709.fits"
-outdir  = "./data/"
+infile  = "../data/vollim_dr7_cbp_102709.fits"
+outdir  = "../data/"
 catname = "DR7"
-intloc  = "./intermediate/" + catname
-nside   = 64
+intloc  = "../intermediate/" + catname
+nside   = 32
+zmin    = 0.
+zmax    = 1.
+maglim  = None
 denscut = 0.2
 minrad  = 10 #minimum void radius
 
@@ -23,7 +26,7 @@ class Zobov:
             if start<3:
                 if start<2:
                     if start<1:
-                        ctlg = Catalog(infile,nside)
+                        ctlg = Catalog(catfile=infile,nside=nside,zmin=zmin,zmax=zmax,maglim=maglim)
                         if save_intermediate:
                             pickle.dump(ctlg,open(intloc+"_ctlg.pkl",'wb'))
                     else:
@@ -52,14 +55,18 @@ class Zobov:
             tess  = pickle.load(open(intloc+"_tess.pkl",'rb'))
             zones = pickle.load(open(intloc+"_zones.pkl",'rb'))
             voids = pickle.load(open(intloc+"_voids.pkl",'rb'))
-        self.catalog     = ctlg
-        self.tesselation = tess
-        self.zones       = zones
-        self.prevoids    = voids
+        self.catalog = ctlg
+        if end>0:
+            self.tesselation = tess
+        if end>1:
+            self.zones       = zones
+        if end>2:
+            self.prevoids    = voids
     def sortVoids(self,method=0,minsig=2,dc=denscut):
         if not hasattr(self,'prevoids'):
             print("Run all stages of Zobov first")
             return
+        print("Selecting void candidates...")
         if method==0:
             voids  = []
             minvol = np.mean(self.tesselation.volumes[self.tesselation.volumes>0])/dc
@@ -81,26 +88,31 @@ class Zobov:
                     voids.append([c for q in self.prevoids.voids[i] for c in q])
         elif method==3:
             print("Coming soon")
+            return
         else:
             print("Choose a valid method")
-        vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
+            return
+        vcuts = np.array([list(flatten(self.zones.zcell[v])) for v in voids])
+        gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
+        cutco = self.catalog.coord[gcut]
         vvols = np.array([np.sum(self.tesselation.volumes[vcut]) for vcut in vcuts])
         vrads = (vvols*3./(4*np.pi))**(1./3)
-        vcens = np.array([wCen(self.tesselation.volumes[vcut],self.catalog.coord[vcut]) for vcut in vcuts])
-        vaxes = np.array([getSMA(vrads[i],self.catalog.coord[vcuts[i]]) for i in range(len(vrads))])
+        rcut  = vrads>minrad
+        voids = np.array(voids)[rcut]
+        vcuts = vcuts[rcut]
+        vvols = vvols[rcut]
+        vrads = vrads[rcut]
+        print("Finding void centers...")
+        vcens = np.array([wCen(self.tesselation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
         if method==0:
-            dcut  = np.array([64.*len(self.catalog.coord[inSphere(vcens[i],vrads[i]/4.,self.catalog.coord)])/vvols[i] for i in range(len(vrads))])<1./minvol
+            dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
             vrads = vrads[dcut]
             rcut  = vrads>(minvol*dc)**(1./3)
             vrads = vrads[rcut]
             vcens = vcens[dcut][rcut]
-            vaxes = vaxes[dcut][rcut]
-            voids = (np.array(voids)[dcut])[rcut]
-        rcut  = vrads>minrad
-        vrads = vrads[rcut]
-        vcens = vcens[rcut]
-        vaxes = vaxes[rcut]
-        voids = np.array(voids)[rcut]
+            voids = (voids[dcut])[rcut]
+        print("Calculating ellipsoid axes...")
+        vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
         for i in range(len(voids)):
             for j in voids[i]:
@@ -134,10 +146,15 @@ class Zobov:
             print("Build zones first")
             return
         ngal  = len(self.catalog.coord)
-        glist = np.array(range(ngal))
+        glist = np.arange(ngal)
+        glut1 = glist[self.catalog.nnls==glist]
+        glut2 = [[] for _ in glut1]
+        for i,l in enumerate(glut2):
+            l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
         zlist = -1 * np.ones(ngal,dtype=int)
         zcell = self.zones.zcell
         for i,cl in enumerate(zcell):
-            zlist[cl] = i
+            for c in cl:
+                zlist[glut2[c]] = i
         zT = Table([glist,zlist],names=('gal','zone'))
         zT.write(outdir+catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)

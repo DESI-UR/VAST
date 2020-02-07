@@ -28,7 +28,7 @@ setup_keywords['description'] = 'VoidFinder package'
 setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
 setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
 setup_keywords['license'] = 'BSD'
-setup_keywords['url'] = 'https://github.com/DESI-UR/VoidFinder'
+setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
 setup_keywords['version'] = '0.1.1'
 #
 # Use README.md as a long_description.
@@ -44,7 +44,8 @@ setup_keywords['provides'] = [setup_keywords['name']]
 setup_keywords['requires'] = ['Python (>3.7.0)']
 setup_keywords['zip_safe'] = False
 setup_keywords['use_2to3'] = False
-setup_keywords['packages'] = ['voidfinder']
+setup_keywords['packages'] = ['voidfinder', 
+                              'voidfinder.viz']
 #setup_keywords['package_dir'] = {'': 'python'}
 #setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 #setup_keywords['test_suite'] = 'nose.collector'
@@ -53,13 +54,28 @@ setup_keywords['packages'] = ['voidfinder']
 extensions = [
               Extension("voidfinder._voidfinder_cython_find_next", 
                         ["voidfinder/_voidfinder_cython_find_next.pyx"],
-                        include_dirs=[numpy.get_include()],
+                        include_dirs=[".", numpy.get_include()],
                         library_dirs=["m"]),
                         
               Extension("voidfinder._voidfinder_cython", 
                         ["voidfinder/_voidfinder_cython.pyx"],
+                        include_dirs=[".", numpy.get_include()],
+                        library_dirs=["m"]),
+
+              Extension("voidfinder.viz.unionize",
+                        ["voidfinder/viz/unionize.pyx"],
+                        include_dirs=[numpy.get_include()],
+                        library_dirs=["m"]),
+    
+              Extension("voidfinder.viz.neighborize",
+                        ["voidfinder/viz/neighborize.pyx"],
                         include_dirs=[numpy.get_include()],
                         library_dirs=["m"])
+
+
+
+
+
               ]
 
 setup_keywords["ext_modules"] = cythonize(extensions)
