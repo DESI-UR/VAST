@@ -1,27 +1,49 @@
 import numpy as np
 import healpy as hp
 from astropy.io import fits
-from scipy.spatial import ConvexHull, Voronoi, Delaunay
+from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
 from util import toCoord, flatten
 
 class Catalog:
-    def __init__(self,fname,nside):
-        hdulist = fits.open(fname)
+    def __init__(self,catfile,nside,zmin,zmax,maglim=None,maskfile=None):
+        print("Extracting data...")
+        hdulist = fits.open(catfile)
         z    = hdulist[1].data['z']
         ra   = hdulist[1].data['ra']
         dec  = hdulist[1].data['dec']
-        mask = np.zeros(hp.nside2npix(nside),dtype=bool)
-        for i in range(len(ra)):
-            pid = hp.ang2pix(nside,ra[i],dec[i],lonlat=True)
-            mask[pid] = True
-        self.mask  = mask
+        zcut = np.logical_and(z>zmin,z<zmax)
+        if not zcut.any():
+            print("Choose valid redshift limits")
+            return
+        scut = zcut
         c1,c2,c3   = toCoord(z,ra,dec)
         self.coord = np.array([c1,c2,c3]).T
+        nnls = np.arange(len(z))
+        nnls[zcut<1] = -1
+        if maglim is not None:
+            mag  = hdulist[1].data['rabsmag']
+            print("Applying magnitude cut...")
+            mcut = np.logical_and(mag<maglim,zcut)
+            if not mcut.any():
+                print("Choose valid magnitude limit")
+                return
+            scut = mcut
+            tree = KDTree(self.coord[mcut])
+            nnls[zcut][mcut[zcut]<1] = tree.query(self.coord[zcut][mcut[zcut]<1])[1]
+            self.mcut = mcut
+        self.nnls = nnls
+        if maskfile is None:
+            print("Generating mask...")
+            mask = np.zeros(hp.nside2npix(nside),dtype=bool)
+            for i in range(len(ra[scut])):
+                pid = hp.ang2pix(nside,ra[scut][i],dec[scut][i],lonlat=True)
+                mask[pid] = True
+        self.mask = mask
 
 class Tesselation:
     def __init__(self,cat):
-        coords = cat.coord
+        coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))]
         print("Tesselating...")
         Vor = Voronoi(coords)
         ver = Vor.vertices
@@ -43,7 +65,7 @@ class Tesselation:
         pid = hp.ang2pix(nsd,vth,vph)
         imk = msk[pid]
         cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]])
-        cut = np.array(range(len(vol)))
+        cut = np.arange(len(vol))
         cut = cut[cu1][cu2][cu3]
         hul = []
         for r in reg[cut]:
@@ -127,7 +149,7 @@ class Voids:
         voids = []
         mvols = []
         ovols = []
-        vlut  = np.array(range(len(zvols)))
+        vlut  = np.arange(len(zvols))
         mvlut = np.array(zvols)
         ovlut = np.array(zvols)
         print("Expanding voids...")
@@ -137,19 +159,19 @@ class Voids:
             mvarg = np.argmax(mxvls)
             mxvol = mxvls[mvarg]
             for j in zlut[i]:
-                if mvlut[j] < mxvol:                
-                    voids.append([])
-                    ovols.append([])
-                    vcomp = np.where(vlut==vlut[j])[0]
-                    for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
-                        ocomp = np.where(ovlut[vcomp]==ov)[0]
-                        voids[-1].append(vcomp[ocomp].tolist())
-                        ovols[-1].append(ov)
-                    ovols[-1].append(lvol)
-                    mvols.append(mvlut[j])
-                    vlut[vcomp]  = vlut[zlut[i]][mvarg]
-                    mvlut[vcomp] = mxvol
-                    ovlut[vcomp] = lvol
+                #if mvlut[j] < mxvol:                
+                voids.append([])
+                ovols.append([])
+                vcomp = np.where(vlut==vlut[j])[0]
+                for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
+                    ocomp = np.where(ovlut[vcomp]==ov)[0]
+                    voids[-1].append(vcomp[ocomp].tolist())
+                    ovols[-1].append(ov)
+                ovols[-1].append(lvol)
+                mvols.append(mvlut[j])
+                vlut[vcomp]  = vlut[zlut[i]][mvarg]
+                mvlut[vcomp] = mxvol
+                ovlut[vcomp] = lvol
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols
