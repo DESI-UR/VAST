@@ -302,6 +302,39 @@ void main()
 """
 
 
+
+vert_meridians = """
+
+#version 120
+
+uniform mat4 u_view;
+uniform mat4 u_projection;
+
+attribute vec4 a_position;
+
+void main()
+{
+    gl_Position = u_projection * u_view * a_position;
+}
+
+
+"""
+
+frag_meridians = """
+
+#version 120
+
+
+void main()
+{
+
+    //gl_FragColor = v_color;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+}
+
+"""
+
+
 class Triangle(object):
     """
     Simple helper class for icosahedron sphere triangularization.
@@ -534,6 +567,11 @@ class VoidRender(app.Canvas):
             self.setup_galaxy_program()
         
         
+        ######################################################################
+        #
+        ######################################################################
+        
+        self.setup_orientation_sphere_program()
         
         
         ######################################################################
@@ -911,26 +949,188 @@ class VoidRender(app.Canvas):
         
         
         
-    def setup_axis_program(self):
+    def setup_orientation_sphere_program(self):
+        """
+        One program for the meridians since we can be tricky and plot them in
+        such a way as to use the openGL "line_strip" draw type.
         
-        self.axis_data = np.zeros(self.num_gal, [('a_position', np.float32, 4),
-                                                          ('a_bg_color', np.float32, 4),
-                                                          ('a_fg_color', np.float32, 4),
-                                                          ('a_size', np.float32)])
+        One program for the parallels since they have to be kinda standalone
+        but I don't want to write 1 "line_loop" program per parallel, so
+        I'm going to write 1 "lines" draw type program for all the parallels
         
-        w_col = np.ones((self.num_gal, 1), dtype=np.float32)
+        """
+        ######################################################################
+        # Calculate the radius to make the sphere
+        ######################################################################
         
-        self.galaxy_vertex_data['a_position'] = np.concatenate((self.galaxy_xyz, w_col), axis=1)
+        orientation_sphere_radius = 500.0
         
-        self.galaxy_vertex_data['a_bg_color'] = np.tile(self.galaxy_color, (self.num_gal,1))
         
-        black = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) #black color
         
-        self.galaxy_vertex_data['a_fg_color'] = np.tile(black, (self.num_gal,1)) 
+        ######################################################################
+        # We can draw the meridians (lines of constant longitude) as an
+        # OpenGL "line_loop" by using the fact that all meridians intersect
+        # at the north pole and south pole.
+        #
+        # From the starting longitude, draw from north pole to south pole, 
+        # turn by the longitude increment, then draw the next line from
+        # south pole to north pole, turn again, repeat north to south, etc.
+        ######################################################################
         
-        self.galaxy_vertex_data['a_size'] = self.max_galaxy_display_radius #broadcast to whole array?
+        num_meridians = 20
         
-        self.galaxy_point_VB = gloo.VertexBuffer(self.galaxy_vertex_data)
+        meridian_depth = 200
+        
+        meridian_latitudes = np.linspace(np.pi/2.0, -np.pi/2.0, meridian_depth)
+        
+        meridian_longitudes = np.linspace(0.0, 2.0*np.pi, num_meridians+1) #linspace includes the endpoint so +1 num_meridians
+        
+        lat_sines = np.sin(meridian_latitudes)
+        lat_coses = np.cos(meridian_latitudes)
+        long_sines = np.sin(meridian_longitudes)
+        long_coses = np.cos(meridian_longitudes)
+        
+        meridian_coords = np.empty((num_meridians*meridian_depth, 3), dtype=np.float32)
+        
+        flipper = -1
+        
+        out_idx = 0
+        
+        for idx in range(num_meridians): 
+            
+            if flipper == -1:
+                lat_iter = range(meridian_depth)
+                flipper = 1
+            elif flipper == 1:
+                lat_iter = reversed(range(meridian_depth))
+                flipper = -1
+                
+            for jdx in lat_iter:
+                
+                y = lat_sines[jdx]
+                z = lat_coses[jdx]*long_sines[idx]
+                x = lat_coses[jdx]*long_coses[idx]
+                
+                meridian_coords[out_idx,0] = x
+                meridian_coords[out_idx,1] = y
+                meridian_coords[out_idx,2] = z
+                
+                out_idx += 1
+                
+        
+        meridian_coords *= orientation_sphere_radius
+        
+        self.orientation_sphere_meridians = np.ones(meridian_coords.shape[0], 
+                                                     [
+                                                      ('a_position', np.float32, 4),
+                                                      #('a_bg_color', np.float32, 4),
+                                                      #('a_fg_color', np.float32, 4),
+                                                      #('a_size', np.float32)
+                                                     ]
+                                                     )
+        
+        #w_col = np.ones((self.num_gal, 1), dtype=np.float32)
+        
+        self.orientation_sphere_meridians['a_position'][:,0:3] = meridian_coords
+        
+        #self.galaxy_vertex_data['a_bg_color'] = np.tile(self.galaxy_color, (self.num_gal,1))
+        
+        #black = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) #black color
+        
+        #self.galaxy_vertex_data['a_fg_color'] = np.tile(black, (self.num_gal,1)) 
+        
+        #self.galaxy_vertex_data['a_size'] = self.max_galaxy_display_radius #broadcast to whole array?
+        
+        self.orientation_sphere_meridians_VB = gloo.VertexBuffer(self.orientation_sphere_meridians)
+        
+        self.orientation_sphere_meridian_program = gloo.Program(vert_meridians, frag_meridians)
+        
+        self.orientation_sphere_meridian_program.bind(self.orientation_sphere_meridians_VB)
+        
+        self.enabled_programs.append((self.orientation_sphere_meridian_program, "line_strip"))
+        
+        
+        ######################################################################
+        # Next do lines of constant latitude. 
+        ######################################################################
+        
+        num_parallels = 20
+        
+        parallel_depth = 200
+        
+        parallel_latitudes = np.linspace(np.pi/2.0, -np.pi/2.0, num_parallels+2)[1:-1] #exclude north and south poles
+        
+        parallel_longitudes = np.linspace(0.0, 2.0*np.pi, parallel_depth+1) #linspace includes the endpoint so +1 num_meridians
+        
+        lat_sines = np.sin(parallel_latitudes)
+        lat_coses = np.cos(parallel_latitudes)
+        long_sines = np.sin(parallel_longitudes)
+        long_coses = np.cos(parallel_longitudes)
+        
+        parallel_coords = np.empty((2*num_parallels*parallel_depth, 3), dtype=np.float32)
+        
+        out_idx = 0
+        
+        for jdx in range(num_parallels):
+            
+            for idx in range(parallel_depth):
+                
+                y = lat_sines[jdx]
+                z = lat_coses[jdx]*long_sines[idx]
+                x = lat_coses[jdx]*long_coses[idx]
+                
+                y2 = lat_sines[jdx]
+                z2 = lat_coses[jdx]*long_sines[idx+1]
+                x2 = lat_coses[jdx]*long_coses[idx+1] 
+                
+                parallel_coords[out_idx,0] = x
+                parallel_coords[out_idx,1] = y
+                parallel_coords[out_idx,2] = z
+                
+                out_idx += 1
+                
+                parallel_coords[out_idx,0] = x2
+                parallel_coords[out_idx,1] = y2
+                parallel_coords[out_idx,2] = z2
+                
+                out_idx += 1
+                
+                
+        
+        
+        parallel_coords *= orientation_sphere_radius
+        
+        self.orientation_sphere_parallels = np.ones(parallel_coords.shape[0], 
+                                                     [
+                                                      ('a_position', np.float32, 4),
+                                                      #('a_bg_color', np.float32, 4),
+                                                      #('a_fg_color', np.float32, 4),
+                                                      #('a_size', np.float32)
+                                                     ]
+                                                     )
+        
+        #w_col = np.ones((self.num_gal, 1), dtype=np.float32)
+        
+        self.orientation_sphere_parallels['a_position'][:,0:3] = parallel_coords
+        
+        #self.galaxy_vertex_data['a_bg_color'] = np.tile(self.galaxy_color, (self.num_gal,1))
+        
+        #black = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) #black color
+        
+        #self.galaxy_vertex_data['a_fg_color'] = np.tile(black, (self.num_gal,1)) 
+        
+        #self.galaxy_vertex_data['a_size'] = self.max_galaxy_display_radius #broadcast to whole array?
+        
+        self.orientation_sphere_parallels_VB = gloo.VertexBuffer(self.orientation_sphere_parallels)
+        
+        self.orientation_sphere_parallels_program = gloo.Program(vert_meridians, frag_meridians)
+        
+        self.orientation_sphere_parallels_program.bind(self.orientation_sphere_parallels_VB)
+        
+        self.enabled_programs.append((self.orientation_sphere_parallels_program, "lines"))
+        
+                
+        
         
 
         
@@ -969,8 +1169,6 @@ class VoidRender(app.Canvas):
         self.highlight_program.bind(self.highlight_sphere_VB)
         
         self.highlight_program['u_view'] = self.view
-        
-        
         
         
     def create_sphere(self, radius, subdivisions=2):

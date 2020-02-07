@@ -81,6 +81,11 @@ Mouse Wheel - increase & decrease galaxy size
 # Backlog:
 ############################################################
 
+
+
+- Change typedefs.pxd imports in cython to from ..typedefs import 'whatever' since the code
+    is part of the VoidFinder repo and VoidFinder cython already has a typedefs.pxd module
+    which is exactly the same
 - Investigate why the new sorted-max-sphere based neighborization approach to
     sphere vertex intersection removal is resulting in slightly more triangles remaining
     after the removal (7.9 million versus 7.8 million)
@@ -102,7 +107,7 @@ Mouse Wheel - increase & decrease galaxy size
 
 
 
-
++ Added reference/orientation sphere to rendering
 + Fix alpha compositing in screenshot/video
    (Investigated, think its actually being done correctly because all alpha values were 255
    when using the self.read_front_buffer() method)
