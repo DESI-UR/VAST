@@ -51,14 +51,11 @@ RtoD = 180./np.pi
 def filter_galaxies(galaxy_table, 
                     mask_array, 
                     mask_resolution, 
-                    min_dist, 
-                    max_dist, 
                     survey_name, 
-                    mag_cut_flag, 
-                    rm_isolated_flag, 
-                    distance_metric, 
-                    h,
-                    c=3e5,
+                    mag_cut_flag=True, 
+                    rm_isolated_flag=True, 
+                    distance_metric='comoving', 
+                    h=1.0,
                     search_grid_edge_length=5,
                     ):
     '''
@@ -79,33 +76,25 @@ def filter_galaxies(galaxy_table,
     mask_resolution : integer
         Scale factor of coordinates in mask_array
 
-    min_dist : float
-        Minimum distance (in Mpc/h) of the galaxy distribution
-
-    max_dist : float
-        Maximum distance (in Mpc/h) of the galaxy distribution
-
     survey_name : string
         Name of galaxy catalog
 
     mag_cut_flag : boolean
         Determines whether or not to remove galaxies fainter than Mr = -20.  True 
-        will remove the faint galaxies.
+        (default) will remove the faint galaxies.
 
     rm_isolated_flag : boolean
-        Determines whether or not to remove isolated galaxies.  True will remove 
-        the isolated galaxies.
+        Determines whether or not to remove isolated galaxies.  True (default) 
+        will remove the isolated galaxies.
 
     distance_metric : string
         Distance metric to use in calculations.  Options are 'comoving' 
-        (distance dependent on cosmology) and 'redshift' (distance 
+        (default; distance dependent on cosmology) and 'redshift' (distance 
         independent of cosmology).
 
     h : float
         Fractional value of Hubble's constant.  Default value is 1 (where 
         H0 = 100h).
-        
-    c : Kelly can fill this in
     
     search_grid_edge_length : float
         length in Mpc/h of the edge of one cell of a grid cube
@@ -166,7 +155,7 @@ def filter_galaxies(galaxy_table,
     print('x:', coord_min_table['x'][0], coord_max_table['x'][0], flush=True)
     print('y:', coord_min_table['y'][0], coord_max_table['y'][0], flush=True)
     print('z:', coord_min_table['z'][0], coord_max_table['z'][0], flush=True)
-    print('There are', N_gal, 'galaxies in this simulation.', flush=True)
+    print('There are', N_gal, 'galaxies in this catalog.', flush=True)
 
     # Convert coord_in, coord_min, coord_max tables to numpy arrays
     coord_in = to_array(coord_in_table)
@@ -296,8 +285,7 @@ def filter_galaxies(galaxy_table,
 
 
 def find_voids(void_grid_shape, 
-               min_dist, 
-               max_dist,
+               dist_limits,
                galaxy_coords,
                coord_min, 
                mask, 
@@ -360,12 +348,8 @@ def find_voids(void_grid_shape,
         number of grid cells in each direction to search as potential
         void centers
     
-    min_dist : float
-        minimum redshift limit of the survey in units of Mpc/h
-        (xyz space)
-        
-    max_dist : float
-        maximum redshift limit of the survey in units of Mpc/h
+    dist_limits : numpy array of shape (2,)
+        minimum and maximum distance limit of the survey in units of Mpc/h
         (xyz space)
         
     galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
@@ -467,8 +451,8 @@ def find_voids(void_grid_shape,
                                                coord_min,
                                                mask,
                                                mask_resolution,
-                                               min_dist,
-                                               max_dist,
+                                               dist_limits[0],
+                                               dist_limits[1],
                                                galaxy_coords,
                                                batch_size=batch_size,
                                                verbose=verbose,
@@ -511,7 +495,7 @@ def find_voids(void_grid_shape,
 
 
     potential_voids_table = volume_cut(potential_voids_table, mask, 
-                                       mask_resolution, [min_dist, max_dist])
+                                       mask_resolution, dist_limits)
 
     potential_voids_table.write(potential_voids_filename, format='ascii.commented_header', overwrite=True)
 

@@ -34,7 +34,7 @@
 
 from voidfinder import filter_galaxies, find_voids
 from voidfinder.multizmask import generate_mask
-from voidfinder.absmag_comovingdist_functions import Distance
+from voidfinder.preprocessing import file_preprocess
 from voidfinder.table_functions import to_vector, to_array
 
 from astropy.table import Table
@@ -51,118 +51,59 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 1
+num_cpus = 4
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
 
 # File header
-#in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
-#out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
+out_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
 
 #in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
 #out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
 
-in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
-out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
+#in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
+#out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
 
 
 # Input file name
 galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 
-in_filename = in_directory + galaxies_filename
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Survey parameters
-determine_parameters = False
-min_dist = 0
-max_dist = 300. # z = 0.107 -> 313 h-1 Mpc   z = 0.087 -> 257 h-1 Mpc
+# Note: These can be set to None, in which case VoidFinder will use the limits 
+# of the galaxy catalog.
+min_z = 0
+max_z = 0.1026
 
-# Cosmology
-Omega_M = 0.3
-h = 1
+# Cosmology (uncomment and change values to change cosmology)
+#Omega_M = 0.3
+#h = 1
 
-# Distance metric
-dist_metric = 'comoving'
+# Uncomment if you do NOT want to use comoving distances
 #dist_metric = 'redshift'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
-# Remove faint galaxies?
-mag_cut = True
+# Uncomment if you do NOT want to remove galaxies with Mr > -20
+#mag_cut = False
 
-# Remove isolated galaxies?
-rm_isolated = True
+# Uncomment if you do NOT want to remove isolated galaxies
+#rm_isolated = False
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------------
-# Output file names
-if mag_cut and rm_isolated:
-    out1_suffix = '_' + dist_metric + '_maximal.txt'
-    out2_suffix = '_' + dist_metric + '_holes.txt'
-elif rm_isolated:
-    out1_suffix = '_' + dist_metric + '_maximal_noMagCut.txt'
-    out2_suffix = '_' + dist_metric + '_holes_noMagCut.txt'
-elif mag_cut:
-    out1_suffix = '_' + dist_metric + '_maximal_keepIsolated.txt'
-    out2_suffix = '_' + dist_metric + '_holes_keepIsolated.txt'
-else:
-    out1_suffix = '_' + dist_metric + '_maximal_noFiltering.txt'
-    out2_suffix = '_' + dist_metric + 'holes_noFiltering.txt'
-
-out1_filename = out_directory + galaxies_filename[:-4] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-out2_filename = out_directory + galaxies_filename[:-4] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-#out3_filename = out_directory + 'out3_vollim_dr7.txt'                # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-#voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'        # List of the void galaxies: x, y, z, void region
-#-------------------------------------------------------------------------------
 
 ################################################################################
 #
-#   OPEN FILES
+#   PREPROCESS DATA
 #
 ################################################################################
 
 
-galaxy_data_table = Table.read(in_filename, format='ascii.commented_header')
-
-
-#-------------------------------------------------------------------------------
-# Print min and max distances
-if determine_parameters:
-
-    # Minimum distance
-    min_z = min(galaxy_data_table['z'])
-
-    # Maximum distance
-    max_z = max(galaxy_data_table['z'])
-
-    if dist_metric == 'comoving':
-        # Convert redshift to comoving distance
-        dist_limits = Distance([min_z, max_z], Omega_M, h)
-        units = 'Mpc/h'
-    else:
-        dist_limits = [min_z, max_z]
-        units = ''
-
-    print('Minimum distance =', dist_limits[0], units)
-    print('Maximum distance =', dist_limits[1], units)
-
-    exit()
-#-------------------------------------------------------------------------------
-
-#-------------------------------------------------------------------------------
-# Rename columns
-if 'rabsmag' not in galaxy_data_table.columns:
-    galaxy_data_table['magnitude'].name = 'rabsmag'
-#-------------------------------------------------------------------------------
-
-#-------------------------------------------------------------------------------
-# Calculate comoving distance
-if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
-    galaxy_data_table['Rgal'] = Distance(galaxy_data_table['z'], Omega_M, h)
-#-------------------------------------------------------------------------------
-
+galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, in_directory, out_directory, min_z=min_z, max_z=max_z)
 
 
 ################################################################################
@@ -172,7 +113,7 @@ if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
 ################################################################################
 
 
-pre_mask, mask_resolution = generate_mask(galaxy_data_table, dist_metric, h, Omega_M)
+pre_mask, mask_resolution = generate_mask(galaxy_data_table)
 
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
 pickle.dump((pre_mask, mask_resolution), temp_outfile)
@@ -195,13 +136,7 @@ temp_infile.close()
 coord_min_table, mask, grid_shape = filter_galaxies(galaxy_data_table, 
                                                     pre_mask, 
                                                     mask_resolution, 
-                                                    min_dist, 
-                                                    max_dist, 
-                                                    survey_name, 
-                                                    mag_cut, 
-                                                    rm_isolated, 
-                                                    dist_metric, 
-                                                    h)
+                                                    survey_name)
 
 
 temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
@@ -236,8 +171,7 @@ coord_min = to_vector(coord_min_table)
 
 
 find_voids(grid_shape, 
-           min_dist, 
-           max_dist,
+           dist_limits,
            galaxy_coords,
            coord_min, 
            mask, 

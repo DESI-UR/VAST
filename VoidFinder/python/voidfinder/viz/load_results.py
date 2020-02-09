@@ -4,12 +4,16 @@ from astropy.table import Table
 import matplotlib
 import matplotlib.pyplot as plt
 
+from voidfinder.absmag_comovingdist_functions import Distance
+
 
 # Constants
 c = 3e5
 DtoR = numpy.pi/180.
 RtoD = 180./numpy.pi
-distance_metric = 'comoving'
+#distance_metric = 'comoving'
+distance_metric = 'redshift'
+Omega_M = 0.3
 h = 1.0
 
 if __name__ == "__main__":
@@ -80,7 +84,11 @@ def load_galaxy_data(infilename):
     
     galaxy_data = Table.read(infilename, format='ascii.commented_header')
     
-    if distance_metric == 'comoving':
+    if distance_metric == 'comoving' and 'Rgal' not in galaxy_data.columns:
+        
+        r_gal = Distance(galaxy_data['redshift'], Omega_M, h)
+    
+    elif distance_metric == 'comoving':
         
         r_gal = galaxy_data['Rgal']
         
