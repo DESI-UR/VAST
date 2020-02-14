@@ -21,8 +21,8 @@ from vispy.color import Colormap
 ################################################################################
 
 
-#holes_xyz, holes_radii, holes_flags = load_hole_data("../../data/SDSS/vollim_dr7_cbp_102709_comoving_holes.txt")
-holes_xyz, holes_radii, holes_flags = load_hole_data("../../data/SDSS/vollim_dr7_cbp_102709_holes.txt")
+holes_xyz, holes_radii, holes_flags = load_hole_data("../../data/SDSS/vollim_dr7_cbp_102709_comoving_holes.txt")
+#holes_xyz, holes_radii, holes_flags = load_hole_data("../../data/SDSS/vollim_dr7_cbp_102709_holes.txt")
 
 #galaxy_data = load_galaxy_data('/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag_Voronoi_CMD.txt')
 #galaxy_data = load_galaxy_data("../../data/SDSS/vollim_dr7_cbp_102709.dat")

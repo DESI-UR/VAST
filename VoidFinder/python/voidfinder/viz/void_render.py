@@ -533,7 +533,7 @@ class VoidRender(app.Canvas):
                 
                 self.filter_degenerate_holes()
                 
-            self.num_hole = holes_xyz.shape[0]
+            self.num_hole = self.holes_xyz.shape[0]
             
             self.remove_void_intersects = remove_void_intersects
             
@@ -899,6 +899,11 @@ class VoidRender(app.Canvas):
         
         self.void_sphere_vertex_data["normal"] = self.void_sphere_normals_data
         
+        
+        ######################################################################
+        # Set up the colors for the holes
+        ######################################################################
+        
         if self.void_hole_color.shape[0] == self.num_hole:
             
             print("Coloring based on self.void_hole_color of shape: ", self.void_hole_color.shape)
@@ -913,7 +918,7 @@ class VoidRender(app.Canvas):
             
         else:
             
-            #print(self.void_hole_color.shape, self.num_hole)
+            print(self.void_hole_color.shape, self.num_hole)
             print("Coloring all voids same color")
         
             void_hole_colors = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
@@ -922,13 +927,15 @@ class VoidRender(app.Canvas):
         
         self.void_sphere_vertex_data["color"] = void_hole_colors
         
-        print("Void Sphere program vertices: ", self.void_sphere_vertex_data["position"].shape)
         
-        self.void_sphere_VB = gloo.VertexBuffer(self.void_sphere_vertex_data)
         
         ######################################################################
         # Set up the sphere-drawing program
         ######################################################################
+        
+        print("Void Sphere program vertices: ", self.void_sphere_vertex_data["position"].shape)
+        
+        self.void_sphere_VB = gloo.VertexBuffer(self.void_sphere_vertex_data)
         
         self.void_sphere_program = gloo.Program(vert_sphere, frag_sphere)
         
@@ -1420,6 +1427,8 @@ class VoidRender(app.Canvas):
         self.holes_radii = self.holes_radii[valid_idx]
         
         self.holes_group_IDs = self.holes_group_IDs[valid_idx]
+        
+        
         
         return None
         
