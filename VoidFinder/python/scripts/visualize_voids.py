@@ -25,9 +25,11 @@ from vispy.color import Colormap
 holes_xyz, holes_radii, holes_flags = load_hole_data("../../data/SDSS/vollim_dr7_cbp_102709_holes.txt")
 
 #galaxy_data = load_galaxy_data('/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag_Voronoi_CMD.txt')
-galaxy_data = load_galaxy_data("../../data/SDSS/vollim_dr7_cbp_102709.dat")
+#galaxy_data = load_galaxy_data("../../data/SDSS/vollim_dr7_cbp_102709.dat")
+#galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
 #galaxy_data = load_galaxy_data('kias1033_5.dat')
 #galaxy_data = load_galaxy_data("dr12n.dat")
+galaxy_data = load_galaxy_data("../../data/tao3043.dat")
 
 print("Galaxies: ", galaxy_data.shape)
 print("Holes: ", holes_xyz.shape, holes_radii.shape, holes_flags.shape)

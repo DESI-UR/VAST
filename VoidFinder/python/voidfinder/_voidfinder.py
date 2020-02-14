@@ -2088,7 +2088,7 @@ def run_multi_process(ngrid,
             
             if (curr_time - print_after_time) > print_after:
             
-                print('Processed', num_cells_processed, 'cells of', n_empty_cells, str(round(curr_time-start_time,2)))
+                print('Processed', num_cells_processed, 'cells of', n_empty_cells, "empty cells", str(round(curr_time-start_time,2)))
                 
                 print_after_time = curr_time
             

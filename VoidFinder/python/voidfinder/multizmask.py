@@ -3,10 +3,10 @@ from astropy.table import Table
 
 import numpy as np
 
-from .absmag_comovingdist_functions import Distance
+#from .absmag_comovingdist_functions import Distance
 
 
-def generate_mask(gal_data, dist_metric, h=1, O_m=0.3):
+def generate_mask(gal_data, dist_metric='comoving', h=1.0, O_m=0.3):
     '''
     Generate sky mask that identifies the footprint of the input galaxy survey.
 
@@ -19,7 +19,7 @@ def generate_mask(gal_data, dist_metric, h=1, O_m=0.3):
 
     dist_metric : string
         Distance metric to use in calculations.  Options are 'comoving' 
-        (distance dependent on cosmology) and 'redshift' (distance 
+        (default; distance dependent on cosmology) and 'redshift' (distance 
         independent of cosmology).
 
     h : float
@@ -44,16 +44,11 @@ def generate_mask(gal_data, dist_metric, h=1, O_m=0.3):
 
     D2R = np.pi/180
 
-    c = 3e5
+    c = 299792.0
 
     ra  = gal_data['ra']%360
     dec = gal_data['dec']
-
-    if dist_metric == 'comoving':
-        r = Distance(gal_data['redshift'], O_m, h)
-    else:
-        H0 = 100*h
-        r = c*gal_data['redshift']/H0
+    r = gal_data["Rgal"]
 
     ang = np.array(list(zip(ra,dec)))
 

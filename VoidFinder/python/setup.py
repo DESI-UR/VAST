@@ -61,6 +61,11 @@ extensions = [
                         ["voidfinder/_voidfinder_cython.pyx"],
                         include_dirs=[".", numpy.get_include()],
                         library_dirs=["m"]),
+              
+              Extension("voidfinder.dist_funcs_cython", 
+                        ["voidfinder/dist_funcs_cython.pyx"],
+                        include_dirs=[".", numpy.get_include()],
+                        library_dirs=["m"]),
 
               Extension("voidfinder.viz.unionize",
                         ["voidfinder/viz/unionize.pyx"],
