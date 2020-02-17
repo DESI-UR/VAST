@@ -334,6 +334,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                                 galaxy_tree.coord_min,
                                                 galaxy_tree.dl, 
                                                 galaxy_tree.galaxy_map,
+                                                galaxy_tree.galaxy_map_array,
                                                 cell_ID_mem,
                                                 temp_hole_center_memview, 
                                                 search_radius) #custom
@@ -783,7 +784,12 @@ cdef class GalaxyMap:
     cdef public dict galaxy_map
     '''
     
-    def __init__(self, w_coord, coord_min, dl):
+    def __init__(self, 
+                 w_coord, 
+                 coord_min, 
+                 dl,
+                 galaxy_map,
+                 galaxy_map_array):
         """
         w_coord is the 3d positions of all galaxies
         
@@ -819,7 +825,11 @@ cdef class GalaxyMap:
         
         self.reference_point_ijk = np.empty((1,3), dtype=np.int64)
         
+        self.galaxy_map = galaxy_map
         
+        self.galaxy_map_array = galaxy_map_array
+        
+        '''
         mesh_indices = ((w_coord - coord_min)/dl).astype(np.int64)
         
         # Initialize dictionary of cell IDs with at least one galaxy in them
@@ -845,7 +855,7 @@ cdef class GalaxyMap:
             indices = self.galaxy_map[key]
             
             self.galaxy_map[key] = np.array(indices, dtype=np.int64)
-            
+        '''
             
         self.shell_boundaries_xyz = np.empty((2,3), dtype=np.float64)
         #self.min_containing_dist_mem = np.empty((2,3), dtype=np.float64)
@@ -1124,6 +1134,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
                               DTYPE_F64_t[:,:] shell_boundaries_xyz,
                               DTYPE_F64_t[:,:] cell_center_xyz,
                               dict galaxy_map,
+                              DTYPE_INT64_t[:] galaxy_map_array,
                               DTYPE_F64_t[:,:] w_coord,
                               Cell_ID_Memory cell_ID_mem,
                               DTYPE_F64_t[:,:] reference_point_xyz
@@ -1172,6 +1183,8 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
     cdef DTYPE_F64_t min_containing_radius_xyz
     
     cdef ITYPE_t cell_ID_idx
+    
+    cdef ITYPE_t offset, num_elements
     
     cdef DistIdxPair return_vals
     
@@ -1231,11 +1244,17 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
             
             if cell_ID in galaxy_map:
                 
-                potential_neighbor_idxs = galaxy_map[cell_ID]
+                offset, num_elements = galaxy_map[cell_ID]
                 
-                for idx in range(potential_neighbor_idxs.shape[0]):
+                
+                #potential_neighbor_idxs = galaxy_map_array[offset:offset+num]
+                
+                #for idx in range(potential_neighbor_idxs.shape[0]):
+                for idx in range(num_elements):
                     
-                    potential_neighbor_idx = potential_neighbor_idxs[idx]
+                    #potential_neighbor_idx = potential_neighbor_idxs[idx]
+                    potential_neighbor_idx = <ITYPE_t>galaxy_map_array[offset+idx]
+                    
                     
                     #print("duck")
                     
@@ -1299,6 +1318,7 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
                                     DTYPE_F64_t[:,:] coord_min, 
                                     DTYPE_F64_t dl,
                                     dict galaxy_map,
+                                    DTYPE_INT64_t[:] galaxy_map_array,
                                     Cell_ID_Memory cell_ID_mem,
                                     DTYPE_F64_t[:,:] reference_point_xyz, 
                                     DTYPE_F64_t search_radius_xyz
@@ -1325,6 +1345,8 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
     cdef ITYPE_t idx
     
     cdef ITYPE_t curr_galaxy_idx
+    
+    cdef ITYPE_t offset, num_elements
     
     #cdef DTYPE_INT64_t[:,:] shell_cell_IDs
     
@@ -1394,12 +1416,14 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
             
             #output.append(galaxy_map[cell_ID])
             
-            curr_galaxies_idxs = galaxy_map[cell_ID]
+            #curr_galaxies_idxs = galaxy_map[cell_ID]
+            offset, num_elements = galaxy_map[cell_ID]
             
-            for idx in range(curr_galaxies_idxs.shape[0]):
+            #for idx in range(curr_galaxies_idxs.shape[0]):
+            for idx in range(num_elements):
                 
-                
-                curr_galaxy_idx = <ITYPE_t>curr_galaxies_idxs[idx]
+                #curr_galaxy_idx = <ITYPE_t>curr_galaxies_idxs[idx]
+                curr_galaxy_idx = <ITYPE_t>galaxy_map_array[offset+idx]
                 
                 galaxy_xyz = w_coord[curr_galaxy_idx]
                 
@@ -1539,14 +1563,15 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
     
     cdef DTYPE_INT64_t out_i, out_j, out_k
     
-    #cdef DTYPE_INT64_t num_return_rows = (2*level + 1)**3 - (2*level - 1)**3
+    cdef DTYPE_INT64_t num_return_rows = (2*level + 1)**3 - (2*level - 1)**3
     
     cdef DTYPE_INT64_t num_written = 0
     
-    #if cell_ID_mem.num_rows < num_return_rows:
+    if cell_ID_mem.num_rows < num_return_rows:
     
+        print("Cell ID mem resizing to: ", num_return_rows)
         #return_array = np.empty((num_return, 3), dtype=np.int64)
-    #    cell_ID_mem.resize(num_return_rows)
+        cell_ID_mem.resize(num_return_rows)
     
     #i first
     for j in range(-level, level+1):
@@ -1685,15 +1710,15 @@ cdef DTYPE_INT64_t _gen_cube(DTYPE_INT64_t[:,:] center_ijk,
     
     cdef DTYPE_INT64_t out_i, out_j, out_k
     
-    #cdef DTYPE_INT64_t num_return_rows = (2*level + 1)**3
+    cdef DTYPE_INT64_t num_return_rows = (2*level + 1)**3
     
     cdef DTYPE_INT64_t num_written = 0
     
-    #if cell_ID_mem.num_rows < num_return_rows:
+    if cell_ID_mem.num_rows < num_return_rows:
     
-        #print("Cell ID mem resizing to: ", num_return_rows)
+        print("Cell ID mem resizing to: ", num_return_rows)
         #return_array = np.empty((num_return, 3), dtype=np.int64)
-    #    cell_ID_mem.resize(num_return_rows)
+        cell_ID_mem.resize(num_return_rows)
     
     
     for i in range(-level, level+1):

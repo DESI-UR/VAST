@@ -115,6 +115,17 @@ def file_preprocess(galaxies_filename,
     
     
     ############################################################################
+    # Rename columns
+    #---------------------------------------------------------------------------
+    if 'rabsmag' not in galaxy_data_table.columns:
+        galaxy_data_table['magnitude'].name = 'rabsmag'
+        
+    if 'z' not in galaxy_data_table.columns:
+        galaxy_data_table['redshift'].name = 'z'
+    ############################################################################
+    
+    
+    ############################################################################
     # Determine min and max redshifts if not supplied by user
     #---------------------------------------------------------------------------
     # Minimum distance
@@ -137,18 +148,10 @@ def file_preprocess(galaxies_filename,
     
     
     ############################################################################
-    # Rename columns
-    #---------------------------------------------------------------------------
-    if 'rabsmag' not in galaxy_data_table.columns:
-        galaxy_data_table['magnitude'].name = 'rabsmag'
-    ############################################################################
-    
-    
-    ############################################################################
     # Calculate comoving distance
     #---------------------------------------------------------------------------
     if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
-        galaxy_data_table['Rgal'] = Distance(galaxy_data_table['z'], Omega_M, h)
+        galaxy_data_table['Rgal'] = z_to_comoving_dist(galaxy_data_table['z'].data.astype(np.float32), Omega_M, h)
     ############################################################################
     
     

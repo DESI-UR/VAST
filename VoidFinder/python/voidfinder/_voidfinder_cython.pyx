@@ -427,6 +427,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                   galaxy_tree.shell_boundaries_xyz,
                                   galaxy_tree.cell_center_xyz,
                                   galaxy_tree.galaxy_map,
+                                  galaxy_tree.galaxy_map_array,
                                   galaxy_tree.w_coord,
                                   cell_ID_mem,
                                   hole_center_memview)

@@ -76,6 +76,8 @@ cdef class GalaxyMap:
     
     cdef public dict galaxy_map
     
+    cdef public DTYPE_INT64_t[:] galaxy_map_array
+    
     #cdef public DTYPE_INT64_t[:,:] cell_ID_mem
 
 cdef struct DistIdxPair:
@@ -102,6 +104,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk, \
                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
                               DTYPE_F64_t[:,:] cell_center_xyz, \
                               dict galaxy_map, \
+                              DTYPE_INT64_t[:] galaxy_map_array, \
                               DTYPE_F64_t[:,:] w_coord, \
                               Cell_ID_Memory cell_ID_mem, \
                               DTYPE_F64_t[:,:] reference_point_xyz)

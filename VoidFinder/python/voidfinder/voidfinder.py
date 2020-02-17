@@ -120,7 +120,7 @@ def filter_galaxies(galaxy_table,
     #   PRE-PROCESS DATA
     #
     ################################################################################
-    print('Pre-processing data', flush=True)
+    print('Filter Galaxies Start', flush=True)
 
     # Remove faint galaxies
     if mag_cut_flag:

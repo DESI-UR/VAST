@@ -201,8 +201,6 @@ def _main_hole_finder(void_grid_shape,
                                                    print_after=print_after,
                                                    num_cpus=num_cpus
                                                    )
-    
-    
         
     return x_y_z_r_array, n_voids
 
@@ -1743,21 +1741,17 @@ def run_multi_process(ngrid,
     8). DEBUG - Make some plots of processing timings
     
     
-    TODO: Remove the cell_ID_dict functionality.  It has something like 500,000 entries
-          out of 226 million possible cell locations, and if we remove that check we won't
-          have to build an i_j_k_array object every call, we'll literally just have to
-          get the next out_start_idx and each worker can increment itself while only
-          updating the shared memory super duper quickly and not having to wait for
-          the whole cell_ID_gen.gen_cell_ID_batch() to return.  There is a memory
-          tradeoff for this, thats 500,000*4*8 additional bytes we need to
-          allocate which will be useless
+    TODO: Replace the cell_ID_dict with the galaxy_map, they both have the same exact
+          cell ID keys in them
           
           
-    TODO: Check that /dev/shm actually exists, if not fall back to /tmp
+    TODO: Add a check that /dev/shm actually exists, if not fall back to /tmp?
     """
     
     if verbose > 0:
         start_time = time.time()
+        
+        
     
     ################################################################################
     # Start by converting the num_cpus argument into the real value we will use
@@ -1771,29 +1765,124 @@ def run_multi_process(ngrid,
     if (num_cpus is None):
           
         num_cpus = cpu_count(logical=False)
+        
+    if verbose > 0:
+        
+        print("Running multi-process mode,", str(num_cpus), "cpus")
+        
+        
+    ################################################################################
+    # Memmap the w_coord array to our worker processes 
+    ################################################################################
+    w_coord_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    
+    num_galaxies = w_coord.shape[0]
+    
+    w_coord_buffer_length = num_galaxies*3*8 # 3 for xyz and 8 for float64
+    
+    os.ftruncate(w_coord_fd, w_coord_buffer_length)
+    
+    w_coord_buffer = mmap.mmap(w_coord_fd, w_coord_buffer_length)
+    
+    w_coord_buffer.write(w_coord.astype(np.float64).tobytes())
+    
+    del w_coord
+    
+    w_coord = np.frombuffer(w_coord_buffer, dtype=np.float64)
+    
+    w_coord.shape = (num_galaxies, 3)
+        
+        
+        
+        
+        
+        
+        
     
     ################################################################################
     # An output counter for total number of holes found, and calculate the
     # total number of cells we're going to have to check based on the grid
     # dimensions and the total number of previous cells in the cell_ID_dict which
     # we already discovered we do NOT have to check.
+    #
+    #
+    # Create the GalaxyMap index and GalaxyMap data array and memmap them for the 
+    # workers
     ################################################################################
     
-    mesh_indices = ((w_coord - coord_min)/dl).astype(np.int64)
+    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
         
-    cell_ID_dict = {}
+    #cell_ID_dict = {}
         
+    galaxy_map = {}
+
     for idx in range(mesh_indices.shape[0]):
 
         bin_ID = tuple(mesh_indices[idx])
 
-        cell_ID_dict[bin_ID] = 1
+        #cell_ID_dict[bin_ID] = 1
+        
+        if bin_ID not in galaxy_map:
+            
+            galaxy_map[bin_ID] = []
+        
+        galaxy_map[bin_ID].append(idx)
+        
+    del mesh_indices
+    
+    ################################################################################
+    # Convert the galaxy map from a map of grid_cell_ID -> belonging galaxy indices
+    # to a map from grid_cell_ID -> (offset, num) into 
+    ################################################################################
+    
+    offset = 0
+    
+    galaxy_map_list = []
+    
+    for key in galaxy_map:
+        
+        indices = np.array(galaxy_map[key], dtype=np.int64)
+        
+        num_elements = indices.shape[0]
+        
+        galaxy_map_list.append(indices)
+        
+        galaxy_map[key] = (offset, num_elements)
+        
+        offset += num_elements
+
+    galaxy_map_array = np.concatenate(galaxy_map_list)
+    
+    del galaxy_map_list
     
     
+    ################################################################################
+    # Memmap the w_coord array to our worker processes 
+    ################################################################################
+    gma_fd, GMA_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
+    num_gma_indices = galaxy_map_array.shape[0]
+    
+    gma_buffer_length = num_gma_indices*8 # 8 for int64
+    
+    os.ftruncate(gma_fd, gma_buffer_length)
+    
+    gma_buffer = mmap.mmap(gma_fd, gma_buffer_length)
+    
+    gma_buffer.write(galaxy_map_array.tobytes())
+    
+    del galaxy_map_array
+    
+    galaxy_map_array = np.frombuffer(gma_buffer, dtype=np.int64)
+    
+    galaxy_map_array.shape = (num_gma_indices,)
+    
+    ################################################################################
+    #
+    ################################################################################
     
 
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(galaxy_map)
     
 
     ################################################################################
@@ -1812,9 +1901,19 @@ def run_multi_process(ngrid,
     
     os.ftruncate(result_fd, result_buffer_length)
     
-    result_buffer = open(result_fd, 'w+b')
+    #result_buffer = open(result_fd, 'w+b')
+    
+    result_buffer = mmap.mmap(result_fd, 0)
     
     #result_buffer.write(b"0"*result_buffer_length)
+    
+    
+    
+    
+    
+    
+    
+    
     
     ################################################################################
     # Memory for PROFILING
@@ -1872,27 +1971,32 @@ def run_multi_process(ngrid,
     if verbose > 0:
         print("Grid: ", ngrid, flush=True)
     
-    config_object = (SOCKET_PATH,
-                     RESULT_BUFFER_PATH,
-                     CELL_ID_BUFFER_PATH,
-                     PROFILE_BUFFER_PATH,
-                     cell_ID_dict, 
-                     ngrid, 
-                     dl, 
-                     dr,
-                     coord_min, 
-                     mask.astype(np.uint8),
-                     mask_resolution,
-                     min_dist,
-                     max_dist,
-                     w_coord,
-                     batch_size,
-                     verbose,
-                     print_after,
-                     num_cpus,
-                     search_grid_edge_length,
-                     DEBUG_DIR
-                     )
+    config_object = {"SOCKET_PATH" : SOCKET_PATH,
+                     "RESULT_BUFFER_PATH" : RESULT_BUFFER_PATH,
+                     "WCOORD_BUFFER_PATH" : WCOORD_BUFFER_PATH,
+                     "num_galaxies" : num_galaxies,
+                     "GMA_BUFFER_PATH" : GMA_BUFFER_PATH,
+                     "num_gma_indices" : num_gma_indices,
+                     "CELL_ID_BUFFER_PATH" : CELL_ID_BUFFER_PATH,
+                     "PROFILE_BUFFER_PATH" : PROFILE_BUFFER_PATH,
+                     #"cell_ID_dict" : cell_ID_dict,
+                     "galaxy_map" : galaxy_map,
+                     "ngrid" : ngrid, 
+                     "dl" : dl, 
+                     "dr" : dr,
+                     "coord_min" : coord_min, 
+                     "mask" : mask.astype(np.uint8),
+                     "mask_resolution" : mask_resolution,
+                     "min_dist" : min_dist,
+                     "max_dist" : max_dist,
+                     #w_coord,
+                     "batch_size" : batch_size,
+                     "verbose" : verbose,
+                     "print_after" : print_after,
+                     "num_cpus" : num_cpus,
+                     "search_grid_edge_length" : search_grid_edge_length,
+                     "DEBUG_DIR" : DEBUG_DIR
+                     }
     
     outfile = open(CONFIG_PATH, 'wb')
     
@@ -1918,6 +2022,14 @@ def run_multi_process(ngrid,
         
         os.remove(RESULT_BUFFER_PATH)
         
+    def cleanup_wcoord():
+        
+        os.remove(WCOORD_BUFFER_PATH)
+        
+    def cleanup_gma():
+        
+        os.remove(GMA_BUFFER_PATH)
+        
     #def cleanup_cellID():
         
     #    os.remove(CELL_ID_BUFFER_PATH)
@@ -1941,6 +2053,10 @@ def run_multi_process(ngrid,
     atexit.register(cleanup_socket)
     
     atexit.register(cleanup_result)
+    
+    atexit.register(cleanup_wcoord)
+    
+    atexit.register(cleanup_gma)
     
     #atexit.register(possibly_send_exit_commands)
     
@@ -2007,6 +2123,11 @@ def run_multi_process(ngrid,
     if verbose > 0:
         
         print("Worker processes started time: ", time.time() - start_time)
+    
+    
+    
+    
+    
     
     ################################################################################
     # PROFILING VARIABLES
@@ -2210,21 +2331,28 @@ def run_multi_process(ngrid,
     
     result_buffer.seek(0)
     
-    result_array = np.frombuffer(result_buffer.read(), dtype=np.float64)
+    result_array = np.frombuffer(result_buffer, dtype=np.float64)
     
     result_array.shape = (n_empty_cells, 4)
-    
-    result_buffer.close()
-    
-    #n_holes = np.sum(np.logical_not(np.isnan(result_array[0:80000000,0])), axis=None, dtype=np.int64)
     
     valid_idx = np.logical_not(np.isnan(result_array[:,0]))
     
     n_holes = np.sum(valid_idx, axis=None, dtype=np.int64)
     
-    #print(result_array.shape, valid_idx.shape, n_holes)
+    valid_result_array = result_array[valid_idx,:]
+    
+    ################################################################################
+    # Since we just indexed into the result array with a boolean index (valid_idx)
+    # this will force a copy of the data into the new valid_result_array.  Since
+    # its a copy and not a view anymore, we can safely close the mmap
+    # result_buffer.close() to the original memory, but if for some reason we change
+    # this to not copy the memory, we can't call .close() on the memmap or we lose
+    # access to the underlying data buffer, and VoidFinder crashes with no
+    # traceback for some reason.
+    ################################################################################
+    result_buffer.close()
         
-    return result_array[valid_idx,:], n_holes
+    return valid_result_array, n_holes
                     
     
 def process_message_buffer(curr_message_buffer):
@@ -2362,26 +2490,31 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     infile.close()
     
     
-    SOCKET_PATH = config[0]
-    RESULT_BUFFER_PATH = config[1]
-    CELL_ID_BUFFER_PATH = config[2]
-    PROFILE_BUFFER_PATH = config[3]
-    cell_ID_dict = config[4]
-    ngrid = config[5]
-    dl = config[6]
-    dr = config[7]
-    coord_min = config[8]
-    mask = config[9]
-    mask_resolution = config[10]
-    min_dist = config[11]
-    max_dist = config[12]
-    w_coord = config[13]
-    batch_size = config[14]
-    verbose = config[15]
-    print_after = config[16]
-    num_cpus = config[17]
-    search_grid_edge_length = config[18]
-    DEBUG_DIR = config[19]
+    SOCKET_PATH = config["SOCKET_PATH"]
+    RESULT_BUFFER_PATH = config["RESULT_BUFFER_PATH"]
+    WCOORD_BUFFER_PATH = config["WCOORD_BUFFER_PATH"]
+    num_galaxies = config["num_galaxies"]
+    GMA_BUFFER_PATH = config["GMA_BUFFER_PATH"]
+    num_gma_indices = config["num_gma_indices"]
+    CELL_ID_BUFFER_PATH = config["CELL_ID_BUFFER_PATH"]
+    PROFILE_BUFFER_PATH = config["PROFILE_BUFFER_PATH"]
+    #cell_ID_dict = config["cell_ID_dict"]
+    galaxy_map = config["galaxy_map"]
+    ngrid = config["ngrid"]
+    dl = config["dl"]
+    dr = config["dr"]
+    coord_min = config["coord_min"]
+    mask = config["mask"]
+    mask_resolution = config["mask_resolution"]
+    min_dist = config["min_dist"]
+    max_dist = config["max_dist"]
+    #w_coord = config[13]
+    batch_size = config["batch_size"]
+    verbose = config["verbose"]
+    print_after = config["print_after"]
+    num_cpus = config["num_cpus"]
+    search_grid_edge_length = config["search_grid_edge_length"]
+    DEBUG_DIR = config["DEBUG_DIR"]
 
 
 
@@ -2390,6 +2523,39 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     worker_socket.connect(SOCKET_PATH)
     
     worker_socket.setblocking(False)
+    
+    ################################################################################
+    # Load up w_coord from shared memory
+    ################################################################################
+    
+    wcoord_buffer = open(WCOORD_BUFFER_PATH, 'r+b')
+    
+    wcoord_buffer_length = num_galaxies*3*8 # 3 since xyz and 8 since float64
+    
+    wcoord_mmap_buffer = mmap.mmap(wcoord_buffer.fileno(), wcoord_buffer_length)
+    
+    w_coord = np.frombuffer(wcoord_mmap_buffer, dtype=np.float64)
+    
+    w_coord.shape = (num_galaxies, 3)
+    
+    
+    
+    ################################################################################
+    # Load up galaxy_map_array from shared memory
+    ################################################################################
+    
+    gma_buffer = open(GMA_BUFFER_PATH, 'r+b')
+    
+    gma_buffer_length = num_gma_indices*8 # 3 since xyz and 8 since float64
+    
+    gma_mmap_buffer = mmap.mmap(gma_buffer.fileno(), gma_buffer_length)
+    
+    galaxy_map_array = np.frombuffer(gma_mmap_buffer, dtype=np.int64)
+    
+    galaxy_map_array.shape = (num_gma_indices,)
+    
+    
+    
     
     ################################################################################
     #
@@ -2409,7 +2575,11 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     #from scipy.spatial import KDTree
     #galaxy_tree = KDTree(w_coord)
     
-    galaxy_tree = GalaxyMap(w_coord, coord_min, search_grid_edge_length)
+    galaxy_tree = GalaxyMap(w_coord, 
+                            coord_min, 
+                            search_grid_edge_length,
+                            galaxy_map,
+                            galaxy_map_array)
     
     
     if verbose:
@@ -2417,7 +2587,8 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
         print('KDTree creation time:', time.time() - kdtree_start_time)
         
         
-    cell_ID_mem = Cell_ID_Memory(len(galaxy_tree.galaxy_map))
+    #cell_ID_mem = Cell_ID_Memory(len(galaxy_tree.galaxy_map))
+    cell_ID_mem = Cell_ID_Memory(10000)
     
     
     ################################################################################
@@ -2425,7 +2596,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     ################################################################################
     
     
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(galaxy_map)
     
     result_buffer = open(RESULT_BUFFER_PATH, 'r+b')
     
@@ -2465,7 +2636,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     cell_ID_gen = MultiCellIDGenerator_2(ngrid[0],
                                          ngrid[1],
                                          ngrid[2],
-                                         cell_ID_dict)
+                                         galaxy_map)
     
     ################################################################################
     #
@@ -2707,7 +2878,6 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
 
 def plot_cell_processing_times(curr_data, idx, single_or_multi, out_dir):
     
-    
     if curr_data.shape[0] > 0:
     
         plt.hist(curr_data, bins=50)
@@ -2774,34 +2944,6 @@ def plot_cell_kdtree_times(curr_data, idx, single_or_multi, out_dir):
 
 
 
-
-class LockedWrapper():
-        
-    def __init__(self, galaxy_tree):
-        
-        self.tree = galaxy_tree
-        
-        self.lock = RLock()
-        
-    def query_radius(self, *args, **kwargs):
-        
-        self.lock.acquire()
-        
-        results = self.tree.query_radius(*args, **kwargs)
-        
-        self.lock.release()
-        
-        return results
-    
-    def query(self, *args, **kwargs):
-        
-        self.lock.acquire()
-        
-        results = self.tree.query(*args, **kwargs)
-        
-        self.lock.release()
-        
-        return results
 
 if __name__ == "__main__":
     """
