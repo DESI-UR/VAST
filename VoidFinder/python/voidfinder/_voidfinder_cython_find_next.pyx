@@ -6,6 +6,7 @@ from __future__ import print_function
 
 
 
+
 cimport cython
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
@@ -23,7 +24,9 @@ from typedefs cimport DTYPE_CP128_t, \
                       DTYPE_B_t, \
                       ITYPE_t, \
                       DTYPE_INT32_t, \
-                      DTYPE_INT64_t
+                      DTYPE_INT64_t, \
+                      DTYPE_UINT16_t, \
+                      CELL_ID_t
 
 from numpy.math cimport NAN, INFINITY
 
@@ -753,8 +756,243 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
 
     return return_mask_value
 
+'''
+put this in pxd file
 
+cdef packed struct LOOKUPMEM_t
+    DTYPE_B_t filled_flag
+    CELL_ID_t key_i, key_j, key_k
+    DTYPE_INT64_t offset, num_elements
+    
+          
+cdef struct OffsetNumPair:
+    DTYPE_INT64_t offset, num_elements   
+    
+'''
 
+cdef class GalaxyMapCustomDict:
+    """
+    
+    layout of lookup_memory:
+    
+    lookup_memory = numpy.zeros(next_prime, dtype=[("filled_flag", numpy.uint8, 1),
+                                                   ("ijk", numpy.uint16, 3),
+                                                   ("offset_and_num", numpy.int64, 2)])
+                                                   
+    23 bytes per element - 1 + 2*3 + 8*2 = 23
+    
+    Since ijk are limited to uint16 right now that means a maximum grid of
+    shape (65536, 65536, 65536), or 2.8*10^14 (2^48) grid locations.  
+                                            
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim
+    cdef LOOKUPMEM_t[:] lookup_memory
+    cdef DTYPE_INT64_t mem_length
+    """
+
+    def __init__(self, 
+                 grid_dimensions, 
+                 lookup_memory):
+            
+            self.i_dim = grid_dimensions[0]
+            self.j_dim = grid_dimensions[1]
+            self.k_dim = grid_dimensions[2]
+            
+            #print("GALAXYMAPCUSTOMDICT: ", np.asarray(self.lookup_memory))
+            #print("GALAXYMAPCUSTOMDICT: ", lookup_memory.shape, lookup_memory.dtype)
+            
+            self.lookup_memory = lookup_memory
+            
+            
+            #self.lookup_memory = np.zeros(5000, dtype=[("filled_flag", np.uint8, 1),
+            #                                              ("ijk", np.uint16, 3),
+            #                                              ("offset_and_num", np.int64, 2)])
+            
+            self.mem_length = lookup_memory.shape[0]
+            
+            
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef DTYPE_INT64_t custom_hash(self, 
+                                   CELL_ID_t i, 
+                                   CELL_ID_t j, 
+                                   CELL_ID_t k):
+        
+        cdef DTYPE_INT64_t index
+        cdef DTYPE_INT64_t hash_addr
+        
+        index = self.j_dim * self.k_dim * <DTYPE_INT64_t>i + \
+                self.k_dim * <DTYPE_INT64_t>j + \
+                <DTYPE_INT64_t>k
+        
+        hash_addr = index % self.mem_length
+        
+        return hash_addr
+    
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef DTYPE_B_t contains(self,
+                                 CELL_ID_t i, 
+                                 CELL_ID_t j, 
+                                 CELL_ID_t k):
+        
+        cdef DTYPE_INT64_t hash_addr
+        
+        cdef DTYPE_INT64_t hash_offset
+        
+        cdef DTYPE_INT64_t curr_hash_addr
+        
+        cdef DTYPE_B_t mem_flag
+        
+        cdef LOOKUPMEM_t curr_element
+        
+        hash_addr = self.custom_hash(i, j, k)
+        
+        for hash_offset in range(self.mem_length):
+            
+            curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
+            
+            curr_element = self.lookup_memory[curr_hash_addr]
+            
+            #mem_flag = curr_element.filled_flag
+            
+            if not curr_element.filled_flag:
+                
+                return False
+            
+            else:
+                
+                #mem_key = self.lookup_memory[curr_hash_addr][1]
+                
+                if curr_element.key_i == i and \
+                   curr_element.key_j == j and \
+                   curr_element.key_k == k:
+                    
+                    return True
+                        
+        return False
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef OffsetNumPair getitem(self,
+                                    CELL_ID_t i, 
+                                    CELL_ID_t j, 
+                                    CELL_ID_t k):
+        
+        cdef DTYPE_INT64_t hash_addr
+        
+        cdef DTYPE_INT64_t hash_offset
+        
+        cdef DTYPE_INT64_t curr_hash_addr
+        
+        cdef DTYPE_B_t mem_flag
+        
+        cdef LOOKUPMEM_t curr_element
+        
+        cdef OffsetNumPair out
+        
+        hash_addr = self.custom_hash(i, j, k)
+        
+        for hash_offset in range(self.mem_length):
+            
+            curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
+            
+            curr_element = self.lookup_memory[curr_hash_addr]
+            
+            #mem_flag = self.lookup_memory[curr_hash_addr][0]
+            
+            if not curr_element.filled_flag:
+                
+                raise KeyError("key: ", i, j, k, " not in dictionary")
+            
+            else:
+                
+                #mem_key = self.lookup_memory[curr_hash_addr][1]
+                
+                #if numpy.all(mem_key == numpy.array(ijk).astype(numpy.uint16)):
+                if curr_element.key_i == i and \
+                   curr_element.key_j == j and \
+                   curr_element.key_k == k:
+                    
+                    out.offset = curr_element.offset
+                    out.num_elements = curr_element.num_elements
+                    
+                    return out
+                
+        raise KeyError("key: ", i, j, k, " not in dictionary")
+    
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void setitem(self, 
+                           CELL_ID_t i,
+                           CELL_ID_t j,
+                           CELL_ID_t k, 
+                           DTYPE_INT64_t offset,
+                           DTYPE_INT64_t num_elements):
+        """
+        Will always succeed since we initialize the length of
+        self.lookup_memory to be longer than the number of items
+        """
+        
+        cdef DTYPE_INT64_t hash_addr
+        
+        cdef DTYPE_INT64_t hash_offset
+        
+        cdef DTYPE_INT64_t curr_hash_addr
+        
+        cdef DTYPE_B_t mem_flag
+        
+        cdef LOOKUPMEM_t curr_element
+        
+        cdef LOOKUPMEM_t out_element
+        
+        out_element.filled_flag = 1
+        out_element.key_i = i
+        out_element.key_j = j
+        out_element.key_k = k
+        out_element.offset = offset
+        out_element.num_elements = num_elements
+                
+        
+        hash_addr = self.custom_hash(i, j, k)
+        
+        for hash_offset in range(self.mem_length):
+            
+            curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
+            
+            curr_element = self.lookup_memory[curr_hash_addr]
+            
+            #mem_flag = self.lookup_memory[curr_hash_addr][0]
+            
+            #if not mem_flag:
+            if not curr_element.filled_flag:
+                
+                self.lookup_memory[curr_hash_addr] = out_element
+                
+                return
+            
+            else:
+                
+                #mem_key = self.lookup_memory[curr_hash_addr][1]
+                
+                #if numpy.all(mem_key == numpy.array(ijk).astype(numpy.uint16)):
+                if curr_element.key_i == i and \
+                   curr_element.key_j == j and \
+                   curr_element.key_k == k:
+                    
+                    self.lookup_memory[curr_hash_addr] = out_element
+                
+                    return
+    
+    
+    
+    
+    
 
 
 cdef class GalaxyMap:
@@ -1086,7 +1324,7 @@ cdef class Cell_ID_Memory:
         
         #print("Initializing memory", number)
         
-        self.data = <DTYPE_INT64_t*> PyMem_Malloc(num_rows * 3 * sizeof(DTYPE_INT64_t))
+        self.data = <CELL_ID_t*> PyMem_Malloc(num_rows * 3 * sizeof(CELL_ID_t))
         
         if not self.data:
             
@@ -1103,7 +1341,7 @@ cdef class Cell_ID_Memory:
         
         #print("Reinitializing memory to: ", num_rows)
         
-        mem = <DTYPE_INT64_t*> PyMem_Realloc(self.data, num_rows * 3 * sizeof(DTYPE_INT64_t))
+        mem = <CELL_ID_t*> PyMem_Realloc(self.data, num_rows * 3 * sizeof(CELL_ID_t))
         
         if not mem:
             

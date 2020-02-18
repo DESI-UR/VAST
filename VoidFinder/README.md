@@ -23,8 +23,18 @@ If you're developing VoidFinder and need to rebuild the cython, enter the `/pyth
 
 ```
 cython -a *.pyx
+```
 
+Then cd back up to the `/python/` directory and use the setup.py script like so:
+```
 python setup.py build_ext --inplace
 ```
+To build voidfinder in-place.  Then in your scripts you can use
+```
+import sys
+sys.path.insert(0, "/path/to/your/VoidFinder/voidfinder/python/")
+```
+
+
 
 The current version of VoidFinder is written to run with Python 3.7.

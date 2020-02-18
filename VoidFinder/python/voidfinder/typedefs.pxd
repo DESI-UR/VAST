@@ -21,3 +21,5 @@ ctypedef np.uint8_t DTYPE_B_t
 ctypedef np.intp_t ITYPE_t  
 ctypedef np.int32_t DTYPE_INT32_t
 ctypedef np.int64_t DTYPE_INT64_t
+ctypedef np.uint16_t DTYPE_UINT16_t
+ctypedef np.uint16_t CELL_ID_t

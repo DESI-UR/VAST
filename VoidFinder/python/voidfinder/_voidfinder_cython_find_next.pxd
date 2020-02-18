@@ -5,7 +5,16 @@
 cimport numpy as np
 cimport cython
 
-from typedefs cimport DTYPE_CP128_t, DTYPE_CP64_t, DTYPE_F64_t, DTYPE_F32_t, DTYPE_B_t, ITYPE_t, DTYPE_INT32_t, DTYPE_INT64_t
+from typedefs cimport DTYPE_CP128_t, \
+                      DTYPE_CP64_t, \
+                      DTYPE_F64_t, \
+                      DTYPE_F32_t, \
+                      DTYPE_B_t, \
+                      ITYPE_t, \
+                      DTYPE_INT32_t, \
+                      DTYPE_INT64_t, \
+                      DTYPE_UINT16_t, \
+                      CELL_ID_t
 
 
 
@@ -86,12 +95,60 @@ cdef struct DistIdxPair:
     
 #cdef DistIdxPair _query_first(GalaxyMap galaxy_map, \
 #                                         DTYPE_F64_t[:,:] reference_point_xyz)
+                                  
+                                  
                                          
-                                         
+cdef packed struct LOOKUPMEM_t:
+    DTYPE_B_t filled_flag
+    CELL_ID_t key_i
+    CELL_ID_t key_j
+    CELL_ID_t key_k
+    DTYPE_INT64_t offset
+    DTYPE_INT64_t num_elements                   
+     
+                                        
+cdef struct OffsetNumPair:
+    DTYPE_INT64_t offset, num_elements       
+
+
+cdef class GalaxyMapCustomDict:
+         
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim
+    
+    cdef public LOOKUPMEM_t[:] lookup_memory
+    
+    cdef DTYPE_INT64_t mem_length
+
+    cdef public DTYPE_INT64_t custom_hash(self, 
+                                          CELL_ID_t i, 
+                                          CELL_ID_t j, 
+                                          CELL_ID_t k)
+    
+    cdef public DTYPE_B_t contains(self,
+                                 CELL_ID_t i, 
+                                 CELL_ID_t j, 
+                                 CELL_ID_t k)
+    
+    cdef public OffsetNumPair getitem(self,
+                                    CELL_ID_t i, 
+                                    CELL_ID_t j, 
+                                    CELL_ID_t k)
+
+    cdef public void setitem(self, 
+                           CELL_ID_t i,
+                           CELL_ID_t j,
+                           CELL_ID_t k, 
+                           DTYPE_INT64_t offset,
+                           DTYPE_INT64_t num_elements)
+
+
+
+
+
                                          
 cdef class Cell_ID_Memory:
 
-    cdef DTYPE_INT64_t* data     
+    cdef CELL_ID_t* data     
     
     cdef DTYPE_INT64_t num_rows                  
                                          
