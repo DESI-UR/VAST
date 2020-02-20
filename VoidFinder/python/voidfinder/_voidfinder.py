@@ -17,6 +17,7 @@ import struct
 import socket
 import select
 import atexit
+import signal
 import tempfile
 from psutil import cpu_count
 
@@ -1872,7 +1873,7 @@ def run_multi_process(ngrid,
     
     ################################################################################
     # Start by converting the num_cpus argument into the real value we will use
-    # by maxing sure its reasonable, or if it was none use the max val available
+    # by making sure its reasonable, or if it was none use the max val available
     #
     # Maybe should use psutil.cpu_count(logical=False) instead of the
     # multiprocessing version?
@@ -1918,6 +1919,10 @@ def run_multi_process(ngrid,
     w_coord = np.frombuffer(w_coord_buffer, dtype=np.float64)
     
     w_coord.shape = (num_galaxies, 3)
+    
+    #os.close(w_coord_fd)
+    
+    os.unlink(WCOORD_BUFFER_PATH)
         
         
     #if verbose > 0:
@@ -2047,6 +2052,8 @@ def run_multi_process(ngrid,
     
     del lookup_memory
     
+    os.unlink(LOOKUPMEM_BUFFER_PATH)
+    
     
     
     ################################################################################
@@ -2069,6 +2076,8 @@ def run_multi_process(ngrid,
     gma_buffer.write(galaxy_map_array.tobytes())
     
     del galaxy_map_array
+    
+    os.unlink(GMA_BUFFER_PATH)
     
     galaxy_map_array = np.frombuffer(gma_buffer, dtype=np.int64)
     
@@ -2110,6 +2119,8 @@ def run_multi_process(ngrid,
     result_buffer = mmap.mmap(result_fd, 0)
     
     #result_buffer.write(b"0"*result_buffer_length)
+    
+    os.unlink(RESULT_BUFFER_PATH)
     
     
     
@@ -2178,11 +2189,15 @@ def run_multi_process(ngrid,
     
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "RESULT_BUFFER_PATH" : RESULT_BUFFER_PATH,
+                     "result_fd" : result_fd,
                      "WCOORD_BUFFER_PATH" : WCOORD_BUFFER_PATH,
+                     "w_coord_fd" : w_coord_fd,
                      "num_galaxies" : num_galaxies,
                      "GMA_BUFFER_PATH" : GMA_BUFFER_PATH,
+                     "gma_fd" : gma_fd,
                      "num_gma_indices" : num_gma_indices,
                      "LOOKUPMEM_BUFFER_PATH" : LOOKUPMEM_BUFFER_PATH,
+                     "lookup_fd" : lookup_fd,
                      "next_prime" : next_prime,
                      "CELL_ID_BUFFER_PATH" : CELL_ID_BUFFER_PATH,
                      "PROFILE_BUFFER_PATH" : PROFILE_BUFFER_PATH,
@@ -2205,13 +2220,13 @@ def run_multi_process(ngrid,
                      "search_grid_edge_length" : search_grid_edge_length,
                      "DEBUG_DIR" : DEBUG_DIR
                      }
-    
+    '''
     outfile = open(CONFIG_PATH, 'wb')
     
     pickle.dump(config_object, outfile)
     
     outfile.close()
-    
+    '''
     
     ################################################################################
     # Register some functions to be called when the python interpreter exits
@@ -2235,6 +2250,8 @@ def run_multi_process(ngrid,
             if is_socket:
         
                 os.remove(SOCKET_PATH)
+                
+                print("CLEANING UP MAIN SOCKET")
         
     def cleanup_result():
         
@@ -2290,6 +2307,12 @@ def run_multi_process(ngrid,
     
     atexit.register(cleanup_lookupmem)
     
+    
+    
+    
+    
+    
+    
     #atexit.register(possibly_send_exit_commands)
     
     #atexit.register(cleanup_cellID)
@@ -2326,7 +2349,7 @@ def run_multi_process(ngrid,
                                     args=(proc_idx, 
                                           ijk_start, 
                                           write_start, 
-                                          CONFIG_PATH))
+                                          config_object))
         #p = startup_context.Process(target=_main_hole_finder_profile, args=(proc_idx, CONFIG_PATH))
         
         p.start()
@@ -2367,6 +2390,24 @@ def run_multi_process(ngrid,
         
         print("Worker processes time to connect: ", time.time() - worker_start_time)
     
+    
+    
+    listener_socket.shutdown(socket.SHUT_RDWR)
+    
+    listener_socket.close()
+    
+    os.unlink(SOCKET_PATH)
+    
+    
+    def cleanup_worker_sockets():
+        
+        #print("CLEANING UP WORKER SOCKETS")
+        
+        for worker_sock in worker_sockets:
+            
+            worker_sock.close()
+            
+    atexit.register(cleanup_worker_sockets)
     
     
     
@@ -2697,51 +2738,31 @@ def _main_hole_finder_startup(worker_idx, config_path):
     
 
 
-def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
+def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
-    #galaxy_tree = neighbors.KDTree(w_coord)
-    
-    '''
-    w_coord_table = Table.read('SDSS_dr7_' + 'wall_gal_file.txt', format='ascii.commented_header')
-    w_coord = to_array(w_coord_table)
-        
-        
-    temp_infile = open("filter_galaxies_output.pickle", 'rb')
-    coord_min_table, mask, ngrid = pickle.load(temp_infile)
-    temp_infile.close()
-    del coord_min_table
-    
-    
-    mask = mask.astype(np.uint8)
-    
-    
-    #print(type(w_coord))
-    
-    w_coord_2 = np.copy(w_coord)
-    
-    galaxy_tree = neighbors.KDTree(w_coord_2)
-    '''
-    #print("Process id: ", process_id, id(mask), id(w_coord), id(galaxy_tree), w_coord.__array_interface__['data'][0])
-    
-    #print("MAIN HOLE FINDER WORKER: ", worker_idx, config_path)
     
     ################################################################################
     #
     ################################################################################
+    '''
     infile = open(config_path, 'rb')
     
     config = pickle.load(infile)
     
     infile.close()
-    
+    '''
     
     SOCKET_PATH = config["SOCKET_PATH"]
     RESULT_BUFFER_PATH = config["RESULT_BUFFER_PATH"]
+    result_fd = config["result_fd"]
     WCOORD_BUFFER_PATH = config["WCOORD_BUFFER_PATH"]
+    w_coord_fd = config["w_coord_fd"]
     num_galaxies = config["num_galaxies"]
     GMA_BUFFER_PATH = config["GMA_BUFFER_PATH"]
+    gma_fd = config["gma_fd"]
     num_gma_indices = config["num_gma_indices"]
     LOOKUPMEM_BUFFER_PATH = config["LOOKUPMEM_BUFFER_PATH"]
+    lookup_fd = config["lookup_fd"]
     next_prime = config["next_prime"]
     CELL_ID_BUFFER_PATH = config["CELL_ID_BUFFER_PATH"]
     PROFILE_BUFFER_PATH = config["PROFILE_BUFFER_PATH"]
@@ -2776,11 +2797,12 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     # Load up w_coord from shared memory
     ################################################################################
     
-    wcoord_buffer = open(WCOORD_BUFFER_PATH, 'r+b')
+    #wcoord_buffer = open(WCOORD_BUFFER_PATH, 'r+b')
     
     wcoord_buffer_length = num_galaxies*3*8 # 3 since xyz and 8 since float64
     
-    wcoord_mmap_buffer = mmap.mmap(wcoord_buffer.fileno(), wcoord_buffer_length)
+    #wcoord_mmap_buffer = mmap.mmap(wcoord_buffer.fileno(), wcoord_buffer_length)
+    wcoord_mmap_buffer = mmap.mmap(w_coord_fd, wcoord_buffer_length)
     
     w_coord = np.frombuffer(wcoord_mmap_buffer, dtype=np.float64)
     
@@ -2792,11 +2814,12 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     # Load up galaxy_map_array from shared memory
     ################################################################################
     
-    gma_buffer = open(GMA_BUFFER_PATH, 'r+b')
+    #gma_buffer = open(GMA_BUFFER_PATH, 'r+b')
     
     gma_buffer_length = num_gma_indices*8 # 3 since xyz and 8 since float64
     
-    gma_mmap_buffer = mmap.mmap(gma_buffer.fileno(), gma_buffer_length)
+    #gma_mmap_buffer = mmap.mmap(gma_buffer.fileno(), gma_buffer_length)
+    gma_mmap_buffer = mmap.mmap(gma_fd, gma_buffer_length)
     
     galaxy_map_array = np.frombuffer(gma_mmap_buffer, dtype=np.int64)
     
@@ -2817,11 +2840,12 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     ################################################################################
 
 
-    lookup_buffer = open(LOOKUPMEM_BUFFER_PATH, 'r+b')
+    #lookup_buffer = open(LOOKUPMEM_BUFFER_PATH, 'r+b')
     
     lookup_buffer_length = next_prime*23 # 23 bytes per element
     
-    lookup_mmap_buffer = mmap.mmap(lookup_buffer.fileno(), lookup_buffer_length)
+    #lookup_mmap_buffer = mmap.mmap(lookup_buffer.fileno(), lookup_buffer_length)
+    lookup_mmap_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
     
     lookup_dtype = [("filled_flag", np.uint8, 1),
                     ("i", np.uint16, 1),
@@ -2872,12 +2896,12 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     
     n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
     
-    result_buffer = open(RESULT_BUFFER_PATH, 'r+b')
+    #result_buffer = open(RESULT_BUFFER_PATH, 'r+b')
     
     result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
     
-    result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
-    
+    #result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
+    result_mmap_buffer = mmap.mmap(result_fd, result_buffer_length)
     
     
     

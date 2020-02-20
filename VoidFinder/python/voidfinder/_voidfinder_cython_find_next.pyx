@@ -85,10 +85,6 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            #) except *:              
 
     '''
-    cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, 
-    
-    
-    
     Description:
     ============
     Function to locate the next nearest galaxy during hole center propagation 
@@ -116,18 +112,24 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
     hole_center_memview : memview of shape (1,3)
         x,y,z coordinate of current center of hole in units of Mpc/h
+        
+    NEEDS DEFINITION temp_hole_center_memview :
 
     search_radius : float
         Radius of hole in units of Mpc/h
 
     dr : float
         Incrememt value for hole propagation
+        
+    direction_mod : -1.0 or 1.0
+        basically a switch to go in the opposite direction of vector propagation for
+        finding galaxies 4a and 4b
 
     unit_vector_memview : memview of shape (3)
         Unit vector indicating direction hole center will shift
 
     galaxy_tree : custom thingy
-        Tree to query for nearest-neighbor results
+        Data structure to query for nearest-neighbor results
 
     nearest_gal_index_list : memview of shape (N)
         List of row indices in w_coord for existing bounding galaxies
@@ -149,6 +151,33 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
     max_dist : float
         maximum distance (redshift) in survey in units of Mpc/h
+        
+    NEEDS DEFINITION Bcenter_memview : 
+        some memory for ???
+                           
+    DEPRECATED  MAX_NEAREST : int
+        represented number of slots for memory for holding nearest neighbor
+        indices
+    
+    NEEDS DEFINITION i_nearest_reduced_memview_z :
+    
+    NEEDS DEFINITION candidate_minus_A_memview_z : 
+    
+    NEEDS DEFINITION candidate_minus_center_memview_z :
+     
+    NEEDS DEFINITION bot_memview_z :
+    
+    NEEDS DEFINITION top_memview_z :
+    
+    NEEDS DEFINITION x_ratio_memview_z :
+    
+    Cell_ID_Memory cell_ID_mem,
+   
+   
+    ITYPE_t[:] nearest_neighbor_index,           #return variable
+    DTYPE_F64_t[:] min_x_ratio,                  #return variable
+    DTYPE_B_t[:] in_mask,      
+        
 
 
     Returns:

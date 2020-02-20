@@ -9,7 +9,7 @@ Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566
 
 ## Operating System
 
-Currently the Multi-Processed version of VoidFinder is Unix-only.  VoidFinder relies on
+Currently the Multi-Process version of VoidFinder is Unix-only.  VoidFinder relies on
 the tmpfs filesystem (RAMdisk) on /dev/shm for shared memory, and this filesystem is currently
 (as of February 2020) a Linux-only feature.  However, VoidFinder will fall back to memmapping
 files in the /tmp directory if /dev/shm does not exist, so can still run on OSX.  Depending on the
@@ -29,12 +29,11 @@ The single-process version of VoidFinder should run on Linux, OSX, and Windows.
 VoidFinder doesn't yet have any pre-built wheels or distribution packages, so clone the repository
 from https://github.com/DESI-UR/Voids.git
 
-VoidFinder will install like a normal python package via `python setup.py install`
-from the `/python/` directory (`Voids/VoidFinder/python/`)
+VoidFinder will install like a normal python package via the shell command `python setup.py install`
+from the `/python/` directory (`Voids/VoidFinder/python/`).  And remember, this will attempt to install VoidFinder into the `site-packages` directory of whatever python environment you're using.  To check on that, in a normal unix shell you can type `which python` and it will give you a path like `/usr/bin/python` or `/opt/anaconda3/bin/python` which lets you know which python binary your `python` command actually points to.
 
 
-Or, if you're working on it, you can do a `python setup.py develop` which essentially
-installs a symlink into your python environment which points back to this directory.
+Or, if you're actively developing on VoidFinder, you can do a `python setup.py develop` instead of `python setup.py install` which essentially installs a symlink into your python environment's `site-packages` directory, and the symlink just points back to wherever your local copy of the VoidFinder directory is.
 
 
 If you're developing VoidFinder and need to rebuild the cython, from the `/python/` directory run:
@@ -49,12 +48,10 @@ Occasionally, it can be helpful to know the following command:
 cython -a *.pyx
 ```
 
-Which can be run from within the directory where the .pyx files live (currently `/python/voidfinder/` and `/python/voidfinder/viz/` to sort of 'manually' cythonize the cython files.
+which can be run from within the directory where the .pyx files live (currently `/python/voidfinder/` and `/python/voidfinder/viz/` to sort of 'manually' cythonize the cython (.pyx) files.  If `python setup.py install` or `python setup.py develop` fails for some reason, try the `cython -a *.pyx` command and then re-try the develop/install command.
+ 
 
-
-To build voidfinder in the directory where you have it on your machine.  
-
-If you happen to be working in an environment where you can't install VoidFinder, or don't have permissions to install it into the python environment you're using, use the above build-in-place method, and in your run scripts you can append your local VoidFinder build to the python environment like so:
+If you happen to be working in an environment where you can't `install` VoidFinder, or don't have permissions to install it into the python environment you're using, use the above `build_ext --inplace` method, and in your run scripts you can append your local VoidFinder build to the python environment like so:
 
 ```
 import sys
