@@ -7,6 +7,7 @@ import multiprocessing
 #multiprocessing.set_start_method('spawn')
 
 import os
+import stat
 import sys
 
 
@@ -30,8 +31,13 @@ import time
 
 from .voidfinder_functions import not_in_mask
 
-from ._voidfinder_cython import main_algorithm, fill_ijk
-from ._voidfinder_cython_find_next import GalaxyMap, Cell_ID_Memory
+from ._voidfinder_cython import main_algorithm, \
+                                fill_ijk
+
+
+from ._voidfinder_cython_find_next import GalaxyMap, \
+                                          Cell_ID_Memory, \
+                                          GalaxyMapCustomDict
 
 
 
@@ -1421,7 +1427,7 @@ def run_single_process_cython(void_grid_shape,
     if verbose > 0:
         start_time = time.time()
     
-    if verbose > 1:
+    if verbose > 0:
         print("Running single-process mode", flush=True)
     
     ################################################################################
@@ -1431,13 +1437,14 @@ def run_single_process_cython(void_grid_shape,
     #   nearest neighbor finder for the galaxies in x,y,z space
     #
     ################################################################################
-    
+    '''
     if verbose > 1:
         
         kdtree_start_time = time.time()
         
         
     from sklearn import neighbors
+    
     galaxy_kdtree = neighbors.KDTree(galaxy_coords)
 
     galaxy_tree = GalaxyMap(galaxy_coords, coord_min, search_grid_edge_length)
@@ -1445,13 +1452,108 @@ def run_single_process_cython(void_grid_shape,
     if verbose > 1:
         
         print('Galaxy Map creation time:', time.time() - kdtree_start_time, flush=True)
+    '''
+        
+    ################################################################################
+    # An output counter for total number of holes found, and calculate the
+    # total number of cells we're going to have to check based on the grid
+    # dimensions and the total number of previous cells in the cell_ID_dict which
+    # we already discovered we do NOT have to check.
+    #
+    #
+    # Create the GalaxyMap index and GalaxyMap data array and memmap them for the 
+    # workers
+    ################################################################################
+    mesh_indices = ((galaxy_coords - coord_min)/search_grid_edge_length).astype(np.int64)
+        
+    #cell_ID_dict = {}
+        
+    galaxy_map = {}
+
+    for idx in range(mesh_indices.shape[0]):
+
+        bin_ID = tuple(mesh_indices[idx])
+
+        #cell_ID_dict[bin_ID] = 1
+        
+        if bin_ID not in galaxy_map:
+            
+            galaxy_map[bin_ID] = []
+        
+        galaxy_map[bin_ID].append(idx)
+        
+    del mesh_indices
     
-    cell_ID_mem = Cell_ID_Memory(len(galaxy_tree.galaxy_map))
+    
+    num_in_galaxy_map = len(galaxy_map)
+        
+        
+    ################################################################################
+    # Convert the galaxy map from a map of grid_cell_ID -> belonging galaxy indices
+    # to a map from grid_cell_ID -> (offset, num) into 
+    ################################################################################
+    
+    offset = 0
+    
+    galaxy_map_list = []
+    
+    for key in galaxy_map:
+        
+        indices = np.array(galaxy_map[key], dtype=np.int64)
+        
+        num_elements = indices.shape[0]
+        
+        galaxy_map_list.append(indices)
+        
+        galaxy_map[key] = (offset, num_elements)
+        
+        offset += num_elements
+
+    galaxy_map_array = np.concatenate(galaxy_map_list)
+    
+    del galaxy_map_list
+        
+    ################################################################################
+    # Convert the galaxy_map dictionary into a custom dictionary that we can
+    # use to memmap down to our workers
+    ################################################################################
+    
+    num_galaxy_map_elements = len(galaxy_map)
+    
+    next_prime = find_next_prime(2*num_galaxy_map_elements)
+    
+    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, 1),
+                                                   ("i", np.uint16, 1),
+                                                   ("j", np.uint16, 1),
+                                                   ("k", np.uint16, 1),
+                                                   ("offset", np.int64, 1),
+                                                   ("num_elements", np.int64, 1)])
+    
+    new_galaxy_map = GalaxyMapCustomDict(void_grid_shape,
+                                         lookup_memory)
+    
+    for curr_ijk in galaxy_map:
+        
+        offset, num_elements = galaxy_map[curr_ijk]
+        
+        new_galaxy_map.setitem(*curr_ijk, offset, num_elements)
+        
+    del galaxy_map
+    
+    galaxy_map = new_galaxy_map
+    
+    
+    if verbose > 0:
+        print("Rebuilt galaxy map (size", num_in_galaxy_map, "total slots ", next_prime,")")
+        print("Num collisions in rebuild: ", new_galaxy_map.num_collisions, flush=True)
+        
+        
+    cell_ID_mem = Cell_ID_Memory(10000)
     
     ################################################################################
-    # Create the Cell ID generator
+    # 
     ################################################################################
-    
+    '''
     mesh_indices = ((galaxy_coords - coord_min)/void_grid_edge_length).astype(np.int64)
         
     cell_ID_dict = {}
@@ -1461,6 +1563,15 @@ def run_single_process_cython(void_grid_shape,
         bin_ID = tuple(mesh_indices[idx])
 
         cell_ID_dict[bin_ID] = 1
+    
+    '''
+    
+    galaxy_tree = GalaxyMap(galaxy_coords, 
+                            coord_min, 
+                            search_grid_edge_length,
+                            galaxy_map,
+                            galaxy_map_array)
+    
     
     
     ################################################################################
@@ -1476,11 +1587,11 @@ def run_single_process_cython(void_grid_shape,
     cell_ID_gen = MultiCellIDGenerator_2(void_grid_shape[0], 
                                          void_grid_shape[1], 
                                          void_grid_shape[2], 
-                                         cell_ID_dict)
+                                         galaxy_map)
     
     if verbose > 1:
         
-        print("Len cell_ID_dict (eliminated cells): ", len(cell_ID_dict), flush=True)
+        print("Len cell_ID_dict (eliminated cells): ", num_in_galaxy_map, flush=True)
     
     ################################################################################
     # Convert the mask to an array of uint8 values for running in the cython code
@@ -1493,7 +1604,7 @@ def run_single_process_cython(void_grid_shape,
     ################################################################################
     
     n_empty_cells = void_grid_shape[0]*void_grid_shape[1]*void_grid_shape[2] \
-                    - len(cell_ID_dict)
+                    - num_in_galaxy_map
     
     RETURN_ARRAY = np.empty((n_empty_cells, 4), dtype=np.float64)
     
@@ -1637,7 +1748,7 @@ def run_single_process_cython(void_grid_shape,
             exit_condition = True
             
             
-    if verbose > 1:
+    if verbose > 0:
         
         print("Main task finish time: ", time.time() - start_time)
         
@@ -1717,7 +1828,7 @@ def run_multi_process(ngrid,
                       num_cpus=None,
                       CONFIG_PATH="/tmp/voidfinder_config.pickle",
                       SOCKET_PATH="/tmp/voidfinder.sock",
-                      RESULT_BUFFER_PATH="/tmp/voidfinder_result_buffer.dat",
+                      #RESULT_BUFFER_PATH="/tmp/voidfinder_result_buffer.dat",
                       CELL_ID_BUFFER_PATH="/tmp/voidfinder_cell_ID_gen.dat",
                       PROFILE_BUFFER_PATH="/tmp/voidfinder_profile_buffer.dat",
                       RESOURCE_DIR="/dev/shm",
@@ -1751,6 +1862,12 @@ def run_multi_process(ngrid,
     if verbose > 0:
         start_time = time.time()
         
+    if not os.path.isdir(RESOURCE_DIR):
+        
+        print("WARNING: RESOURCE DIR ", RESOURCE_DIR, "does not exist.  Falling back to /tmp but could be slow")
+        
+        RESOURCE_DIR = "/tmp"
+        
         
     
     ################################################################################
@@ -1768,13 +1885,23 @@ def run_multi_process(ngrid,
         
     if verbose > 0:
         
-        print("Running multi-process mode,", str(num_cpus), "cpus")
+        print("Running multi-process mode,", str(num_cpus), "cpus", flush=True)
         
         
     ################################################################################
     # Memmap the w_coord array to our worker processes 
     ################################################################################
+    
+    
+        
     w_coord_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    
+    if verbose > 0:
+        
+        print("Mem-mapping galaxy coordinates", flush=True)
+        
+        print("WCOORD MEMMAP PATH: ", WCOORD_BUFFER_PATH, w_coord_fd)
+    
     
     num_galaxies = w_coord.shape[0]
     
@@ -1793,7 +1920,10 @@ def run_multi_process(ngrid,
     w_coord.shape = (num_galaxies, 3)
         
         
+    #if verbose > 0:
         
+    #    print(w_coord_buffer.fd)
+    #    print(w_coord_buffer.fileno())
         
         
         
@@ -1809,6 +1939,10 @@ def run_multi_process(ngrid,
     # Create the GalaxyMap index and GalaxyMap data array and memmap them for the 
     # workers
     ################################################################################
+    
+    if verbose > 0:
+        
+        print("Building galaxy map", flush=True)
     
     mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
         
@@ -1829,6 +1963,9 @@ def run_multi_process(ngrid,
         galaxy_map[bin_ID].append(idx)
         
     del mesh_indices
+    
+    
+    num_in_galaxy_map = len(galaxy_map)
     
     ################################################################################
     # Convert the galaxy map from a map of grid_cell_ID -> belonging galaxy indices
@@ -1857,9 +1994,69 @@ def run_multi_process(ngrid,
     
     
     ################################################################################
+    # Convert the galaxy_map dictionary into a custom dictionary that we can
+    # use to memmap down to our workers
+    ################################################################################
+    
+    num_galaxy_map_elements = len(galaxy_map)
+    
+    next_prime = find_next_prime(2*num_galaxy_map_elements)
+    
+    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, 1),
+                                                   ("i", np.uint16, 1),
+                                                   ("j", np.uint16, 1),
+                                                   ("k", np.uint16, 1),
+                                                   ("offset", np.int64, 1),
+                                                   ("num_elements", np.int64, 1)])
+    
+    new_galaxy_map = GalaxyMapCustomDict(ngrid,
+                                         lookup_memory)
+    
+    for curr_ijk in galaxy_map:
+        
+        offset, num_elements = galaxy_map[curr_ijk]
+        
+        new_galaxy_map.setitem(*curr_ijk, offset, num_elements)
+        
+    del galaxy_map
+    
+    
+    if verbose > 0:
+        print("Rebuilt galaxy map (size", num_in_galaxy_map, "total slots ", next_prime,")")
+        print("Num collisions in rebuild: ", new_galaxy_map.num_collisions, flush=True)
+    
+    
+    ################################################################################
+    # memmap the lookup memory for the galaxy map
+    # maybe rename it to the galaxy map hash table
+    ################################################################################
+    
+    lookup_fd, LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    
+    if verbose > 0:
+        
+        print("Galaxy map lookup memmap: ", LOOKUPMEM_BUFFER_PATH, lookup_fd)
+    
+    lookup_buffer_length = next_prime*23 #23 bytes per element
+    
+    os.ftruncate(lookup_fd, lookup_buffer_length)
+    
+    lookup_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
+    
+    lookup_buffer.write(lookup_memory.tobytes())
+    
+    del lookup_memory
+    
+    
+    
+    ################################################################################
     # Memmap the w_coord array to our worker processes 
     ################################################################################
     gma_fd, GMA_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    
+    if verbose > 0:
+        
+        print("Galaxy map array memmap: ", GMA_BUFFER_PATH, gma_fd)
     
     num_gma_indices = galaxy_map_array.shape[0]
     
@@ -1882,7 +2079,7 @@ def run_multi_process(ngrid,
     ################################################################################
     
 
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(galaxy_map)
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
     
 
     ################################################################################
@@ -1891,7 +2088,14 @@ def run_multi_process(ngrid,
     # to convert it back into an array to pass back up the chain.
     ################################################################################
     
+    
+    
     result_fd, RESULT_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    
+    if verbose > 0:
+        
+        print("Mem-mapping the result array", flush=True)
+        print("Result array memmap: ", RESULT_BUFFER_PATH, result_fd)
     
     #result_fd = os.open(RESULT_BUFFER_PATH, os.O_TRUNC | os.O_CREAT | os.O_RDWR | os.O_CLOEXEC)
     
@@ -1970,6 +2174,7 @@ def run_multi_process(ngrid,
     ################################################################################
     if verbose > 0:
         print("Grid: ", ngrid, flush=True)
+        print("Dumping config pickle to disk for workers at: ", CONFIG_PATH)
     
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "RESULT_BUFFER_PATH" : RESULT_BUFFER_PATH,
@@ -1977,10 +2182,13 @@ def run_multi_process(ngrid,
                      "num_galaxies" : num_galaxies,
                      "GMA_BUFFER_PATH" : GMA_BUFFER_PATH,
                      "num_gma_indices" : num_gma_indices,
+                     "LOOKUPMEM_BUFFER_PATH" : LOOKUPMEM_BUFFER_PATH,
+                     "next_prime" : next_prime,
                      "CELL_ID_BUFFER_PATH" : CELL_ID_BUFFER_PATH,
                      "PROFILE_BUFFER_PATH" : PROFILE_BUFFER_PATH,
                      #"cell_ID_dict" : cell_ID_dict,
-                     "galaxy_map" : galaxy_map,
+                     #"galaxy_map" : galaxy_map,
+                     "num_in_galaxy_map" : num_in_galaxy_map,
                      "ngrid" : ngrid, 
                      "dl" : dl, 
                      "dr" : dr,
@@ -2012,23 +2220,45 @@ def run_multi_process(ngrid,
     
     def cleanup_config():
         
-        os.remove(CONFIG_PATH)
+        if os.path.isfile(CONFIG_PATH):
+        
+            os.remove(CONFIG_PATH)
         
     def cleanup_socket():
         
-        os.remove(SOCKET_PATH)
+        if os.path.exists(SOCKET_PATH):
+            
+            mode = os.stat(SOCKET_PATH).st_mode
+        
+            is_socket = stat.S_ISSOCK(mode)
+            
+            if is_socket:
+        
+                os.remove(SOCKET_PATH)
         
     def cleanup_result():
         
-        os.remove(RESULT_BUFFER_PATH)
+        if os.path.isfile(RESULT_BUFFER_PATH):
+        
+            os.remove(RESULT_BUFFER_PATH)
         
     def cleanup_wcoord():
         
-        os.remove(WCOORD_BUFFER_PATH)
+        if os.path.isfile(WCOORD_BUFFER_PATH):
+        
+            os.remove(WCOORD_BUFFER_PATH)
         
     def cleanup_gma():
         
-        os.remove(GMA_BUFFER_PATH)
+        if os.path.isfile(GMA_BUFFER_PATH):
+        
+            os.remove(GMA_BUFFER_PATH)
+        
+    def cleanup_lookupmem():
+        
+        if os.path.isfile(LOOKUPMEM_BUFFER_PATH):
+        
+            os.remove(LOOKUPMEM_BUFFER_PATH)
         
     #def cleanup_cellID():
         
@@ -2057,6 +2287,8 @@ def run_multi_process(ngrid,
     atexit.register(cleanup_wcoord)
     
     atexit.register(cleanup_gma)
+    
+    atexit.register(cleanup_lookupmem)
     
     #atexit.register(possibly_send_exit_commands)
     
@@ -2092,6 +2324,8 @@ def run_multi_process(ngrid,
         
         processes.append(p)
     
+    worker_start_time = time.time()
+    
     ################################################################################
     # Make sure each worker process connects to the main socket, so we block on
     # the accept() call below until we get a connection, and make sure we get 
@@ -2122,12 +2356,14 @@ def run_multi_process(ngrid,
         
     if verbose > 0:
         
-        print("Worker processes started time: ", time.time() - start_time)
+        print("Worker processes time to connect: ", time.time() - worker_start_time)
     
     
     
     
+    #cleanup_config()
     
+    #os.unlink(CONFIG_PATH)
     
     ################################################################################
     # PROFILING VARIABLES
@@ -2496,10 +2732,13 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     num_galaxies = config["num_galaxies"]
     GMA_BUFFER_PATH = config["GMA_BUFFER_PATH"]
     num_gma_indices = config["num_gma_indices"]
+    LOOKUPMEM_BUFFER_PATH = config["LOOKUPMEM_BUFFER_PATH"]
+    next_prime = config["next_prime"]
     CELL_ID_BUFFER_PATH = config["CELL_ID_BUFFER_PATH"]
     PROFILE_BUFFER_PATH = config["PROFILE_BUFFER_PATH"]
     #cell_ID_dict = config["cell_ID_dict"]
-    galaxy_map = config["galaxy_map"]
+    #galaxy_map = config["galaxy_map"]
+    num_in_galaxy_map = config["num_in_galaxy_map"]
     ngrid = config["ngrid"]
     dl = config["dl"]
     dr = config["dr"]
@@ -2559,15 +2798,41 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     
     ################################################################################
     #
-    #   BUILD NEAREST-NEIGHBOR TREE
-    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing sklearn interface
-    #   nearest neighbor finder for the galaxies in x,y,z space
+    # Primary data structure for the lookup of galaxies in cells.  Used to be
+    # a scipy KDTree, then switched to sklearn KDTree for better performance, then
+    # re-wrote to use a map from elements of the search grid to the galaxies it
+    # is closest to, and lastly, re-wrote a custom dict class, I was using the 
+    # built-in python dict, but I needed the underlying memory to be exposed so 
+    # I could memmap it, so I wrote a new class which I can do that with.
     #
     ################################################################################
 
-    if verbose:
+
+    lookup_buffer = open(LOOKUPMEM_BUFFER_PATH, 'r+b')
+    
+    lookup_buffer_length = next_prime*23 # 23 bytes per element
+    
+    lookup_mmap_buffer = mmap.mmap(lookup_buffer.fileno(), lookup_buffer_length)
+    
+    lookup_dtype = [("filled_flag", np.uint8, 1),
+                    ("i", np.uint16, 1),
+                    ("j", np.uint16, 1),
+                    ("k", np.uint16, 1),
+                    ("offset", np.int64, 1),
+                    ("num_elements", np.int64, 1)]
+
+    input_numpy_dtype = np.dtype(lookup_dtype, align=False)
+    
+    lookup_memory = np.frombuffer(lookup_mmap_buffer, dtype=input_numpy_dtype)
+    
+    lookup_memory.shape = (next_prime,)
+
+    galaxy_map = GalaxyMapCustomDict(ngrid,
+                                     lookup_memory)
+
+    #if verbose:
         
-        kdtree_start_time = time.time()
+    #    kdtree_start_time = time.time()
         
     #from sklearn import neighbors
     #galaxy_tree = neighbors.KDTree(w_coord)
@@ -2582,9 +2847,9 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
                             galaxy_map_array)
     
     
-    if verbose:
+    #if verbose:
         
-        print('KDTree creation time:', time.time() - kdtree_start_time)
+    #    print('KDTree creation time:', time.time() - kdtree_start_time)
         
         
     #cell_ID_mem = Cell_ID_Memory(len(galaxy_tree.galaxy_map))
@@ -2596,7 +2861,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     ################################################################################
     
     
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(galaxy_map)
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
     
     result_buffer = open(RESULT_BUFFER_PATH, 'r+b')
     
@@ -2871,6 +3136,41 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path):
     
     return None
 
+
+
+
+def find_next_prime(threshold_value):
+    """
+    Given an input integer threshold_value, find the next prime number
+    greater than threshold_value.  This is used as a helper in creating
+    the memory backing array for the galaxy map, because taking an index
+    modulus a prime number is a nice way to hash an integer.
+    
+    Uses Bertrams(?) theorem that for every n > 1 there is a prime number
+    p such that n < p < 2n
+    """
+    
+    
+    for check_val in range(threshold_value+1, 2*threshold_value):
+        
+        if check_val%2 == 0:
+            continue
+        
+        sqrt_check = int(np.sqrt(check_val))+1
+        
+        at_least_one_divisor = False
+        
+        for j in range(3, sqrt_check):
+            
+            if check_val % j == 0:
+                
+                at_least_one_divisor = True
+                
+                break
+            
+        if not at_least_one_divisor:
+            
+            return check_val
 
 
 

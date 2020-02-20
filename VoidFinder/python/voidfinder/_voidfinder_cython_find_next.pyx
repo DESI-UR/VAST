@@ -126,7 +126,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     unit_vector_memview : memview of shape (3)
         Unit vector indicating direction hole center will shift
 
-    galaxy_tree : sklearn KDTree
+    galaxy_tree : custom thingy
         Tree to query for nearest-neighbor results
 
     nearest_gal_index_list : memview of shape (N)
@@ -776,8 +776,11 @@ cdef class GalaxyMapCustomDict:
     layout of lookup_memory:
     
     lookup_memory = numpy.zeros(next_prime, dtype=[("filled_flag", numpy.uint8, 1),
-                                                   ("ijk", numpy.uint16, 3),
-                                                   ("offset_and_num", numpy.int64, 2)])
+                                                   ("ijk", numpy.uint16, 1),
+                                                   ("j", numpy.uint16, 1),
+                                                   ("k", numpy.uint16, 1),
+                                                   ("offset", numpy.int64, 1),
+                                                   ("num_elements", numpy.int64, 1])
                                                    
     23 bytes per element - 1 + 2*3 + 8*2 = 23
     
@@ -809,6 +812,8 @@ cdef class GalaxyMapCustomDict:
             
             self.mem_length = lookup_memory.shape[0]
             
+            self.num_collisions = 0
+            
             
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -833,7 +838,7 @@ cdef class GalaxyMapCustomDict:
     @cython.boundscheck(False)
     @cython.wraparound(False)
     @cython.cdivision(True)
-    cdef DTYPE_B_t contains(self,
+    cpdef DTYPE_B_t contains(self,
                                  CELL_ID_t i, 
                                  CELL_ID_t j, 
                                  CELL_ID_t k):
@@ -877,10 +882,10 @@ cdef class GalaxyMapCustomDict:
     @cython.boundscheck(False)
     @cython.wraparound(False)
     @cython.cdivision(True)
-    cdef OffsetNumPair getitem(self,
-                                    CELL_ID_t i, 
-                                    CELL_ID_t j, 
-                                    CELL_ID_t k):
+    cpdef OffsetNumPair getitem(self,
+                                CELL_ID_t i, 
+                                CELL_ID_t j, 
+                                CELL_ID_t k):
         
         cdef DTYPE_INT64_t hash_addr
         
@@ -891,6 +896,10 @@ cdef class GalaxyMapCustomDict:
         cdef DTYPE_B_t mem_flag
         
         cdef LOOKUPMEM_t curr_element
+        
+        #cdef DTYPE_INT64_t return_offset
+        
+        #cdef DTYPE_INT64_t return_num
         
         cdef OffsetNumPair out
         
@@ -920,6 +929,9 @@ cdef class GalaxyMapCustomDict:
                     out.offset = curr_element.offset
                     out.num_elements = curr_element.num_elements
                     
+                    #return_offset = curr_element.offset
+                    #return_num = curr_element.num_elements
+                    
                     return out
                 
         raise KeyError("key: ", i, j, k, " not in dictionary")
@@ -928,7 +940,7 @@ cdef class GalaxyMapCustomDict:
     @cython.boundscheck(False)
     @cython.wraparound(False)
     @cython.cdivision(True)
-    cdef void setitem(self, 
+    cpdef void setitem(self, 
                            CELL_ID_t i,
                            CELL_ID_t j,
                            CELL_ID_t k, 
@@ -951,6 +963,8 @@ cdef class GalaxyMapCustomDict:
         
         cdef LOOKUPMEM_t out_element
         
+        cdef DTYPE_B_t first_try = True
+        
         out_element.filled_flag = 1
         out_element.key_i = i
         out_element.key_j = j
@@ -960,6 +974,8 @@ cdef class GalaxyMapCustomDict:
                 
         
         hash_addr = self.custom_hash(i, j, k)
+        
+        
         
         for hash_offset in range(self.mem_length):
             
@@ -971,6 +987,10 @@ cdef class GalaxyMapCustomDict:
             
             #if not mem_flag:
             if not curr_element.filled_flag:
+                
+                if not first_try:
+                    
+                    self.num_collisions += 1
                 
                 self.lookup_memory[curr_hash_addr] = out_element
                 
@@ -985,9 +1005,15 @@ cdef class GalaxyMapCustomDict:
                    curr_element.key_j == j and \
                    curr_element.key_k == k:
                     
+                    if not first_try:
+                    
+                        self.num_collisions += 1
+                    
                     self.lookup_memory[curr_hash_addr] = out_element
                 
                     return
+                
+            first_try = False
     
     
     
@@ -1371,7 +1397,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
                               DTYPE_F64_t dl,
                               DTYPE_F64_t[:,:] shell_boundaries_xyz,
                               DTYPE_F64_t[:,:] cell_center_xyz,
-                              dict galaxy_map,
+                              GalaxyMapCustomDict galaxy_map,
                               DTYPE_INT64_t[:] galaxy_map_array,
                               DTYPE_F64_t[:,:] w_coord,
                               Cell_ID_Memory cell_ID_mem,
@@ -1423,6 +1449,8 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
     cdef ITYPE_t cell_ID_idx
     
     cdef ITYPE_t offset, num_elements
+    
+    cdef OffsetNumPair curr_offset_num_pair
     
     cdef DistIdxPair return_vals
     
@@ -1478,11 +1506,18 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
             
             
             #cell_ID = tuple(cell_ID_mem[cell_ID_idx])
-            cell_ID = (id1, id2, id3)
+            #cell_ID = (id1, id2, id3)
             
-            if cell_ID in galaxy_map:
+            #if cell_ID in galaxy_map:
+            if galaxy_map.contains(id1, id2, id3):
                 
-                offset, num_elements = galaxy_map[cell_ID]
+                #offset, num_elements = galaxy_map[cell_ID]
+                
+                curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
+                
+                offset = curr_offset_num_pair.offset
+                
+                num_elements = curr_offset_num_pair.num_elements
                 
                 
                 #potential_neighbor_idxs = galaxy_map_array[offset:offset+num]
@@ -1555,7 +1590,7 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
                                     DTYPE_F64_t[:,:] w_coord, 
                                     DTYPE_F64_t[:,:] coord_min, 
                                     DTYPE_F64_t dl,
-                                    dict galaxy_map,
+                                    GalaxyMapCustomDict galaxy_map,
                                     DTYPE_INT64_t[:] galaxy_map_array,
                                     Cell_ID_Memory cell_ID_mem,
                                     DTYPE_F64_t[:,:] reference_point_xyz, 
@@ -1585,6 +1620,8 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
     cdef ITYPE_t curr_galaxy_idx
     
     cdef ITYPE_t offset, num_elements
+    
+    cdef OffsetNumPair curr_offset_num_pair
     
     #cdef DTYPE_INT64_t[:,:] shell_cell_IDs
     
@@ -1648,14 +1685,22 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
         
         
         #cell_ID = tuple(cell_ID_mem[cell_ID_idx])
-        cell_ID = (id1, id2, id3)
+        #cell_ID = (id1, id2, id3)
         
-        if cell_ID in galaxy_map:
+        #if cell_ID in galaxy_map:
+        if galaxy_map.contains(id1, id2, id3):
             
             #output.append(galaxy_map[cell_ID])
             
             #curr_galaxies_idxs = galaxy_map[cell_ID]
-            offset, num_elements = galaxy_map[cell_ID]
+            #offset, num_elements = galaxy_map[cell_ID]
+            
+            curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
+                
+            offset = curr_offset_num_pair.offset
+            
+            num_elements = curr_offset_num_pair.num_elements
+            
             
             #for idx in range(curr_galaxies_idxs.shape[0]):
             for idx in range(num_elements):
@@ -1786,7 +1831,7 @@ cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk, 
                               DTYPE_INT64_t level,
                               Cell_ID_Memory cell_ID_mem,
-                              dict galaxy_map,
+                              GalaxyMapCustomDict galaxy_map,
                               ):
     
     
@@ -1807,7 +1852,7 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
     
     if cell_ID_mem.num_rows < num_return_rows:
     
-        print("Cell ID mem resizing to: ", num_return_rows)
+        #print("Cell ID mem resizing to: ", num_return_rows)
         #return_array = np.empty((num_return, 3), dtype=np.int64)
         cell_ID_mem.resize(num_return_rows)
     
@@ -1820,7 +1865,8 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
             out_j = j + center_ijk[0,1]
             out_k = k + center_ijk[0,2]
             
-            if (out_i, out_j, out_k) in galaxy_map:
+            #if (out_i, out_j, out_k) in galaxy_map:
+            if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -1833,7 +1879,8 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
             out_j = j + center_ijk[0,1]
             out_k = k + center_ijk[0,2]
             
-            if (out_i, out_j, out_k) in galaxy_map:
+            #if (out_i, out_j, out_k) in galaxy_map:
+            if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -1854,7 +1901,8 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
             out_j = level + center_ijk[0,1]
             out_k = k + center_ijk[0,2]
             
-            if (out_i, out_j, out_k) in galaxy_map:
+            #if (out_i, out_j, out_k) in galaxy_map:
+            if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -1868,7 +1916,8 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
             out_j = -level + center_ijk[0,1]
             out_k = k + center_ijk[0,2]
             
-            if (out_i, out_j, out_k) in galaxy_map:
+            #if (out_i, out_j, out_k) in galaxy_map:
+            if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -1891,7 +1940,8 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
             out_j = j + center_ijk[0,1]
             out_k = level + center_ijk[0,2]
             
-            if (out_i, out_j, out_k) in galaxy_map:
+            #if (out_i, out_j, out_k) in galaxy_map:
+            if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -1905,7 +1955,8 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
             out_j = j + center_ijk[0,1]
             out_k = -level + center_ijk[0,2]
             
-            if (out_i, out_j, out_k) in galaxy_map:
+            #if (out_i, out_j, out_k) in galaxy_map:
+            if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -1933,7 +1984,7 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
 cdef DTYPE_INT64_t _gen_cube(DTYPE_INT64_t[:,:] center_ijk, 
                              DTYPE_INT64_t level,
                              Cell_ID_Memory cell_ID_mem,
-                             dict galaxy_map
+                             GalaxyMapCustomDict galaxy_map
                              ):
     
     
@@ -1954,7 +2005,7 @@ cdef DTYPE_INT64_t _gen_cube(DTYPE_INT64_t[:,:] center_ijk,
     
     if cell_ID_mem.num_rows < num_return_rows:
     
-        print("Cell ID mem resizing to: ", num_return_rows)
+        #print("Cell ID mem resizing to: ", num_return_rows)
         #return_array = np.empty((num_return, 3), dtype=np.int64)
         cell_ID_mem.resize(num_return_rows)
     
@@ -1971,7 +2022,8 @@ cdef DTYPE_INT64_t _gen_cube(DTYPE_INT64_t[:,:] center_ijk,
                 out_j = j + center_ijk[0,1]
                 out_k = k + center_ijk[0,2]
                 
-                if (out_i, out_j, out_k) in galaxy_map:
+                #if (out_i, out_j, out_k) in galaxy_map:
+                if galaxy_map.contains(out_i, out_j, out_k):
                 
                     cell_ID_mem.data[out_idx] = out_i
                     cell_ID_mem.data[out_idx+1] = out_j

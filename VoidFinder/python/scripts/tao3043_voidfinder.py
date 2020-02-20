@@ -72,7 +72,7 @@ out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
 
 
 # Input file name
-galaxies_filename = 'tao3043.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
+galaxies_filename = 'tao3043.h5'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 
 
 #-------------------------------------------------------------------------------
@@ -91,7 +91,12 @@ max_z = 0.7
 ################################################################################
 
 
-galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, in_directory, out_directory, min_z=min_z, max_z=max_z)
+galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, 
+                                                                               in_directory, 
+                                                                               out_directory, 
+                                                                               min_z=min_z, 
+                                                                               max_z=max_z,
+                                                                               verbose=1)
 
 
 print("Preprocess done at: ", time.time() - start_time)

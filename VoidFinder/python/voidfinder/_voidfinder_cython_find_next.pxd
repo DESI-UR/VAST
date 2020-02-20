@@ -61,34 +61,6 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
 
 
 
-cdef class GalaxyMap:
-    
-    cdef public DTYPE_F64_t[:,:] w_coord
-    
-    cdef public DTYPE_F64_t[:,:] coord_min
-    
-    cdef public DTYPE_F64_t dl
-    
-    cdef public DTYPE_INT64_t[:,:] reference_point_ijk
-    
-    cdef public DTYPE_F64_t[:,:] shell_boundaries_xyz
-    
-    #cdef DTYPE_F64_t[:,:] min_containing_dist_mem
-    
-    cdef public DTYPE_F64_t[:,:] cell_center_xyz
-    
-    cdef DTYPE_F64_t temp1
-    
-    cdef DTYPE_F64_t temp2
-    
-    cdef public dict nonvoid_cell_ID_dict
-    
-    cdef public dict galaxy_map
-    
-    cdef public DTYPE_INT64_t[:] galaxy_map_array
-    
-    #cdef public DTYPE_INT64_t[:,:] cell_ID_mem
-
 cdef struct DistIdxPair:
     ITYPE_t idx
     DTYPE_F64_t dist
@@ -117,6 +89,8 @@ cdef class GalaxyMapCustomDict:
     
     cdef public LOOKUPMEM_t[:] lookup_memory
     
+    cdef public DTYPE_INT64_t num_collisions
+    
     cdef DTYPE_INT64_t mem_length
 
     cdef public DTYPE_INT64_t custom_hash(self, 
@@ -124,17 +98,17 @@ cdef class GalaxyMapCustomDict:
                                           CELL_ID_t j, 
                                           CELL_ID_t k)
     
-    cdef public DTYPE_B_t contains(self,
+    cpdef public DTYPE_B_t contains(self,
                                  CELL_ID_t i, 
                                  CELL_ID_t j, 
                                  CELL_ID_t k)
     
-    cdef public OffsetNumPair getitem(self,
-                                    CELL_ID_t i, 
-                                    CELL_ID_t j, 
-                                    CELL_ID_t k)
+    cpdef public OffsetNumPair getitem(self,
+                                       CELL_ID_t i, 
+                                       CELL_ID_t j, 
+                                       CELL_ID_t k)
 
-    cdef public void setitem(self, 
+    cpdef public void setitem(self, 
                            CELL_ID_t i,
                            CELL_ID_t j,
                            CELL_ID_t k, 
@@ -143,6 +117,34 @@ cdef class GalaxyMapCustomDict:
 
 
 
+
+cdef class GalaxyMap:
+    
+    cdef public DTYPE_F64_t[:,:] w_coord
+    
+    cdef public DTYPE_F64_t[:,:] coord_min
+    
+    cdef public DTYPE_F64_t dl
+    
+    cdef public DTYPE_INT64_t[:,:] reference_point_ijk
+    
+    cdef public DTYPE_F64_t[:,:] shell_boundaries_xyz
+    
+    #cdef DTYPE_F64_t[:,:] min_containing_dist_mem
+    
+    cdef public DTYPE_F64_t[:,:] cell_center_xyz
+    
+    cdef DTYPE_F64_t temp1
+    
+    cdef DTYPE_F64_t temp2
+    
+    cdef public dict nonvoid_cell_ID_dict
+    
+    cdef public GalaxyMapCustomDict galaxy_map
+    
+    cdef public DTYPE_INT64_t[:] galaxy_map_array
+    
+    #cdef public DTYPE_INT64_t[:,:] cell_ID_mem
 
 
                                          
@@ -160,7 +162,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk, \
                               DTYPE_F64_t dl, \
                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
                               DTYPE_F64_t[:,:] cell_center_xyz, \
-                              dict galaxy_map, \
+                              GalaxyMapCustomDict galaxy_map, \
                               DTYPE_INT64_t[:] galaxy_map_array, \
                               DTYPE_F64_t[:,:] w_coord, \
                               Cell_ID_Memory cell_ID_mem, \

@@ -55,29 +55,38 @@ num_cpus = 4
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
+#survey_name = 'SDSS_dr12_'
 
 # File header
-in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
-out_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
 
-#in_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
-#out_directory = '/home/oneills2/VoidFinder/python/voidfinder/data/'
+if survey_name == 'SDSS_dr7_':
+    in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
+    out_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
+elif survey_name == 'SDSS_dr12_':
+    in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+    out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
 
 #in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
 
 
 # Input file name
-galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-
+if survey_name == 'SDSS_dr7_':
+    galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
+elif survey_name == 'SDSS_dr12_':
+    galaxies_filename = 'dr12r.dat'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Survey parameters
 # Note: These can be set to None, in which case VoidFinder will use the limits 
 # of the galaxy catalog.
-min_z = 0
-max_z = 0.1026
+if survey_name == 'SDSS_dr7_':
+    min_z = 0
+    max_z = 0.1026
+elif survey_name == 'SDSS_dr12_':
+    min_z = None
+    max_z = None
 
 # Cosmology (uncomment and change values to change cosmology)
 #Omega_M = 0.3
@@ -113,10 +122,10 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
 ################################################################################
 
 
-pre_mask, mask_resolution = generate_mask(galaxy_data_table)
+mask, mask_resolution = generate_mask(galaxy_data_table)
 
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
-pickle.dump((pre_mask, mask_resolution), temp_outfile)
+pickle.dump((mask, mask_resolution), temp_outfile)
 temp_outfile.close()
 
 
@@ -129,14 +138,12 @@ temp_outfile.close()
 
 
 temp_infile = open(survey_name + 'mask.pickle', 'rb')
-pre_mask, mask_resolution = pickle.load(temp_infile)
+mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
 
-coord_min_table, mask, grid_shape = filter_galaxies(galaxy_data_table, 
-                                                    pre_mask, 
-                                                    mask_resolution, 
-                                                    survey_name)
+coord_min_table, grid_shape = filter_galaxies(galaxy_data_table, 
+                                              survey_name)
 
 
 temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')

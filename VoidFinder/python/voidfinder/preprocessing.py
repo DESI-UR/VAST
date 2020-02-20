@@ -5,6 +5,10 @@ from astropy.table import Table
 
 from voidfinder.dist_funcs_cython import z_to_comoving_dist
 
+import time
+
+import h5py
+
 
 c = 299792.0 # km/s
 
@@ -18,7 +22,8 @@ def file_preprocess(galaxies_filename,
                     min_z=None,
                     max_z=None,
                     Omega_M=0.3,
-                    h=1.0):
+                    h=1.0,
+                    verbose=0):
     '''
     Set up output file names, calculate distances, etc.
     
@@ -110,7 +115,28 @@ def file_preprocess(galaxies_filename,
     #---------------------------------------------------------------------------
     in_filename = in_directory + galaxies_filename
     
-    galaxy_data_table = Table.read(in_filename, format='ascii.commented_header')
+    if verbose > 0:
+        print("Loading galaxy data table at: ", in_filename)
+        load_start_time = time.time()
+    
+    if in_filename.endswith(".dat"):
+    
+        galaxy_data_table = Table.read(in_filename, format='ascii.commented_header')
+        
+    elif in_filename.endswith(".h5"):
+        
+        infile = h5py.File(in_filename, 'r')
+        
+        galaxy_data_table = Table()
+        
+        for col in list(infile.keys()):
+            
+            galaxy_data_table[col] = infile[col][()]
+            
+        infile.close()
+        
+    if verbose > 0:
+        print("Galaxy data table load time: ", time.time() - load_start_time)
     ############################################################################
     
     
@@ -151,7 +177,15 @@ def file_preprocess(galaxies_filename,
     # Calculate comoving distance
     #---------------------------------------------------------------------------
     if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
+        
+        if verbose > 0:
+            print("Calculating Rgal data table column")
+            calc_start_time = time.time()
+        
         galaxy_data_table['Rgal'] = z_to_comoving_dist(galaxy_data_table['z'].data.astype(np.float32), Omega_M, h)
+    
+        if verbose > 0:
+            print("Finished Rgal calculation time: ", time.time() - calc_start_time)
     ############################################################################
     
     
@@ -159,4 +193,11 @@ def file_preprocess(galaxies_filename,
 
 
 
+        
+        
+        
+        
+        
+        
+        
 

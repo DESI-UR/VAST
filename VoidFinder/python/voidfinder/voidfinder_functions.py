@@ -10,8 +10,6 @@ RtoD = 180./np.pi
 DtoR = np.pi/180.
 dec_offset = -90
 
-maskra = 360
-maskdec = 180
 
 
 ################################################################################
@@ -115,53 +113,6 @@ def mesh_galaxies_dict(galaxy_coords, coord_min, grid_side_length):
 ################################################################################
 
 
-def build_mask(maskfile, mask_resolution):
-    '''
-    Build the survey mask.  Assumes the coordinates in maskfile have already 
-    been scaled to highest resolution necessary.
-
-
-    Parameters:
-    ===========
-
-    maskfile : numpy array of shape (2,n)
-        n pairs of RA,dec coordinates that are within the survey limits and are 
-        scaled by the mask_resolution.  Oth row is RA; 1st row is dec.
-
-    mask_resolution : integer
-        Scale factor of coordinates in maskfile
-
-
-    Returns:
-    ========
-
-    mask : numpy array of shape (N,M)
-        Boolean array of the entire sky, with points within the survey limits 
-        set to True.  N represents the incremental RA; M represents the 
-        incremental dec.
-    '''
-
-    '''
-    mask = []
-    
-    for i in range(1, 1+len(maskfile)):
-        
-        mask.append(np.zeros((i*maskra, i*maskdec), dtype=bool))
-        
-        for j in range(len(maskfile[i-1][0])):
-            
-            mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
-            
-    mask = np.array(mask)
-    '''
-
-    mask = np.zeros((mask_resolution*maskra, mask_resolution*maskdec), dtype=bool)
-
-    for j in range(len(maskfile[0])):
-
-        mask[ maskfile[0,j], maskfile[1,j] - mask_resolution*dec_offset] = True
-
-    return mask
 
 
 ################################################################################

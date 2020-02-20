@@ -7,6 +7,14 @@ The VoidFinder algorithm by [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/a
 Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566..641H) and [El-Ad & Piran (1997)](http://adsabs.harvard.edu/abs/1997ApJ...491..421E) when using this algorithm.
 
 
+## Operating System
+
+Currently the Multi-Processed version of VoidFinder is Linux-only.  VoidFinder relies on
+the tmpfs filesystem (RAMdisk) on /dev/shm for shared memory which isn't available on OSX or Windows.
+Also, the fork() method for spawning workers does not exist on Windows and does not work
+correctly on Mac/OSX (it's an Apple/OSX problem, not a Python problem).
+
+The single-process version of VoidFinder should run on Linux, OSX, and Windows.
 
 
 ## Building & Running Voidfinder
@@ -26,10 +34,15 @@ cython -a *.pyx
 ```
 
 Then cd back up to the `/python/` directory and use the setup.py script like so:
+
 ```
 python setup.py build_ext --inplace
 ```
-To build voidfinder in-place.  Then in your scripts you can use
+
+To build voidfinder in the directory where you have it on your machine.  
+
+If you happen to be working in an environment where you can't install VoidFinder, or don't have permissions to install it into the python environment you're using, use the above build-in-place method, and in your run scripts you can append your local VoidFinder build to the python environment like so:
+
 ```
 import sys
 sys.path.insert(0, "/path/to/your/VoidFinder/voidfinder/python/")

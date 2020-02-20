@@ -2,8 +2,14 @@ from astropy.io import fits
 from astropy.table import Table
 
 import numpy as np
+import time
 
 #from .absmag_comovingdist_functions import Distance
+
+
+maskra = 360
+maskdec = 180
+dec_offset = -90
 
 
 def generate_mask(gal_data, dist_metric='comoving', h=1.0, O_m=0.3):
@@ -42,15 +48,21 @@ def generate_mask(gal_data, dist_metric='comoving', h=1.0, O_m=0.3):
     '''
 
 
-    D2R = np.pi/180
+    print("Generate mask start")
+
+    D2R = np.pi/180.0
 
     c = 299792.0
 
-    ra  = gal_data['ra']%360
-    dec = gal_data['dec']
-    r = gal_data["Rgal"]
+    ra  = gal_data['ra'].data % 360
+    dec = gal_data['dec'].data 
+    r = gal_data["Rgal"].data 
+    
+    num_galaxies = ra.shape[0]
 
-    ang = np.array(list(zip(ra,dec)))
+    #ang = np.array(list(zip(ra,dec)))
+    #this is almost 70x faster than list(zip())
+    ang = np.concatenate((ra.reshape(num_galaxies, 1), dec.reshape(num_galaxies,1)), axis=1)
 
 
     '''
@@ -76,13 +88,41 @@ def generate_mask(gal_data, dist_metric='comoving', h=1.0, O_m=0.3):
 
     # Mask resolution (inverse of the angular radius of the minimum void at the 
     # maximum distance)
-    mask_resolution = 1 + int(D2R*np.amax(r)/10)
+    
+    mask_resolution = 1 + int(D2R*np.amax(r)/10) #scalar value despite use of amax
+    
 
     # Scale all coordinates by mask_resolution
-    mask = list(zip(*(np.unique((mask_resolution*ang).astype(int), axis=0))))
+    
+    
+    #start_time = time.time()
+    
+    scaled_converted_ang = (mask_resolution*ang).astype(int)
+    
+    pre_mask = np.unique(scaled_converted_ang, axis=0).T
+    
+    #print("Numpy only time: ", time.time() - start_time)
+    
+    #print(unique_vals.dtype, unique_vals.shape)
+    #print(unique_vals[0:10])
+    
+    #start_time = time.time()
+    
+    #mask = list(zip(*(np.unique((mask_resolution*ang).astype(int), axis=0))))
 
     # Convert to numpy array
-    mask = np.array(mask)
+    #mask = np.array(mask)
+    
+    #print("List zip time: ", time.time() - start_time)
+    
+    #print(unique_vals.dtype, unique_vals.shape, mask.dtype, mask.shape)
+    #print(unique_vals[0:10])
+    #print(mask[0:10])
+    
+    #print(np.all(mask == unique_vals))
+    
+    mask = build_mask(pre_mask, mask_resolution)
+    
 
     '''
     # Save scaled survey mask coordinates and mask resolution
@@ -95,4 +135,58 @@ def generate_mask(gal_data, dist_metric='comoving', h=1.0, O_m=0.3):
 
 
     return mask, mask_resolution
+
+
+
+def build_mask(maskfile, mask_resolution):
+    '''
+    Build the survey mask.  Assumes the coordinates in maskfile have already 
+    been scaled to highest resolution necessary.
+
+
+    Parameters:
+    ===========
+
+    maskfile : numpy array of shape (2,n)
+        n pairs of RA,dec coordinates that are within the survey limits and are 
+        scaled by the mask_resolution.  Oth row is RA; 1st row is dec.
+
+    mask_resolution : integer
+        Scale factor of coordinates in maskfile
+
+
+    Returns:
+    ========
+
+    mask : numpy array of shape (N,M)
+        Boolean array of the entire sky, with points within the survey limits 
+        set to True.  N represents the incremental RA; M represents the 
+        incremental dec.
+    '''
+
+    '''
+    mask = []
+    
+    for i in range(1, 1+len(maskfile)):
+        
+        mask.append(np.zeros((i*maskra, i*maskdec), dtype=bool))
+        
+        for j in range(len(maskfile[i-1][0])):
+            
+            mask[i-1][maskfile[i-1][0][j]][maskfile[i-1][1][j]-i*dec_offset] = True
+            
+    mask = np.array(mask)
+    '''
+
+    mask = np.zeros((mask_resolution*maskra, mask_resolution*maskdec), dtype=bool)
+
+    for j in range(len(maskfile[0])):
+
+        mask[ maskfile[0,j], maskfile[1,j] - mask_resolution*dec_offset] = True
+
+    return mask
+
+
+
+
 

@@ -9,13 +9,13 @@ import time
 
 from .hole_combine import combine_holes
 
-from .voidfinder_functions import build_mask, \
-                                  mesh_galaxies, \
+from .voidfinder_functions import mesh_galaxies, \
                                   in_mask, \
                                   not_in_mask, \
                                   in_survey, \
                                   save_maximals, \
                                   mesh_galaxies_dict
+                                  #build_mask, \
 
 from .table_functions import add_row, \
                              subtract_row, \
@@ -49,8 +49,8 @@ RtoD = 180./np.pi
 
 
 def filter_galaxies(galaxy_table, 
-                    mask_array, 
-                    mask_resolution, 
+                    #mask_array, 
+                    #mask_resolution, 
                     survey_name, 
                     mag_cut_flag=True, 
                     rm_isolated_flag=True, 
@@ -69,11 +69,11 @@ def filter_galaxies(galaxy_table,
     galaxy_table : astropy table
         List of galaxies and their coordinates (ra, dec, redshift) and magnitudes
 
-    mask_array : numpy array of shape (2,n)
+    (REFACTORED OUT) mask_array : numpy array of shape (2,n)
         n pairs of RA,dec coordinates that are within the survey limits and are 
         scaled by the mask_resolution.  Oth row is RA; 1st row is dec.
 
-    mask_resolution : integer
+    (REFACTORED OUT) mask_resolution : integer
         Scale factor of coordinates in mask_array
 
     survey_name : string
@@ -163,11 +163,11 @@ def filter_galaxies(galaxy_table,
     coord_max = to_vector(coord_max_table)
 
 
-    print('Reading mask',flush=True)
+    #print('Reading mask',flush=True)
 
-    mask = build_mask(mask_array, mask_resolution)
+    #mask = build_mask(mask_array, mask_resolution)
 
-    print('Read mask',flush=True)
+    #print('Read mask',flush=True)
 
     ################################################################################
     #
@@ -272,7 +272,7 @@ def filter_galaxies(galaxy_table,
     nwall = len(w_coord_table)
     print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
 
-    return coord_min_table, mask, ngrid[0]
+    return coord_min_table, ngrid[0]
 
 
 

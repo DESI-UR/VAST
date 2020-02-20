@@ -14,7 +14,12 @@ from numpy.math cimport NAN, INFINITY
 
 from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
-from _voidfinder_cython_find_next cimport find_next_galaxy, not_in_mask, _query_first, DistIdxPair, Cell_ID_Memory
+from _voidfinder_cython_find_next cimport find_next_galaxy, \
+                                          not_in_mask, \
+                                          _query_first, \
+                                          DistIdxPair, \
+                                          Cell_ID_Memory, \
+                                          GalaxyMapCustomDict
 
 #from _voidfinder_cython_find_next cimport not_in_mask 
 #from _voidfinder_cython_find_next import find_next_galaxy
@@ -39,7 +44,7 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
                              DTYPE_INT64_t i_lim,
                              DTYPE_INT64_t j_lim,
                              DTYPE_INT64_t k_lim,
-                             cell_ID_dict
+                             GalaxyMapCustomDict cell_ID_dict
                              ) except *:
                     
                     
@@ -55,7 +60,9 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
     
     while num_attempt < batch_size:
         
-        skip_this_index = (i,j,k) in cell_ID_dict
+        #skip_this_index = (i,j,k) in cell_ID_dict
+        
+        skip_this_index = cell_ID_dict.contains(i,j,k)
         
         if not skip_this_index:
         
