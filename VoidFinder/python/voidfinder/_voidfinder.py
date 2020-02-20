@@ -1,16 +1,10 @@
 
 
 
-import multiprocessing
-
-
-#multiprocessing.set_start_method('spawn')
 
 import os
 import stat
 import sys
-
-
 import fcntl
 import mmap
 import struct
@@ -19,6 +13,7 @@ import select
 import atexit
 import signal
 import tempfile
+import multiprocessing
 from psutil import cpu_count
 
 
@@ -27,8 +22,6 @@ import cProfile
 import numpy as np
 
 import time
-
-#from sklearn import neighbors
 
 from .voidfinder_functions import not_in_mask
 
@@ -1891,6 +1884,27 @@ def run_multi_process(ngrid,
         
     ################################################################################
     # Memmap the w_coord array to our worker processes 
+    #
+    # This is achieved with file descriptors (an integer referring to
+    # the file descriptors as given by the kernel).  The tempfile.mkstemp() call 
+    # below returns an integer file descriptor which will correspond to this
+    # particular memory mapping.  When we create child processes using fork(), 
+    # those child processes inherit a copy of the file descriptor with the same
+    # integer value.  We pass this value to the child processes via the config
+    # object below, and they can use that file descriptor to memmap the same
+    # memory location.  We could have also used the path returned by the
+    # tempfile.mkstemp() call, but in that case we would have to leave the link
+    # to the memory mapping it created on the filesystem.  By using the file
+    # descriptor instead of the file path, we can immediately os.unlink() the path,
+    # so if VoidFinder crashes, the kernel reference count for that memory mapping
+    # will drop to 0 and it will be able to free that memory automatically.  If we
+    # left the link (the path) on the filesystem and VF crashed, the RAM that it 
+    # refers to isn't freed until the filesystem link is manually removed.
+    #
+    # Note that this scheme probably doesn't work for fork() + exec() child process
+    # creation, because the child isn't guaranteed that the same file descriptor
+    # values point to the same entries in the kernel's open file description table.
+    # 'spawn' and 
     ################################################################################
     
     
