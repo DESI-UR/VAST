@@ -2298,9 +2298,18 @@ def run_multi_process(ngrid,
     
     ################################################################################
     # Start the worker processes
+    #
+    # For whatever reason, OSX doesn't define the socket.SOCK_CLOEXEC constants
+    # so check for that before opening the listener socket
     ################################################################################
+    
+    if hasattr(socket, "SOCK_CLOEXEC"):
         
-    listener_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_CLOEXEC)
+        listener_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_CLOEXEC)
+        
+    else:
+        
+        listener_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     
     listener_socket.bind(SOCKET_PATH)
     

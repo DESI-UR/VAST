@@ -9,10 +9,15 @@ Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566
 
 ## Operating System
 
-Currently the Multi-Processed version of VoidFinder is Linux-only.  VoidFinder relies on
-the tmpfs filesystem (RAMdisk) on /dev/shm for shared memory which isn't available on OSX or Windows.
-Also, the fork() method for spawning workers does not exist on Windows and does not work
-correctly on Mac/OSX (it's an Apple/OSX problem, not a Python problem).
+Currently the Multi-Processed version of VoidFinder is Unix-only.  VoidFinder relies on
+the tmpfs filesystem (RAMdisk) on /dev/shm for shared memory, and this filesystem is currently
+(as of February 2020) a Linux-only feautre.  However, VoidFinder will fall back to memmapping
+files in the /tmp directory if /dev/shm does not exist, so should still be able to run on OSX.
+
+Also, VoidFinder uses the fork() method for its worker processes, and the fork() method does
+not exist on Windows.
+
+Single & Multi process versions tested successfully on Ubuntu 18.04 and OSX 10.14.6.
 
 The single-process version of VoidFinder should run on Linux, OSX, and Windows.
 
@@ -27,17 +32,20 @@ Or, if you're working on it, you can do a `python setup.py develop` which essent
 installs a symlink into your python environment which points back to this directory.
 
 
-If you're developing VoidFinder and need to rebuild the cython, enter the `/python/voidfinder/` directory and run:
+If you're developing VoidFinder and need to rebuild the cython, from the `/python/` directory run:
+
+```
+python setup.py build_ext --inplace
+```
+
+Occasionally, it can be helpful to know the following command:
 
 ```
 cython -a *.pyx
 ```
 
-Then cd back up to the `/python/` directory and use the setup.py script like so:
+Which can be run from within the directory where the .pyx files live (currently `/python/voidfinder/` and `/python/voidfinder/viz/` to sort of 'manually' cythonize the cython files.
 
-```
-python setup.py build_ext --inplace
-```
 
 To build voidfinder in the directory where you have it on your machine.  
 
@@ -47,7 +55,5 @@ If you happen to be working in an environment where you can't install VoidFinder
 import sys
 sys.path.insert(0, "/path/to/your/VoidFinder/voidfinder/python/")
 ```
-
-
 
 The current version of VoidFinder is written to run with Python 3.7.
