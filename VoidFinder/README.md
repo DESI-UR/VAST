@@ -11,18 +11,23 @@ Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566
 
 Currently the Multi-Processed version of VoidFinder is Unix-only.  VoidFinder relies on
 the tmpfs filesystem (RAMdisk) on /dev/shm for shared memory, and this filesystem is currently
-(as of February 2020) a Linux-only feautre.  However, VoidFinder will fall back to memmapping
-files in the /tmp directory if /dev/shm does not exist, so should still be able to run on OSX.
+(as of February 2020) a Linux-only feature.  However, VoidFinder will fall back to memmapping
+files in the /tmp directory if /dev/shm does not exist, so can still run on OSX.  Depending on the
+OSX kernel configuration, there may be no speed/performance loss if running shared memory out of /tmp,
+but it entirely depends on the kernel buffer sizes.
 
 Also, VoidFinder uses the fork() method for its worker processes, and the fork() method does
 not exist on Windows.
 
-Single & Multi process versions tested successfully on Ubuntu 18.04 and OSX 10.14.6.
+Single & Multi process versions tested successfully on 64-bit Ubuntu 18.04 and 64-bit OSX 10.14.6, with Python 3.7.3.
 
 The single-process version of VoidFinder should run on Linux, OSX, and Windows.
 
 
-## Building & Running Voidfinder
+## Building Voidfinder
+
+VoidFinder doesn't yet have any pre-built wheels or distribution packages, so clone the repository
+from https://github.com/DESI-UR/Voids.git
 
 VoidFinder will install like a normal python package via `python setup.py install`
 from the `/python/` directory (`Voids/VoidFinder/python/`)
@@ -57,3 +62,10 @@ sys.path.insert(0, "/path/to/your/VoidFinder/voidfinder/python/")
 ```
 
 The current version of VoidFinder is written to run with Python 3.7.
+
+
+## Running Voidfinder
+
+There are a few example scripts in the `/python/scripts/` directory of the repository, see `/python/scripts/SDSS_VoidFinder_dr7.py` for an example of running the main algorithm.
+
+Also see `/python/scripts/visualize_voids.py` for an OpenGL-based 3D renderization of the output of the VoidFinder algorithm.
