@@ -11,6 +11,6 @@ from __future__ import absolute_import
 from ._version import __version__
 
 
-#This line allowed you to do "from voidfinder import filter_galaxies" instead of
+#This line allows you to do "from voidfinder import filter_galaxies" instead of
 #"from voidfinder.voidfinder import filter galaxies"
 from .voidfinder import filter_galaxies, find_voids
