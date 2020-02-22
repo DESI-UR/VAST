@@ -289,10 +289,6 @@ def filter_galaxies(galaxy_table,
 
 
 def filter_galaxies_2(galaxy_table,
-                      #rabsmag,
-                      #r_gal,
-                      #ra,
-                      #dec,
                       survey_name, 
                       mag_cut_flag=True, 
                       rm_isolated_flag=True,
@@ -300,7 +296,7 @@ def filter_galaxies_2(galaxy_table,
                       sep_neighbor=3,
                       distance_metric='comoving', 
                       h=1.0,
-                      search_grid_edge_length=5.0,
+                      hole_grid_edge_length=5.0,
                       magnitude_limit=-20.0,
                       verbose=0):
     
@@ -314,51 +310,24 @@ def filter_galaxies_2(galaxy_table,
     if verbose > 0:
         print('Filter Galaxies Start', flush=True)
 
-
     # Remove faint galaxies
     if mag_cut_flag:
         
-        mag_cut_keep_index = galaxy_table['rabsmag'] < magnitude_limit
-        
-        galaxy_table = galaxy_table[mag_cut_keep_index]
+        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < magnitude_limit]
 
+    coords_xyz = ra_dec_to_xyz(galaxy_table,
+                               distance_metric,
+                               h)
     
-    if distance_metric == 'comoving':
-        
-        r_gal = galaxy_table['Rgal'].data
-        
-    else:
-        
-        r_gal = c*galaxy_table['redshift'].data/(100*h)
-        
-        
-    ra = galaxy_table['ra'].data
-    
-    dec = galaxy_table['dec'].data
     
     ################################################################################
-    # Convert from ra-dec-radius space to xyz space
+    #
+    # Grid shape
+    #
     ################################################################################
     
-    ra_radian = ra*DtoR
-    
-    dec_radian = dec*DtoR
-    
-    x = r_gal*np.cos(ra_radian)*np.cos(dec_radian)
-    
-    y = r_gal*np.sin(ra_radian)*np.cos(dec_radian)
-    
-    z = r_gal*np.sin(dec_radian)
-    
-    num_gal = x.shape[0]
-    
-    coords_xyz = np.concatenate((x.reshape(num_gal,1),
-                                 y.reshape(num_gal,1),
-                                 z.reshape(num_gal,1)), axis=1)
-    
-    del x
-    del y
-    del z
+    hole_grid_shape, coords_min = calculate_grid(coords_xyz,
+                                                 hole_grid_edge_length)
     
     ################################################################################
     #
@@ -368,60 +337,11 @@ def filter_galaxies_2(galaxy_table,
     
     if rm_isolated_flag:
         
-        if verbose > 0:
-            
-            print('Finding sep',flush=True)
-        
-        sep_start = time.time()
-
-        dists3 = av_sep_calc(coords_xyz, sep_neighbor)
-        
-        sep_end = time.time()
-
-        if verbose > 0:
-            
-            print('Time to find sep =',sep_end-sep_start, flush=True)
-        
-        avsep = np.mean(dists3)
-        
-        sd = np.std(dists3)
-        
-        l = avsep + 1.5*sd
-
-        if verbose > 0:
-            
-            print('Average separation of n=3rd neighbor gal is', avsep, flush=True)
-        
-            print('The standard deviation is', sd, flush=True)
-        
-            print('Going to build wall with search value', l, flush=True)
-
-        # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
-        # l = 7.36181  # s0 = 3.5, gamma = 1.4
-        # or force l to have a fixed number by setting l = ****
-
-        fw_start = time.time()
-
-        #f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
-        
-        gal_close_neighbor_index = dists3 < l
-    
-        wall_gals_xyz = coords_xyz[gal_close_neighbor_index]
-    
-        field_gals_xyz = coords_xyz[np.logical_not(gal_close_neighbor_index)]
-        
-        fw_end = time.time()
-        
-        if verbose > 0:
-            
-            print('Time to sort field and wall gals =', fw_end-fw_start, flush=True)
-        
+        wall_gals_xyz, field_gals_xyz = wall_field_separation(coords_xyz,
+                                                              sep_neighbor=sep_neighbor,
+                                                              verbose=verbose)
 
     else:
-        
-        #w_coord_table = coord_in_table
-        
-        #f_coord_table = Table(names=coord_in_table.colnames)
         
         wall_gals_xyz = coords_xyz
         
@@ -453,6 +373,7 @@ def filter_galaxies_2(galaxy_table,
             
             print("Time to write field and wall tables: ", time.time() - write_start)
 
+
     nf =  len(field_gals_xyz)
     
     nwall = len(wall_gals_xyz)
@@ -461,7 +382,7 @@ def filter_galaxies_2(galaxy_table,
         
         print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
 
-    return wall_gals_xyz, field_gals_xyz
+    return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
 
 
 

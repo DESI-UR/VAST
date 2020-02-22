@@ -33,9 +33,9 @@
 
 
 from voidfinder import find_voids, \
-                       ra_dec_to_xyz, \
-                       calculate_grid, \
-                       wall_field_separation
+                       filter_galaxies_2
+                       
+                       
 from voidfinder.multizmask import generate_mask
 from voidfinder.preprocessing import file_preprocess
 from voidfinder.table_functions import to_vector, to_array
@@ -57,8 +57,8 @@ import numpy as np
 num_cpus = 4
 
 #-------------------------------------------------------------------------------
-#survey_name = 'SDSS_dr7_'
-survey_name = 'SDSS_dr12_'
+survey_name = 'SDSS_dr7_'
+#survey_name = 'SDSS_dr12_'
 
 # File header
 
@@ -101,13 +101,11 @@ elif survey_name == 'SDSS_dr12_':
 
 #-------------------------------------------------------------------------------
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
-mag_cut = True
-magnitude_limit = -20.0
+#mag_cut = False
+
 
 # Uncomment if you do NOT want to remove isolated galaxies
-rm_isolated = True
-
-hole_grid_edge_length = 5.0
+#rm_isolated = False
 #-------------------------------------------------------------------------------
 
 
@@ -132,7 +130,13 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, verbose=0)
+mask, mask_resolution = generate_mask(galaxy_data_table, 
+                                      verbose=1)
+
+
+temp_outfile = open(survey_name + 'mask.pickle', 'wb')
+pickle.dump((mask, mask_resolution), temp_outfile)
+temp_outfile.close()
 
 ################################################################################
 #
@@ -140,29 +144,22 @@ mask, mask_resolution = generate_mask(galaxy_data_table, verbose=0)
 #
 ################################################################################
 
-if mag_cut:
-    
-    galaxy_data_table = galaxy_data_table[galaxy_data_table['rabsmag'] < magnitude_limit]
+temp_infile = open(survey_name + 'mask.pickle', 'rb')
+mask, mask_resolution = pickle.load(temp_infile)
+temp_infile.close()
 
-
-galaxy_coords_xyz = ra_dec_to_xyz(galaxy_data_table)
-
-
-hole_grid_shape, coords_min = calculate_grid(galaxy_coords_xyz,
-                                             hole_grid_edge_length)
-
-
-if rm_isolated:
-    
-    wall_coords_xyz, field_coords_xyz = wall_field_separation(galaxy_coords_xyz,
-                                                              sep_neighbor=3,
-                                                              verbose=1)
-    
-else:
-    
-    wall_coords_xyz = galaxy_coords_xyz
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies_2(galaxy_data_table,
+                                                                                   survey_name,
+                                                                                   verbose=1)
 
 del galaxy_data_table
+
+
+temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
+pickle.dump((wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min), temp_outfile)
+temp_outfile.close()
+
+
 
 ################################################################################
 #
@@ -170,13 +167,20 @@ del galaxy_data_table
 #
 ################################################################################
 
+
+temp_infile = open(survey_name + "filter_galaxies_output.pickle", 'rb')
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = pickle.load(temp_infile)
+temp_infile.close()
+
+
+
 find_voids(wall_coords_xyz, 
            dist_limits,
            mask, 
            mask_resolution,
            coords_min,
            hole_grid_shape,
-           hole_grid_edge_length=hole_grid_edge_length,
+           hole_grid_edge_length=5.0,
            galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,
            maximal_spheres_filename=out1_filename,

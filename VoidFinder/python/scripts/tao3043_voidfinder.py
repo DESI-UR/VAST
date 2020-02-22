@@ -33,9 +33,7 @@
 ################################################################################
 
 from voidfinder import find_voids, \
-                       ra_dec_to_xyz, \
-                       calculate_grid, \
-                       wall_field_separation
+                       filter_galaxies_2
                        
 from voidfinder.preprocessing import file_preprocess
 from voidfinder.multizmask import generate_mask
@@ -87,12 +85,6 @@ galaxies_filename = 'tao3043.h5'  # File format: RA, dec, redshift, comoving dis
 min_z = 0.0
 max_z = 0.7
 
-mag_cut = True
-magnitude_limit = -20.0
-
-rm_isolated = True
-
-hole_grid_edge_length = 5.0
 
 ################################################################################
 #
@@ -126,7 +118,7 @@ mask, mask_resolution = generate_mask(galaxy_data_table,
 
 '''
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
-pickle.dump((pre_mask, mask_resolution), temp_outfile)
+pickle.dump((mask, mask_resolution), temp_outfile)
 temp_outfile.close()
 '''
 print("#"*80)
@@ -140,37 +132,13 @@ print("#"*80)
 
 '''
 temp_infile = open(survey_name + 'mask.pickle', 'rb')
-pre_mask, mask_resolution = pickle.load(temp_infile)
+mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 '''
 
-#wall_coords_xyz, field_coords_xyz  = filter_galaxies_2(galaxy_data_table, 
-#                                                       survey_name,
-#                                                       verbose=1)
-
-
-
-if mag_cut:
-    
-    galaxy_data_table = galaxy_data_table[galaxy_data_table['rabsmag'] < magnitude_limit]
-
-
-galaxy_coords_xyz = ra_dec_to_xyz(galaxy_data_table)
-
-
-hole_grid_shape, coords_min = calculate_grid(galaxy_coords_xyz,
-                                             hole_grid_edge_length)
-
-
-if rm_isolated:
-    
-    wall_coords_xyz, field_coords_xyz = wall_field_separation(galaxy_coords_xyz,
-                                                              sep_neighbor=3,
-                                                              verbose=1)
-    
-else:
-    
-    wall_coords_xyz = galaxy_coords_xyz
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min  = filter_galaxies_2(galaxy_data_table,
+                                                                                    survey_name,
+                                                                                    verbose=1)
 
 del galaxy_data_table
 
@@ -183,7 +151,7 @@ del galaxy_data_table
 
 '''
 temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
-pickle.dump((coord_min_table, mask, grid_shape), temp_outfile)
+pickle.dump((wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min), temp_outfile)
 temp_outfile.close()
 '''
 
@@ -199,21 +167,12 @@ print("#"*80)
 
 '''
 temp_infile = open(survey_name + "filter_galaxies_output.pickle", 'rb')
-coord_min_table, mask, grid_shape = pickle.load(temp_infile)
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = pickle.load(temp_infile)
 temp_infile.close()
 '''
 
 
 
-
-
-'''
-w_coord_table = Table.read(survey_name + 'wall_gal_file.txt', format='ascii.commented_header')
-
-galaxy_coords = to_array(w_coord_table)
-
-coord_min = to_vector(coord_min_table)
-'''
 print("#"*80)
 print("Starting VoidFinder at:", time.time() - start_time)
 print("#"*80)
