@@ -138,6 +138,7 @@ temp_infile.close()
 
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min  = filter_galaxies_2(galaxy_data_table,
                                                                                     survey_name,
+                                                                                    write_table=False,
                                                                                     verbose=1)
 
 del galaxy_data_table

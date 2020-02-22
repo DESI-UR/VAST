@@ -1184,6 +1184,12 @@ def run_multi_process(ngrid,
     
     listener_socket.listen(num_cpus)
     
+    
+    #print("TEST SPOT")
+    
+    #time.sleep(30.0)
+    
+    
     startup_context = multiprocessing.get_context("fork")
         
     processes = []
@@ -1220,9 +1226,23 @@ def run_multi_process(ngrid,
     
     socket_index = {}
     
+    all_successful_connections = True
+    
+    listener_socket.settimeout(10.0)
+    
     for idx in range(num_cpus):
         
-        worker_sock, worker_addr = listener_socket.accept()
+        #print("Waiting for connection: ", idx)
+        
+        try:
+            
+            worker_sock, worker_addr = listener_socket.accept()
+            
+        except:
+            
+            all_successful_connections = False
+            
+            break
         
         worker_sockets.append(worker_sock)
         
@@ -1234,7 +1254,9 @@ def run_multi_process(ngrid,
         
     if verbose > 0:
         
-        print("Worker processes time to connect: ", time.time() - worker_start_time, flush=True)
+        if all_successful_connections:
+            
+            print("Worker processes time to connect: ", time.time() - worker_start_time, flush=True)
     
     
     
@@ -1256,6 +1278,17 @@ def run_multi_process(ngrid,
     atexit.register(cleanup_worker_sockets)
     
     
+    if not all_successful_connections:
+        
+        for worker_sock in worker_sockets:
+                
+            worker_sock.send(b"exit")
+        
+        print("FAILED TO CONNECT ALL WORKERS SUCCESSFULLY, EXITING")
+            
+        exit()
+        
+        
     
     #cleanup_config()
     
@@ -1599,12 +1632,28 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     DEBUG_DIR = config["DEBUG_DIR"]
 
 
+    #print("WORKER EXITING FOR DEBUG")
+    #exit()
 
     worker_socket = socket.socket(socket.AF_UNIX)
     
-    worker_socket.connect(SOCKET_PATH)
+    worker_socket.settimeout(10.0)
     
-    worker_socket.setblocking(True)
+    connect_start = time.time()
+    
+    try:
+        
+        worker_socket.connect(SOCKET_PATH)
+        
+    except Exception as E:
+        
+        print("WORKER", worker_idx, "UNABLE TO CONNECT, EXITING", flush=True)
+        
+        raise E
+    
+    
+    #print("Worker", worker_idx, "connect time: ", time.time() - connect_start, flush=True)
+    #worker_socket.setblocking(True)
     
     ################################################################################
     # Load up w_coord from shared memory
@@ -1812,6 +1861,12 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     message_buffer = b""
     
+    do_work = True
+    
+    have_result_to_write = False
+    
+    no_cells_left_to_process = False
+    
     while not exit_process:
         
         total_loops += 1
@@ -1834,80 +1889,85 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
         # Locked access to cell ID generation
         ################################################################################
         
+        if do_work:
         
-        
-        ijk_start.acquire()
-        
-        start_idx = ijk_start.value
-        
-        ijk_start.value += batch_size
-        
-        ijk_start.release()
-        
-        
-        
-        
-        #PROFILE_gen_start = time.time_ns()
-        
-        num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
-        
-        #PROFILE_gen_end = time.time_ns()
-        
-        #PROFILE_gen_times.append((PROFILE_gen_end, PROFILE_gen_start))
-        
-        #print("Worker: ", worker_idx, i_j_k_array[0,:], out_start_idx)
-        
-        ################################################################################
-        #
-        ################################################################################
-        num_cells_to_process = num_write
-        
-        if num_cells_to_process > 0:
             
-            #PROFILE_main_start = time.time_ns()
-
-            if return_array.shape[0] != num_cells_to_process:
-
-                return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
+            ijk_start.acquire()
+            
+            start_idx = ijk_start.value
+            
+            ijk_start.value += batch_size
+            
+            ijk_start.release()
+            
+            
+            
+            
+            #PROFILE_gen_start = time.time_ns()
+            
+            num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
+            
+            #PROFILE_gen_end = time.time_ns()
+            
+            #PROFILE_gen_times.append((PROFILE_gen_end, PROFILE_gen_start))
+            
+            #print("Worker: ", worker_idx, i_j_k_array[0,:], out_start_idx)
+            
+            ################################################################################
+            #
+            ################################################################################
+            num_cells_to_process = num_write
+            
+            if num_cells_to_process > 0:
                 
-                #PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
+                #PROFILE_main_start = time.time_ns()
+    
+                if return_array.shape[0] != num_cells_to_process:
+    
+                    return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
+                    
+                    #PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
+                    
+                main_algorithm(i_j_k_array[0:num_write],
+                               galaxy_tree,
+                               w_coord,
+                               dl, 
+                               dr,
+                               coord_min,
+                               mask,
+                               mask_resolution,
+                               min_dist,
+                               max_dist,
+                               return_array,
+                               cell_ID_mem,
+                               0,  #verbose level
+                               #PROFILE_array
+                               )
                 
-            main_algorithm(i_j_k_array[0:num_write],
-                           galaxy_tree,
-                           w_coord,
-                           dl, 
-                           dr,
-                           coord_min,
-                           mask,
-                           mask_resolution,
-                           min_dist,
-                           max_dist,
-                           return_array,
-                           cell_ID_mem,
-                           0,  #verbose level
-                           #PROFILE_array
-                           )
+                num_cells_processed += num_write
+                
+                #RETURN_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0])] = return_array
+                
+                
+                
+                write_start.acquire()
+                
+                out_start_idx = write_start.value
+                
+                write_start.value += num_write
+                
+                write_start.release()
+                
+                
+                
+                seek_location = 32*out_start_idx
+                result_mmap_buffer.seek(seek_location)
+                result_mmap_buffer.write(return_array[0:num_write].tobytes())
+                
+                have_result_to_write = True
             
-            num_cells_processed += num_write
-            
-            #RETURN_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0])] = return_array
-            
-            
-            
-            write_start.acquire()
-            
-            out_start_idx = write_start.value
-            
-            write_start.value += num_write
-            
-            write_start.release()
-            
-            
-            
-            seek_location = 32*out_start_idx
-            result_mmap_buffer.seek(seek_location)
-            result_mmap_buffer.write(return_array[0:num_write].tobytes())
-            
+            else:
+                no_cells_left_to_process = True
             
             
             #PROFILE_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0]),:] = PROFILE_array
@@ -1915,7 +1975,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
             #PROFILE_mmap_buffer.seek(seek_location)
             #PROFILE_mmap_buffer.write(PROFILE_array[0:num_write].tobytes())
             
-            
+        if have_result_to_write:   
             
             #n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), axis=None, dtype=np.int64)
             
@@ -1933,15 +1993,20 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
             #out_msg += struct.pack("=q", n_hole)
             #out_msg += b"\n"
             
-            #print(worker_idx, out_msg)
             
-            worker_socket.send(out_msg)
+            try:
+                worker_socket.send(out_msg)
+            except:
+                do_work = False
+            else:
+                do_work = True
+                have_result_to_write = False
             
             #PROFILE_main_end = time.time_ns()
             
             #PROFILE_main_times.append((PROFILE_main_end, PROFILE_main_start, return_array.shape[0]))
             
-        else:
+        if no_cells_left_to_process:
             
             out_msg = b""
             out_msg += struct.pack("b", 1)
@@ -1978,7 +2043,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     #del PROFILE_ARRAY #flushes np.memmap
     #return_queue.put(("done", None))
     
-    print("WORKER EXITING GRACEFULLY", worker_idx)
+    print("WORKER EXITING GRACEFULLY "+str(worker_idx)+"\n", flush=True)
     
     return None
 
