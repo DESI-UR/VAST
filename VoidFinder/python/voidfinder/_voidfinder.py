@@ -817,7 +817,7 @@ def run_multi_process(ngrid,
         
         print("Mem-mapping galaxy coordinates", flush=True)
         
-        print("WCOORD MEMMAP PATH: ", WCOORD_BUFFER_PATH, w_coord_fd)
+        print("WCOORD MEMMAP PATH: ", WCOORD_BUFFER_PATH, w_coord_fd, flush=True)
     
     num_galaxies = w_coord.shape[0]
     
@@ -929,9 +929,9 @@ def run_multi_process(ngrid,
     
     if verbose > 0:
         
-        print("Galaxy Map build time: ", time.time() - galaxy_map_start_time)
+        print("Galaxy Map build time: ", time.time() - galaxy_map_start_time, flush=True)
         
-        print("Size: ", num_in_galaxy_map, "Total slots: ", next_prime)
+        print("Size: ", num_in_galaxy_map, "Total slots: ", next_prime, flush=True)
         
         print("Num collisions in rebuild: ", new_galaxy_map.num_collisions, flush=True)
     
@@ -945,7 +945,7 @@ def run_multi_process(ngrid,
     
     if verbose > 0:
         
-        print("Galaxy map lookup memmap: ", LOOKUPMEM_BUFFER_PATH, lookup_fd)
+        print("Galaxy map lookup memmap: ", LOOKUPMEM_BUFFER_PATH, lookup_fd, flush=True)
     
     lookup_buffer_length = next_prime*23 #23 bytes per element
     
@@ -968,7 +968,7 @@ def run_multi_process(ngrid,
     
     if verbose > 0:
         
-        print("Galaxy map array memmap: ", GMA_BUFFER_PATH, gma_fd)
+        print("Galaxy map array memmap: ", GMA_BUFFER_PATH, gma_fd, flush=True)
     
     num_gma_indices = galaxy_map_array.shape[0]
     
@@ -1234,7 +1234,7 @@ def run_multi_process(ngrid,
         
     if verbose > 0:
         
-        print("Worker processes time to connect: ", time.time() - worker_start_time)
+        print("Worker processes time to connect: ", time.time() - worker_start_time, flush=True)
     
     
     
@@ -1341,7 +1341,7 @@ def run_multi_process(ngrid,
             
             if (curr_time - print_after_time) > print_after:
             
-                print('Processed', num_cells_processed, 'cells of', n_empty_cells, "empty cells", str(round(curr_time-start_time,2)))
+                print('Processed', num_cells_processed, 'cells of', n_empty_cells, "empty cells", str(round(curr_time-start_time,2)), flush=True)
                 
                 print_after_time = curr_time
             
@@ -1396,7 +1396,7 @@ def run_multi_process(ngrid,
     
     if verbose > 0:
         
-        print("Main task finish time: ", time.time() - start_time)
+        print("Main task finish time: ", time.time() - start_time, flush=True)
     
     
     if not sent_exit_commands:

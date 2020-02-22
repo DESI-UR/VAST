@@ -371,7 +371,7 @@ def filter_galaxies_2(galaxy_table,
         
         if verbose > 0:
             
-            print("Time to write field and wall tables: ", time.time() - write_start)
+            print("Time to write field and wall tables: ", time.time() - write_start, flush=True)
 
 
     nf =  len(field_gals_xyz)

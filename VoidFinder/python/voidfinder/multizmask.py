@@ -54,7 +54,7 @@ def generate_mask(gal_data,
 
     if verbose > 0:
         
-        print("Generate mask start")
+        print("Generate mask start", flush=True)
 
     D2R = np.pi/180.0
 

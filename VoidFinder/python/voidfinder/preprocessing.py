@@ -163,7 +163,7 @@ def file_preprocess(galaxies_filename,
     in_filename = in_directory + galaxies_filename
     
     if verbose > 0:
-        print("Loading galaxy data table at: ", in_filename)
+        print("Loading galaxy data table at: ", in_filename, flush=True)
         load_start_time = time.time()
     
     
@@ -171,7 +171,7 @@ def file_preprocess(galaxies_filename,
 
         
     if verbose > 0:
-        print("Galaxy data table load time: ", time.time() - load_start_time)
+        print("Galaxy data table load time: ", time.time() - load_start_time, flush=True)
     ############################################################################
     
     
@@ -214,13 +214,13 @@ def file_preprocess(galaxies_filename,
     if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
         
         if verbose > 0:
-            print("Calculating Rgal data table column")
+            print("Calculating Rgal data table column", flush=True)
             calc_start_time = time.time()
         
         galaxy_data_table['Rgal'] = z_to_comoving_dist(galaxy_data_table['z'].data.astype(np.float32), Omega_M, h)
     
         if verbose > 0:
-            print("Finished Rgal calculation time: ", time.time() - calc_start_time)
+            print("Finished Rgal calculation time: ", time.time() - calc_start_time, flush=True)
     ############################################################################
     
     
