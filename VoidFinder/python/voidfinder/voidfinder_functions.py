@@ -254,6 +254,8 @@ def save_maximals(sphere_table, out1_filename):
     Calculate the ra, dec coordinates for the centers of each of the maximal spheres
     Save the maximal spheres to a text file
     '''
+    
+    print("Saving maximals to: ", out1_filename)
 
     r = np.linalg.norm(to_array(sphere_table), axis=1)
     sphere_table['r'] = r.T

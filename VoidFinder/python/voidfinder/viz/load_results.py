@@ -1,10 +1,13 @@
 
 import numpy
+import h5py
 from astropy.table import Table
 import matplotlib
 import matplotlib.pyplot as plt
 
-from voidfinder.absmag_comovingdist_functions import Distance
+#from voidfinder.absmag_comovingdist_functions import Distance
+from voidfinder.dist_funcs_cython import z_to_comoving_dist
+from voidfinder.preprocessing import load_data_to_Table
 
 
 # Constants
@@ -28,6 +31,7 @@ if __name__ == "__main__":
     ######################################################################
     
     holes_data = Table.read(infilename1, format='ascii.commented_header')
+    
     
     ######################################################################
     # Load galaxy data and convert coordinates to xyz
@@ -62,8 +66,7 @@ if __name__ == "__main__":
 
 def load_hole_data(infilename):
     
-    
-    holes_data = Table.read(infilename, format='ascii.commented_header')
+    holes_data = load_data_to_Table(infilename)
     
     num_rows = len(holes_data)
     
@@ -82,11 +85,13 @@ def load_hole_data(infilename):
 
 def load_galaxy_data(infilename):
     
-    galaxy_data = Table.read(infilename, format='ascii.commented_header')
+    galaxy_data = load_data_to_Table(infilename)
     
     if distance_metric == 'comoving' and 'Rgal' not in galaxy_data.columns:
         
-        r_gal = Distance(galaxy_data['redshift'], Omega_M, h)
+        r_gal = z_to_comoving_dist(galaxy_data['redshift'].data.astype(numpy.float32), 
+                                   Omega_M, 
+                                   h)
     
     elif distance_metric == 'comoving':
         

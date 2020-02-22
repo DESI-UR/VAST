@@ -32,6 +32,8 @@ from .mag_cutoff_function import mag_cut, field_gal_cut
 
 from ._voidfinder import _main_hole_finder
 
+from .constants import c
+
 
 ######################################################################
 # I made these constants into default parameters in filter_galaxies()
@@ -187,12 +189,20 @@ def filter_galaxies(galaxy_table,
     # Array of size of survey in x, y, z directions [Mpc/h]
     #box = np.array([coord_max_x[0] - coord_min_x[0], coord_max_y[0] - coord_min_y[0], coord_max_z[0] - coord_min_z[0]])
     box = coord_max - coord_min
+    
+    print("Box: ", box)
+    print("search_grid_edge_length", search_grid_edge_length)
 
     #print('box shape:', box.shape)
 
     # Array of number of cells in each direction
     ngrid = box/search_grid_edge_length
+    
+    print("Ngrid: ", ngrid)
+    
     ngrid = np.ceil(ngrid).astype(int)
+    
+    
 
     #print('ngrid shape:', ngrid.shape)
 
@@ -257,6 +267,8 @@ def filter_galaxies(galaxy_table,
         w_coord_table = coord_in_table
         f_coord_table = Table(names=coord_in_table.colnames)
 
+    print(f_coord_table.colnames)
+    print(f_coord_table.dtype)
 
     f_coord_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
     w_coord_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
@@ -276,6 +288,180 @@ def filter_galaxies(galaxy_table,
 
 
 
+def filter_galaxies_2(galaxy_table,
+                      #rabsmag,
+                      #r_gal,
+                      #ra,
+                      #dec,
+                      survey_name, 
+                      mag_cut_flag=True, 
+                      rm_isolated_flag=True,
+                      write_table=True,
+                      sep_neighbor=3,
+                      distance_metric='comoving', 
+                      h=1.0,
+                      search_grid_edge_length=5.0,
+                      magnitude_limit=-20.0,
+                      verbose=0):
+    
+    
+    
+    ################################################################################
+    # PRE-PROCESS DATA
+    # Filter based on magnitude and convert from redshift to radius if necessary
+    #
+    ################################################################################
+    if verbose > 0:
+        print('Filter Galaxies Start', flush=True)
+
+
+    # Remove faint galaxies
+    if mag_cut_flag:
+        
+        mag_cut_keep_index = galaxy_table['rabsmag'] < magnitude_limit
+        
+        galaxy_table = galaxy_table[mag_cut_keep_index]
+
+    
+    if distance_metric == 'comoving':
+        
+        r_gal = galaxy_table['Rgal'].data
+        
+    else:
+        
+        r_gal = c*galaxy_table['redshift'].data/(100*h)
+        
+        
+    ra = galaxy_table['ra'].data
+    
+    dec = galaxy_table['dec'].data
+    
+    ################################################################################
+    # Convert from ra-dec-radius space to xyz space
+    ################################################################################
+    
+    ra_radian = ra*DtoR
+    
+    dec_radian = dec*DtoR
+    
+    x = r_gal*np.cos(ra_radian)*np.cos(dec_radian)
+    
+    y = r_gal*np.sin(ra_radian)*np.cos(dec_radian)
+    
+    z = r_gal*np.sin(dec_radian)
+    
+    num_gal = x.shape[0]
+    
+    coords_xyz = np.concatenate((x.reshape(num_gal,1),
+                                 y.reshape(num_gal,1),
+                                 z.reshape(num_gal,1)), axis=1)
+    
+    del x
+    del y
+    del z
+    
+    ################################################################################
+    #
+    #   SEPARATION
+    #
+    ################################################################################
+    
+    if rm_isolated_flag:
+        
+        if verbose > 0:
+            
+            print('Finding sep',flush=True)
+        
+        sep_start = time.time()
+
+        dists3 = av_sep_calc(coords_xyz, sep_neighbor)
+        
+        sep_end = time.time()
+
+        if verbose > 0:
+            
+            print('Time to find sep =',sep_end-sep_start, flush=True)
+        
+        avsep = np.mean(dists3)
+        
+        sd = np.std(dists3)
+        
+        l = avsep + 1.5*sd
+
+        if verbose > 0:
+            
+            print('Average separation of n=3rd neighbor gal is', avsep, flush=True)
+        
+            print('The standard deviation is', sd, flush=True)
+        
+            print('Going to build wall with search value', l, flush=True)
+
+        # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
+        # l = 7.36181  # s0 = 3.5, gamma = 1.4
+        # or force l to have a fixed number by setting l = ****
+
+        fw_start = time.time()
+
+        #f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
+        
+        gal_close_neighbor_index = dists3 < l
+    
+        wall_gals_xyz = coords_xyz[gal_close_neighbor_index]
+    
+        field_gals_xyz = coords_xyz[np.logical_not(gal_close_neighbor_index)]
+        
+        fw_end = time.time()
+        
+        if verbose > 0:
+            
+            print('Time to sort field and wall gals =', fw_end-fw_start, flush=True)
+        
+
+    else:
+        
+        #w_coord_table = coord_in_table
+        
+        #f_coord_table = Table(names=coord_in_table.colnames)
+        
+        wall_gals_xyz = coords_xyz
+        
+        field_gals_xyz = np.array([])
+
+    ################################################################################
+    #
+    # Write results to disk if desired
+    #
+    ################################################################################
+    
+    if write_table:
+    
+    
+        write_start = time.time()
+        
+    
+        wall_xyz_table = Table(data=wall_gals_xyz, names=["x", "y", "z"])
+        
+        wall_xyz_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
+    
+        
+        field_xyz_table = Table(data=field_gals_xyz, names=["x", "y", "z"])
+    
+        field_xyz_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
+        
+        
+        if verbose > 0:
+            
+            print("Time to write field and wall tables: ", time.time() - write_start)
+
+    nf =  len(field_gals_xyz)
+    
+    nwall = len(wall_gals_xyz)
+    
+    if verbose > 0:
+        
+        print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
+
+    return wall_gals_xyz, field_gals_xyz
 
 
 
@@ -284,14 +470,186 @@ def filter_galaxies(galaxy_table,
 
 
 
-def find_voids(void_grid_shape, 
+
+
+
+
+def ra_dec_to_xyz(galaxy_table,
+                  distance_metric='comoving',
+                  h=1.0,
+                  ):
+    
+    
+    if distance_metric == 'comoving':
+        
+        r_gal = galaxy_table['Rgal'].data
+        
+    else:
+        
+        r_gal = c*galaxy_table['redshift'].data/(100*h)
+        
+        
+    ra = galaxy_table['ra'].data
+    
+    dec = galaxy_table['dec'].data
+    
+    ################################################################################
+    # Convert from ra-dec-radius space to xyz space
+    ################################################################################
+    
+    ra_radian = ra*DtoR
+    
+    dec_radian = dec*DtoR
+    
+    x = r_gal*np.cos(ra_radian)*np.cos(dec_radian)
+    
+    y = r_gal*np.sin(ra_radian)*np.cos(dec_radian)
+    
+    z = r_gal*np.sin(dec_radian)
+    
+    num_gal = x.shape[0]
+    
+    coords_xyz = np.concatenate((x.reshape(num_gal,1),
+                                 y.reshape(num_gal,1),
+                                 z.reshape(num_gal,1)), axis=1)
+    
+    return coords_xyz
+
+
+
+
+
+
+
+def calculate_grid(galaxy_coords_xyz,
+                   hole_grid_edge_length):
+    """
+    Need to return coords_min as well as grid shape because they
+    are tied together for the transformation
+    
+    """
+    
+    
+    coords_max = np.max(galaxy_coords_xyz, axis=0)
+    
+    coords_min = np.min(galaxy_coords_xyz, axis=0)
+    
+    box = coords_max - coords_min
+
+    ngrid = box/hole_grid_edge_length
+    
+    #print("Ngrid: ", ngrid)
+    
+    hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+    
+    return hole_grid_shape, coords_min
+    
+    
+
+def wall_field_separation(galaxy_coords_xyz,
+                          sep_neighbor=3,
+                          verbose=0):
+    """
+    Description
+    ===========
+    
+    Given a set of galaxy coordinates in xyz space, find all the galaxies whose
+    distance to their Nth nearest neighbor is above or below some limit.  Galaxies
+    whose Nth nearest neighbor is close (below), will become 'wall' galaxies, and
+    galaxies whose Nth nearest neighbor is far (above) will become field/void/isolated
+    galaxies.
+    
+    The distance limit used below is the mean distance to Nth nearest neighbor plus
+    1.5 times the standard deviation of the Nth nearest neighbor distance.
+    
+    Parameters
+    ==========
+    
+    galaxy_coords_xyz : numpy.ndarray of shape (N,3)
+        coordinates in xyz space of the galaxies
+        
+    sep_neighbor : int
+       Nth neighbor
+       
+    verbose : int
+        whether to print timing output, 0 for off and >= 1 for on
+        
+    Returns
+    =======
+    
+    wall_gals_xyz : ndarray of shape (K, 3)
+        xyz coordinate subset of the input corresponding to tightly packed galaxies
+        
+    field_gals_xyz : ndarray of shape (L, 3)
+        xyz coordinate subset of the input corresponding to isolated galaxies
+    """
+    
+    
+    if verbose > 0:
+            
+        print('Finding sep',flush=True)
+        
+    sep_start = time.time()
+
+    dists3 = av_sep_calc(galaxy_coords_xyz, sep_neighbor)
+    
+    sep_end = time.time()
+
+    if verbose > 0:
+        
+        print('Time to find sep =',sep_end-sep_start, flush=True)
+    
+    avsep = np.mean(dists3)
+    
+    sd = np.std(dists3)
+    
+    l = avsep + 1.5*sd
+
+    if verbose > 0:
+        
+        print('Average separation of n=3rd neighbor gal is', avsep, flush=True)
+    
+        print('The standard deviation is', sd, flush=True)
+    
+        print('Going to build wall with search value', l, flush=True)
+
+    # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
+    # l = 7.36181  # s0 = 3.5, gamma = 1.4
+    # or force l to have a fixed number by setting l = ****
+
+    fw_start = time.time()
+
+    #f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
+    
+    gal_close_neighbor_index = dists3 < l
+
+    wall_gals_xyz = galaxy_coords_xyz[gal_close_neighbor_index]
+
+    field_gals_xyz = galaxy_coords_xyz[np.logical_not(gal_close_neighbor_index)]
+    
+    fw_end = time.time()
+    
+    if verbose > 0:
+        
+        print('Time to sort field and wall gals =', fw_end-fw_start, flush=True)
+
+    return wall_gals_xyz, field_gals_xyz
+    
+    
+
+
+
+
+
+
+def find_voids(galaxy_coords_xyz,
                dist_limits,
-               galaxy_coords,
-               coord_min, 
                mask, 
                mask_resolution,
-               void_grid_edge_length=5,
-               search_grid_edge_length=None,
+               coords_min,
+               hole_grid_shape,
+               hole_grid_edge_length=5.0,
+               galaxy_map_grid_edge_length=None,
                hole_center_iter_dist=1.0,
                maximal_spheres_filename="maximal_spheres.txt",
                void_table_filename="voids_table.txt",
@@ -344,21 +702,15 @@ def find_voids(void_grid_shape,
     Parameters
     ----------
     
-    void_grid_shape : array or tuple of length 3
-        number of grid cells in each direction to search as potential
-        void centers
+    galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
+        coordinates of the galaxies in the survey, units of Mpc/h
+        (xyz space)
     
     dist_limits : numpy array of shape (2,)
         minimum and maximum distance limit of the survey in units of Mpc/h
         (xyz space)
         
-    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
-        coordinates of the galaxies in the survey, units of Mpc/h
-        (xyz space)
     
-    coord_min : ndarray of shape (1,3)
-        minimum coordinates of the galaxy survey
-        (xyz space)
     
     mask : numpy.ndarray of shape (N,M) type bool
         represents the survey footprint in scaled ra/dec space.  Value of True 
@@ -368,12 +720,20 @@ def find_voids(void_grid_shape,
     mask_resolution : integer
         Scale factor of coordinates needed to index mask
         
-    void_grid_edge_length : float
+    
+    coords_min : ndarray of shape (3,) or (1,3)
+        coordinates used for converting from xyz space into the grid ijk space
+    
+    hole_grid_shape : tuple of 3 integers
+        ijk dimensions of the 3 grid directions
+    
+        
+    hole_grid_edge_length : float
         size in Mpc/h of the edge of 1 cube in the search grid, or
         distance between 2 grid cells
         (xyz space)
         
-    search_grid_edge_length : float or None
+    galaxy_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor
         galaxies.  If None, will default to 3*void_grid_edge_length (which results
         in a cell volume of 3^3 = 27 times larger cube volume).  This parameter
@@ -429,31 +789,60 @@ def find_voids(void_grid_shape,
     
     """
 
+
+
+    ################################################################################
+    #
+    # Calculate grid
+    #
+    ################################################################################
     
+    '''
+    coords_min = np.min(galaxy_coords_xyz, axis=0)
+    
+    coords_max = np.max(galaxy_coords_xyz, axis=0)
+    
+    box = coords_max - coords_min
+    
+    #box *= 1.2
+    
+    #print("Box: ", box)
+    
+    #print("hole_grid_edge_length", hole_grid_edge_length)
+
+    ngrid = box/hole_grid_edge_length
+    
+    #print("Ngrid: ", ngrid)
+    
+    hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+    
+    #print("hole_grid_shape:", hole_grid_shape)
+
+    '''
     ############################################################################
     #
     #   GROW HOLES
     #
     ############################################################################
 
-    if search_grid_edge_length is None:
+    if galaxy_map_grid_edge_length is None:
         
-        search_grid_edge_length = 3.0*void_grid_edge_length
+        galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
 
     tot_hole_start = time.time()
 
     print('Growing holes', flush=True)
 
-    x_y_z_r_array, n_holes = _main_hole_finder(void_grid_shape, 
-                                               void_grid_edge_length, 
+    x_y_z_r_array, n_holes = _main_hole_finder(hole_grid_shape, 
+                                               hole_grid_edge_length, 
                                                hole_center_iter_dist,
-                                               search_grid_edge_length,
-                                               coord_min,
+                                               galaxy_map_grid_edge_length,
+                                               coords_min.reshape(1,3),
                                                mask,
                                                mask_resolution,
                                                dist_limits[0],
                                                dist_limits[1],
-                                               galaxy_coords,
+                                               galaxy_coords_xyz,
                                                batch_size=batch_size,
                                                verbose=verbose,
                                                print_after=print_after,

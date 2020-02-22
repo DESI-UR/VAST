@@ -1,4 +1,9 @@
+"""
 
+This module houses the cython type definitions for the various cythonized functions
+within VoidFinder
+
+"""
 
 cimport cython
 import numpy as np

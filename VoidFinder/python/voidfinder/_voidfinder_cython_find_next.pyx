@@ -816,7 +816,7 @@ cdef class GalaxyMapCustomDict:
     Since ijk are limited to uint16 right now that means a maximum grid of
     shape (65536, 65536, 65536), or 2.8*10^14 (2^48) grid locations.  
                                             
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
     cdef LOOKUPMEM_t[:] lookup_memory
     cdef DTYPE_INT64_t mem_length
     """
@@ -828,6 +828,8 @@ cdef class GalaxyMapCustomDict:
             self.i_dim = grid_dimensions[0]
             self.j_dim = grid_dimensions[1]
             self.k_dim = grid_dimensions[2]
+            
+            self.jk_mod = self.j_dim*self.k_dim
             
             #print("GALAXYMAPCUSTOMDICT: ", np.asarray(self.lookup_memory))
             #print("GALAXYMAPCUSTOMDICT: ", lookup_memory.shape, lookup_memory.dtype)
@@ -851,11 +853,18 @@ cdef class GalaxyMapCustomDict:
                                    CELL_ID_t i, 
                                    CELL_ID_t j, 
                                    CELL_ID_t k):
+        """
+        Given a cell ID (i,j,k), calculate its hash address in our
+        memory array.  Uses the natural grid cell ordering
+        0->(0,0,0), 1->(0,0,1), 2->(0,0,2) etc, to calculate the sequential
+        grid cell index, then takes that value modulus of the number of slots
+        in the memory array.
+        """
         
         cdef DTYPE_INT64_t index
         cdef DTYPE_INT64_t hash_addr
         
-        index = self.j_dim * self.k_dim * <DTYPE_INT64_t>i + \
+        index = self.jk_mod * <DTYPE_INT64_t>i + \
                 self.k_dim * <DTYPE_INT64_t>j + \
                 <DTYPE_INT64_t>k
         

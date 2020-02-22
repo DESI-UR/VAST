@@ -1,11 +1,17 @@
-#absolute magnitude & distance functions
+"""
 
+DEPRECATED by dist_funcs_cython.pyx
+
+    absolute magnitude & distance functions
+    
+"""
 import numpy as np
+
 from scipy.integrate import quad
 
+from voidfinder.constants import c
 
-
-c = 299792
+#c = 299792
 
 
 
