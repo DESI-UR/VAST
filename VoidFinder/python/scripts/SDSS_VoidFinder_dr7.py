@@ -57,8 +57,8 @@ import numpy as np
 num_cpus = 4
 
 #-------------------------------------------------------------------------------
-survey_name = 'SDSS_dr7_'
-#survey_name = 'SDSS_dr12_'
+#survey_name = 'SDSS_dr7_'
+survey_name = 'SDSS_dr12_'
 
 # File header
 
@@ -188,7 +188,7 @@ find_voids(wall_coords_xyz,
            potential_voids_filename=survey_name+'potential_voids_list.txt',
            num_cpus=num_cpus,
            batch_size=10000,
-           verbose=0,
+           verbose=1,
            print_after=5.0)
 
 
