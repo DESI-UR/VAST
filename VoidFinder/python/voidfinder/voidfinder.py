@@ -30,7 +30,7 @@ from .avsepcalc import av_sep_calc
 
 from .mag_cutoff_function import mag_cut, field_gal_cut
 
-from ._voidfinder import _main_hole_finder
+from ._voidfinder import _hole_finder
 
 from .constants import c
 
@@ -299,6 +299,84 @@ def filter_galaxies_2(galaxy_table,
                       hole_grid_edge_length=5.0,
                       magnitude_limit=-20.0,
                       verbose=0):
+    """
+    Description
+    ===========
+    
+    A hodge podge of miscellaneous tasks which need to be done to format the data into
+    something the main find_voids() function can use.
+    
+    1). Optional magnitude cut
+    2). Convert from ra-dec-redshift space into xyz space
+    3). Calculate the hole search grid shape
+    4). Optional remove isolated galaxies by partitioning them into wall (non-isolated)
+            and field (isolated) groups
+    5). Optionally write out the wall and field galaxies to disk
+    
+    
+    Parameters
+    ==========
+    
+    galaxy_table : astropy.table of shape (N,?)
+        variable number of required columns.  If doing magnitude cut, must include
+        'rabsmag' column. If distance metric is 'comoving', must include 'Rgal'
+        column, otherwise must include 'redshift'.  Also must always include 'ra' 
+        and 'dec'
+        
+    survey_name : str
+        Name of the galxy catalog, string value to prepend or append to output names
+        
+    mag_cut_flag : bool
+        whether or not to cut on magnitude, removing galaxies less than
+        magnitude_limit
+        
+    magnitude_limit : float
+        value at which to perform magnitude cut
+        
+    rm_isolated_flag : bool
+        whether or not to perform Nth neighbor distance calculation, and use it
+        to partition the input galaxies into wall and field galaxies
+        
+    write_table : bool
+        use astropy.table.Table.write to write out the wall and field galaxies
+        to file
+        
+    sep_neighbor : int, positive
+        if rm_isolated_flag is true, find the Nth galaxy neighbors based on this value
+        
+    distance_metric : str
+        Distance metric to use in calculations.  Options are 'comoving' 
+        (default; distance dependent on cosmology) and 'redshift' (distance 
+        independent of cosmology).
+
+    h : float
+        Fractional value of Hubble's constant.  Default value is 1 (where 
+        H0 = 100h).
+        
+    hole_grid_edge_length : float
+        length in Mpc/h of the edge of one cell of a grid cube for the search grid
+        
+    verbose : int
+        values greater than zero indicate to print output
+        
+        
+    Returns
+    =======
+    
+    wall_gals_xyz : numpy.ndarray of shape (K,3)
+        the galaxies which were designated not to be isolated
+    
+    field_gals_xyz : numpy.ndarray of shape (L,3)
+        the galaxies designated as isolated
+    
+    hole_grid_shape : tuple of 3 integers (i,j,k)
+        shape of the hole search grid
+    
+    coords_min : numpy.ndarray of shape (3,)
+        coordinates of the minimum of the survey used for converting from
+        xyz space into ijk space
+    
+    """
     
     
     
@@ -399,6 +477,36 @@ def ra_dec_to_xyz(galaxy_table,
                   distance_metric='comoving',
                   h=1.0,
                   ):
+    """
+    Description
+    ===========
+    
+    Convert galaxy coordinates from ra-dec-redshift space into xyz space.
+    
+    
+    Parameters
+    ==========
+    
+    galaxy_table : astropy.table of shape (N,?)
+        must contain columns 'ra' and 'dec' in degrees, and either 'Rgal' in who knows
+        what unit if distance_metric is 'comoving' or 'redshift' for everything else
+        
+    distance_metric : str
+        Distance metric to use in calculations.  Options are 'comoving' 
+        (default; distance dependent on cosmology) and 'redshift' (distance 
+        independent of cosmology).
+        
+    h : float
+        Fractional value of Hubble's constant.  Default value is 1 (where 
+        H0 = 100h).
+        
+        
+    Returns
+    =======
+    
+    coords_xyz : numpy.ndarray of shape (N,3)
+        values of the galaxies in xyz space
+    """
     
     
     if distance_metric == 'comoving':
@@ -445,8 +553,41 @@ def ra_dec_to_xyz(galaxy_table,
 def calculate_grid(galaxy_coords_xyz,
                    hole_grid_edge_length):
     """
-    Need to return coords_min as well as grid shape because they
-    are tied together for the transformation
+    Description
+    ===========
+    
+    Given a galaxy survey in xyz/Cartesian coordinates and the length
+    of a cubical grid cell, calculate the cubical grid shape which will
+    contain the survey.
+    
+    The cubical grid is obtained by finding the minimum and maximum values in each
+    of the 3 dimensions, calculating the distance of the survey in each dimension, and
+    dividing each dimension by the cell grid length to get the number of required grid
+    cells in each dimension.
+        
+    In order to transform additional points to their closest grid cell later in VoidFinder,
+    a user will need the origin (0,0,0) of the grid, which is the point (min_x, min_y, min_z)
+    from the survey, so this function also returns that min value.
+    
+    
+    Parameters
+    ==========
+    
+    galaxy_coords_xyz : numpy.ndarray of shape (N,3)
+        coordinates of survey galaxies in xyz space
+        
+    hole_grid_edge_length : float
+        length in xyz space of the edge of 1 cubical cell in the grid
+        
+        
+    Returns
+    =======
+    
+    hole_grid_shape : tuple of ints (i,j,k)
+        number of grid cells in each dimension
+        
+    coords_min : numpy.ndarray of shape (3,)
+        the (min_x, min_y, min_z) point which is the (0,0,0) of the grid
     
     """
     
@@ -483,6 +624,7 @@ def wall_field_separation(galaxy_coords_xyz,
     The distance limit used below is the mean distance to Nth nearest neighbor plus
     1.5 times the standard deviation of the Nth nearest neighbor distance.
     
+    
     Parameters
     ==========
     
@@ -495,6 +637,7 @@ def wall_field_separation(galaxy_coords_xyz,
     verbose : int
         whether to print timing output, 0 for off and >= 1 for on
         
+        
     Returns
     =======
     
@@ -503,6 +646,7 @@ def wall_field_separation(galaxy_coords_xyz,
         
     field_gals_xyz : ndarray of shape (L, 3)
         xyz coordinate subset of the input corresponding to isolated galaxies
+        
     """
     
     
@@ -606,18 +750,26 @@ def find_voids(galaxy_coords_xyz,
     have bounded the void.  After the filtering, these pre-voids will be combined
     into the actual voids based on an analysis of their overlap.
     
-    This implementation uses a reference point, 'coord_min', and the 
-    'void_grid_edge_length' to convert between the x,y,z coordinates of a galaxy,
+    This implementation uses a reference point, 'coords_min', and the 
+    'hole_grid_edge_length' to convert between the x,y,z coordinates of a galaxy,
     and the i,j,k coordinates of a cell in the search grid such that:
     
-    ijk = ((xyz - coord_min)/void_grid_edge_length).astype(integer) 
+    ijk = ((xyz - coords_min)/hole_grid_edge_length).astype(integer) 
     
     During the sphere growth, VoidFinder also uses a secondary grid to help find
     the bounding galaxies for a sphere.  The grid facilitates nearest-neighbor
     and radius queries, and uses a coordinate space referred to in the code
     as pqr, which uses a similar transformation:
     
-    pqr = ((xyz - coord_min)/neighbor_grid_edge_length).astype(integer)
+    pqr = ((xyz - coords_min)/neighbor_grid_edge_length).astype(integer)
+    
+    In VoidFinder terminology, a Void is a union of spheres, and a single sphere
+    is just a hole.  The Voids are found by taking the set of holes, ordering them
+    based on radius, and starting from the largest found hole, label it a maximal
+    sphere, and continue to the next hole.  If the next hole does not overlap with any of the
+    previous maximal spheres by some factor, it is also considered a maximal sphere.  This process
+    is repeated until there are no more maximal spheres, and all other spheres are joined to the
+    maximal spheres.
     
     
     Parameters
@@ -656,7 +808,7 @@ def find_voids(galaxy_coords_xyz,
         
     galaxy_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor
-        galaxies.  If None, will default to 3*void_grid_edge_length (which results
+        galaxies.  If None, will default to 3*hole_grid_edge_length (which results
         in a cell volume of 3^3 = 27 times larger cube volume).  This parameter
         yields a tradeoff between number of galaxies in a cell, and number of
         cells to search when growing a sphere.  Too large and many redundant galaxies
@@ -702,6 +854,8 @@ def find_voids(galaxy_coords_xyz,
     Returns
     =======
     
+    All output is currently written to disk:
+    
     potential voids table, ascii.commented_header format
     
     combined voids table, ascii.commented_header format
@@ -710,36 +864,6 @@ def find_voids(galaxy_coords_xyz,
     
     """
 
-
-
-    ################################################################################
-    #
-    # Calculate grid
-    #
-    ################################################################################
-    
-    '''
-    coords_min = np.min(galaxy_coords_xyz, axis=0)
-    
-    coords_max = np.max(galaxy_coords_xyz, axis=0)
-    
-    box = coords_max - coords_min
-    
-    #box *= 1.2
-    
-    #print("Box: ", box)
-    
-    #print("hole_grid_edge_length", hole_grid_edge_length)
-
-    ngrid = box/hole_grid_edge_length
-    
-    #print("Ngrid: ", ngrid)
-    
-    hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
-    
-    #print("hole_grid_shape:", hole_grid_shape)
-
-    '''
     ############################################################################
     #
     #   GROW HOLES
@@ -754,20 +878,20 @@ def find_voids(galaxy_coords_xyz,
 
     print('Growing holes', flush=True)
 
-    x_y_z_r_array, n_holes = _main_hole_finder(hole_grid_shape, 
-                                               hole_grid_edge_length, 
-                                               hole_center_iter_dist,
-                                               galaxy_map_grid_edge_length,
-                                               coords_min.reshape(1,3),
-                                               mask,
-                                               mask_resolution,
-                                               dist_limits[0],
-                                               dist_limits[1],
-                                               galaxy_coords_xyz,
-                                               batch_size=batch_size,
-                                               verbose=verbose,
-                                               print_after=print_after,
-                                               num_cpus=num_cpus)
+    x_y_z_r_array, n_holes = _hole_finder(hole_grid_shape, 
+                                           hole_grid_edge_length, 
+                                           hole_center_iter_dist,
+                                           galaxy_map_grid_edge_length,
+                                           coords_min.reshape(1,3),
+                                           mask,
+                                           mask_resolution,
+                                           dist_limits[0],
+                                           dist_limits[1],
+                                           galaxy_coords_xyz,
+                                           batch_size=batch_size,
+                                           verbose=verbose,
+                                           print_after=print_after,
+                                           num_cpus=num_cpus)
 
 
     print('Found a total of', n_holes, 'potential voids.', flush=True)

@@ -30,12 +30,9 @@
 #
 ################################################################################
 
-
-
 from voidfinder import find_voids, \
                        filter_galaxies_2
-                       
-                       
+
 from voidfinder.multizmask import generate_mask
 from voidfinder.preprocessing import file_preprocess
 from voidfinder.table_functions import to_vector, to_array
@@ -43,6 +40,9 @@ from voidfinder.table_functions import to_vector, to_array
 from astropy.table import Table
 import pickle
 import numpy as np
+
+
+
 
 
 ################################################################################
@@ -57,8 +57,8 @@ import numpy as np
 num_cpus = 4
 
 #-------------------------------------------------------------------------------
-#survey_name = 'SDSS_dr7_'
-survey_name = 'SDSS_dr12_'
+survey_name = 'SDSS_dr7_'
+#survey_name = 'SDSS_dr12_'
 
 # File header
 

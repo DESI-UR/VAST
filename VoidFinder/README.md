@@ -31,7 +31,10 @@ from https://github.com/DESI-UR/Voids.git
 
 If you also want to run the VoidRender visualization class which is packaged with VoidFinder, see the additional instructions below under "Building VoidRender"
 
-VoidFinder will install like a normal python package via the shell command `python setup.py install`
+VoidFinder will install like a normal python package via the shell command 
+```
+python setup.py install
+```
 from the `/python/` directory (`Voids/VoidFinder/python/`).  And remember, this will attempt to install VoidFinder into the `site-packages` directory of whatever python environment you're using.  To check on that, in a normal unix shell you can type `which python` and it will give you a path like `/usr/bin/python` or `/opt/anaconda3/bin/python` which lets you know which python binary your `python` command actually points to.
 
 

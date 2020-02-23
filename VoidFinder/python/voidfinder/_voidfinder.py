@@ -55,20 +55,21 @@ import matplotlib.pyplot as plt
 
 
 
-def _main_hole_finder(void_grid_shape, 
-                      void_grid_edge_length, 
-                      hole_center_iter_dist,
-                      search_grid_edge_length,
-                      coord_min, 
-                      mask,
-                      mask_resolution,
-                      min_dist,
-                      max_dist,
-                      galaxy_coords,
-                      batch_size=1000,
-                      verbose=0,
-                      print_after=5.0,
-                      num_cpus=1):
+def _hole_finder(void_grid_shape, 
+                 void_grid_edge_length, 
+                 hole_center_iter_dist,
+                 search_grid_edge_length,
+                 coord_min, 
+                 mask,
+                 mask_resolution,
+                 min_dist,
+                 max_dist,
+                 galaxy_coords,
+                 batch_size=1000,
+                 verbose=0,
+                 print_after=5.0,
+                 num_cpus=1):
+    
     '''
     Description
     ===========
@@ -147,8 +148,8 @@ def _main_hole_finder(void_grid_shape,
         x,y,z coordinates of the N hole centers found in units of Mpc/h (cols 0,1,2)
         and Radii of the N holes found in units of Mpc/h
 
-    n_voids : scalar float
-        Number of voids found - note this number is prior to the void combining
+    n_holes : scalar float
+        Number of potential holes found - note this number is prior to the void combining
         stage so will not represent the final output of VoidFinder
     '''
 
@@ -164,45 +165,41 @@ def _main_hole_finder(void_grid_shape,
         #n_holes = None
         
         
-        x_y_z_r_array, n_voids = run_single_process_cython(void_grid_shape, 
-                                                           void_grid_edge_length, 
-                                                           hole_center_iter_dist,
-                                                           search_grid_edge_length,
-                                                           coord_min, 
-                                                           mask,
-                                                           mask_resolution,
-                                                           min_dist,
-                                                           max_dist,
-                                                           galaxy_coords,
-                                                           batch_size=batch_size,
-                                                           verbose=verbose,
-                                                           print_after=print_after,
-                                                           num_cpus=num_cpus
-                                                           )
-        
-        
-        return x_y_z_r_array, n_voids
-        
+        x_y_z_r_array, n_holes = _hole_finder_single_process(void_grid_shape, 
+                                                             void_grid_edge_length, 
+                                                             hole_center_iter_dist,
+                                                             search_grid_edge_length,
+                                                             coord_min, 
+                                                             mask,
+                                                             mask_resolution,
+                                                             min_dist,
+                                                             max_dist,
+                                                             galaxy_coords,
+                                                             batch_size=batch_size,
+                                                             verbose=verbose,
+                                                             print_after=print_after,
+                                                             num_cpus=num_cpus
+                                                             )
         
     else:
         
-        x_y_z_r_array, n_voids = run_multi_process(void_grid_shape, 
-                                                   void_grid_edge_length, 
-                                                   hole_center_iter_dist,
-                                                   search_grid_edge_length,
-                                                   coord_min, 
-                                                   mask,
-                                                   mask_resolution,
-                                                   min_dist,
-                                                   max_dist,
-                                                   galaxy_coords,
-                                                   batch_size=batch_size,
-                                                   verbose=verbose,
-                                                   print_after=print_after,
-                                                   num_cpus=num_cpus
-                                                   )
-        
-    return x_y_z_r_array, n_voids
+        x_y_z_r_array, n_holes = _hole_finder_multi_process(void_grid_shape, 
+                                                            void_grid_edge_length, 
+                                                            hole_center_iter_dist,
+                                                            search_grid_edge_length,
+                                                            coord_min, 
+                                                            mask,
+                                                            mask_resolution,
+                                                            min_dist,
+                                                            max_dist,
+                                                            galaxy_coords,
+                                                            batch_size=batch_size,
+                                                            verbose=verbose,
+                                                            print_after=print_after,
+                                                            num_cpus=num_cpus
+                                                            )
+
+    return x_y_z_r_array, n_holes
 
 
     
@@ -306,7 +303,7 @@ class CellIDGenerator(object):
         
 
     
-def run_single_process_cython(void_grid_shape, 
+def _hole_finder_single_process(void_grid_shape, 
                               void_grid_edge_length, 
                               hole_center_iter_dist,
                               search_grid_edge_length,
@@ -327,30 +324,6 @@ def run_single_process_cython(void_grid_shape,
         start_time = time.time()
         
         print("Running single-process mode", flush=True)
-    
-    ################################################################################
-    #
-    #   BUILD NEAREST-NEIGHBOR TREE
-    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing sklearn interface
-    #   nearest neighbor finder for the galaxies in x,y,z space
-    #
-    ################################################################################
-    '''
-    if verbose > 1:
-        
-        kdtree_start_time = time.time()
-        
-        
-    from sklearn import neighbors
-    
-    galaxy_kdtree = neighbors.KDTree(galaxy_coords)
-
-    galaxy_tree = GalaxyMap(galaxy_coords, coord_min, search_grid_edge_length)
-    
-    if verbose > 1:
-        
-        print('Galaxy Map creation time:', time.time() - kdtree_start_time, flush=True)
-    '''
         
     ################################################################################
     # An output counter for total number of holes found, and calculate the
@@ -364,15 +337,11 @@ def run_single_process_cython(void_grid_shape,
     ################################################################################
     mesh_indices = ((galaxy_coords - coord_min)/search_grid_edge_length).astype(np.int64)
         
-    #cell_ID_dict = {}
-        
     galaxy_map = {}
 
     for idx in range(mesh_indices.shape[0]):
 
         bin_ID = tuple(mesh_indices[idx])
-
-        #cell_ID_dict[bin_ID] = 1
         
         if bin_ID not in galaxy_map:
             
@@ -381,7 +350,6 @@ def run_single_process_cython(void_grid_shape,
         galaxy_map[bin_ID].append(idx)
         
     del mesh_indices
-    
     
     num_in_galaxy_map = len(galaxy_map)
         
@@ -451,18 +419,6 @@ def run_single_process_cython(void_grid_shape,
     ################################################################################
     # 
     ################################################################################
-    '''
-    mesh_indices = ((galaxy_coords - coord_min)/void_grid_edge_length).astype(np.int64)
-        
-    cell_ID_dict = {}
-        
-    for idx in range(mesh_indices.shape[0]):
-
-        bin_ID = tuple(mesh_indices[idx])
-
-        cell_ID_dict[bin_ID] = 1
-    
-    '''
     
     galaxy_tree = GalaxyMap(galaxy_coords, 
                             coord_min, 
@@ -475,8 +431,6 @@ def run_single_process_cython(void_grid_shape,
     ################################################################################
     # Create the Cell ID generator
     ################################################################################
-    
-    
     
     start_idx = 0
     
@@ -710,28 +664,28 @@ def run_single_process_cython(void_grid_shape,
     
 
 
-def run_multi_process(ngrid, 
-                      dl, 
-                      dr,
-                      search_grid_edge_length,
-                      coord_min, 
-                      mask,
-                      mask_resolution,
-                      min_dist,
-                      max_dist,
-                      w_coord,
-                      batch_size=1000,
-                      verbose=0,
-                      print_after=10000,
-                      num_cpus=None,
-                      CONFIG_PATH="/tmp/voidfinder_config.pickle",
-                      SOCKET_PATH="/tmp/voidfinder.sock",
-                      #RESULT_BUFFER_PATH="/tmp/voidfinder_result_buffer.dat",
-                      CELL_ID_BUFFER_PATH="/tmp/voidfinder_cell_ID_gen.dat",
-                      PROFILE_BUFFER_PATH="/tmp/voidfinder_profile_buffer.dat",
-                      RESOURCE_DIR="/dev/shm",
-                      DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
-                      ):
+def _hole_finder_multi_process(ngrid, 
+                               dl, 
+                               dr,
+                               search_grid_edge_length,
+                               coord_min, 
+                               mask,
+                               mask_resolution,
+                               min_dist,
+                               max_dist,
+                               w_coord,
+                               batch_size=1000,
+                               verbose=0,
+                               print_after=10000,
+                               num_cpus=None,
+                               CONFIG_PATH="/tmp/voidfinder_config.pickle",
+                               SOCKET_PATH="/tmp/voidfinder.sock",
+                               #RESULT_BUFFER_PATH="/tmp/voidfinder_result_buffer.dat",
+                               CELL_ID_BUFFER_PATH="/tmp/voidfinder_cell_ID_gen.dat",
+                               PROFILE_BUFFER_PATH="/tmp/voidfinder_profile_buffer.dat",
+                               RESOURCE_DIR="/dev/shm",
+                               DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
+                               ):
     """
     Work-horse method for running VoidFinder with the Cython code in parallel
     multi-process form.  Currently a little bitch because there is some kind of
@@ -750,14 +704,10 @@ def run_multi_process(ngrid,
     8). DEBUG - Make some plots of processing timings
     
     
-    TODO: Replace the cell_ID_dict with the galaxy_map, they both have the same exact
-          cell ID keys in them
-          
-          
-    TODO: Add a check that /dev/shm actually exists, if not fall back to /tmp?
     """
     
     if verbose > 0:
+        
         start_time = time.time()
         
     if not os.path.isdir(RESOURCE_DIR):
@@ -765,7 +715,6 @@ def run_multi_process(ngrid,
         print("WARNING: RESOURCE DIR ", RESOURCE_DIR, "does not exist.  Falling back to /tmp but could be slow", flush=True)
         
         RESOURCE_DIR = "/tmp"
-        
         
     
     ################################################################################
@@ -834,8 +783,6 @@ def run_multi_process(ngrid,
     w_coord = np.frombuffer(w_coord_buffer, dtype=np.float64)
     
     w_coord.shape = (num_galaxies, 3)
-    
-    #os.close(w_coord_fd)
     
     os.unlink(WCOORD_BUFFER_PATH)
         
@@ -1007,10 +954,6 @@ def run_multi_process(ngrid,
         
         print("Result array memmap: ", RESULT_BUFFER_PATH, result_fd, flush=True)
     
-    #result_fd = os.open(RESULT_BUFFER_PATH, os.O_TRUNC | os.O_CREAT | os.O_RDWR | os.O_CLOEXEC)
-    
-    #os.unlink(RESULT_BUFFER_PATH)
-    
     result_buffer_length = n_empty_cells*4*8
     
     os.ftruncate(result_fd, result_buffer_length)
@@ -1124,8 +1067,6 @@ def run_multi_process(ngrid,
             if is_socket:
         
                 os.remove(SOCKET_PATH)
-                
-                print("CLEANING UP MAIN SOCKET")
         
     def cleanup_result():
         
@@ -1184,12 +1125,6 @@ def run_multi_process(ngrid,
     
     listener_socket.listen(num_cpus)
     
-    
-    #print("TEST SPOT")
-    
-    #time.sleep(30.0)
-    
-    
     startup_context = multiprocessing.get_context("fork")
         
     processes = []
@@ -1197,7 +1132,7 @@ def run_multi_process(ngrid,
     for proc_idx in range(num_cpus):
         
         #p = startup_context.Process(target=_main_hole_finder_startup, args=(proc_idx, CONFIG_PATH))
-        p = startup_context.Process(target=_main_hole_finder_worker, 
+        p = startup_context.Process(target=_hole_finder_worker, 
                                     args=(proc_idx, 
                                           ijk_start, 
                                           write_start, 
@@ -1232,8 +1167,6 @@ def run_multi_process(ngrid,
     
     for idx in range(num_cpus):
         
-        #print("Waiting for connection: ", idx)
-        
         try:
             
             worker_sock, worker_addr = listener_socket.accept()
@@ -1252,12 +1185,12 @@ def run_multi_process(ngrid,
         
         socket_index[worker_sock.fileno()] = idx
         
+        
     if verbose > 0:
         
         if all_successful_connections:
             
             print("Worker processes time to connect: ", time.time() - worker_start_time, flush=True)
-    
     
     
     listener_socket.shutdown(socket.SHUT_RDWR)
@@ -1286,13 +1219,8 @@ def run_multi_process(ngrid,
         
         print("FAILED TO CONNECT ALL WORKERS SUCCESSFULLY, EXITING")
             
-        exit()
+        raise RunTimeError("Worker sockets failed to connect properly")
         
-        
-    
-    #cleanup_config()
-    
-    #os.unlink(CONFIG_PATH)
     
     ################################################################################
     # PROFILING VARIABLES
@@ -1516,6 +1444,12 @@ def run_multi_process(ngrid,
     # traceback for some reason.
     ################################################################################
     result_buffer.close()
+    
+    gma_buffer.close()
+    
+    lookup_buffer.close()
+    
+    w_coord_buffer.close()
         
     return valid_result_array, n_holes
                     
@@ -1576,7 +1510,7 @@ def process_message_buffer(curr_message_buffer):
     
     
     
-def _main_hole_finder_profile(worker_idx, ijk_start, write_start, config_path):
+def _hole_finder_worker_profile(worker_idx, ijk_start, write_start, config_path):
     """
     Helper used in profiling the worker processes.
     """
@@ -1584,19 +1518,44 @@ def _main_hole_finder_profile(worker_idx, ijk_start, write_start, config_path):
     cProfile.runctx("_main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path)", globals(), locals(), 'prof%d.prof' %worker_idx)
     
 
-def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
+def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
+    """
+    Description
+    ===========
+    
+    Worker process for the _hole_finder_multi_process function above.
+    
+    
+    Parameters
+    ==========
+    
+    worker_idx : int
+       ID number for this worker
+       
+    ijk_start : multiprocessing.Value, integer
+        locked value for synchronizing access to cell ID generation
+        
+    write_start : multiprocessing.Value, integer
+        locked value for synchronizing access to writing to the output buffer
+        
+    config : dict
+        configuration values for running this worker
+        
+        
+    Returns
+    =======
+    
+    Writes out x,y,z and radius values to result buffer directly via
+    shared memory.
+    
+    Sends update messages to master process over socket for number
+    of cells which have been processed.
+    """
     
     
     ################################################################################
     # Unpack the configuration from the master process.
     ################################################################################
-    '''
-    infile = open(config_path, 'rb')
-    
-    config = pickle.load(infile)
-    
-    infile.close()
-    '''
     
     SOCKET_PATH = config["SOCKET_PATH"]
     RESULT_BUFFER_PATH = config["RESULT_BUFFER_PATH"]
@@ -1612,8 +1571,6 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     next_prime = config["next_prime"]
     CELL_ID_BUFFER_PATH = config["CELL_ID_BUFFER_PATH"]
     PROFILE_BUFFER_PATH = config["PROFILE_BUFFER_PATH"]
-    #cell_ID_dict = config["cell_ID_dict"]
-    #galaxy_map = config["galaxy_map"]
     num_in_galaxy_map = config["num_in_galaxy_map"]
     ngrid = config["ngrid"]
     dl = config["dl"]
@@ -1623,7 +1580,6 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     mask_resolution = config["mask_resolution"]
     min_dist = config["min_dist"]
     max_dist = config["max_dist"]
-    #w_coord = config[13]
     batch_size = config["batch_size"]
     verbose = config["verbose"]
     print_after = config["print_after"]
@@ -1632,8 +1588,6 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     DEBUG_DIR = config["DEBUG_DIR"]
 
 
-    #print("WORKER EXITING FOR DEBUG")
-    #exit()
 
     worker_socket = socket.socket(socket.AF_UNIX)
     
