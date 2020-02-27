@@ -713,6 +713,7 @@ def find_voids(galaxy_coords_xyz,
                mask_resolution,
                coords_min,
                hole_grid_shape,
+               survey_name,
                hole_grid_edge_length=5.0,
                galaxy_map_grid_edge_length=None,
                hole_center_iter_dist=1.0,
@@ -720,6 +721,8 @@ def find_voids(galaxy_coords_xyz,
                void_table_filename="voids_table.txt",
                potential_voids_filename="potential_voids_list.txt",
                num_cpus=None,
+               save_after=None,
+               use_start_checkpoint=False,
                batch_size=10000,
                verbose=1,
                print_after=5.0,
@@ -806,6 +809,10 @@ def find_voids(galaxy_coords_xyz,
         distance between 2 grid cells
         (xyz space)
         
+    survey_name : str
+        identifier for the survey running, may be prepended or appended
+        to output filenames including the checkpoint filename
+        
     galaxy_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor
         galaxies.  If None, will default to 3*hole_grid_edge_length (which results
@@ -835,6 +842,25 @@ def find_voids(galaxy_coords_xyz,
         may be obtained from using additional logical cores via Intel Hyperthreading
         but with diminishing returns.  This can safely be set above the number of 
         physical cores without issue if desired.
+        
+    save_after : int or None
+        save a VoidFinderCheckpoint.h5 file after *approximately* every save_after
+        cells have been processed.  This will over-write this checkpoint file every
+        save_after cells, NOT append to it.  Also, saving the checkpoint file forces
+        the worker processes to pause and synchronize with the master process to ensure
+        the correct values get written, so choose a good balance between saving
+        too often and not often enough if using this parameter.  Note that it is
+        an approximate value because it depends on the number of worker processes and
+        the provided batch_size value, if you batch size is 10,000 and your save_after
+        is 1,000,000 you might actually get a checkpoint at say 1,030,000.
+        if None, disables saving the checkpoint file
+        
+    
+    use_start_checkpoint : bool
+        Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can be used to 
+        restart the VF run
+        if False, VoidFinder will start fresh from 0    
+    
         
     batch_size : int
         number of potential void cells to evaluate at a time.  Lower values may be a
@@ -888,6 +914,9 @@ def find_voids(galaxy_coords_xyz,
                                            dist_limits[0],
                                            dist_limits[1],
                                            galaxy_coords_xyz,
+                                           survey_name,
+                                           save_after=save_after,
+                                           use_start_checkpoint=use_start_checkpoint,
                                            batch_size=batch_size,
                                            verbose=verbose,
                                            print_after=print_after,
