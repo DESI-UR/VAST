@@ -30,9 +30,9 @@
 #
 ################################################################################
 
+from voidfinder import find_voids, \
+                       filter_galaxies_2
 
-
-from voidfinder import filter_galaxies, find_voids
 from voidfinder.multizmask import generate_mask
 from voidfinder.preprocessing import file_preprocess
 from voidfinder.table_functions import to_vector, to_array
@@ -40,6 +40,9 @@ from voidfinder.table_functions import to_vector, to_array
 from astropy.table import Table
 import pickle
 import numpy as np
+
+
+
 
 
 ################################################################################
@@ -100,9 +103,12 @@ elif survey_name == 'SDSS_dr12_':
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
 #mag_cut = False
 
+
 # Uncomment if you do NOT want to remove isolated galaxies
 #rm_isolated = False
 #-------------------------------------------------------------------------------
+
+
 
 
 ################################################################################
@@ -111,9 +117,12 @@ elif survey_name == 'SDSS_dr12_':
 #
 ################################################################################
 
-
-galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, in_directory, out_directory, min_z=min_z, max_z=max_z)
-
+galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, 
+                                                                               in_directory, 
+                                                                               out_directory, 
+                                                                               min_z=min_z, 
+                                                                               max_z=max_z,
+                                                                               verbose=1)
 
 ################################################################################
 #
@@ -121,14 +130,13 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
 #
 ################################################################################
 
+mask, mask_resolution = generate_mask(galaxy_data_table, 
+                                      verbose=1)
 
-mask, mask_resolution = generate_mask(galaxy_data_table)
 
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
 pickle.dump((mask, mask_resolution), temp_outfile)
 temp_outfile.close()
-
-
 
 ################################################################################
 #
@@ -136,21 +144,20 @@ temp_outfile.close()
 #
 ################################################################################
 
-
 temp_infile = open(survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies_2(galaxy_data_table,
+                                                                                   survey_name,
+                                                                                   verbose=1)
 
-coord_min_table, grid_shape = filter_galaxies(galaxy_data_table, 
-                                              survey_name)
+del galaxy_data_table
 
 
 temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
-pickle.dump((coord_min_table, mask, grid_shape), temp_outfile)
+pickle.dump((wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min), temp_outfile)
 temp_outfile.close()
-
-
 
 
 
@@ -162,29 +169,22 @@ temp_outfile.close()
 
 
 temp_infile = open(survey_name + "filter_galaxies_output.pickle", 'rb')
-coord_min_table, mask, grid_shape = pickle.load(temp_infile)
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = pickle.load(temp_infile)
 temp_infile.close()
 
 
 
-
-w_coord_table = Table.read(survey_name + 'wall_gal_file.txt', format='ascii.commented_header')
-
-galaxy_coords = to_array(w_coord_table)
-
-coord_min = to_vector(coord_min_table)
-
-
-
-
-find_voids(grid_shape, 
+find_voids(wall_coords_xyz, 
            dist_limits,
-           galaxy_coords,
-           coord_min, 
            mask, 
            mask_resolution,
-           void_grid_edge_length=5,
-           search_grid_edge_length=None,
+           coords_min,
+           hole_grid_shape,
+           survey_name,
+           save_after=50000,
+           use_start_checkpoint=True,
+           hole_grid_edge_length=5.0,
+           galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,
            maximal_spheres_filename=out1_filename,
            void_table_filename=out2_filename,

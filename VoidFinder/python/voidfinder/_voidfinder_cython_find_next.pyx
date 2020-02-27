@@ -816,7 +816,7 @@ cdef class GalaxyMapCustomDict:
     Since ijk are limited to uint16 right now that means a maximum grid of
     shape (65536, 65536, 65536), or 2.8*10^14 (2^48) grid locations.  
                                             
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
     cdef LOOKUPMEM_t[:] lookup_memory
     cdef DTYPE_INT64_t mem_length
     """
@@ -828,6 +828,8 @@ cdef class GalaxyMapCustomDict:
             self.i_dim = grid_dimensions[0]
             self.j_dim = grid_dimensions[1]
             self.k_dim = grid_dimensions[2]
+            
+            self.jk_mod = self.j_dim*self.k_dim
             
             #print("GALAXYMAPCUSTOMDICT: ", np.asarray(self.lookup_memory))
             #print("GALAXYMAPCUSTOMDICT: ", lookup_memory.shape, lookup_memory.dtype)
@@ -851,11 +853,18 @@ cdef class GalaxyMapCustomDict:
                                    CELL_ID_t i, 
                                    CELL_ID_t j, 
                                    CELL_ID_t k):
+        """
+        Given a cell ID (i,j,k), calculate its hash address in our
+        memory array.  Uses the natural grid cell ordering
+        0->(0,0,0), 1->(0,0,1), 2->(0,0,2) etc, to calculate the sequential
+        grid cell index, then takes that value modulus of the number of slots
+        in the memory array.
+        """
         
         cdef DTYPE_INT64_t index
         cdef DTYPE_INT64_t hash_addr
         
-        index = self.j_dim * self.k_dim * <DTYPE_INT64_t>i + \
+        index = self.jk_mod * <DTYPE_INT64_t>i + \
                 self.k_dim * <DTYPE_INT64_t>j + \
                 <DTYPE_INT64_t>k
         
@@ -1371,14 +1380,32 @@ cdef class GalaxyMap:
 
     
 cdef class Cell_ID_Memory:
+    """
+    Description
+    ===========
+    
+    This class is essentially a wrapper to the memory that holds the 
+    (i,j,k) cell IDs that need to be searched.
+    
+    Through the course of running VoidFinder on an algorithm, searching adjacent
+    grid cells at the various (i,j,k) locations will require unknown amounts of memory,
+    so this class comes with a resize() method.  During a run, the memory held by this class
+    will grow larger and larger, but ultimately there has to be 1 galaxy in the survey whose
+    grid search for the next nearest neighbor is the farthest.  If this distance possible to 
+    compute ahead of time, we would just pre-allocate that many rows, but that would be a 
+    very expensive overhead so instead we provide the resize() method.  In practice the number
+    of resizes is very small and quickly converges to a reasonable limit.
+    
+    For example, if the largest grid size that needs to be searched is 50 cells wide we need
+    50^3 = 125,000 slots (times 3 for ijk and times sizeof(CELL_ID_t) total bytes, so 750kb for
+    a 50x50x50 grid search)
+    """
 
     #cdef DTYPE_INT64_t* data
 
     def __cinit__(self, size_t num_rows):
+        
         # allocate some memory (uninitialised, may contain arbitrary data)
-        
-        #print("Initializing memory", number)
-        
         self.data = <CELL_ID_t*> PyMem_Malloc(num_rows * 3 * sizeof(CELL_ID_t))
         
         if not self.data:
@@ -1390,17 +1417,19 @@ cdef class Cell_ID_Memory:
         #print("Initialized!")
 
     def resize(self, size_t num_rows):
-        # Allocates new_number * sizeof(double) bytes,
-        # preserving the current content and making a best-effort to
-        # re-use the original data location.
+        """
+        Allocates num_rows * 3 * sizeof(CELL_ID_t) bytes,
+        -PRESERVING THE CURRENT CONTENT- and making a best-effort to
+        re-use the original data location.
+        """
         
-        #print("Reinitializing memory to: ", num_rows)
         
         mem = <CELL_ID_t*> PyMem_Realloc(self.data, num_rows * 3 * sizeof(CELL_ID_t))
         
         if not mem:
             
             raise MemoryError()
+        
         # Only overwrite the pointer if the memory was really reallocated.
         # On error (mem is NULL), the originally memory has not been freed.
         self.data = mem
@@ -1434,7 +1463,9 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
                               ):
     """
     Description
-    -----------
+    ===========
+    
+    Only called once in _voidfinder_cython.main_algorithm()
     
     Finds first nearest neighbor for the given reference point
     
@@ -1446,7 +1477,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
     
     
     Parameters
-    ----------
+    ==========
     
     reference_point_xyz : ndarray of shape (1,3)
         the point in xyz coordinates of whom we would like to find
@@ -1454,15 +1485,18 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
         
     """
     
-    #print("query_first start")
+    
+    ################################################################################
+    # Convert our query point from xyz to ijk space
+    ################################################################################
     
     reference_point_ijk[0,0] = <DTYPE_INT64_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
     reference_point_ijk[0,1] = <DTYPE_INT64_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
     reference_point_ijk[0,2] = <DTYPE_INT64_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
     
-    
-    #print("Made it hurr")
-    
+    ################################################################################
+    # All the variables we need cdef'd
+    ################################################################################
     cdef DTYPE_INT64_t current_shell = -1
     
     cdef DTYPE_B_t check_next_shell = True
@@ -1500,11 +1534,11 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
     
     cdef DTYPE_INT64_t id1, id2, id3
     
-    
+    ################################################################################
+    # Iterate through the grid cells shell-by-shell growing outwards until we find
+    # the nearest neighbor to our reference_point_xyz
+    ################################################################################
     while check_next_shell:
-        
-        
-        #print("whaaaaaaaaaat")
         
         current_shell += 1
         
@@ -1523,21 +1557,13 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
                                   cell_ID_mem,
                                   galaxy_map)
         
-        #print("Poopydedoo")
-        
         for cell_ID_idx in range(<ITYPE_t>num_cell_IDs):
-            
-            
             
             id1 = cell_ID_mem.data[3*cell_ID_idx]
             id2 = cell_ID_mem.data[3*cell_ID_idx+1]
             id3 = cell_ID_mem.data[3*cell_ID_idx+2]
             
             
-            #cell_ID = tuple(cell_ID_mem[cell_ID_idx])
-            #cell_ID = (id1, id2, id3)
-            
-            #if cell_ID in galaxy_map:
             if galaxy_map.contains(id1, id2, id3):
                 
                 #offset, num_elements = galaxy_map[cell_ID]
@@ -1548,37 +1574,20 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
                 
                 num_elements = curr_offset_num_pair.num_elements
                 
-                
-                #potential_neighbor_idxs = galaxy_map_array[offset:offset+num]
-                
-                #for idx in range(potential_neighbor_idxs.shape[0]):
                 for idx in range(num_elements):
                     
-                    #potential_neighbor_idx = potential_neighbor_idxs[idx]
                     potential_neighbor_idx = <ITYPE_t>galaxy_map_array[offset+idx]
                     
-                    
-                    #print("duck")
-                    
                     potential_neighbor_xyz = w_coord[potential_neighbor_idx]
-                    
-                    #print('pirate')
-                    
-                    #print(type(potential_neighbor_xyz), type(reference_point_xyz))
                     
                     temp1 = potential_neighbor_xyz[0] - reference_point_xyz[0,0]
                     temp2 = potential_neighbor_xyz[1] - reference_point_xyz[0,1]
                     temp3 = potential_neighbor_xyz[2] - reference_point_xyz[0,2]
                     
-                    #dist_sq = np.sum((potential_neighbor_xyz - reference_point_xyz)**2)
-                    
                     dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
                     
-                    #print("potato")
                     
                     if dist_sq < neighbor_dist_xyz_sq:
-                        
-                        #print("quack")
                         
                         neighbor_idx = potential_neighbor_idx
                         
@@ -1596,13 +1605,10 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
                             #Don't break loop cause there could still be someone
                             #closer in this shell
                     
+                    
     return_vals.idx = neighbor_idx
+    
     return_vals.dist = neighbor_dist_xyz
-    #return neighbor_dist_xyz, neighbor_idx
-    
-    
-    #print("query_first end")
-    
     
     return return_vals
                     
@@ -1626,7 +1632,14 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
                                     DTYPE_F64_t search_radius_xyz
                                     ):
     """
+    Description
+    ===========
+    
+    Only called once in find_next_galaxy()
+    
     Find all the neighbors within a given radius of a reference point.
+    
+    
     """
     
     
@@ -1862,11 +1875,22 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
                               Cell_ID_Memory cell_ID_mem,
                               GalaxyMapCustomDict galaxy_map,
                               ):
+    """
+    Description
+    ===========
     
     
-    #if level == 0:
-        
-    #    return center_ijk
+    
+    Generate all the possible locations in the "shell" defined by the level parameter.
+    
+    
+    Notes
+    =====
+    
+    Only called once in _query_first()
+    
+    """
+    
     
     
     cdef ITYPE_t out_idx = 0
@@ -1879,11 +1903,28 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
     
     cdef DTYPE_INT64_t num_written = 0
     
+    
+    ################################################################################
+    # We can precompute how many rows we need for this shell generation to be
+    # successful, so if necessary resize the cell_ID_mem to be big enough
+    # to hold the data.
+    #
+    # Note that we may use less than this number of rows due to the
+    # galaxy_map.contains() filtering out some grid cells
+    #
+    # Also - cool trick, turns out PyMem_Realloc PRESERVES THE EXISTING DATA!
+    # So gonna use this to optimize the cell_ID_mem cell generation
+    ################################################################################
     if cell_ID_mem.num_rows < num_return_rows:
     
-        #print("Cell ID mem resizing to: ", num_return_rows)
-        #return_array = np.empty((num_return, 3), dtype=np.int64)
         cell_ID_mem.resize(num_return_rows)
+    
+    
+    ################################################################################
+    # Iterate through the possible shell locations, starting with the i dimension
+    # this iteration does all the cells in the 
+    ################################################################################
+    
     
     #i first
     for j in range(-level, level+1):
@@ -2015,6 +2056,13 @@ cdef DTYPE_INT64_t _gen_cube(DTYPE_INT64_t[:,:] center_ijk,
                              Cell_ID_Memory cell_ID_mem,
                              GalaxyMapCustomDict galaxy_map
                              ):
+    """
+    Description
+    ===========
+    
+    Only called once in _query_shell_radius
+    
+    """
     
     
     #if level == 0:

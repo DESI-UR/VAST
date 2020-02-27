@@ -2,13 +2,22 @@
 
 
 
+
 cimport cython
 import numpy as np
 cimport numpy as np
 np.import_array()  # required in order to use C-API
 
 
-from typedefs cimport DTYPE_CP128_t, DTYPE_CP64_t, DTYPE_F64_t, DTYPE_F32_t, DTYPE_B_t, ITYPE_t, DTYPE_INT32_t, DTYPE_INT64_t
+from typedefs cimport DTYPE_CP128_t, \
+                      DTYPE_CP64_t, \
+                      DTYPE_F64_t, \
+                      DTYPE_F32_t, \
+                      DTYPE_B_t, \
+                      ITYPE_t, \
+                      DTYPE_INT32_t, \
+                      DTYPE_INT64_t, \
+                      DTYPE_INT8_t
 
 from numpy.math cimport NAN, INFINITY
 
@@ -36,6 +45,108 @@ import time
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
+cpdef DTYPE_INT64_t fill_ijk_2(DTYPE_INT64_t[:,:] i_j_k_array,
+                             DTYPE_INT64_t start_idx,
+                             DTYPE_INT64_t batch_size,
+                             DTYPE_INT64_t i_lim,
+                             DTYPE_INT64_t j_lim,
+                             DTYPE_INT64_t k_lim,
+                             GalaxyMapCustomDict cell_ID_dict
+                             ) except *:
+    """
+    We are given a block of batch_size indices to attempt to put
+    into the ijk array.  In order to stay synced with the main
+    process-shared counter, we can ONLY return indices from this block
+    of batch_size.
+    """
+    
+    
+    cdef DTYPE_INT64_t i, j, k, remainder
+    
+    cdef DTYPE_INT8_t i_mod, j_mod
+    
+    cdef DTYPE_INT64_t num_out = 0
+    
+    cdef DTYPE_INT64_t num_attempt = 0
+    
+    cdef DTYPE_B_t skip_this_index
+    
+    while num_attempt < batch_size:
+        
+        if start_idx >= i_lim*j_lim*k_lim:
+            
+            return num_out
+        
+        i = start_idx/(j_lim*k_lim)
+    
+        remainder = start_idx % (j_lim*k_lim)
+        
+        i_mod = i % 2
+            
+        if i_mod == 0:
+            
+            j = remainder/k_lim
+            
+            j_mod = j % 2
+            
+            if j_mod == 0:
+        
+                k = remainder % k_lim
+                
+            else:
+                
+                k = k_lim - 1 - (remainder % k_lim)
+                
+        else:
+            
+            j = j_lim - 1 - (remainder/k_lim)
+            
+            j_mod = j % 2
+            
+            if j_mod == 0:
+                
+                k = k_lim - 1 - (remainder % k_lim)
+                
+            else:
+        
+                k = remainder % k_lim
+                
+        #skip_this_index = (i,j,k) in cell_ID_dict
+        
+        skip_this_index = cell_ID_dict.contains(i,j,k)
+        
+        if not skip_this_index:
+        
+            i_j_k_array[num_out, 0] = i
+            i_j_k_array[num_out, 1] = j
+            i_j_k_array[num_out, 2] = k
+            
+            num_out += 1
+            
+        start_idx += 1
+        
+        num_attempt += 1
+        
+        
+        
+            
+    return num_out   
+
+
+
+
+
+
+
+
+
+
+#copy of the original fill_ijk just to keep around until
+#the new one is fully tested
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
 cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
                              DTYPE_INT64_t i,
                              DTYPE_INT64_t j,
@@ -46,7 +157,11 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
                              DTYPE_INT64_t k_lim,
                              GalaxyMapCustomDict cell_ID_dict
                              ) except *:
-                    
+    
+    
+    
+    
+    
                     
     if i >= i_lim or j >= j_lim or k >= k_lim:
         return 0
@@ -109,6 +224,7 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
@@ -130,15 +246,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                           #DTYPE_F32_t[:,:] PROFILE_ARRAY
                           ) except *:
     '''
+    Description
+    ===========
     
-    
-    cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
-    
-    ) except *:
-    
-    
-    Description:
-    ============
     Given a potential void cell center denoted by i,j,k, find the 4 bounding galaxies
     that maximize the interior dimensions of the void sphere at this location.
     
@@ -154,10 +264,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     found by propogating a hole center in specific directions and minimizing a ratio of two other
     distance-metric-like values.  This needs more detail on how and why.
     
+    
     Parameters:
     ===========
     
     Fill in later
+    
     
     Returns:
     ========

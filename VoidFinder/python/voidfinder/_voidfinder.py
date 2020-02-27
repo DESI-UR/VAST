@@ -14,6 +14,7 @@ import atexit
 import signal
 import tempfile
 import multiprocessing
+import h5py
 from psutil import cpu_count
 
 
@@ -26,7 +27,8 @@ import time
 from .voidfinder_functions import not_in_mask
 
 from ._voidfinder_cython import main_algorithm, \
-                                fill_ijk
+                                fill_ijk, \
+                                fill_ijk_2
 
 
 from ._voidfinder_cython_find_next import GalaxyMap, \
@@ -55,20 +57,30 @@ import matplotlib.pyplot as plt
 
 
 
-def _main_hole_finder(void_grid_shape, 
-                      void_grid_edge_length, 
-                      hole_center_iter_dist,
-                      search_grid_edge_length,
-                      coord_min, 
-                      mask,
-                      mask_resolution,
-                      min_dist,
-                      max_dist,
-                      galaxy_coords,
-                      batch_size=1000,
-                      verbose=0,
-                      print_after=5.0,
-                      num_cpus=1):
+
+from sklearn.manifold import TSNE
+import hdbscan
+
+
+
+def _hole_finder(void_grid_shape, 
+                 void_grid_edge_length, 
+                 hole_center_iter_dist,
+                 search_grid_edge_length,
+                 coord_min, 
+                 mask,
+                 mask_resolution,
+                 min_dist,
+                 max_dist,
+                 galaxy_coords,
+                 survey_name,
+                 save_after=None,
+                 use_start_checkpoint=False,
+                 batch_size=1000,
+                 verbose=0,
+                 print_after=5.0,
+                 num_cpus=1):
+    
     '''
     Description
     ===========
@@ -123,6 +135,29 @@ def _main_hole_finder(void_grid_shape,
     galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
         coordinates of the galaxies in the survey, units of Mpc/h
         (xyz space)
+        
+    survey_name : str
+        identifier for the survey running, may be prepended or appended
+        to output filenames including the checkpoint filename
+        
+        
+    save_after : int or None
+        save a VoidFinderCheckpoint.h5 file after *approximately* every save_after
+        cells have been processed.  This will over-write this checkpoint file every
+        save_after cells, NOT append to it.  Also, saving the checkpoint file forces
+        the worker processes to pause and synchronize with the master process to ensure
+        the correct values get written, so choose a good balance between saving
+        too often and not often enough if using this parameter.  Note that it is
+        an approximate value because it depends on the number of worker processes and
+        the provided batch_size value, if you batch size is 10,000 and your save_after
+        is 1,000,000 you might actually get a checkpoint at say 1,030,000.
+        if None, disables saving the checkpoint file
+        
+    
+    use_start_checkpoint : bool
+        Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can be used to 
+        restart the VF run
+        if False, VoidFinder will start fresh from 0    
 
     batch_size : scalar float
         Number of empty cells to pass into each process.  Initialized to 1000.
@@ -147,10 +182,53 @@ def _main_hole_finder(void_grid_shape,
         x,y,z coordinates of the N hole centers found in units of Mpc/h (cols 0,1,2)
         and Radii of the N holes found in units of Mpc/h
 
-    n_voids : scalar float
-        Number of voids found - note this number is prior to the void combining
+    n_holes : scalar float
+        Number of potential holes found - note this number is prior to the void combining
         stage so will not represent the final output of VoidFinder
     '''
+
+
+    '''
+    #ijk reordertest
+    
+    batch_size = 126
+    
+    start_idx = 0
+
+    test_cell_ID_dict = {(4,4,0) : 1,
+                         (0,2,4) : 1}
+    
+    i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
+
+    test_gen = CellIDGenerator(5,5,5,test_cell_ID_dict)
+    
+    num_write = test_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
+
+    print("num_write: ", num_write)
+    
+    for idx, row in enumerate(i_j_k_array):
+        
+        print(idx, row)
+    
+    
+    print("Start idx 10")
+    
+    num_write = test_gen.gen_cell_ID_batch(10, 10, i_j_k_array)
+    
+    print(num_write)
+    print(i_j_k_array[0:10])
+    
+    print("Start idx 125")
+    
+    num_write = test_gen.gen_cell_ID_batch(126, 10, i_j_k_array)
+    
+    print(num_write)
+    
+    exit()
+    '''
+
+
+
 
     ################################################################################
     # Run single or multi-processed
@@ -164,428 +242,129 @@ def _main_hole_finder(void_grid_shape,
         #n_holes = None
         
         
-        x_y_z_r_array, n_voids = run_single_process_cython(void_grid_shape, 
-                                                           void_grid_edge_length, 
-                                                           hole_center_iter_dist,
-                                                           search_grid_edge_length,
-                                                           coord_min, 
-                                                           mask,
-                                                           mask_resolution,
-                                                           min_dist,
-                                                           max_dist,
-                                                           galaxy_coords,
-                                                           batch_size=batch_size,
-                                                           verbose=verbose,
-                                                           print_after=print_after,
-                                                           num_cpus=num_cpus
-                                                           )
-        
-        
-        return x_y_z_r_array, n_voids
-        
+        x_y_z_r_array, n_holes = _hole_finder_single_process(void_grid_shape, 
+                                                             void_grid_edge_length, 
+                                                             hole_center_iter_dist,
+                                                             search_grid_edge_length,
+                                                             coord_min, 
+                                                             mask,
+                                                             mask_resolution,
+                                                             min_dist,
+                                                             max_dist,
+                                                             galaxy_coords,
+                                                             survey_name,
+                                                             save_after=save_after,
+                                                             use_start_checkpoint=use_start_checkpoint,
+                                                             batch_size=batch_size,
+                                                             verbose=verbose,
+                                                             print_after=print_after,
+                                                             num_cpus=num_cpus
+                                                             )
         
     else:
         
-        x_y_z_r_array, n_voids = run_multi_process(void_grid_shape, 
-                                                   void_grid_edge_length, 
-                                                   hole_center_iter_dist,
-                                                   search_grid_edge_length,
-                                                   coord_min, 
-                                                   mask,
-                                                   mask_resolution,
-                                                   min_dist,
-                                                   max_dist,
-                                                   galaxy_coords,
-                                                   batch_size=batch_size,
-                                                   verbose=verbose,
-                                                   print_after=print_after,
-                                                   num_cpus=num_cpus
-                                                   )
+        x_y_z_r_array, n_holes = _hole_finder_multi_process(void_grid_shape, 
+                                                            void_grid_edge_length, 
+                                                            hole_center_iter_dist,
+                                                            search_grid_edge_length,
+                                                            coord_min, 
+                                                            mask,
+                                                            mask_resolution,
+                                                            min_dist,
+                                                            max_dist,
+                                                            galaxy_coords,
+                                                            survey_name,
+                                                            save_after=save_after,
+                                                            use_start_checkpoint=use_start_checkpoint,
+                                                            batch_size=batch_size,
+                                                            verbose=verbose,
+                                                            print_after=print_after,
+                                                            num_cpus=num_cpus
+                                                            )
+
+    return x_y_z_r_array, n_holes
+
+
+    
+    
         
-    return x_y_z_r_array, n_voids
-
-
-    
-    
-
+        
+        
+        
 class CellIDGenerator(object):
+    """
+    This class generates an array of 'batch_size' (i,j,k) cell IDs from the
+    VoidFinder search grid, for the main VoidFinder algorithm to run on.
     
-    def __init__(self, grid_dim_1, grid_dim_2, grid_dim_3, cell_ID_dict, start_from=None, stop_after=None):
-        
-        self.num_grid_1 = grid_dim_1
-        self.num_grid_2 = grid_dim_2
-        self.num_grid_3 = grid_dim_3
-        
-        #self.i = -1
-        #self.j = -1
-        #self.k = -1
-        
-        self.i = Value(c_int64, -1, lock=False) #we will protect all access with a lock in the next method
-        self.j = Value(c_int64, -1, lock=False)
-        self.k = Value(c_int64, -1, lock=False)
-        
-        self.out_idx = Value(c_int64, 0, lock=False)
-        
-        self.cell_ID_dict = cell_ID_dict
-        
-        self.lock = RLock()
-        
-        self.num_returned = 0
-        
-        self.stop_after = stop_after
-        
-        #Can't calculate ijk using moduluses because it isnt a 1-to-1
-        #calculation because some positions get skipped over due to known
-        #empties
-        if start_from is not None:
-            
-            self.start_from = start_from
-            
-            for idx in range(start_from):
-            
-                next(self)
-                
-                self.num_returned = 0
-                
-        else:
-            self.start_from = 0
-        
-    def reset(self):
-        
-        self.i.value = -1
-        self.j.value = -1
-        self.k.value = -1
-        
-        self.out_idx.value = 0
-        
-    def __iter__(self):
-        
-        return self
-    
-    def __next__(self):
-        
-        self.lock.acquire()
-        
-        if self.stop_after is not None and self.num_returned >= self.stop_after:
-            raise StopIteration
-        
-        found_valid = False
-        
-        while not found_valid:
-            
-            next_cell_ID = self.gen_cell_ID()
-        
-            if next_cell_ID not in self.cell_ID_dict:
-                
-                break
-            
-        self.num_returned += 1
-            
-        self.lock.release()
-            
-        return next_cell_ID
-    
-    def __len__(self):
-        
-        return self.num_grid_1*self.num_grid_2*self.num_grid_3 - len(self.cell_ID_dict)
-        
-        
-    def gen_cell_ID(self):
-        
-        inc_j = False
-        
-        if self.k.value >= (self.num_grid_3 - 1) or self.k.value < 0:
-            
-            inc_j = True
-        
-        inc_i = False
-        
-        if (inc_j and self.j.value >= (self.num_grid_2 - 1)) or self.j.value < 0:
-            
-            inc_i = True
-            
-            
-        #print(inc_i, self.i, self.j, self.k)
-            
-        self.k.value = (self.k.value + 1) % self.num_grid_3
-        
-        if inc_j:
-            
-            self.j.value = (self.j.value + 1) % self.num_grid_2
-            
-        if inc_i:
-            
-            self.i.value += 1
-            
-            if self.i.value >= self.num_grid_1:
-                
-                raise StopIteration    
-        
-        out_cell_ID = (self.i.value, self.j.value, self.k.value)
-        
-        return out_cell_ID
-    
-    def gen_cell_ID_batch(self, batch_size, output_array=None):
-        
-        if output_array is None:
-            output_array = np.empty((batch_size, 3), dtype=np.int64)
-        
-        self.lock.acquire()
-        
-        last_call = False
-        
-        for idx in range(batch_size):
-            
-            try:
-                
-                cell_ID = next(self)
-                
-            except StopIteration:
-                
-                last_call = True
-                
-                break
-            
-            output_array[idx,0] = cell_ID[0]
-            output_array[idx,1] = cell_ID[1]
-            output_array[idx,2] = cell_ID[2]
-            
-        
-        
-        out_idx = self.out_idx.value
-        
-        self.out_idx.value += batch_size
-        
-        self.lock.release()
-        
-        if last_call:
-            
-            return output_array[0:idx], out_idx
-        
-        else:
-        
-            return output_array, out_idx
-        
-        
-        
-        
-        
-        
-
-
-class MultiCellIDGenerator(object):
+    To generate the cell IDs, this class stores the shape of the search grid, and 
+    a dictionary of the grid cells which do not need to be searched.
+    """
     
     def __init__(self, 
-                 grid_dim_1, 
-                 grid_dim_2, 
-                 grid_dim_3, 
-                 cell_ID_dict,
-                 cell_ID_gen_file_handle,
-                 cell_ID_gen_memory,
-                 cell_ID_gen_mmap
-                 ):
-        
-        self.num_grid_1 = grid_dim_1
-        
-        self.num_grid_2 = grid_dim_2
-        
-        self.num_grid_3 = grid_dim_3
-        
-        self.cell_ID_dict = cell_ID_dict
-        
-        self.cell_ID_gen_file_handle = cell_ID_gen_file_handle
-        
-        self.cell_ID_gen_memory = cell_ID_gen_memory
-        
-        self.cell_ID_gen_mmap = cell_ID_gen_mmap
-        
-        self.i = np.empty(1, dtype=np.int64)
-        self.j = np.empty(1, dtype=np.int64)
-        self.k = np.empty(1, dtype=np.int64)
-        self.out_idx = np.empty(1, dtype=np.int64)
-        
-        #self.ijko = np.empty(4, dtype=np.int64)
-        
-        
-    def __iter__(self):
-        
-        return self
-    
-    def __next__(self):
-        
-        found_valid = False
-        
-        while not found_valid:
-            
-            next_cell_ID = self.gen_cell_ID()
-        
-            if next_cell_ID not in self.cell_ID_dict:
-                
-                break
-            
-        return next_cell_ID
-    
-    def __len__(self):
-        
-        return self.num_grid_1*self.num_grid_2*self.num_grid_3 - len(self.cell_ID_dict)
-        
-        
-    def gen_cell_ID(self):
-        
-        
-        
-        #i = self.cell_ID_gen_memory[0]
-        #j = self.cell_ID_gen_memory[1]
-        #k = self.cell_ID_gen_memory[2]
-        
-        
-        inc_j = False
-        
-        if self.k[0] >= (self.num_grid_3 - 1) or self.k[0] < 0:
-            
-            inc_j = True
-        
-        inc_i = False
-        
-        if (inc_j and self.j[0] >= (self.num_grid_2 - 1)) or self.j[0] < 0:
-            
-            inc_i = True
-            
-            
-        #print(inc_i, self.i, self.j, self.k)
-            
-        self.k[0] = (self.k[0] + 1) % self.num_grid_3
-        
-        if inc_j:
-            
-            self.j[0] = (self.j[0] + 1) % self.num_grid_2
-            
-        if inc_i:
-            
-            self.i[0] += 1
-            
-            if self.i[0] >= self.num_grid_1:
-                
-                raise StopIteration    
-        
-        out_cell_ID = (self.i[0], self.j[0], self.k[0])
-        
-        #self.cell_ID_gen_memory[0] = i
-        #self.cell_ID_gen_memory[1] = j
-        #self.cell_ID_gen_memory[2] = k
-        
-        return out_cell_ID
-    
-    def gen_cell_ID_batch(self, batch_size, output_array=None):
-        
-        if output_array is None:
-            
-            output_array = np.empty((batch_size, 3), dtype=np.int64)
-        
-        
-        fcntl.lockf(self.cell_ID_gen_file_handle, fcntl.LOCK_EX)
-        
-        self.cell_ID_gen_mmap.seek(0)
-        
-        i_bytes = self.cell_ID_gen_mmap.read(8)
-        j_bytes = self.cell_ID_gen_mmap.read(8)
-        k_bytes = self.cell_ID_gen_mmap.read(8)
-        out_idx_bytes = self.cell_ID_gen_mmap.read(8)
-        
-        #ijko_bytes = self.cell_ID_gen_mmap.read(32)
-        
-        
-        #print(len(i_bytes), i_bytes)
-        
-        self.i[0] = struct.unpack("=q", i_bytes)[0]
-        self.j[0] = struct.unpack("=q", j_bytes)[0]
-        self.k[0] = struct.unpack("=q", k_bytes)[0]
-        self.out_idx[0] = struct.unpack("=q", out_idx_bytes)[0]
-        
-        #self.ijko[:] = np.frombuffer(ijko_bytes, dtype=np.int64)
-        
-        return_out_idx = self.out_idx[0]
-        
-        
-        
-        last_call = False
-        
-        for idx in range(batch_size):
-            
-            try:
-                
-                cell_ID = next(self)
-                
-            except StopIteration:
-                
-                last_call = True
-                
-                break
-            
-            output_array[idx,0] = cell_ID[0]
-            output_array[idx,1] = cell_ID[1]
-            output_array[idx,2] = cell_ID[2]
-            
-        
-        
-        #out_idx = self.cell_ID_gen_memory[3]
-        
-        #out_idx += batch_size
-        
-        #self.cell_ID_gen_memory[3] = out_idx
-        
-        self.out_idx[0] += batch_size
-        
-        out_bytes = b""
-        out_bytes += struct.pack("=q", self.i[0])
-        out_bytes += struct.pack("=q", self.j[0])
-        out_bytes += struct.pack("=q", self.k[0])
-        out_bytes += struct.pack("=q", self.out_idx[0])
-        
-        self.cell_ID_gen_mmap.seek(0)
-        
-        self.cell_ID_gen_mmap.write(out_bytes)
-        
-        self.cell_ID_gen_mmap.flush()
-    
-        fcntl.lockf(self.cell_ID_gen_file_handle, fcntl.LOCK_UN)
-        
-        if last_call:
-            
-            return output_array[0:idx], return_out_idx
-        
-        else:
-        
-            return output_array, return_out_idx
-        
-       
-class MultiCellIDGenerator_2(object):
-    
-    def __init__(self, 
-                 grid_dim_1, 
-                 grid_dim_2, 
-                 grid_dim_3, 
+                 grid_dim_i, 
+                 grid_dim_j, 
+                 grid_dim_k, 
                  cell_ID_dict,
                  ):
-        
         
         self.data = np.empty(4, dtype=np.int64)
         
-        self.data[0] = grid_dim_1
-        self.data[1] = grid_dim_2
-        self.data[2] = grid_dim_3 #also modulus for finding j
-        self.data[3] = grid_dim_2*grid_dim_3 #modulus for finding i
-        #456 for ijk
-        
+        ################################################################################
+        # Store off the shape of the 3D search grid, but also store a 4th value so 
+        # we don't keep having to recalculate the modulus number used for finding the
+        # i value.
+        ################################################################################
+        self.data[0] = grid_dim_i
+        self.data[1] = grid_dim_j
+        self.data[2] = grid_dim_k #also modulus for finding j
+        self.data[3] = grid_dim_j*grid_dim_k #modulus for finding i
         
         self.cell_ID_dict = cell_ID_dict
         
-    def gen_cell_ID_batch(self, start_idx, batch_size, output_array=None):
+    def gen_cell_ID_batch(self, start_idx, batch_size, output_array):
+        """
+        Description
+        ===========
         
-        if output_array is None:
+        Given the user-provided 'output_array', fill in at most 'batch_size' cell IDs into
+        'output_array'. 
+        
+        Note that this class may return less than 'batch_size' values if the end of
+        the grid is reached.  Also, the returned cell_IDs will be filtered by the
+        provided cell_ID_dict, so while they will be returned in-order, they are not
+        guaranteed to be perfectly sequential.  The actual number of cell IDs written into
+        the 'output_array' will be returned as an integer from this method.
+        
+        This class uses the natural grid ordering (ex: 0->(0,0,0), 1->(0,0,1), 2->(0,0,2), ...)
+        to map from a 'start_idx' to a starting grid cell,  start_idx->(i,j,k). 
+        
+        
+        Parameters
+        ==========
+        
+        start_idx : int
+            starting cell index in the natural grid ordering 0->(0,0,0), 1->(0,0,1), 2->(0,0,2)
             
-            output_array = np.empty((batch_size, 3), dtype=np.int64)
+        batch_size : int
+            how many (i,j,k) cell IDs to write out
             
+        output_array : numpy.ndarray of shape (N,3), of dtype numpy.int64
+            The memory to write the resultant cell IDs into
+            N must be greater than or equal to batch_size
+        
+        
+        Returns
+        =======
+        
+        num_out : int
+            number of cell IDs actually written into the output_array
+            (may be less than or equal to batch_size)
+        
+        """
+        
+        
+        
+        '''
         #i = integer division of index by number of j*ks
         i, remainder = divmod(start_idx, self.data[3]) 
         
@@ -603,806 +382,41 @@ class MultiCellIDGenerator_2(object):
                            self.data[2],
                            self.cell_ID_dict
                            )
+        '''
+        
+        
+        
+        '''
+        num_out = fill_ijk(output_array, 
+                           start_idx,
+                           batch_size,
+                           self.data[0],
+                           self.data[1],
+                           self.data[2],
+                           self.cell_ID_dict
+                           )
+                           
+        '''
+        
+        
+        
+        
+        num_out = fill_ijk_2(output_array, 
+                           start_idx,
+                           batch_size,
+                           self.data[0],
+                           self.data[1],
+                           self.data[2],
+                           self.cell_ID_dict
+                           )
         
         return num_out
         
         
         
-        
 
     
-def run_single_process(cell_ID_list, 
-                       ngrid, 
-                       dl, 
-                       dr,
-                       coord_min, 
-                       mask,
-                       mask_resolution,
-                       min_dist,
-                       max_dist,
-                       w_coord,
-                       batch_size=1000,
-                       verbose=0,
-                       print_after=10000,
-                       num_cpus=None):
-    
-    """
-    
-    TODO:  Significant work has been done on updating the run_single and run_multi Cython
-           methods in this module, and for instance they now return an (N,4) numpy
-           array instead of 4 lists of x,y,z,r.  This method has not been updated
-           appropriately to the new standard yet.
-    
-    """
-    
-    
-    
-    from sklearn import neighbors
-    
-    
-    ################################################################################
-    #
-    # Profiling parameters
-    #
-    ################################################################################
-    
-    #PROFILE_total_query_time = 0.0
-    
-    PROFILE_total_start = time.time()
-    
-    #PROFILE_mask_checking_time = 0.0
-    
-    PROFILE_mask_times = []
-    
-    PROFILE_loop_times = []
-    
-    PROFILE_query_times = []
-    
-    PROFILE_section_1_times = []
-    PROFILE_section_2_times = []
-    PROFILE_section_3_times = []
-    PROFILE_section_4_times = []
-    PROFILE_void_times = []
-    
-    
-    
-    
-    ################################################################################
-    #
-    # Initialize some output containers and counter variables
-    #
-    ################################################################################
-    
-    print("Running single-process mode")
-    
-    #hole_times = []
-    
-    # Initialize list of hole details
-    myvoids_x = []
-    
-    myvoids_y = []
-    
-    myvoids_z = []
-    
-    myvoids_r = []
-    
-    # Number of holes found
-    n_holes = 0
-
-    # Counter for the number of empty cells
-    empty_cell_counter = 0
-    
-    # Number of empty cells
-    #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - len(cell_ID_dict)
-    n_empty_cells = len(cell_ID_list)
-    
-    ################################################################################
-    #
-    #   BUILD NEAREST-NEIGHBOR TREE
-    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing sklearn interface
-    #   nearest neighbor finder for the galaxies in x,y,z space
-    #
-    ################################################################################
-    
-    if verbose:
-        
-        kdtree_start_time = time.time()
-
-    galaxy_tree = neighbors.KDTree(w_coord)
-    
-    if verbose:
-        
-        print('KDTree creation time:', time.time() - kdtree_start_time)
-    
-    
-    ################################################################################
-    # Main loop
-    ################################################################################
-    num_cells_processed = 0
-    
-    for hole_center_coords in cell_ID_list:
-                    
-        num_cells_processed += 1
-        
-        #print(hole_center_coords)
-        
-        
-        PROFILE_loop_start_time = time.time()
-        
-        
-        if verbose:
-            
-            if num_cells_processed % 10000 == 0:
-                
-               print('Processed', num_cells_processed, 'cells of', n_empty_cells)
-        
-        
-        #if num_cells_processed % 10000 == 0:
-        #    print("Processed: ", num_cells_processed, "time: ", time.time() - worker_lifetime_start, "main: ", time_main, "empty: ", time_empty)
-        
-            
-        i, j, k = hole_center_coords
-        
-
-        hole_center = (np.array([[i, j, k]]) + 0.5)*dl + coord_min  # Purposefully making hole_center have shape (1,3) for KDtree queries
-                        
-        #hole_center = to_vector(hole_center_table)
-        
-        
-        ############################################################
-        # Check to make sure in mask
-        ############################################################
-        
-        timer1 = time.time()
-        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, max_dist)
-        timer2 = time.time()
-        PROFILE_mask_times.append(timer2- timer1)
-        # Check to make sure that the hole center is still within the survey
-        if temp:
-            
-            PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-            
-            continue
-        
-        
-        ############################################################
-        #
-        # Find Galaxy 1 (closest to cell center)
-        #
-        # and calculate Unit vector pointing from cell 
-        # center to the closest galaxy
-        #
-        ############################################################
-        PROFILE_1_start = time.time()
-        
-        
-        timer1 = time.time()
-        modv1, k1g = galaxy_tree.query(hole_center, k=1)
-        timer2 = time.time()
-        PROFILE_query_times.append(timer2-timer1)
-        
-        modv1 = modv1[0][0]
-        
-        k1g = k1g[0][0]
-    
-        v1_unit = (w_coord[k1g] - hole_center)/modv1
-        
-        
-        PROFILE_1_time = time.time() - PROFILE_1_start
-    
-        ############################################################
-        #
-        # Find Galaxy 2 
-        #
-        # We are going to shift the center of the hole by dr along 
-        # the direction of the vector pointing from the nearest 
-        # galaxy to the center of the empty cell.  From there, we 
-        # will search within a radius of length the distance between 
-        # the center of the hole and the first galaxy from the 
-        # center of the hole to find the next nearest neighbors.  
-        # From there, we will minimize top/bottom to find which one 
-        # is the next nearest galaxy that bounds the hole.
-        ############################################################
-        
-        PROFILE_2_start = time.time()
-    
-        galaxy_search = True
-    
-        hole_center_2 = hole_center
-    
-        in_mask_2 = True
-    
-        while galaxy_search:
-    
-            # Shift hole center away from first galaxy
-            hole_center_2 = hole_center_2 - dr*v1_unit
-            
-            # Distance between hole center and nearest galaxy
-            modv1 += dr
-            
-            # Search for nearest neighbors within modv1 of the hole center
-            timer1 = time.time()
-            i_nearest = galaxy_tree.query_radius(hole_center_2, r=modv1)
-            timer2 = time.time()
-            PROFILE_query_times.append(timer2-timer1)
-    
-            i_nearest = i_nearest[0]
-            #dist_nearest = dist_nearest[0]
-    
-            # Remove nearest galaxy from list
-            boolean_nearest = i_nearest != k1g
-            
-            i_nearest = i_nearest[boolean_nearest]
-            
-            if len(i_nearest) <= 0:
-                timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_2, mask, mask_resolution, min_dist, max_dist)
-                timer2 = time.time()
-                PROFILE_mask_times.append(timer2- timer1)
-                
-    
-            if len(i_nearest) > 0:
-                # Found at least one other nearest neighbor!
-    
-                # Calculate vector pointing from next nearest galaxies to the nearest galaxy
-                BA = w_coord[k1g] - w_coord[i_nearest]  # shape (N,3)
-                
-                bot = 2*np.dot(BA, v1_unit.T)  # shape (N,1)
-                
-                top = np.sum(BA**2, axis=1)  # shape (N,)
-                
-                x2 = top/bot.T[0]  # shape (N,)
-    
-                # Locate positive values of x2
-                valid_idx = np.where(x2 > 0)[0]  # shape (n,)
-                
-                if len(valid_idx) > 0:
-                    # Find index of 2nd nearest galaxy
-                    k2g_x2 = valid_idx[x2[valid_idx].argmin()]
-                    
-                    k2g = i_nearest[k2g_x2]
-    
-                    minx2 = x2[k2g_x2]  # Eliminated transpose on x2
-    
-                    galaxy_search = False
-                
-            elif PROFILE_TEMP:
-                # Hole is no longer within survey limits
-                galaxy_search = False
-                
-                in_mask_2 = False
-    
-        # Check to make sure that the hole center is still within the survey
-        if not in_mask_2:
-            #print('hole not in survey')
-            PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-            
-            continue
-    
-        #print('Found 2nd galaxy')
-    
-    
-        PROFILE_2_time = time.time() - PROFILE_2_start
-    
-        ############################################################
-        # Update hole center
-        ############################################################
-        
-        # Calculate new hole center
-        hole_radius = 0.5*np.sum(BA[k2g_x2]**2)/np.dot(BA[k2g_x2], v1_unit.T)  # shape (1,)
-        
-        hole_center = w_coord[k1g] - hole_radius*v1_unit  # shape (1,3)
-       
-        # Check to make sure that the hole center is still within the survey
-        
-        timer1 = time.time()
-        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, max_dist)
-        timer2 = time.time()
-        PROFILE_mask_times.append(timer2- timer1)
-        
-        if temp:
-            #print('hole not in survey')
-            PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-            
-            continue
-    
-        ########################################################################
-        # Find Galaxy 3 (closest to cell center)
-        #
-        # (Same methodology as for finding the second galaxy)
-        ########################################################################
-        
-        PROFILE_3_start = time.time()
-        
-    
-        # Find the midpoint between the two nearest galaxies
-        midpoint = 0.5*(w_coord[k1g] + w_coord[k2g])  # shape (3,)
-        #print('midpoint shape:', midpoint.shape)           
-    
-        # Define the unit vector along which to move the hole center
-        modv2 = np.linalg.norm(hole_center - midpoint)
-        v2_unit = (hole_center - midpoint)/modv2  # shape (1,3)
-        #print('v2_unit shape', v2_unit.shape)
-    
-        # Calculate vector pointing from the hole center to the nearest galaxy
-        Acenter = w_coord[k1g] - hole_center  # shape (1,3)
-        # Calculate vector pointing from the hole center to the second-nearest galaxy
-        Bcenter = w_coord[k2g] - hole_center  # shape (1,3)
-    
-        # Initialize moving hole center
-        hole_center_3 = hole_center  # shape (1,3)
-    
-        galaxy_search = True
-    
-        in_mask_3 = True
-    
-        while galaxy_search:
-    
-            # Shift hole center along unit vector
-            hole_center_3 = hole_center_3 + dr*v2_unit
-    
-            # New hole "radius"
-            search_radius = np.linalg.norm(w_coord[k1g] - hole_center_3)
-            
-            # Search for nearest neighbors within modv1 of the hole center
-            #i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center, r=np.linalg.norm(Acenter), return_distance=True, sort_results=True)
-            timer1 = time.time()
-            i_nearest = galaxy_tree.query_radius(hole_center_3, r=search_radius)
-            timer2 = time.time()
-            PROFILE_query_times.append(timer2 - timer1)
-    
-            i_nearest = i_nearest[0]
-            #dist_nearest = dist_nearest[0]
-    
-            # Remove two nearest galaxies from list
-            boolean_nearest = np.logical_and(i_nearest != k1g, i_nearest != k2g)
-            i_nearest = i_nearest[boolean_nearest]
-            #dist_nearest = dist_nearest[boolean_nearest]
-    
-    
-            if len(i_nearest) <= 0:
-                timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_3, mask, mask_resolution, min_dist, max_dist)
-                timer2 = time.time()
-                PROFILE_mask_times.append(timer2- timer1)
-    
-    
-            if len(i_nearest) > 0:
-                # Found at least one other nearest neighbor!
-    
-                # Calculate vector pointing from hole center to next nearest galaxies
-                Ccenter = w_coord[i_nearest] - hole_center  # shape (N,3)
-                
-                bot = 2*np.dot((Ccenter - Acenter), v2_unit.T)  # shape (N,1)
-                
-                top = np.sum(Ccenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
-                
-                x3 = top/bot.T[0]  # shape (N,)
-    
-                # Locate positive values of x3
-                valid_idx = np.where(x3 > 0)[0]  # shape (N,)
-    
-                if len(valid_idx) > 0:
-                    # Find index of 3rd nearest galaxy
-                    k3g_x3 = valid_idx[x3[valid_idx].argmin()]
-                    k3g = i_nearest[k3g_x3]
-    
-                    minx3 = x3[k3g_x3]
-    
-                    galaxy_search = False
-    
-            #elif not in_mask(hole_center_3, mask, [min_dist, max_dist]):
-            elif PROFILE_TEMP:
-                # Hole is no longer within survey limits
-                galaxy_search = False
-                in_mask_3 = False
-    
-        # Check to make sure that the hole center is still within the survey
-        #if not in_mask(hole_center_3, mask, [min_dist, max_dist]):
-        #if not_in_mask(hole_center_3, mask, min_dist, max_dist):
-        if not in_mask_3:
-            #print('hole not in survey')
-            PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-            
-            continue
-    
-        #print('Found 3rd galaxy')
-        
-        PROFILE_3_time = time.time() - PROFILE_3_start
-        
-        
-        ############################################################
-        # Update hole center
-        ############################################################
-        hole_center = hole_center + minx3*v2_unit  # shape (1,3)
-        
-        hole_radius = np.linalg.norm(hole_center - w_coord[k1g])  # shape ()
-    
-        # Check to make sure that the hole center is still within the survey
-        timer1 = time.time()
-        temp = not_in_mask(hole_center, mask, mask_resolution, min_dist, max_dist)
-        timer2 = time.time()
-        PROFILE_mask_times.append(timer2- timer1)
-        if temp:
-            #print('hole not in survey')
-            PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-            
-            continue
-    
-    
-        ########################################################################
-        #
-        # Find Galaxy 4 
-        #
-        # Process is very similar as before, except we do not know if we have to 
-        # move above or below the plane.  Therefore, we will find the next closest 
-        # if we move above the plane, and the next closest if we move below the 
-        # plane.
-        ########################################################################
-        
-        PROFILE_4_start = time.time()
-        
-    
-        # The vector along which to move the hole center is defined by the cross 
-        # product of the vectors pointing between the three nearest galaxies.
-        AB = w_coord[k1g] - w_coord[k2g]  # shape (3,)
-        BC = w_coord[k3g] - w_coord[k2g]  # shape (3,)
-        v3 = np.cross(AB,BC)  # shape (3,)
-        
-        
-        modv3 = np.linalg.norm(v3)
-        v3_unit = v3/modv3  # shape (3,)
-    
-        # Calculate vector pointing from the hole center to the nearest galaxy
-        Acenter = w_coord[k1g] - hole_center  # shape (1,3)
-        # Calculate vector pointing from the hole center to the second-nearest galaxy
-        Bcenter = w_coord[k2g] - hole_center  # shape (1,3)
-    
-    
-        # First move in the direction of the unit vector defined above
-    
-        galaxy_search = True
-        
-        hole_center_41 = hole_center 
-    
-        in_mask_41 = True
-    
-        while galaxy_search:
-    
-            # Shift hole center along unit vector
-            hole_center_41 = hole_center_41 + dr*v3_unit
-            #print('Shifted center to', hole_center_41)
-    
-            # New hole "radius"
-            search_radius = np.linalg.norm(w_coord[k1g] - hole_center_41)
-    
-            # Search for nearest neighbors within R of the hole center
-            #i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_41, r=np.linalg.norm(Acenter), return_distance=True, sort_results=True)
-            timer1 = time.time()
-            i_nearest = galaxy_tree.query_radius(hole_center_41, r=search_radius)
-            timer2 = time.time()
-            PROFILE_query_times.append(timer2 - timer1)
-    
-            i_nearest = i_nearest[0]
-            #dist_nearest = dist_nearest[0]
-    
-            # Remove two nearest galaxies from list
-            boolean_nearest = np.logical_and.reduce((i_nearest != k1g, i_nearest != k2g, i_nearest != k3g))
-            i_nearest = i_nearest[boolean_nearest]
-            #dist_nearest = dist_nearest[boolean_nearest]
-            #print('Number of nearby galaxies', len(i_nearest))
-    
-    
-            if len(i_nearest) <= 0:
-                timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist)
-                timer2 = time.time()
-                PROFILE_mask_times.append(timer2- timer1)
-    
-    
-    
-            #if i_nearest.shape[0] > 0:
-            if len(i_nearest) > 0:
-                # Found at least one other nearest neighbor!
-    
-                # Calculate vector pointing from hole center to next nearest galaxies
-                Dcenter = w_coord[i_nearest] - hole_center  # shape (N,3)
-                #print('Dcenter shape:', Dcenter.shape)
-                
-                bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)  # shape (N,)
-                #print('bot shape:', bot.shape)
-                
-                top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
-                #print('top shape:', top.shape)
-                
-                x41 = top/bot  # shape (N,)
-                #print('x41 shape:', x41.shape)
-    
-                # Locate positive values of x41
-                valid_idx = np.where(x41 > 0)[0]  # shape (n,)
-                #print('valid_idx shape:', valid_idx.shape)
-    
-                #if valid_idx.shape[0] == 1:
-                #    k4g1 = i_nearest[valid_idx[0]]
-                #    minx41 = x41[valid_idx[0]]
-                #    galaxy_search = False
-                #    
-                #elif valid_idx.shape[0] > 1:
-                if len(valid_idx) > 0:
-                    # Find index of 4th nearest galaxy
-                    k4g1_x41 = valid_idx[x41[valid_idx].argmin()]
-                    k4g1 = i_nearest[k4g1_x41]
-    
-                    minx41 = x41[k4g1_x41]
-    
-                    galaxy_search = False
-    
-    
-            #elif not in_mask(hole_center_41, mask, mask_resolution, [min_dist, max_dist]):
-            elif PROFILE_TEMP:
-                # Hole is no longer within survey limits
-                galaxy_search = False
-                in_mask_41 = False
-    
-        #print('Found first potential 4th galaxy')
-        
-    
-        # Calculate potential new hole center
-        #if not not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist):
-        if in_mask_41:
-            hole_center_41 = hole_center + minx41*v3_unit  # shape (1,3)
-            #print('______________________')
-            #print(hole_center_41, 'hc41')
-            #print('hole_radius_41', np.linalg.norm(hole_center_41 - w_coord[k1g]))
-       
-        ########################################################################
-        # Repeat same search, but shift the hole center in the other direction 
-        # this time
-        ########################################################################
-        v3_unit = -v3_unit
-    
-        # First move in the direction of the unit vector defined above
-        galaxy_search = True
-    
-        # Initialize minx42 (in case it does not get created later)
-        minx42 = np.infty
-    
-        hole_center_42 = hole_center
-        
-        minx42 = np.infty
-    
-        in_mask_42 = True
-    
-        while galaxy_search:
-    
-            # Shift hole center along unit vector
-            hole_center_42 = hole_center_42 + dr*v3_unit
-    
-            # New hole "radius"
-            search_radius = np.linalg.norm(w_coord[k1g] - hole_center_42)
-    
-            # Search for nearest neighbors within R of the hole center
-            #i_nearest, dist_nearest = galaxy_tree.query_radius(hole_center_42, r=np.linalg.norm(Acenter), return_distance=True, sort_results=True)
-            timer1 = time.time()
-            i_nearest = galaxy_tree.query_radius(hole_center_42, r=search_radius)
-            timer2 = time.time()
-            PROFILE_query_times.append(timer2 - timer1)
-    
-            i_nearest = i_nearest[0]
-            #dist_nearest = dist_nearest[0]
-    
-            # Remove three nearest galaxies from list
-            boolean_nearest = np.logical_and.reduce((i_nearest != k1g, i_nearest != k2g, i_nearest != k3g))
-            i_nearest = i_nearest[boolean_nearest]
-            #dist_nearest = dist_nearest[boolean_nearest]
-    
-            if len(i_nearest) <= 0:
-                timer1 = time.time()
-                PROFILE_TEMP = not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist)
-                timer2 = time.time()
-                PROFILE_mask_times.append(timer2- timer1)
-    
-            if len(i_nearest) > 0:
-                # Found at least one other nearest neighbor!
-    
-                # Calculate vector pointing from hole center to next nearest galaxies
-                Dcenter = w_coord[i_nearest] - hole_center  # shape (N,3)
-    
-                bot = 2*np.dot((Dcenter - Acenter), v3_unit.T)  # shape (N,)
-    
-                top = np.sum(Dcenter**2, axis=1) - np.sum(Bcenter**2)  # shape (N,)
-    
-                x42 = top/bot  # shape (N,)
-    
-                # Locate positive values of x42
-                valid_idx = np.where(x42 > 0)[0]  # shape (n,)
-    
-                if len(valid_idx) > 0:
-                    # Find index of 3rd nearest galaxy
-                    k4g2_x42 = valid_idx[x42[valid_idx].argmin()]
-                    k4g2 = i_nearest[k4g2_x42]
-    
-                    minx42 = x42[k4g2_x42]
-    
-                    galaxy_search = False
-    
-            #elif not in_mask(hole_center_42, mask, mask_resolution, [min_dist, max_dist]):
-            elif PROFILE_TEMP:
-                # Hole is no longer within survey limits
-                galaxy_search = False
-                in_mask_42 = False
-    
-        #print('Found second potential 4th galaxy')
-        
-    
-        # Calculate potential new hole center
-        #if not not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist):
-        if in_mask_42:
-            hole_center_42 = hole_center + minx42*v3_unit  # shape (1,3)
-            #print(hole_center_42, 'hc42')
-            #print('hole_radius_42', np.linalg.norm(hole_center_42 - w_coord[k1g]))
-            #print('minx41:', minx41, '   minx42:', minx42)
-        
-        
-        ########################################################################
-        # Figure out which is the real galaxy 4
-        ########################################################################
-        
-        
-        # Determine which is the 4th nearest galaxy
-        #if in_mask(hole_center_41, mask, mask_resolution, [min_dist, max_dist]) and minx41 <= minx42:
-        timer1 = time.time()
-        not_in_mask_41 = not_in_mask(hole_center_41, mask, mask_resolution, min_dist, max_dist)
-        timer2 = time.time()
-        PROFILE_mask_times.append(timer2- timer1)
-        
-        
-        if not not_in_mask_41 and minx41 <= minx42:
-            # The first 4th galaxy found is the next closest
-            hole_center = hole_center_41
-            k4g = k4g1
-        elif not not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist):
-            # The second 4th galaxy found is the next closest
-            
-            timer1 = time.time()
-            not_in_mask(hole_center_42, mask, mask_resolution, min_dist, max_dist)
-            timer2 = time.time()
-            PROFILE_mask_times.append(timer2- timer1)
-            
-            
-            
-            
-            hole_center = hole_center_42
-            k4g = k4g2
-        elif not not_in_mask_41:
-            # The first 4th galaxy found is the next closest
-            hole_center = hole_center_41
-            k4g = k4g1
-        else:
-            # Neither hole center is within the mask - not a valid hole
-            PROFILE_loop_times.append(time.time() - PROFILE_loop_start_time)
-            
-            continue
-    
-    
-        PROFILE_4_time = time.time() - PROFILE_4_start
-    
-        ########################################################################
-        # Calculate Radius of the hole
-        ########################################################################
-        hole_radius = np.linalg.norm(hole_center - w_coord[k1g])
-    
-        
-        ########################################################################
-        # Save hole
-        ########################################################################
-        
-        
-        PROFILE_section_1_times.append(PROFILE_1_time)
-        PROFILE_section_2_times.append(PROFILE_2_time)
-        PROFILE_section_3_times.append(PROFILE_3_time)
-        PROFILE_section_4_times.append(PROFILE_4_time)
-        
-        
-        
-        myvoids_x.append(hole_center[0,0])
-        #x_val = hole_center[0,0]
-        
-        myvoids_y.append(hole_center[0,1])
-        #y_val = hole_center[0,1]
-        
-        myvoids_z.append(hole_center[0,2])
-        #z_val = hole_center[0,2]
-        
-        myvoids_r.append(hole_radius)
-        #r_val = hole_radius
-        
-        #hole_times.append(time.time() - hole_start)
-        
-        #print(hole_times[n_holes], i,j,k)
-        
-        n_holes += 1
-        
-        PROFILE_loop_end_time = time.time()
-        
-        PROFILE_void_times.append(PROFILE_loop_end_time - PROFILE_loop_start_time)
-        
-        PROFILE_loop_times.append(PROFILE_loop_end_time - PROFILE_loop_start_time)
-    
-    
-    ########################################################################
-    # Profiling statistics
-    ########################################################################
-    
-    
-    total_time = time.time() - PROFILE_total_start
-    
-    print("Total time: ", total_time)
-    print("Loop time: ", np.sum(PROFILE_loop_times))
-    print("Query time: ", np.sum(PROFILE_query_times))
-    print("Mask time: ", np.sum(PROFILE_mask_times))
-    print("Total loops: ", len(PROFILE_loop_times))
-    print("Total queries: ", len(PROFILE_query_times))
-    print("Total masks: ", len(PROFILE_mask_times))
-    print("Total (void-cell) time: ", np.sum(PROFILE_void_times))
-    print("Section 1 (void) time: ", np.sum(PROFILE_section_1_times))
-    print("Section 2 (void) time: ", np.sum(PROFILE_section_2_times))
-    print("Section 3 (void) time: ", np.sum(PROFILE_section_3_times))
-    print("Section 4 (void) time: ", np.sum(PROFILE_section_4_times))
-    
-    
-    
-    fig = plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_loop_times, bins=50)
-    plt.title("All Single Cell processing times (sec)")
-    #plt.show()
-    plt.savefig("Cell_time_dist.png")
-    plt.close()
-    
-    fig = plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_query_times, bins=50)
-    plt.title("All Query KDTree times (sec)")
-    #plt.show()
-    plt.savefig("Query_time_dist.png")
-    plt.close()
-    
-    fig = plt.figure(figsize=(14,10))
-    plt.hist(PROFILE_mask_times, bins=50)
-    plt.title("All calls to not_in_mask times (sec)")
-    #plt.show()
-    plt.savefig("not_in_mask_time_dist.png")
-    plt.close()
-    
-    fig = plt.figure(figsize=(19.2,12))
-    top_left = plt.subplot(221)
-    top_right = plt.subplot(222)
-    bot_left = plt.subplot(223)
-    bot_right = plt.subplot(224)
-    top_left.hist(PROFILE_section_1_times, bins=50)
-    top_right.hist(PROFILE_section_2_times, bins=50)
-    bot_left.hist(PROFILE_section_3_times, bins=50)
-    bot_right.hist(PROFILE_section_4_times, bins=50)
-    top_left.set_title("(Void cells only) Section 1 times (sec)")
-    top_right.set_title("(Void cells only) Section 2 times (sec)")
-    bot_left.set_title("(Void cells only) Section 3 times (sec)")
-    bot_right.set_title("(Void cells only) Section 4 times (sec)")
-    #plt.show()
-    plt.savefig("void_cell_section_breakdown_dist.png")
-    plt.close()
-    
-    
-    
-    
-    
-        
-    return myvoids_x, myvoids_y, myvoids_z, myvoids_r, n_holes
-
-
-
-    
-
-    
-def run_single_process_cython(void_grid_shape, 
+def _hole_finder_single_process(void_grid_shape, 
                               void_grid_edge_length, 
                               hole_center_iter_dist,
                               search_grid_edge_length,
@@ -1419,34 +433,10 @@ def run_single_process_cython(void_grid_shape,
                               DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
                               ):
     if verbose > 0:
+        
         start_time = time.time()
-    
-    if verbose > 0:
+        
         print("Running single-process mode", flush=True)
-    
-    ################################################################################
-    #
-    #   BUILD NEAREST-NEIGHBOR TREE
-    #   galaxy_tree : sklearn.neighbors/scipy KDTree or similar implementing sklearn interface
-    #   nearest neighbor finder for the galaxies in x,y,z space
-    #
-    ################################################################################
-    '''
-    if verbose > 1:
-        
-        kdtree_start_time = time.time()
-        
-        
-    from sklearn import neighbors
-    
-    galaxy_kdtree = neighbors.KDTree(galaxy_coords)
-
-    galaxy_tree = GalaxyMap(galaxy_coords, coord_min, search_grid_edge_length)
-    
-    if verbose > 1:
-        
-        print('Galaxy Map creation time:', time.time() - kdtree_start_time, flush=True)
-    '''
         
     ################################################################################
     # An output counter for total number of holes found, and calculate the
@@ -1460,15 +450,11 @@ def run_single_process_cython(void_grid_shape,
     ################################################################################
     mesh_indices = ((galaxy_coords - coord_min)/search_grid_edge_length).astype(np.int64)
         
-    #cell_ID_dict = {}
-        
     galaxy_map = {}
 
     for idx in range(mesh_indices.shape[0]):
 
         bin_ID = tuple(mesh_indices[idx])
-
-        #cell_ID_dict[bin_ID] = 1
         
         if bin_ID not in galaxy_map:
             
@@ -1477,7 +463,6 @@ def run_single_process_cython(void_grid_shape,
         galaxy_map[bin_ID].append(idx)
         
     del mesh_indices
-    
     
     num_in_galaxy_map = len(galaxy_map)
         
@@ -1547,18 +532,6 @@ def run_single_process_cython(void_grid_shape,
     ################################################################################
     # 
     ################################################################################
-    '''
-    mesh_indices = ((galaxy_coords - coord_min)/void_grid_edge_length).astype(np.int64)
-        
-    cell_ID_dict = {}
-        
-    for idx in range(mesh_indices.shape[0]):
-
-        bin_ID = tuple(mesh_indices[idx])
-
-        cell_ID_dict[bin_ID] = 1
-    
-    '''
     
     galaxy_tree = GalaxyMap(galaxy_coords, 
                             coord_min, 
@@ -1572,16 +545,14 @@ def run_single_process_cython(void_grid_shape,
     # Create the Cell ID generator
     ################################################################################
     
-    
-    
     start_idx = 0
     
     out_start_idx = 0
     
-    cell_ID_gen = MultiCellIDGenerator_2(void_grid_shape[0], 
-                                         void_grid_shape[1], 
-                                         void_grid_shape[2], 
-                                         galaxy_map)
+    cell_ID_gen = CellIDGenerator(void_grid_shape[0], 
+                                  void_grid_shape[1], 
+                                  void_grid_shape[2], 
+                                  galaxy_map)
     
     if verbose > 1:
         
@@ -1806,28 +777,33 @@ def run_single_process_cython(void_grid_shape,
     
 
 
-def run_multi_process(ngrid, 
-                      dl, 
-                      dr,
-                      search_grid_edge_length,
-                      coord_min, 
-                      mask,
-                      mask_resolution,
-                      min_dist,
-                      max_dist,
-                      w_coord,
-                      batch_size=1000,
-                      verbose=0,
-                      print_after=10000,
-                      num_cpus=None,
-                      CONFIG_PATH="/tmp/voidfinder_config.pickle",
-                      SOCKET_PATH="/tmp/voidfinder.sock",
-                      #RESULT_BUFFER_PATH="/tmp/voidfinder_result_buffer.dat",
-                      CELL_ID_BUFFER_PATH="/tmp/voidfinder_cell_ID_gen.dat",
-                      PROFILE_BUFFER_PATH="/tmp/voidfinder_profile_buffer.dat",
-                      RESOURCE_DIR="/dev/shm",
-                      DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
-                      ):
+def _hole_finder_multi_process(ngrid, 
+                               dl, 
+                               dr,
+                               search_grid_edge_length,
+                               coord_min, 
+                               mask,
+                               mask_resolution,
+                               min_dist,
+                               max_dist,
+                               w_coord,
+                               survey_name,
+                               batch_size=1000,
+                               verbose=0,
+                               print_after=10000,
+                               
+                               save_after=None,
+                               use_start_checkpoint=False,
+                               
+                               num_cpus=None,
+                               CONFIG_PATH="/tmp/voidfinder_config.pickle",
+                               SOCKET_PATH="/tmp/voidfinder.sock",
+                               #RESULT_BUFFER_PATH="/tmp/voidfinder_result_buffer.dat",
+                               CELL_ID_BUFFER_PATH="/tmp/voidfinder_cell_ID_gen.dat",
+                               PROFILE_BUFFER_PATH="/tmp/voidfinder_profile_buffer.dat",
+                               RESOURCE_DIR="/dev/shm",
+                               DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
+                               ):
     """
     Work-horse method for running VoidFinder with the Cython code in parallel
     multi-process form.  Currently a little bitch because there is some kind of
@@ -1846,22 +822,15 @@ def run_multi_process(ngrid,
     8). DEBUG - Make some plots of processing timings
     
     
-    TODO: Replace the cell_ID_dict with the galaxy_map, they both have the same exact
-          cell ID keys in them
-          
-          
-    TODO: Add a check that /dev/shm actually exists, if not fall back to /tmp?
     """
     
-    if verbose > 0:
-        start_time = time.time()
+    
         
     if not os.path.isdir(RESOURCE_DIR):
         
-        print("WARNING: RESOURCE DIR ", RESOURCE_DIR, "does not exist.  Falling back to /tmp but could be slow")
+        print("WARNING: RESOURCE DIR ", RESOURCE_DIR, "does not exist.  Falling back to /tmp but could be slow", flush=True)
         
         RESOURCE_DIR = "/tmp"
-        
         
     
     ################################################################################
@@ -1882,70 +851,47 @@ def run_multi_process(ngrid,
         print("Running multi-process mode,", str(num_cpus), "cpus", flush=True)
         
         
-    ################################################################################
-    # Memmap the w_coord array to our worker processes 
-    #
-    # This is achieved with file descriptors (an integer referring to
-    # the file descriptors as given by the kernel).  The tempfile.mkstemp() call 
-    # below returns an integer file descriptor which will correspond to this
-    # particular memory mapping.  When we create child processes using fork(), 
-    # those child processes inherit a copy of the file descriptor with the same
-    # integer value.  We pass this value to the child processes via the config
-    # object below, and they can use that file descriptor to memmap the same
-    # memory location.  We could have also used the path returned by the
-    # tempfile.mkstemp() call, but in that case we would have to leave the link
-    # to the memory mapping it created on the filesystem.  By using the file
-    # descriptor instead of the file path, we can immediately os.unlink() the path,
-    # so if VoidFinder crashes, the kernel reference count for that memory mapping
-    # will drop to 0 and it will be able to free that memory automatically.  If we
-    # left the link (the path) on the filesystem and VF crashed, the RAM that it 
-    # refers to isn't freed until the filesystem link is manually removed.
-    #
-    # Note that this scheme probably doesn't work for fork() + exec() child process
-    # creation, because the child isn't guaranteed that the same file descriptor
-    # values point to the same entries in the kernel's open file description table.
-    # 'spawn' and 
-    ################################################################################
     
+    ENABLE_SAVE_MODE = False
     
+    if save_after is not None:
         
-    w_coord_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
-    
-    if verbose > 0:
+        print("ENABLED SAVE MODE", flush=True)
         
-        print("Mem-mapping galaxy coordinates", flush=True)
+        #save every save_after cells have been processed
+    
+        ENABLE_SAVE_MODE = True
         
-        print("WCOORD MEMMAP PATH: ", WCOORD_BUFFER_PATH, w_coord_fd)
-    
-    
-    num_galaxies = w_coord.shape[0]
-    
-    w_coord_buffer_length = num_galaxies*3*8 # 3 for xyz and 8 for float64
-    
-    os.ftruncate(w_coord_fd, w_coord_buffer_length)
-    
-    w_coord_buffer = mmap.mmap(w_coord_fd, w_coord_buffer_length)
-    
-    w_coord_buffer.write(w_coord.astype(np.float64).tobytes())
-    
-    del w_coord
-    
-    w_coord = np.frombuffer(w_coord_buffer, dtype=np.float64)
-    
-    w_coord.shape = (num_galaxies, 3)
-    
-    #os.close(w_coord_fd)
-    
-    os.unlink(WCOORD_BUFFER_PATH)
+        save_after_counter = save_after
         
+        sent_syncs = False
         
-    #if verbose > 0:
-        
-    #    print(w_coord_buffer.fd)
-    #    print(w_coord_buffer.fileno())
+        num_acknowledges = 0
+    
+    
+    START_FROM_CHECKPOINT = False
+    
+    if use_start_checkpoint == True:
         
         
         
+        if os.path.isfile(survey_name+"VoidFinderCheckpoint.h5"):
+            
+            print("Starting from checkpoint: ", survey_name+"VoidFinderCheckpoint.h5", flush=True)
+        
+            start_checkpoint_infile = h5py.File(survey_name+"VoidFinderCheckpoint.h5", 'r')
+        
+            START_FROM_CHECKPOINT = True
+            
+        else:
+            raise ValueError("Since use_start_checkpoint was True, expected to find "+survey_name+"VoidFinderCheckpoint.h5 file to use as starting checkpoint file, file was not found")
+    
+    
+    
+    
+    
+    
+    
         
     
     ################################################################################
@@ -1961,19 +907,300 @@ def run_multi_process(ngrid,
     
     if verbose > 0:
         
+        galaxy_map_start_time = time.time()
+        
         print("Building galaxy map", flush=True)
     
     mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
+    
+    
+    
+    
+    
+    
+    '''
+    #TSNE bin sort
+    unique_bins = np.unique(mesh_indices, axis=0)
+    
+    print("Starting TSNE, num_gal, unique bins: ", w_coord.shape[0], len(unique_bins))
+    
+    tsne_time = time.time()
+    
+    embedding = TSNE(n_components=1, verbose=1).fit_transform(unique_bins)
+    
+    print(embedding.shape)
+    
+    print(embedding[0:10])
+    
+    print("Finished TSNE", time.time() - tsne_time)
+    
+    bin_sort_order = np.argsort(embedding[:,0])
+    
+    
+    bin_sort_map = {}
+    for idx, row in enumerate(unique_bins):
+        bin_sort_map[tuple(row)] = bin_sort_order[idx]
         
-    #cell_ID_dict = {}
+        
+    master_sort_order = []
+    for _ in range(bin_sort_order.shape[0]):
+        master_sort_order.append([])
+    
+    
+    for idx in range(mesh_indices.shape[0]):
+        bin_ID = tuple(mesh_indices[idx])
+        bin_order = bin_sort_map[bin_ID]
+        master_sort_order[bin_order].append(idx)
+        
+        
+    w_coord_sort_order = np.concatenate(master_sort_order)
+    
+    
+    sorted_w_coord = w_coord[w_coord_sort_order]
+    
+    del w_coord
+    
+    w_coord = sorted_w_coord
+    
+    del mesh_indices
+    
+    
+    
+    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
+    '''
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    '''
+    #HDBSCAN bin sort
+    unique_bins = np.unique(mesh_indices, axis=0)
+    
+    print("Starting HDBSCAN, num_gal, unique bins: ", w_coord.shape[0], len(unique_bins))
+    
+    hdbscan_time = time.time()
+    
+    clusterer = hdbscan.HDBSCAN()
+    clusterer.fit(unique_bins)
+    
+    labels = clusterer.labels_
+    
+    probs = clusterer.probabilities_
+    
+    print("PROBS SHAPE: ", probs.shape)
+    #print(probs[0:10])
+    
+    #labels = np.argmax(probs, axis=1)
+    
+    #unique_labels = np.unique(labels)
+    
+    #or curr_label in unique_labels:
+        
+        
+    
+    
+    
+    
+    print(labels.shape)
+    
+    print(labels[0:10])
+    
+    print("Finished HDBSCAN", time.time() - hdbscan_time)
+    
+    bin_sort_order = np.argsort(labels)
+    
+    
+    
+    
+    
+    
+    bin_sort_map = {}
+    for idx, row in enumerate(unique_bins):
+        bin_sort_map[tuple(row)] = bin_sort_order[idx]
+        
+        
+    master_sort_order = []
+    for _ in range(bin_sort_order.shape[0]):
+        master_sort_order.append([])
+    
+    
+    for idx in range(mesh_indices.shape[0]):
+        bin_ID = tuple(mesh_indices[idx])
+        bin_order = bin_sort_map[bin_ID]
+        master_sort_order[bin_order].append(idx)
+        
+        
+    w_coord_sort_order = np.concatenate(master_sort_order)
+    
+    
+    sorted_w_coord = w_coord[w_coord_sort_order]
+    
+    del w_coord
+    
+    w_coord = sorted_w_coord
+    
+    del mesh_indices
+    
+    
+    
+    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
+    '''
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    '''
+    unique_bins, bin_counts = np.unique(mesh_indices, return_counts=True, axis=0)
+    
+    print("Max bin: ", bin_counts.max())
+    print("Min bin: ", bin_counts.min())
+    #bin_pre_sort_index = ngrid[1]*ngrid[2]*unique_bins[:,0] + \
+    #                        ngrid[2]*unique_bins[:,1] + \
+    #                        unique_bins[:,2]
+    
+    
+    
+    
+    #bin_sort_order = np.argsort(bin_pre_sort_index)
+    bin_sort_order = np.argsort(bin_counts)[::-1]
+    
+    bin_sort_map = {}
+    for idx, row in enumerate(unique_bins):
+        bin_sort_map[tuple(row)] = bin_sort_order[idx]
+        
+        
+    master_sort_order = []
+    for _ in range(bin_sort_order.shape[0]):
+        master_sort_order.append([])
+    
+    
+    for idx in range(mesh_indices.shape[0]):
+        bin_ID = tuple(mesh_indices[idx])
+        bin_order = bin_sort_map[bin_ID]
+        master_sort_order[bin_order].append(idx)
+        
+        
+    w_coord_sort_order = np.concatenate(master_sort_order)
+    
+    
+    sorted_w_coord = w_coord[w_coord_sort_order]
+    
+    del w_coord
+    
+    w_coord = sorted_w_coord
+    
+    del mesh_indices
+    
+    
+    
+    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
+    '''
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    '''
+    #bin sort?
+    galaxy_pre_sort_index = ngrid[1]*ngrid[2]*mesh_indices[:,0] + \
+                            ngrid[2]*mesh_indices[:,1] + \
+                            mesh_indices[:,2]
+                            
+    del mesh_indices
+                            
+    w_coord_sort_order = np.argsort(galaxy_pre_sort_index)
+    
+    sorted_w_coord = w_coord[w_coord_sort_order]
+    
+    del w_coord
+    
+    w_coord = sorted_w_coord
+    
+    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
+    '''
+    
+    
+    
+    
+    
+    '''
+    #Scramble
+    
+    w_coord_scramble_order = np.random.permutation(w_coord.shape[0])
+    
+    scrambled_w_coord = w_coord[w_coord_scramble_order]
+    
+    del w_coord
+    
+    w_coord = scrambled_w_coord
+    
+    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
+    '''
+    
+    
+    
+    
+    
+    
+    
+    
         
     galaxy_map = {}
 
     for idx in range(mesh_indices.shape[0]):
 
         bin_ID = tuple(mesh_indices[idx])
-
-        #cell_ID_dict[bin_ID] = 1
         
         if bin_ID not in galaxy_map:
             
@@ -1982,7 +1209,6 @@ def run_multi_process(ngrid,
         galaxy_map[bin_ID].append(idx)
         
     del mesh_indices
-    
     
     num_in_galaxy_map = len(galaxy_map)
     
@@ -2028,8 +1254,7 @@ def run_multi_process(ngrid,
                                                    ("offset", np.int64, 1),
                                                    ("num_elements", np.int64, 1)])
     
-    new_galaxy_map = GalaxyMapCustomDict(ngrid,
-                                         lookup_memory)
+    new_galaxy_map = GalaxyMapCustomDict(ngrid, lookup_memory)
     
     for curr_ijk in galaxy_map:
         
@@ -2039,10 +1264,78 @@ def run_multi_process(ngrid,
         
     del galaxy_map
     
+    if verbose > 0:
+        
+        print("Galaxy Map build time: ", time.time() - galaxy_map_start_time, flush=True)
+        
+        print("Size: ", num_in_galaxy_map, "Total slots: ", next_prime, flush=True)
+        
+        print("Num collisions in rebuild: ", new_galaxy_map.num_collisions, flush=True)
+    
+    
+    ################################################################################
+    # Memmap the w_coord array to our worker processes 
+    #
+    # This is achieved with file descriptors (an integer referring to
+    # the file descriptors as given by the kernel).  The tempfile.mkstemp() call 
+    # below returns an integer file descriptor which will correspond to this
+    # particular memory mapping.  When we create child processes using fork(), 
+    # those child processes inherit a copy of the file descriptor with the same
+    # integer value.  We pass this value to the child processes via the config
+    # object below, and they can use that file descriptor to memmap the same
+    # memory location.  We could have also used the path returned by the
+    # tempfile.mkstemp() call, but in that case we would have to leave the link
+    # to the memory mapping it created on the filesystem.  By using the file
+    # descriptor instead of the file path, we can immediately os.unlink() the path,
+    # so if VoidFinder crashes, the kernel reference count for that memory mapping
+    # will drop to 0 and it will be able to free that memory automatically.  If we
+    # left the link (the path) on the filesystem and VF crashed, the RAM that it 
+    # refers to isn't freed until the filesystem link is manually removed.
+    #
+    # Note that this scheme probably doesn't work for fork() + exec() child process
+    # creation, because the child isn't guaranteed that the same file descriptor
+    # values point to the same entries in the kernel's open file description table.
+    # 'spawn' and 
+    ################################################################################
+    
+    w_coord_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
-        print("Rebuilt galaxy map (size", num_in_galaxy_map, "total slots ", next_prime,")")
-        print("Num collisions in rebuild: ", new_galaxy_map.num_collisions, flush=True)
+        
+        print("Mem-mapping galaxy coordinates", flush=True)
+        
+        print("WCOORD MEMMAP PATH: ", WCOORD_BUFFER_PATH, w_coord_fd, flush=True)
+    
+    num_galaxies = w_coord.shape[0]
+    
+    w_coord_buffer_length = num_galaxies*3*8 # 3 for xyz and 8 for float64
+    
+    os.ftruncate(w_coord_fd, w_coord_buffer_length)
+    
+    w_coord_buffer = mmap.mmap(w_coord_fd, w_coord_buffer_length)
+    
+    
+    
+    
+    #sorted_w_coord = w_coord[w_coord_sort_order]
+    
+    #del w_coord
+    
+    w_coord_buffer.write(w_coord.astype(np.float64).tobytes())
+    
+    del w_coord
+    
+    
+    
+    
+    w_coord = np.frombuffer(w_coord_buffer, dtype=np.float64)
+    
+    w_coord.shape = (num_galaxies, 3)
+    
+    os.unlink(WCOORD_BUFFER_PATH)
+    
+    
+    
     
     
     ################################################################################
@@ -2054,7 +1347,7 @@ def run_multi_process(ngrid,
     
     if verbose > 0:
         
-        print("Galaxy map lookup memmap: ", LOOKUPMEM_BUFFER_PATH, lookup_fd)
+        print("Galaxy map lookup memmap: ", LOOKUPMEM_BUFFER_PATH, lookup_fd, flush=True)
     
     lookup_buffer_length = next_prime*23 #23 bytes per element
     
@@ -2069,15 +1362,15 @@ def run_multi_process(ngrid,
     os.unlink(LOOKUPMEM_BUFFER_PATH)
     
     
+    ################################################################################
+    # Memmap the galaxy map array to our worker processes 
+    ################################################################################
     
-    ################################################################################
-    # Memmap the w_coord array to our worker processes 
-    ################################################################################
     gma_fd, GMA_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
         
-        print("Galaxy map array memmap: ", GMA_BUFFER_PATH, gma_fd)
+        print("Galaxy map array memmap: ", GMA_BUFFER_PATH, gma_fd, flush=True)
     
     num_gma_indices = galaxy_map_array.shape[0]
     
@@ -2098,9 +1391,8 @@ def run_multi_process(ngrid,
     galaxy_map_array.shape = (num_gma_indices,)
     
     ################################################################################
-    #
+    # Calculate the number of cells we need to search
     ################################################################################
-    
 
     n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
     
@@ -2111,30 +1403,34 @@ def run_multi_process(ngrid,
     # to convert it back into an array to pass back up the chain.
     ################################################################################
     
-    
-    
     result_fd, RESULT_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
         
-        print("Mem-mapping the result array", flush=True)
-        print("Result array memmap: ", RESULT_BUFFER_PATH, result_fd)
-    
-    #result_fd = os.open(RESULT_BUFFER_PATH, os.O_TRUNC | os.O_CREAT | os.O_RDWR | os.O_CLOEXEC)
-    
-    #os.unlink(RESULT_BUFFER_PATH)
+        print("Result array memmap: ", RESULT_BUFFER_PATH, result_fd, flush=True)
     
     result_buffer_length = n_empty_cells*4*8
     
-    os.ftruncate(result_fd, result_buffer_length)
+    print("RESULT BUFFER LENGTH (bytes): ", result_buffer_length)
     
-    #result_buffer = open(result_fd, 'w+b')
+    os.ftruncate(result_fd, result_buffer_length)
     
     result_buffer = mmap.mmap(result_fd, 0)
     
     #result_buffer.write(b"0"*result_buffer_length)
     
     os.unlink(RESULT_BUFFER_PATH)
+    
+    
+    if START_FROM_CHECKPOINT:
+        
+        starting_result_data = start_checkpoint_infile["result_array"][()]
+        
+        result_buffer.seek(0)
+        
+        result_buffer.write(starting_result_data.tobytes())
+        
+        del starting_result_data
     
     
     
@@ -2162,34 +1458,37 @@ def run_multi_process(ngrid,
     
     #PROFILE_buffer.write(b"0"*PROFILE_buffer_length)
     '''
-    ################################################################################
-    # Build Cell ID generator memory
-    ################################################################################
-    #cell_ID_fd, CELL_ID_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
-    #Don't actually need this memory anymore if we use the ijk_start and write_start vals instead
-    #os.close(cell_ID_fd)
-    '''
-    #cell_ID_fd = os.open(CELL_ID_BUFFER_PATH, os.O_TRUNC | os.O_CREAT | os.O_RDWR | os.O_CLOEXEC)
-    
-    cell_ID_buffer_length = 4*8 #need 4 8-byte integers: i, j, k, out_idx
-    
-    os.ftruncate(cell_ID_fd, cell_ID_buffer_length)
-    
-    cell_ID_buffer = open(cell_ID_fd, 'w+b')
-    
-    #cell_ID_buffer_length = 4*8 #need 4 8-byte integers: i, j, k, out_idx
-    
-    cell_ID_buffer.write(b"\x00"*cell_ID_buffer_length)
-    
-    cell_ID_buffer.flush()
-    '''
     ################################################################################
     # Shared memory values to help generating Cell IDs
     ################################################################################
-    ijk_start = Value(c_int64, 0, lock=True)
     
-    write_start = Value(c_int64, 0, lock=True)
+    
+    if START_FROM_CHECKPOINT:
+        
+        next_cell_idx = start_checkpoint_infile.attrs["next_cell_idx"]
+        
+        num_written_rows = start_checkpoint_infile.attrs["num_written_rows"]
+        
+        
+        print("Closing: ", start_checkpoint_infile)
+        start_checkpoint_infile.close()
+        
+        ijk_start = Value(c_int64, next_cell_idx, lock=True)
+        
+        write_start = Value(c_int64, num_written_rows, lock=True)
+        
+        num_cells_processed = num_written_rows
+        
+        print("Starting from cell index: ", next_cell_idx)
+        
+    else:
+    
+        ijk_start = Value(c_int64, 0, lock=True)
+        
+        write_start = Value(c_int64, 0, lock=True)
+        
+        num_cells_processed = 0
     
     
     
@@ -2198,8 +1497,10 @@ def run_multi_process(ngrid,
     # Dump configuration to a file for worker processes to get it
     ################################################################################
     if verbose > 0:
+        
         print("Grid: ", ngrid, flush=True)
-        print("Dumping config pickle to disk for workers at: ", CONFIG_PATH)
+        
+        #print("Dumping config pickle to disk for workers at: ", CONFIG_PATH)
     
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "RESULT_BUFFER_PATH" : RESULT_BUFFER_PATH,
@@ -2234,6 +1535,7 @@ def run_multi_process(ngrid,
                      "search_grid_edge_length" : search_grid_edge_length,
                      "DEBUG_DIR" : DEBUG_DIR
                      }
+    
     '''
     outfile = open(CONFIG_PATH, 'wb')
     
@@ -2264,8 +1566,6 @@ def run_multi_process(ngrid,
             if is_socket:
         
                 os.remove(SOCKET_PATH)
-                
-                print("CLEANING UP MAIN SOCKET")
         
     def cleanup_result():
         
@@ -2291,23 +1591,6 @@ def run_multi_process(ngrid,
         
             os.remove(LOOKUPMEM_BUFFER_PATH)
         
-    #def cleanup_cellID():
-        
-    #    os.remove(CELL_ID_BUFFER_PATH)
-        
-    #def cleanup_profile():
-        
-    #    os.remove(PROFILE_BUFFER_PATH)
-    '''
-    def possibly_send_exit_commands():
-        
-        if not sent_exit_commands:
-        
-            for idx in range(num_cpus):
-                
-                worker_sockets[idx].send(b"exit")
-    '''
-    
     
     atexit.register(cleanup_config)
     
@@ -2321,17 +1604,6 @@ def run_multi_process(ngrid,
     
     atexit.register(cleanup_lookupmem)
     
-    
-    
-    
-    
-    
-    
-    #atexit.register(possibly_send_exit_commands)
-    
-    #atexit.register(cleanup_cellID)
-    
-    #atexit.register(cleanup_profile)
     
     ################################################################################
     # Start the worker processes
@@ -2359,12 +1631,18 @@ def run_multi_process(ngrid,
     for proc_idx in range(num_cpus):
         
         #p = startup_context.Process(target=_main_hole_finder_startup, args=(proc_idx, CONFIG_PATH))
-        p = startup_context.Process(target=_main_hole_finder_worker, 
+        '''
+        p = startup_context.Process(target=_hole_finder_worker, 
                                     args=(proc_idx, 
                                           ijk_start, 
                                           write_start, 
                                           config_object))
-        #p = startup_context.Process(target=_main_hole_finder_profile, args=(proc_idx, CONFIG_PATH))
+        '''
+        p = startup_context.Process(target=_hole_finder_worker_profile, 
+                                    args=(proc_idx, 
+                                          ijk_start, 
+                                          write_start, 
+                                          config_object))
         
         p.start()
         
@@ -2388,9 +1666,21 @@ def run_multi_process(ngrid,
     
     socket_index = {}
     
+    all_successful_connections = True
+    
+    listener_socket.settimeout(10.0)
+    
     for idx in range(num_cpus):
         
-        worker_sock, worker_addr = listener_socket.accept()
+        try:
+            
+            worker_sock, worker_addr = listener_socket.accept()
+            
+        except:
+            
+            all_successful_connections = False
+            
+            break
         
         worker_sockets.append(worker_sock)
         
@@ -2400,10 +1690,12 @@ def run_multi_process(ngrid,
         
         socket_index[worker_sock.fileno()] = idx
         
+        
     if verbose > 0:
         
-        print("Worker processes time to connect: ", time.time() - worker_start_time)
-    
+        if all_successful_connections:
+            
+            print("Worker processes time to connect: ", time.time() - worker_start_time, flush=True)
     
     
     listener_socket.shutdown(socket.SHUT_RDWR)
@@ -2424,10 +1716,16 @@ def run_multi_process(ngrid,
     atexit.register(cleanup_worker_sockets)
     
     
-    
-    #cleanup_config()
-    
-    #os.unlink(CONFIG_PATH)
+    if not all_successful_connections:
+        
+        for worker_sock in worker_sockets:
+                
+            worker_sock.send(b"exit")
+        
+        print("FAILED TO CONNECT ALL WORKERS SUCCESSFULLY, EXITING")
+            
+        raise RunTimeError("Worker sockets failed to connect properly")
+        
     
     ################################################################################
     # PROFILING VARIABLES
@@ -2449,9 +1747,13 @@ def run_multi_process(ngrid,
     # LOOP TO LISTEN FOR RESULTS WHILE WORKERS WORKING
     ################################################################################
     if verbose > 0:
+        
         print_after_time = time.time()
+        
+        
+        main_task_start_time = time.time()
     
-    num_cells_processed = 0
+    
     
     empty1 = []
     
@@ -2509,7 +1811,7 @@ def run_multi_process(ngrid,
             
             if (curr_time - print_after_time) > print_after:
             
-                print('Processed', num_cells_processed, 'cells of', n_empty_cells, "empty cells", str(round(curr_time-start_time,2)))
+                print('Processed', num_cells_processed, 'cells of', n_empty_cells, "empty cells", str(round(curr_time-main_task_start_time,2)), flush=True)
                 
                 print_after_time = curr_time
             
@@ -2551,11 +1853,91 @@ def run_multi_process(ngrid,
                         
                         num_cells_processed += num_result
                         
+                        if ENABLE_SAVE_MODE:
+                            save_after_counter -= num_result
+                        
                         #n_holes += num_hole
                         
                     elif message_type == 1:
                         
                         num_active_processes -= 1
+                        
+                    elif message_type == 2:
+                        
+                        num_acknowledges += 1
+                        
+                        
+        if ENABLE_SAVE_MODE and save_after_counter <= 0:
+            
+            
+            
+            if not sent_syncs:
+            
+                for worker_sock in worker_sockets:
+                    
+                    worker_sock.send(b"sync")
+                    
+                sent_syncs = True
+                
+                
+            if num_acknowledges == num_cpus:
+                
+                
+                
+                
+                #don't need synchronized access since we sync-paused all the workers
+                next_cell_idx = ijk_start.value
+    
+                num_written_rows = write_start.value
+                
+                
+                print("Saving checkpoint: ", num_cells_processed, next_cell_idx, num_written_rows, flush=True)
+                
+                
+                temp_result_array = np.frombuffer(result_buffer, dtype=np.float64)
+    
+                temp_result_array.shape = (n_empty_cells, 4)
+                
+                temp_result = temp_result_array[0:num_written_rows,:]
+                
+                
+                #Save the file
+                
+                if os.path.isfile(survey_name+"VoidFinderCheckpoint.h5"):
+                    
+                    os.remove(survey_name+"VoidFinderCheckpoint.h5")
+                    
+                outfile = h5py.File(survey_name+"VoidFinderCheckpoint.h5", 'w')
+                
+                outfile.attrs["num_written_rows"] = num_written_rows
+                
+                outfile.attrs["next_cell_idx"] = next_cell_idx
+                
+                outfile.create_dataset("result_array", data=temp_result)
+                
+                outfile.close()
+                
+                print("Saved checkpoint", flush=True)
+                
+                del next_cell_idx
+                del num_written_rows
+                del temp_result_array
+                del temp_result
+                
+                
+                for worker_sock in worker_sockets:
+                    
+                    worker_sock.send(b"resume")
+                    
+                sent_syncs = False
+                
+                num_acknowledges = 0
+                
+                save_after_counter = save_after
+                
+                
+                
+                
 
 
     ################################################################################
@@ -2564,12 +1946,14 @@ def run_multi_process(ngrid,
     
     if verbose > 0:
         
-        print("Main task finish time: ", time.time() - start_time)
+        print("Main task finish time: ", time.time() - main_task_start_time, flush=True)
     
     
     if not sent_exit_commands:
         
         for idx in range(num_cpus):
+            
+            #print("Main sending exit: " +str(idx), flush=True)
                 
             worker_sockets[idx].send(b"exit")
     
@@ -2651,21 +2035,56 @@ def run_multi_process(ngrid,
     # traceback for some reason.
     ################################################################################
     result_buffer.close()
+    
+    gma_buffer.close()
+    
+    lookup_buffer.close()
+    
+    w_coord_buffer.close()
         
     return valid_result_array, n_holes
                     
     
 def process_message_buffer(curr_message_buffer):
     """
-    Helper function to process the communication between worker processes and 
-    main voidfinder processes.  Since communication over a socket is only guaranteed
+    Description
+    ===========
+    
+    Helper function to process the communication between the master _hole_finder_multi_process
+    and _hole_finder_worker processes.
+    
+    Since communication over a socket is only guaranteed
     to be in order, we have to process an arbitrary number of bytes depending on
     the message format.  The message format is as such:  the first byte gives the number
     of 8-byte fields in the message.  So a first byte of 3 means the message on the head
     of the buffer should be 1 + 3*8 = 25 bytes long.
     
+    Right now there are 2 types of message: 
+    
+    type 0 - "status" messages from the workers,
+    where field 0's value should be 2 for 2 fields, field 1 is the number of results the
+    worker has written, and field 2 (currently unused) is the number of new holes the worker
+    has found
+    
+    type 1 - "finished" message
+    
+    
+    Parameters
+    ==========
+    
     curr_message_buffer : bytes
         the current string of bytes to process
+        
+        
+    Returns
+    =======
+    
+    messages : list
+        list of parsed messages
+        
+    curr_message_buffer : bytes
+        remaining data in the current message buffer which was not yet able
+        to be parsed, likely due to a socket read ending not perfectly on a message border
     """
     
     messages = []
@@ -2711,60 +2130,52 @@ def process_message_buffer(curr_message_buffer):
     
     
     
-def _main_hole_finder_profile(worker_idx, ijk_start, write_start, config_path):
-    
-    cProfile.runctx("_main_hole_finder_worker(worker_idx, ijk_start, write_start, config_path)", globals(), locals(), 'prof%d.prof' %worker_idx)
-    
-    
-def _main_hole_finder_startup(worker_idx, config_path):
+def _hole_finder_worker_profile(worker_idx, ijk_start, write_start, config):
     """
-    Helper function called from run_multi_process() to help
-    create worker processes for voidfinder parallelization.
-    Basically creates a new python process via os.execv()
-    and gives that new process the location of a 
-    configuration pickle file which it can read in to 
-    configure itself.
+    Helper used in profiling the worker processes.
     """
     
-    curr_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    worker_script_name = os.path.join(curr_dir, "_voidfinder_worker_startup.py")
-    
-    #Shouldn't strictly be necessary to add this next parameter cause theoretically
-    #the voidfinder package should be installed in the python environment, but for now
-    #lets ensure that the voidfinder directory is in the path for the worker process
-    voidfinder_dir = os.path.abspath(os.path.join(curr_dir, ".."))
-    
-    working_dir = os.getcwd()
-    
-    args = ["VoidFinderWorker", worker_script_name, voidfinder_dir, working_dir, str(worker_idx), config_path]
-    
-    env = {"PYTHONHOME" : os.path.abspath(os.path.join(os.path.dirname(sys.executable), "..")),
-           "USER" : os.environ["USER"]}
-    
-    print(sys.executable, args)
-    
-    #os.spawnve(os.P_NOWAIT, sys.executable, args, os.environ)
-    #os.execve(sys.executable, args, env)
-    os.execve(sys.executable, args, env)
-    
-    
+    cProfile.runctx("_hole_finder_worker(worker_idx, ijk_start, write_start, config)", globals(), locals(), 'prof%d.prof' %worker_idx)
     
 
-
-def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
+def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
+    """
+    Description
+    ===========
+    
+    Worker process for the _hole_finder_multi_process function above.
+    
+    
+    Parameters
+    ==========
+    
+    worker_idx : int
+       ID number for this worker
+       
+    ijk_start : multiprocessing.Value, integer
+        locked value for synchronizing access to cell ID generation
+        
+    write_start : multiprocessing.Value, integer
+        locked value for synchronizing access to writing to the output buffer
+        
+    config : dict
+        configuration values for running this worker
+        
+        
+    Output
+    ======
+    
+    Writes out x,y,z and radius values to result buffer directly via
+    shared memory.
+    
+    Sends update messages to master process over socket for number
+    of cells which have been processed.
+    """
     
     
     ################################################################################
-    #
+    # Unpack the configuration from the master process.
     ################################################################################
-    '''
-    infile = open(config_path, 'rb')
-    
-    config = pickle.load(infile)
-    
-    infile.close()
-    '''
     
     SOCKET_PATH = config["SOCKET_PATH"]
     RESULT_BUFFER_PATH = config["RESULT_BUFFER_PATH"]
@@ -2780,8 +2191,6 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     next_prime = config["next_prime"]
     CELL_ID_BUFFER_PATH = config["CELL_ID_BUFFER_PATH"]
     PROFILE_BUFFER_PATH = config["PROFILE_BUFFER_PATH"]
-    #cell_ID_dict = config["cell_ID_dict"]
-    #galaxy_map = config["galaxy_map"]
     num_in_galaxy_map = config["num_in_galaxy_map"]
     ngrid = config["ngrid"]
     dl = config["dl"]
@@ -2791,7 +2200,6 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     mask_resolution = config["mask_resolution"]
     min_dist = config["min_dist"]
     max_dist = config["max_dist"]
-    #w_coord = config[13]
     batch_size = config["batch_size"]
     verbose = config["verbose"]
     print_after = config["print_after"]
@@ -2803,9 +2211,23 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
 
     worker_socket = socket.socket(socket.AF_UNIX)
     
-    worker_socket.connect(SOCKET_PATH)
+    worker_socket.settimeout(10.0)
     
-    worker_socket.setblocking(False)
+    connect_start = time.time()
+    
+    try:
+        
+        worker_socket.connect(SOCKET_PATH)
+        
+    except Exception as E:
+        
+        print("WORKER", worker_idx, "UNABLE TO CONNECT, EXITING", flush=True)
+        
+        raise E
+    
+    
+    #print("Worker", worker_idx, "connect time: ", time.time() - connect_start, flush=True)
+    #worker_socket.setblocking(True)
     
     ################################################################################
     # Load up w_coord from shared memory
@@ -2914,6 +2336,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
     
+    
     #result_mmap_buffer = mmap.mmap(result_buffer.fileno(), result_buffer_length)
     result_mmap_buffer = mmap.mmap(result_fd, result_buffer_length)
     
@@ -2945,10 +2368,10 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     
     
-    cell_ID_gen = MultiCellIDGenerator_2(ngrid[0],
-                                         ngrid[1],
-                                         ngrid[2],
-                                         galaxy_map)
+    cell_ID_gen = CellIDGenerator(ngrid[0],
+                                  ngrid[1],
+                                  ngrid[2],
+                                  galaxy_map)
     
     ################################################################################
     #
@@ -3013,102 +2436,167 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     message_buffer = b""
     
+    do_work = True
+    
+    sync = False
+    
+    sent_sync_ack = False
+    
+    have_result_to_write = False
+    
+    no_cells_left_to_process = False
+    
+    sent_deactivation = False
+    
     while not exit_process:
         
         total_loops += 1
         
-        read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, 0)
+        if sent_deactivation:
+            select_timeout = 10.0
+        else:
+            select_timeout = 0
+        
+        
+        #print("Worker "+str(worker_idx)+" "+str(message_buffer), flush=True)
+        
+        read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, select_timeout)
         
         if read_socks:
             
             message_buffer += worker_socket.recv(1024)
             
+            
+        if len(message_buffer) > 0:
+            
             if len(message_buffer) >= 4 and message_buffer[0:4] == b'exit':
+                
+                #print("Worker "+str(worker_idx)+" recieved exit", flush=True)
                 
                 exit_process = True
                 
                 received_exit_command = True
                 
                 continue
+            
+            elif len(message_buffer) >= 4 and message_buffer[0:4] == b"sync":
+                
+                #print("Worker "+str(worker_idx)+" recieved sync", flush=True)
+                
+                sync = True
+                
+                message_buffer = message_buffer[4:]
+                
+            elif len(message_buffer) >= 6 and message_buffer[0:6] == b"resume":
+                
+                #print("Worker "+str(worker_idx)+" recieved resume", flush=True)
+                
+                sync = False
+                
+                sent_sync_ack = False
+                
+                message_buffer = message_buffer[6:]
+        
+        
         
         ################################################################################
         # Locked access to cell ID generation
         ################################################################################
         
+        if do_work and not sync:
         
-        
-        ijk_start.acquire()
-        
-        start_idx = ijk_start.value
-        
-        ijk_start.value += batch_size
-        
-        ijk_start.release()
-        
-        
-        
-        
-        #PROFILE_gen_start = time.time_ns()
-        
-        num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
-        
-        #PROFILE_gen_end = time.time_ns()
-        
-        #PROFILE_gen_times.append((PROFILE_gen_end, PROFILE_gen_start))
-        
-        #print("Worker: ", worker_idx, i_j_k_array[0,:], out_start_idx)
-        
-        ################################################################################
-        #
-        ################################################################################
-        num_cells_to_process = num_write
-        
-        if num_cells_to_process > 0:
             
-            #PROFILE_main_start = time.time_ns()
-
-            if return_array.shape[0] != num_cells_to_process:
-
-                return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
+            ijk_start.acquire()
+            
+            start_idx = ijk_start.value
+            
+            ijk_start.value += batch_size
+            
+            ijk_start.release()
+            
+            
+            
+            
+            #PROFILE_gen_start = time.time_ns()
+            
+            num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
+            
+            #if num_write > 0:
+            #    print(start_idx, batch_size, num_write, flush=True)
+            
+            #PROFILE_gen_end = time.time_ns()
+            
+            #PROFILE_gen_times.append((PROFILE_gen_end, PROFILE_gen_start))
+            
+            #print("Worker: ", worker_idx, i_j_k_array[0,:], out_start_idx)
+            
+            ################################################################################
+            #
+            ################################################################################
+            num_cells_to_process = num_write
+            
+            #print("Worker "+str(worker_idx)+" num cells to process: "+str(num_cells_to_process), flush=True)
+            
+            if num_cells_to_process > 0:
                 
-                #PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
+                #print("num_cells_to_process", num_cells_to_process, flush=True)
                 
-            main_algorithm(i_j_k_array[0:num_write],
-                           galaxy_tree,
-                           w_coord,
-                           dl, 
-                           dr,
-                           coord_min,
-                           mask,
-                           mask_resolution,
-                           min_dist,
-                           max_dist,
-                           return_array,
-                           cell_ID_mem,
-                           0,  #verbose level
-                           #PROFILE_array
-                           )
+                #PROFILE_main_start = time.time_ns()
+    
+                if return_array.shape[0] != num_cells_to_process:
+    
+                    return_array = np.empty((num_cells_to_process, 4), dtype=np.float64)
+                    
+                    #PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
+                    
+                main_algorithm(i_j_k_array[0:num_write],
+                               galaxy_tree,
+                               w_coord,
+                               dl, 
+                               dr,
+                               coord_min,
+                               mask,
+                               mask_resolution,
+                               min_dist,
+                               max_dist,
+                               return_array,
+                               cell_ID_mem,
+                               0,  #verbose level
+                               #PROFILE_array
+                               )
+                
+                num_cells_processed += num_write
+                
+                #RETURN_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0])] = return_array
+                
+                
+                
+                write_start.acquire()
+                
+                out_start_idx = write_start.value
+                
+                write_start.value += num_write
+                
+                write_start.release()
+                
+                
+                
+                seek_location = 32*out_start_idx
+                
+                result_mmap_buffer.seek(seek_location)
+                
+                write_data = return_array[0:num_write].tobytes()
+                
+                
+                #print("Writing: ", len(write_data), num_write, "at", seek_location, flush=True)
+                
+                
+                result_mmap_buffer.write(write_data)
+                
+                have_result_to_write = True
             
-            num_cells_processed += num_write
-            
-            #RETURN_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0])] = return_array
-            
-            
-            
-            write_start.acquire()
-            
-            out_start_idx = write_start.value
-            
-            write_start.value += num_write
-            
-            write_start.release()
-            
-            
-            
-            seek_location = 32*out_start_idx
-            result_mmap_buffer.seek(seek_location)
-            result_mmap_buffer.write(return_array[0:num_write].tobytes())
-            
+            else:
+                no_cells_left_to_process = True
             
             
             #PROFILE_ARRAY[out_start_idx:(out_start_idx+return_array.shape[0]),:] = PROFILE_array
@@ -3116,7 +2604,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
             #PROFILE_mmap_buffer.seek(seek_location)
             #PROFILE_mmap_buffer.write(PROFILE_array[0:num_write].tobytes())
             
-            
+        if have_result_to_write:   
             
             #n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), axis=None, dtype=np.int64)
             
@@ -3126,36 +2614,65 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
             #return_queue.put(("data", return_array.shape[0], n_hole))
             out_msg = b""
             #out_msg += struct.pack("=q", 4)
-            out_msg += struct.pack("b", 2)
-            out_msg += struct.pack("=q", 0)
+            out_msg += struct.pack("b", 2) #1 byte - number of 8 byte fields
+            out_msg += struct.pack("=q", 0) #8 byte field - message type 0
             #out_msg += b","
-            out_msg += struct.pack("=q", num_write)
+            out_msg += struct.pack("=q", num_write) #8 byte field - payload for num-write
             #out_msg += b","
             #out_msg += struct.pack("=q", n_hole)
             #out_msg += b"\n"
             
-            #print(worker_idx, out_msg)
             
-            worker_socket.send(out_msg)
+            try:
+                worker_socket.send(out_msg)
+            except:
+                do_work = False
+            else:
+                do_work = True
+                have_result_to_write = False
             
             #PROFILE_main_end = time.time_ns()
             
             #PROFILE_main_times.append((PROFILE_main_end, PROFILE_main_start, return_array.shape[0]))
             
-        else:
+        if no_cells_left_to_process:
             
-            out_msg = b""
-            out_msg += struct.pack("b", 1)
-            out_msg += struct.pack("=q", 1)
-            #out_msg += b"\n"
+            if not sent_deactivation:
             
-            worker_socket.send(out_msg)
+                out_msg = b""
+                out_msg += struct.pack("b", 1) #1 byte - number of 8 byte fields
+                out_msg += struct.pack("=q", 1) #8 byte field - message type 1 (no payload)
+                #out_msg += b"\n" 
+                
+                worker_socket.send(out_msg)
+                
+                #exit_process = True
+                sent_deactivation = True
             
-            exit_process = True
+            
+        if sync:
+            
+            if not sent_sync_ack:
+                
+                acknowledge_sync = b""
+                acknowledge_sync += struct.pack("b", 1) #1 byte - number of 8 byte fields
+                acknowledge_sync += struct.pack("=q", 2) #8 byte field - message type 2
+                
+                try:
+                    worker_socket.send(acknowledge_sync)
+                except:
+                    pass
+                else:
+                    sent_sync_ack = True
+            else:
+            
+                time.sleep(1.0)
                 
     
-    
+    '''
     while not received_exit_command:
+        
+        print("Worker "+str(worker_idx), flush=True)
         
         read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, 10.0)
         
@@ -3163,12 +2680,15 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
             
             message = worker_socket.recv(1024)
             
+            print("Worker "+str(worker_idx)+" "+str(message))
+            
             if len(message) == 4 and message == b'exit':
                 
                 received_exit_command = True
                 
                 continue
-        
+    '''
+                
     worker_socket.close()
     
     #outfile = open(os.path.join(DEBUG_DIR, "multi_gen_times_"+str(worker_idx)+".pickle"), 'wb')
@@ -3179,7 +2699,7 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
     #del PROFILE_ARRAY #flushes np.memmap
     #return_queue.put(("done", None))
     
-    print("WORKER EXITING GRACEFULLY", worker_idx)
+    print("WORKER EXITING GRACEFULLY "+str(worker_idx), flush=True)
     
     return None
 
@@ -3188,6 +2708,9 @@ def _main_hole_finder_worker(worker_idx, ijk_start, write_start, config):
 
 def find_next_prime(threshold_value):
     """
+    Description
+    ===========
+    
     Given an input integer threshold_value, find the next prime number
     greater than threshold_value.  This is used as a helper in creating
     the memory backing array for the galaxy map, because taking an index
@@ -3195,6 +2718,19 @@ def find_next_prime(threshold_value):
     
     Uses Bertrams(?) theorem that for every n > 1 there is a prime number
     p such that n < p < 2n
+    
+    
+    Parameters
+    ==========
+    
+    threshold_value : int
+        find the next prime number after this value
+        
+    Returns
+    =======
+    
+    check_val : int
+        next prime number after threshold_value
     """
     
     
@@ -3293,27 +2829,8 @@ def plot_cell_kdtree_times(curr_data, idx, single_or_multi, out_dir):
 
 
 if __name__ == "__main__":
-    """
-    For running in multi-process mode, the run_multi_process function above now uses
-    the helper function _main_hole_finder_startup() and os.execv(), which in turn
-    invokes this file _voidfinder.py as a script, and will enter this
-    if __name__ == "__main__" block, where the real worker function is called.
     
-    The worker then will load a pickled config file based on the 
-    `config_path` argument which the worker can then use to
-    configure itself and connect via socket to the main process.
-    """
-    
-    run_args = sys.argv
-    
-    worker_idx = sys.argv[1]
-    
-    config_path = sys.argv[2]
-    
-    print("WORKER STARTED WITH ARGS: ", sys.argv)
-    
-    _main_hole_finder_worker(worker_idx, config_path)
-    
+    print("This module is not intended to be run as a script")
     
     
     

@@ -6,13 +6,18 @@ import time
 
 #from .absmag_comovingdist_functions import Distance
 
+from voidfinder.constants import c #speed of light
 
 maskra = 360
 maskdec = 180
 dec_offset = -90
 
 
-def generate_mask(gal_data, dist_metric='comoving', h=1.0, O_m=0.3):
+def generate_mask(gal_data, 
+                  dist_metric='comoving', 
+                  h=1.0, 
+                  O_m=0.3,
+                  verbose=0):
     '''
     Generate sky mask that identifies the footprint of the input galaxy survey.
 
@@ -47,14 +52,15 @@ def generate_mask(gal_data, dist_metric='comoving', h=1.0, O_m=0.3):
         Scale factor of coordinates in maskfile
     '''
 
-
-    print("Generate mask start")
+    if verbose > 0:
+        
+        print("Generate mask start", flush=True)
 
     D2R = np.pi/180.0
 
-    c = 299792.0
+    #c = 299792.0
 
-    ra  = gal_data['ra'].data % 360
+    ra  = gal_data['ra'].data % 360.0
     dec = gal_data['dec'].data 
     r = gal_data["Rgal"].data 
     

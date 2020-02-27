@@ -29,7 +29,12 @@ The single-process version of VoidFinder should run on Linux, OSX, and Windows.
 VoidFinder doesn't yet have any pre-built wheels or distribution packages, so clone the repository
 from https://github.com/DESI-UR/Voids.git
 
-VoidFinder will install like a normal python package via the shell command `python setup.py install`
+If you also want to run the VoidRender visualization class which is packaged with VoidFinder, see the additional instructions below under "Building VoidRender"
+
+VoidFinder will install like a normal python package via the shell command 
+```
+python setup.py install
+```
 from the `/python/` directory (`Voids/VoidFinder/python/`).  And remember, this will attempt to install VoidFinder into the `site-packages` directory of whatever python environment you're using.  To check on that, in a normal unix shell you can type `which python` and it will give you a path like `/usr/bin/python` or `/opt/anaconda3/bin/python` which lets you know which python binary your `python` command actually points to.
 
 
@@ -66,3 +71,22 @@ The current version of VoidFinder is written to run with Python 3.7.
 There are a few example scripts in the `/python/scripts/` directory of the repository, see `/python/scripts/SDSS_VoidFinder_dr7.py` for an example of running the main algorithm.
 
 Also see `/python/scripts/visualize_voids.py` for an OpenGL-based 3D renderization of the output of the VoidFinder algorithm.
+
+## Building VoidRender (OpenGL-based VoidFinder 3D visualization program)
+
+Requires OpenGL >= 1.2
+Requires vispy `pip install vispy`
+
+Example run script in the repository at `/python/scripts/visualize_voids.py`
+
+The video recording capability of VoidRender depents on the `ffmpeg` library
+On Ubuntu or similar - `sudo apt install ffmpeg`
+
+Also on Ubuntu you may need to install the following:
+
+`sudo apt-get install mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev`
+
+
+
+
+

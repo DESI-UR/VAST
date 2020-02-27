@@ -85,7 +85,7 @@ cdef struct OffsetNumPair:
 
 cdef class GalaxyMapCustomDict:
          
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
     
     cdef public LOOKUPMEM_t[:] lookup_memory
     

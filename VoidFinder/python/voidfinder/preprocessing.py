@@ -9,8 +9,55 @@ import time
 
 import h5py
 
+from voidfinder.constants import c #speed of light
 
-c = 299792.0 # km/s
+
+
+def load_data_to_Table(input_filepath):
+    """
+    Description
+    ===========
+    
+    Load a .dat or .h5 file representing a table of numerical values.  For HDF5 (.h5)
+    files, assumes the "columns" are stored as individual datasets on the root h5py.File
+    object.
+    
+    If the input filepath ends with a .h5 extension, this will attempt to read it in 
+    as the HDF5 format, otherwise for all other extensions it will attempt the normal
+    Table.read()
+    
+    Parameters
+    ==========
+    
+    input_filepath : str
+        path to the input .dat or .h5 file
+        
+    Returns
+    =======
+    
+    astropy.table.Table
+    """
+        
+    if input_filepath.endswith(".h5"):
+        
+        infile = h5py.File(input_filepath, 'r')
+        
+        data_table = Table()
+        
+        for col in list(infile.keys()):
+            
+            data_table[col] = infile[col][()]
+            
+        infile.close()
+        
+    else:
+        
+        data_table = Table.read(input_filepath, format='ascii.commented_header')
+        
+    return data_table
+    
+    
+    
 
 
 def file_preprocess(galaxies_filename, 
@@ -116,27 +163,15 @@ def file_preprocess(galaxies_filename,
     in_filename = in_directory + galaxies_filename
     
     if verbose > 0:
-        print("Loading galaxy data table at: ", in_filename)
+        print("Loading galaxy data table at: ", in_filename, flush=True)
         load_start_time = time.time()
     
-    if in_filename.endswith(".dat"):
     
-        galaxy_data_table = Table.read(in_filename, format='ascii.commented_header')
-        
-    elif in_filename.endswith(".h5"):
-        
-        infile = h5py.File(in_filename, 'r')
-        
-        galaxy_data_table = Table()
-        
-        for col in list(infile.keys()):
-            
-            galaxy_data_table[col] = infile[col][()]
-            
-        infile.close()
+    galaxy_data_table = load_data_to_Table(in_filename)
+
         
     if verbose > 0:
-        print("Galaxy data table load time: ", time.time() - load_start_time)
+        print("Galaxy data table load time: ", time.time() - load_start_time, flush=True)
     ############################################################################
     
     
@@ -179,13 +214,13 @@ def file_preprocess(galaxies_filename,
     if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
         
         if verbose > 0:
-            print("Calculating Rgal data table column")
+            print("Calculating Rgal data table column", flush=True)
             calc_start_time = time.time()
         
         galaxy_data_table['Rgal'] = z_to_comoving_dist(galaxy_data_table['z'].data.astype(np.float32), Omega_M, h)
     
         if verbose > 0:
-            print("Finished Rgal calculation time: ", time.time() - calc_start_time)
+            print("Finished Rgal calculation time: ", time.time() - calc_start_time, flush=True)
     ############################################################################
     
     
@@ -193,10 +228,7 @@ def file_preprocess(galaxies_filename,
 
 
 
-        
-        
-        
-        
+       
         
         
         
