@@ -54,7 +54,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 4
+num_cpus = 7
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -181,8 +181,8 @@ find_voids(wall_coords_xyz,
            coords_min,
            hole_grid_shape,
            survey_name,
-           save_after=50000,
-           use_start_checkpoint=True,
+           #save_after=50000,
+           #use_start_checkpoint=True,
            hole_grid_edge_length=5.0,
            galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,

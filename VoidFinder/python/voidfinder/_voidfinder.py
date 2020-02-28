@@ -426,6 +426,9 @@ def _hole_finder_single_process(void_grid_shape,
                               min_dist,
                               max_dist,
                               galaxy_coords,
+                              survey_name,
+                              save_after=None,
+                              use_start_checkpoint=False,
                               batch_size=1000,
                               verbose=0,
                               print_after=5.0,
@@ -437,6 +440,10 @@ def _hole_finder_single_process(void_grid_shape,
         start_time = time.time()
         
         print("Running single-process mode", flush=True)
+        
+    if verbose > 0:
+        
+        print("Grid: ", void_grid_shape, flush=True)
         
     ################################################################################
     # An output counter for total number of holes found, and calculate the
@@ -502,9 +509,9 @@ def _hole_finder_single_process(void_grid_shape,
     next_prime = find_next_prime(2*num_galaxy_map_elements)
     
     lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, 1),
-                                                   ("i", np.uint16, 1),
-                                                   ("j", np.uint16, 1),
-                                                   ("k", np.uint16, 1),
+                                                   ("i", np.int16, 1),
+                                                   ("j", np.int16, 1),
+                                                   ("k", np.int16, 1),
                                                    ("offset", np.int64, 1),
                                                    ("num_elements", np.int64, 1)])
     
@@ -527,7 +534,7 @@ def _hole_finder_single_process(void_grid_shape,
         print("Num collisions in rebuild: ", new_galaxy_map.num_collisions, flush=True)
         
         
-    cell_ID_mem = Cell_ID_Memory(10000)
+    cell_ID_mem = Cell_ID_Memory(2)
     
     ################################################################################
     # 
@@ -1248,9 +1255,9 @@ def _hole_finder_multi_process(ngrid,
     next_prime = find_next_prime(2*num_galaxy_map_elements)
     
     lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, 1),
-                                                   ("i", np.uint16, 1),
-                                                   ("j", np.uint16, 1),
-                                                   ("k", np.uint16, 1),
+                                                   ("i", np.int16, 1),
+                                                   ("j", np.int16, 1),
+                                                   ("k", np.int16, 1),
                                                    ("offset", np.int64, 1),
                                                    ("num_elements", np.int64, 1)])
     
@@ -2284,9 +2291,9 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     lookup_mmap_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
     
     lookup_dtype = [("filled_flag", np.uint8, 1),
-                    ("i", np.uint16, 1),
-                    ("j", np.uint16, 1),
-                    ("k", np.uint16, 1),
+                    ("i", np.int16, 1),
+                    ("j", np.int16, 1),
+                    ("k", np.int16, 1),
                     ("offset", np.int64, 1),
                     ("num_elements", np.int64, 1)]
 
@@ -2322,7 +2329,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
         
         
     #cell_ID_mem = Cell_ID_Memory(len(galaxy_tree.galaxy_map))
-    cell_ID_mem = Cell_ID_Memory(10000)
+    cell_ID_mem = Cell_ID_Memory(2) #use level now instead of raw rows
     
     
     ################################################################################
