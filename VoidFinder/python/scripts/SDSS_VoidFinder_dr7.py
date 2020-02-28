@@ -15,8 +15,6 @@
 # point back to the current directory and you can run off the same voidfinder
 # repository that you're working on as if it was installed
 #
-#
-#
 ################################################################################
 
 
@@ -30,8 +28,7 @@
 #
 ################################################################################
 
-from voidfinder import find_voids, \
-                       filter_galaxies_2
+from voidfinder import find_voids, filter_galaxies_2
 
 from voidfinder.multizmask import generate_mask
 from voidfinder.preprocessing import file_preprocess
