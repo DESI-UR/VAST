@@ -1253,12 +1253,12 @@ def _hole_finder_multi_process(ngrid,
     
     next_prime = find_next_prime(2*num_galaxy_map_elements)
     
-    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, 1),
-                                                   ("i", np.int16, 1),
-                                                   ("j", np.int16, 1),
-                                                   ("k", np.int16, 1),
-                                                   ("offset", np.int64, 1),
-                                                   ("num_elements", np.int64, 1)])
+    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
+                                                   ("i", np.int16, ()),
+                                                   ("j", np.int16, ()),
+                                                   ("k", np.int16, ()),
+                                                   ("offset", np.int64, ()),
+                                                   ("num_elements", np.int64, ())])
     
     new_galaxy_map = GalaxyMapCustomDict(ngrid, lookup_memory)
     
@@ -2290,9 +2290,9 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     lookup_mmap_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
     
     lookup_dtype = [("filled_flag", np.uint8, ()), #() indicating scalar length 1
-                    ("i", np.uint16, ()),
-                    ("j", np.uint16, ()),
-                    ("k", np.uint16, ()),
+                    ("i", np.int16, ()),
+                    ("j", np.int16, ()),
+                    ("k", np.int16, ()),
                     ("offset", np.int64, ()),
                     ("num_elements", np.int64, ())]
 
