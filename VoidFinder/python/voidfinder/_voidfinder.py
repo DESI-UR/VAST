@@ -58,8 +58,8 @@ import matplotlib.pyplot as plt
 
 
 
-from sklearn.manifold import TSNE
-import hdbscan
+#from sklearn.manifold import TSNE
+#import hdbscan
 
 
 
@@ -402,13 +402,13 @@ class CellIDGenerator(object):
         
         
         num_out = fill_ijk_2(output_array, 
-                           start_idx,
-                           batch_size,
-                           self.data[0],
-                           self.data[1],
-                           self.data[2],
-                           self.cell_ID_dict
-                           )
+                             start_idx,
+                             batch_size,
+                             self.data[0],
+                             self.data[1],
+                             self.data[2],
+                             self.cell_ID_dict
+                             )
         
         return num_out
         
@@ -806,8 +806,7 @@ def _hole_finder_multi_process(ngrid,
                                ):
     """
     Work-horse method for running VoidFinder with the Cython code in parallel
-    multi-process form.  Currently a little bitch because there is some kind of
-    blocking going on which actually makes it slower than single-thread.
+    multi-process form.  
     
     This method contains the logic for:
     
@@ -2283,12 +2282,12 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     #lookup_mmap_buffer = mmap.mmap(lookup_buffer.fileno(), lookup_buffer_length)
     lookup_mmap_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
     
-    lookup_dtype = [("filled_flag", np.uint8, 1),
-                    ("i", np.uint16, 1),
-                    ("j", np.uint16, 1),
-                    ("k", np.uint16, 1),
-                    ("offset", np.int64, 1),
-                    ("num_elements", np.int64, 1)]
+    lookup_dtype = [("filled_flag", np.uint8, ()), #() indicating scalar length 1
+                    ("i", np.uint16, ()),
+                    ("j", np.uint16, ()),
+                    ("k", np.uint16, ()),
+                    ("offset", np.int64, ()),
+                    ("num_elements", np.int64, ())]
 
     input_numpy_dtype = np.dtype(lookup_dtype, align=False)
     
@@ -2322,7 +2321,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
         
         
     #cell_ID_mem = Cell_ID_Memory(len(galaxy_tree.galaxy_map))
-    cell_ID_mem = Cell_ID_Memory(10000)
+    cell_ID_mem = Cell_ID_Memory(10)
     
     
     ################################################################################

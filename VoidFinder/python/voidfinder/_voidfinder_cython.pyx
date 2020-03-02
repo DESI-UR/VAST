@@ -54,10 +54,49 @@ cpdef DTYPE_INT64_t fill_ijk_2(DTYPE_INT64_t[:,:] i_j_k_array,
                              GalaxyMapCustomDict cell_ID_dict
                              ) except *:
     """
+    Description
+    ===========
+    
+    Given a starting index and a batch size, generate and fill in the (i,j,k) coordinates
+    into the provided i_j_k_array 
+    
+    
+    Parameters
+    ==========
+    
+    i_j_k_array : memoryview onto a numpy array of shape (N, 3) where N is >= batch_size
+        the array to fill in result values into
+        
+    start_idx : int
+        the sequential index into the grid to start at
+        
+    batch_size : int
+        the maximum number of (i,j,k) triplets to write
+    
+    i_lim, j_lim, k_lim : int
+        the number of cells in each i,j,k direction of the grid we're searching
+        
+    cell_ID_dict : custom dictionary/hash table
+        provides a contains() method that can check if a grid cell is in the
+        galaxy map
+        Possible problem:  I believe the cell_ID_dict entries are in the
+        "galaxy search grid" p-q-r space, and these i,j,k values are in the
+        "hole grid" i-j-k search space
+    
+    Notes
+    =====
     We are given a block of batch_size indices to attempt to put
     into the ijk array.  In order to stay synced with the main
     process-shared counter, we can ONLY return indices from this block
     of batch_size.
+    
+    This version of fill_ijk goes in zigzag/snake order in an attempt to preserve spatial locality of
+    the array data while processing.  That is to say, on a 3x3 grid, this functions goes:
+    (0,0,0), (0,0,1), (0,0,2), (0,1,2), (0,1,1), (0,1,0), (0,2,0), ...
+    whaeras a normal ordering would be:
+    (0,0,0), (0,0,1), (0,0,2), (0,1,0), (0,1,1), (0,1,2), (0,2,0)
+    so that the next cell grid returned is always adjacent to both its predecessor and
+    its antecedent 
     """
     
     
@@ -114,6 +153,8 @@ cpdef DTYPE_INT64_t fill_ijk_2(DTYPE_INT64_t[:,:] i_j_k_array,
         #skip_this_index = (i,j,k) in cell_ID_dict
         
         skip_this_index = cell_ID_dict.contains(i,j,k)
+        
+        #skip_this_index = False
         
         if not skip_this_index:
         

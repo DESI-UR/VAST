@@ -54,17 +54,17 @@ import numpy as np
 num_cpus = 4
 
 #-------------------------------------------------------------------------------
-survey_name = 'SDSS_dr7_'
-#survey_name = 'SDSS_dr12_'
+#survey_name = 'SDSS_dr7_'
+survey_name = 'SDSS_dr12_'
 
 # File header
 
 if survey_name == 'SDSS_dr7_':
-    in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
-    out_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
+    in_directory = '/home/oneills2/Desktop/data/SDSS/'
+    out_directory = '/home/oneills2/Desktop/data/SDSS/'
 elif survey_name == 'SDSS_dr12_':
-    in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
-    out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+    in_directory = '/home/oneills2/Desktop/data/'
+    out_directory = '/home/oneills2/Desktop/data/'
 
 #in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
@@ -178,8 +178,8 @@ find_voids(wall_coords_xyz,
            coords_min,
            hole_grid_shape,
            survey_name,
-           save_after=50000,
-           use_start_checkpoint=True,
+           #save_after=50000,
+           #use_start_checkpoint=True,
            hole_grid_edge_length=5.0,
            galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,

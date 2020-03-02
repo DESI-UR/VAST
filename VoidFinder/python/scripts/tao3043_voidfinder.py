@@ -57,7 +57,7 @@ start_time = time.time()
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 15
+num_cpus = 4
 
 #-------------------------------------------------------------------------------
 survey_name = 'tao3043_'
@@ -69,8 +69,8 @@ survey_name = 'tao3043_'
 #in_directory = '/scratch/sbenzvi_lab/desi/dylanbranch/vfp8/VoidFinder/python/scripts/'
 #out_directory = '/scratch/sbenzvi_lab/desi/dylanbranch/vfp8/VoidFinder/python/scripts/'
 
-in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
-out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+in_directory = '/home/oneills2/Desktop/data/'
+out_directory = '/home/oneills2/Desktop/data/'
 
 
 # Input file name

@@ -753,7 +753,7 @@ def find_voids(galaxy_coords_xyz,
     have bounded the void.  After the filtering, these pre-voids will be combined
     into the actual voids based on an analysis of their overlap.
     
-    This implementation uses a reference point, 'coords_min', and the 
+    This implementation uses a reference point, 'coords_min', from xyz space, and the 
     'hole_grid_edge_length' to convert between the x,y,z coordinates of a galaxy,
     and the i,j,k coordinates of a cell in the search grid such that:
     
@@ -957,8 +957,10 @@ def find_voids(galaxy_coords_xyz,
     print('Removing holes with at least 10% of their volume outside the mask', flush=True)
 
 
-    potential_voids_table = volume_cut(potential_voids_table, mask, 
-                                       mask_resolution, dist_limits)
+    potential_voids_table = volume_cut(potential_voids_table, 
+                                       mask, 
+                                       mask_resolution, 
+                                       dist_limits)
 
     potential_voids_table.write(potential_voids_filename, format='ascii.commented_header', overwrite=True)
 

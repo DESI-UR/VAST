@@ -1423,6 +1423,8 @@ cdef class Cell_ID_Memory:
         re-use the original data location.
         """
         
+        print("CellIDMem resize: ", num_rows, flush=True)
+        
         
         mem = <CELL_ID_t*> PyMem_Realloc(self.data, num_rows * 3 * sizeof(CELL_ID_t))
         
