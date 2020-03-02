@@ -3,6 +3,8 @@
 
 
 
+from __future__ import print_function
+
 cimport cython
 import numpy as np
 cimport numpy as np
@@ -519,8 +521,13 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #Don't do the print statements in the main algorithm
         #Let the caller handle how many have been processed
         #if (verbose > 0 and working_idx % 10000 == 0):
-        
+        #
         #    print("Processing cell "+str(working_idx)+" of "+str(num_cells))
+        
+        
+        
+        
+        #print("Working index: ", working_idx, flush=True)
         
         
         #re-init nearest gal index list on new cell

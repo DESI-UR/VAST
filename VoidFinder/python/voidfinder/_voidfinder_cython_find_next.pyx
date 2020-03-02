@@ -53,8 +53,9 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            DTYPE_F64_t dr, 
                            DTYPE_F64_t direction_mod,
                            DTYPE_F64_t[:] unit_vector_memview, 
+                           
                            galaxy_tree, 
-                           #galaxy_kdtree,
+                           
                            DTYPE_INT64_t[:] nearest_gal_index_list, 
                            ITYPE_t num_neighbors,
                            DTYPE_F64_t[:,:] w_coord, 
@@ -81,7 +82,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            DTYPE_B_t[:] in_mask,                         #return variable
                            #DTYPE_F64_t[:] PROFILE_kdtree_time
                            
-                           ): 
+                           ) except *: 
                            #) except *:              
 
     '''
@@ -657,7 +658,7 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
                   DTYPE_B_t[:,:] survey_mask_ra_dec, 
                   DTYPE_INT32_t n,
                   DTYPE_F64_t rmin, 
-                  DTYPE_F64_t rmax):
+                  DTYPE_F64_t rmax) except *:
     '''
     Description
     ===========
@@ -1125,7 +1126,7 @@ cdef class GalaxyMap:
         
         self.dl = dl
         
-        self.reference_point_ijk = np.empty((1,3), dtype=np.int64)
+        self.reference_point_ijk = np.empty((1,3), dtype=np.int16)
         
         self.galaxy_map = galaxy_map
         
@@ -1403,7 +1404,14 @@ cdef class Cell_ID_Memory:
 
     #cdef DTYPE_INT64_t* data
 
-    def __cinit__(self, size_t num_rows):
+    def __cinit__(self, size_t level):
+        
+        
+        num_rows = (2*level + 1)**3
+        
+        self.max_level_mem = level
+        self.max_level_available = 0
+        
         
         # allocate some memory (uninitialised, may contain arbitrary data)
         self.data = <CELL_ID_t*> PyMem_Malloc(num_rows * 3 * sizeof(CELL_ID_t))
@@ -1412,31 +1420,87 @@ cdef class Cell_ID_Memory:
             
             raise MemoryError()
         
-        self.num_rows = num_rows
+        self.level_start_idx = <DTYPE_INT64_t*> PyMem_Malloc((level+1)*sizeof(DTYPE_INT64_t))
+        
+        if not self.level_start_idx:
+            
+            raise MemoryError()
+        
+        self.level_stop_idx = <DTYPE_INT64_t*> PyMem_Malloc((level+1)*sizeof(DTYPE_INT64_t))
+        
+        if not self.level_stop_idx:
+            
+            raise MemoryError()
+        
+        
+        self.total_num_rows = num_rows
+        self.num_available_rows = num_rows
+        self.next_unused_row_idx = 0
+        
+        self.curr_ijk = <CELL_ID_t*> PyMem_Malloc(3 * sizeof(CELL_ID_t))
+        
+        if not self.curr_ijk:
+            
+            raise MemoryError()
+        
+        #a 65536^3 grid is 2.8*10^14 grid cells, so initializing
+        #to 65535 in the hopes we will never have a grid with
+        #a side of length 65536
+        self.curr_ijk[0] = 65535
+        self.curr_ijk[1] = 65535
+        self.curr_ijk[2] = 65535
+        
         
         #print("Initialized!")
 
-    def resize(self, size_t num_rows):
+    def resize(self, size_t level):
         """
         Allocates num_rows * 3 * sizeof(CELL_ID_t) bytes,
         -PRESERVING THE CURRENT CONTENT- and making a best-effort to
         re-use the original data location.
         """
         
-        print("CellIDMem resize: ", num_rows, flush=True)
+        print("Cell ID Mem resizing: ", self.max_level_mem, level, flush=True)
+
         
-        
-        mem = <CELL_ID_t*> PyMem_Realloc(self.data, num_rows * 3 * sizeof(CELL_ID_t))
-        
-        if not mem:
+        if level > <size_t>self.max_level_mem:
             
-            raise MemoryError()
-        
-        # Only overwrite the pointer if the memory was really reallocated.
-        # On error (mem is NULL), the originally memory has not been freed.
-        self.data = mem
-        
-        self.num_rows = num_rows
+            num_rows = (2*level+1)**3
+            
+            mem = <CELL_ID_t*> PyMem_Realloc(self.data, num_rows * 3 * sizeof(CELL_ID_t))
+            
+            if not mem:
+                
+                raise MemoryError()
+            
+            # Only overwrite the pointer if the memory was really reallocated.
+            # On error (mem is NULL), the original memory has not been freed.
+            self.data = mem
+            
+            
+            mem2 = <DTYPE_INT64_t*> PyMem_Realloc(self.level_start_idx, (level+1)*sizeof(DTYPE_INT64_t))
+            
+            if not mem2:
+                
+                raise MemoryError()
+            
+            self.level_start_idx = mem2
+            
+            
+            mem3 = <DTYPE_INT64_t*> PyMem_Realloc(self.level_stop_idx, (level+1)*sizeof(DTYPE_INT64_t))
+            
+            if not mem3:
+                
+                raise MemoryError()
+            
+            self.level_stop_idx = mem3
+            
+            
+            
+            
+            self.total_num_rows = num_rows
+            
+            self.max_level_mem = level
 
     def __dealloc__(self):
         
@@ -1452,7 +1516,7 @@ cdef class Cell_ID_Memory:
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
+cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                               DTYPE_F64_t[:,:] coord_min,
                               DTYPE_F64_t dl,
                               DTYPE_F64_t[:,:] shell_boundaries_xyz,
@@ -1462,7 +1526,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
                               DTYPE_F64_t[:,:] w_coord,
                               Cell_ID_Memory cell_ID_mem,
                               DTYPE_F64_t[:,:] reference_point_xyz
-                              ):
+                              ) except *:
     """
     Description
     ===========
@@ -1492,14 +1556,14 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
     # Convert our query point from xyz to ijk space
     ################################################################################
     
-    reference_point_ijk[0,0] = <DTYPE_INT64_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
-    reference_point_ijk[0,1] = <DTYPE_INT64_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
-    reference_point_ijk[0,2] = <DTYPE_INT64_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
+    reference_point_ijk[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
+    reference_point_ijk[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
+    reference_point_ijk[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
     
     ################################################################################
     # All the variables we need cdef'd
     ################################################################################
-    cdef DTYPE_INT64_t current_shell = -1
+    cdef DTYPE_INT32_t current_shell = -1
     
     cdef DTYPE_B_t check_next_shell = True
     
@@ -1528,13 +1592,15 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
     
     cdef ITYPE_t potential_neighbor_idx
     
-    cdef DTYPE_INT64_t[:,:] shell_cell_IDs
+    #cdef DTYPE_INT64_t[:,:] shell_cell_IDs
     
     cdef DTYPE_F64_t[:] potential_neighbor_xyz
     
     cdef DTYPE_INT64_t num_cell_IDs
     
-    cdef DTYPE_INT64_t id1, id2, id3
+    cdef DTYPE_INT64_t cell_start_row, cell_end_row
+    
+    cdef CELL_ID_t id1, id2, id3
     
     ################################################################################
     # Iterate through the grid cells shell-by-shell growing outwards until we find
@@ -1554,59 +1620,72 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
         min_containing_radius_xyz = _min_contain_radius(shell_boundaries_xyz, 
                                                         reference_point_xyz)
         
-        num_cell_IDs = _gen_shell(reference_point_ijk, 
-                                  current_shell,
-                                  cell_ID_mem,
-                                  galaxy_map)
         
-        for cell_ID_idx in range(<ITYPE_t>num_cell_IDs):
+        
+        
+        #print("Gen Shell: (", reference_point_ijk[0,0], reference_point_ijk[0,1], reference_point_ijk[0,2], ") level: ", current_shell, flush=True)
+    
+        
+        
+        
+        cell_start_row, cell_end_row = _gen_shell(reference_point_ijk, 
+                                                  current_shell,
+                                                  cell_ID_mem,
+                                                  galaxy_map)
+        
+        #print("Shell start/end: ", cell_start_row, cell_end_row, flush=True)
+        
+        for cell_ID_idx in range(<ITYPE_t>cell_start_row, <ITYPE_t>cell_end_row):
             
             id1 = cell_ID_mem.data[3*cell_ID_idx]
             id2 = cell_ID_mem.data[3*cell_ID_idx+1]
             id3 = cell_ID_mem.data[3*cell_ID_idx+2]
             
+            #print("Working Cell ID: "+str(id1)+","+str(id2)+","+str(id3), flush=True)
             
-            if galaxy_map.contains(id1, id2, id3):
+            
+            # I think we can remove this "if galaxy_map.contains()" 
+            # because the cell_ID_mem has already checked all its cell
+            # IDs against the galaxy map
+            #if galaxy_map.contains(id1, id2, id3):
+            
+            #print("Gwababrara", flush=True)
+            
+            curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
+            
+            offset = curr_offset_num_pair.offset
+            
+            num_elements = curr_offset_num_pair.num_elements
+            
+            for idx in range(num_elements):
                 
-                #offset, num_elements = galaxy_map[cell_ID]
+                potential_neighbor_idx = <ITYPE_t>galaxy_map_array[offset+idx]
                 
-                curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
+                potential_neighbor_xyz = w_coord[potential_neighbor_idx]
                 
-                offset = curr_offset_num_pair.offset
+                temp1 = potential_neighbor_xyz[0] - reference_point_xyz[0,0]
+                temp2 = potential_neighbor_xyz[1] - reference_point_xyz[0,1]
+                temp3 = potential_neighbor_xyz[2] - reference_point_xyz[0,2]
                 
-                num_elements = curr_offset_num_pair.num_elements
+                dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
                 
-                for idx in range(num_elements):
+                
+                if dist_sq < neighbor_dist_xyz_sq:
                     
-                    potential_neighbor_idx = <ITYPE_t>galaxy_map_array[offset+idx]
+                    neighbor_idx = potential_neighbor_idx
                     
-                    potential_neighbor_xyz = w_coord[potential_neighbor_idx]
+                    neighbor_dist_xyz_sq = dist_sq
                     
-                    temp1 = potential_neighbor_xyz[0] - reference_point_xyz[0,0]
-                    temp2 = potential_neighbor_xyz[1] - reference_point_xyz[0,1]
-                    temp3 = potential_neighbor_xyz[2] - reference_point_xyz[0,2]
+                    neighbor_dist_xyz = sqrt(dist_sq)
                     
-                    dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
-                    
-                    
-                    if dist_sq < neighbor_dist_xyz_sq:
-                        
-                        neighbor_idx = potential_neighbor_idx
-                        
-                        neighbor_dist_xyz_sq = dist_sq
-                        
-                        neighbor_dist_xyz = sqrt(dist_sq)
-                        
-                        #Don't need to check against the min_containing_radius here
-                        #because we want to check everybody in this shell
-                        
+                    #Don't need to check against the min_containing_radius here
+                    #because we want to check everybody in this shell, since
+                    #even if this guy matches our criteria, someone could be closer
+                            
         if neighbor_dist_xyz < min_containing_radius_xyz:
             
             check_next_shell = False
-                            
-                            #Don't break loop cause there could still be someone
-                            #closer in this shell
-                    
+
                     
     return_vals.idx = neighbor_idx
     
@@ -1623,7 +1702,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk,
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
+cdef ITYPE_t[:] _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
                                     DTYPE_F64_t[:,:] w_coord, 
                                     DTYPE_F64_t[:,:] coord_min, 
                                     DTYPE_F64_t dl,
@@ -1632,7 +1711,7 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
                                     Cell_ID_Memory cell_ID_mem,
                                     DTYPE_F64_t[:,:] reference_point_xyz, 
                                     DTYPE_F64_t search_radius_xyz
-                                    ):
+                                    ) except *:
     """
     Description
     ===========
@@ -1647,15 +1726,20 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
     
     #print("query_shell_radius start")
     
-    reference_point_ijk[0,0] = <DTYPE_INT64_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
-    reference_point_ijk[0,1] = <DTYPE_INT64_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
-    reference_point_ijk[0,2] = <DTYPE_INT64_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
+    #print("Reference point xyz: ", reference_point_xyz[0,0], reference_point_xyz[0,1], reference_point_xyz[0,2], flush=True)
+    
+    reference_point_ijk[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
+    reference_point_ijk[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
+    reference_point_ijk[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
+         
+    #print("Reference point ijk: ", reference_point_ijk[0,0], reference_point_ijk[0,1], reference_point_ijk[0,2], flush=True)
+    
                     
     output = []
     
-    cdef DTYPE_INT64_t max_shell
+    cdef DTYPE_INT32_t max_shell
     
-    cdef DTYPE_INT64_t current_shell
+    #cdef DTYPE_INT32_t current_shell
     
     cdef ITYPE_t cell_ID_idx
     
@@ -1671,7 +1755,7 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
     
     cdef DTYPE_INT64_t num_cell_IDs
     
-    cdef DTYPE_INT64_t id1, id2, id3
+    cdef CELL_ID_t id1, id2, id3
     
     cdef DTYPE_F64_t search_radius_xyz_sq = search_radius_xyz*search_radius_xyz
     
@@ -1691,11 +1775,14 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
         
     #else:
     
-    #Calculate the max shell needed to search
+    ################################################################################
+    # Calculate the max shell needed to search
+    # fill in implementation details here, using component-wise max for something
+    ################################################################################
         
-    cell_ijk_in_xyz[0,0] = (reference_point_ijk[0,0] + 0.5)*dl + coord_min[0,0]
-    cell_ijk_in_xyz[0,1] = (reference_point_ijk[0,1] + 0.5)*dl + coord_min[0,1]
-    cell_ijk_in_xyz[0,2] = (reference_point_ijk[0,2] + 0.5)*dl + coord_min[0,2]
+    cell_ijk_in_xyz[0,0] = (<DTYPE_F64_t>reference_point_ijk[0,0] + 0.5)*dl + coord_min[0,0]
+    cell_ijk_in_xyz[0,1] = (<DTYPE_F64_t>reference_point_ijk[0,1] + 0.5)*dl + coord_min[0,1]
+    cell_ijk_in_xyz[0,2] = (<DTYPE_F64_t>reference_point_ijk[0,2] + 0.5)*dl + coord_min[0,2]
     
     temp1 = fabs((cell_ijk_in_xyz[0,0] - reference_point_xyz[0,0])/dl)
     temp4 = temp1
@@ -1706,11 +1793,17 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
     if temp3 > temp4:
         temp4 = temp3
     
-    max_shell = <DTYPE_INT64_t>ceil((search_radius_xyz - (0.5-temp4)*dl)/dl)
+    max_shell = <DTYPE_INT32_t>ceil((search_radius_xyz - (0.5-temp4)*dl)/dl)
         
-        
-    #for current_shell in range(max_shell+1): #+1 to include max_shell
-        
+
+    ################################################################################
+    # Since we are querying based on radius, we can calculate the maximum grid
+    # shape we are going to search this time, so use _gen_cube to generate all
+    # the grid cells (filtered by galaxy_map.contains()) that we need to search
+    ################################################################################
+    
+    #print("Gen Cube: ", "(", reference_point_ijk[0,0], reference_point_ijk[0,1], reference_point_ijk[0,2], ") level:", max_shell, flush=True)
+    
     num_cell_IDs = _gen_cube(reference_point_ijk, 
                              max_shell,
                              cell_ID_mem,
@@ -1720,73 +1813,54 @@ cdef ITYPE_t[:] _query_shell_radius(DTYPE_INT64_t[:,:] reference_point_ijk,
     
     for cell_ID_idx in range(<ITYPE_t>num_cell_IDs):
         
-        
-        
         id1 = cell_ID_mem.data[3*cell_ID_idx]
         id2 = cell_ID_mem.data[3*cell_ID_idx+1]
         id3 = cell_ID_mem.data[3*cell_ID_idx+2]
-    
         
         
-        #cell_ID = tuple(cell_ID_mem[cell_ID_idx])
-        #cell_ID = (id1, id2, id3)
+        #print("Working Cell ID: "+str(id1)+","+str(id2)+","+str(id3), flush=True)
         
-        #if cell_ID in galaxy_map:
-        if galaxy_map.contains(id1, id2, id3):
+    
+        # Similar to the usage above in _query_first(),
+        # I think we can remove this "if galaxy_map.contains()" 
+        # because the cell_ID_mem has already checked all its cell
+        # IDs against the galaxy map
+        #if galaxy_map.contains(id1, id2, id3):
+        
+        curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
             
-            #output.append(galaxy_map[cell_ID])
+        offset = curr_offset_num_pair.offset
+        
+        num_elements = curr_offset_num_pair.num_elements
+        
+        #print("bloop", num_elements, flush=True)
+        
+        for idx in range(num_elements):
             
-            #curr_galaxies_idxs = galaxy_map[cell_ID]
-            #offset, num_elements = galaxy_map[cell_ID]
+            curr_galaxy_idx = <ITYPE_t>galaxy_map_array[offset+idx]
             
-            curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
-                
-            offset = curr_offset_num_pair.offset
+            galaxy_xyz = w_coord[curr_galaxy_idx]
             
-            num_elements = curr_offset_num_pair.num_elements
+            temp1 = galaxy_xyz[0] - reference_point_xyz[0,0]
+            temp2 = galaxy_xyz[1] - reference_point_xyz[0,1]
+            temp3 = galaxy_xyz[2] - reference_point_xyz[0,2]
             
+            dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
             
-            #for idx in range(curr_galaxies_idxs.shape[0]):
-            for idx in range(num_elements):
+            #print("Doop", idx, flush=True)
+            
+            if dist_sq < search_radius_xyz_sq:
                 
-                #curr_galaxy_idx = <ITYPE_t>curr_galaxies_idxs[idx]
-                curr_galaxy_idx = <ITYPE_t>galaxy_map_array[offset+idx]
+                output.append(curr_galaxy_idx)
                 
-                galaxy_xyz = w_coord[curr_galaxy_idx]
-                
-                temp1 = galaxy_xyz[0] - reference_point_xyz[0,0]
-                temp2 = galaxy_xyz[1] - reference_point_xyz[0,1]
-                temp3 = galaxy_xyz[2] - reference_point_xyz[0,2]
-                
-                dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
-                
-                if dist_sq < search_radius_xyz_sq:
-                    
-                    output.append(curr_galaxy_idx)
-    
-    
-    
-    #ADD FILTER HERE TO CUT DOWN RESULTS TO ONLY THOSE WHICH ARE
-    # ACTUALLY WITHIN search_radius_xyz OF THE reference_point_xyz
-    
-    
-    
-    
-    #print("query_shell_radius end")
+            #print("Poop", flush=True)
+
     
     if output:
-        #print("beep boop", len(output))
         
-        #moo = np.concatenate(output).astype(np.intp)
-        
-        #print("query shell radius returning values")
-    
         return np.array(output).astype(np.intp)
     
     else:
-        #print("doopydoop")
-        #moo2 = np.array([], dtype=np.intp)
-        #print("query shell radius returning nada")
         
         return np.array([], dtype=np.intp)
                 
@@ -1800,9 +1874,9 @@ cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz,
                                 DTYPE_F64_t[:,:] cell_center_xyz,
                                 DTYPE_F64_t[:,:] coord_min,
                                 DTYPE_F64_t dl,
-                                DTYPE_INT64_t[:,:] center_ijk, 
+                                CELL_ID_t[:,:] center_ijk, 
                                 DTYPE_INT64_t level
-                                ):
+                                ) except *:
     """
     Calculate the xyz center of the cell given the ijk center, calculate the xyz arm length
     of the distance from the center of shell 0 to the edge of shell 'level', then add
@@ -1833,7 +1907,7 @@ cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 @cython.profile(True)
 cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz, 
                                      DTYPE_F64_t[:,:] reference_point_xyz
-                                     ):
+                                     ) except *:
     """
     Find the minimum distance from our reference point to the existing shell boundary
     given by self.shell_boundaries_xyz
@@ -1872,11 +1946,11 @@ cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk, 
-                              DTYPE_INT64_t level,
-                              Cell_ID_Memory cell_ID_mem,
-                              GalaxyMapCustomDict galaxy_map,
-                              ):
+cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk, 
+                                               DTYPE_INT32_t level,
+                                               Cell_ID_Memory cell_ID_mem,
+                                               GalaxyMapCustomDict galaxy_map,
+                                               ) except *:
     """
     Description
     ===========
@@ -1885,31 +1959,53 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
     
     Generate all the possible locations in the "shell" defined by the level parameter.
     
+    Given a cubic grid structure, level 0 is a single cell, level 1 is a shell of
+    3x3x3 cells minus the 1 interior, level 2 is 5x5x5 minus the 3x3x3 interior, etc.
+    
     
     Notes
     =====
     
-    Only called once in _query_first()
+    Only called once in _query_first() (_voidfinder_cython_find_next) in main_algorithm()
+    (_voidfinder_cython)
+    
+    This means in main_algorithm, we come upon an ijk cell.  We call _query_first on that ijk
+    cell, and within _query_first we stay on that ijk cell and grow outward shells until we find
+    the first neighbor.  Then _gen_shell won't be called again until the next _ijk shell, and instead
+    we will use _gen_cube to find the 2nd 3rd and 4a/b-th neighbors
+    
+    ASSUMES THIS WILL ONLY BE CALLED SEQUENTIALLY AND IN-ORDER FOR A SINGLE IJK, WHICH BASED ON ABOVE
+    USAGE WOULD SEEM TO BE TRUE (except for level 0, which should never be called, level 1, then 2, 3, 
+    4,5, etc).  VIOLATING THIS WILL RESULT IN THE cell_ID_mem.max_level_available possibly being 
+    set incorrectly
     
     """
     
     
+    #print("Entered _gen_shell() function", flush=True)
+    
+    #print("PRE-SETTING-1 level_stop_idx: ", cell_ID_mem.level_stop_idx[1], flush=True)
+    
     
     cdef ITYPE_t out_idx = 0
     
-    cdef DTYPE_INT64_t i, j, k 
+    cdef DTYPE_INT32_t i, j, k, temp
     
-    cdef DTYPE_INT64_t out_i, out_j, out_k
+    cdef CELL_ID_t out_i, out_j, out_k
     
-    cdef DTYPE_INT64_t num_return_rows = (2*level + 1)**3 - (2*level - 1)**3
+    cdef DTYPE_INT32_t i_lower, i_upper, j_lower, j_upper, k_lower, k_upper
+    
+    cdef CELL_ID_t center_i, center_j, center_k
+    
+    #cdef DTYPE_INT64_t num_return_rows = (2*level + 1)**3 - (2*level - 1)**3
     
     cdef DTYPE_INT64_t num_written = 0
     
     
     ################################################################################
-    # We can precompute how many rows we need for this shell generation to be
-    # successful, so if necessary resize the cell_ID_mem to be big enough
-    # to hold the data.
+    # We can precompute the maximum number of rows we might need for this shell 
+    # generation to be successful, so if necessary resize the cell_ID_mem to be big 
+    # enough to hold the data.
     #
     # Note that we may use less than this number of rows due to the
     # galaxy_map.contains() filtering out some grid cells
@@ -1917,132 +2013,210 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
     # Also - cool trick, turns out PyMem_Realloc PRESERVES THE EXISTING DATA!
     # So gonna use this to optimize the cell_ID_mem cell generation
     ################################################################################
-    if cell_ID_mem.num_rows < num_return_rows:
     
-        cell_ID_mem.resize(num_return_rows)
+    if cell_ID_mem.max_level_mem < <DTYPE_INT64_t>level:
+        
+        #print("CELL ID RESIZE: ", cell_ID_mem.max_level_mem, level, flush=True)
+        
+        cell_ID_mem.resize(<size_t>level)
+    
+    
+    if center_ijk[0,0] == cell_ID_mem.curr_ijk[0] and \
+       center_ijk[0,1] == cell_ID_mem.curr_ijk[1] and \
+       center_ijk[0,2] == cell_ID_mem.curr_ijk[2]:
+        
+        #we're working from the same ijk as last time this was called, so
+        #we might already have the ijk values stored
+        if <DTYPE_INT64_t>level <= cell_ID_mem.max_level_available:
+            
+            #print("Gen shell0-E stop idx: ", cell_ID_mem.level_stop_idx[level], level, flush=True)
+           
+            return cell_ID_mem.level_start_idx[level], cell_ID_mem.level_stop_idx[level]
+    
+        #we don't have the current level stored, so we need to calculate it, but
+        #we may have other valuable level information stored, so use the unused
+        #rows in cell_ID_mem
+        else:
+            
+            out_idx = 3*cell_ID_mem.next_unused_row_idx
+            
+            cell_ID_mem.level_start_idx[level] = cell_ID_mem.next_unused_row_idx
+            
+            cell_ID_mem.max_level_available = <DTYPE_INT64_t>level
+            
+    else:
+        
+        #New ijk, so have to start over 
+        
+        cell_ID_mem.max_level_available = <DTYPE_INT64_t>level
+        
+        cell_ID_mem.next_unused_row_idx = 0
+        
+        cell_ID_mem.curr_ijk[0] = center_ijk[0,0]
+        cell_ID_mem.curr_ijk[1] = center_ijk[0,1]
+        cell_ID_mem.curr_ijk[2] = center_ijk[0,2]
+        
+        cell_ID_mem.level_start_idx[level] = 0
+        
+        
+    ################################################################################
+    # For level 0, the algorithm below actually would write out the original
+    # cell ijk twice, but we only want to write it once so have a special block
+    # here to handle that single special case and return early
+    ################################################################################
+    if level == 0:
+        
+        if galaxy_map.contains(center_ijk[0,0], center_ijk[0,1], center_ijk[0,2]):
+            
+            cell_ID_mem.data[out_idx] = center_ijk[0,0]
+            cell_ID_mem.data[out_idx+1] = center_ijk[0,1]
+            cell_ID_mem.data[out_idx+2] = center_ijk[0,2]
+            
+            #print("Cell ID Writing0: "+str(center_ijk[0,0])+","+str(center_ijk[0,1])+","+str(center_ijk[0,2]), flush=True)
+            
+            num_written = 1
+            
+        else:
+            
+            num_written = 0
+        
+        cell_ID_mem.next_unused_row_idx += num_written
+    
+        cell_ID_mem.level_stop_idx[level] = cell_ID_mem.next_unused_row_idx
+        
+        return cell_ID_mem.level_start_idx[level], cell_ID_mem.level_stop_idx[level]
     
     
     ################################################################################
+    # Technically not necessary but made the code below look a tad cleaner
+    ################################################################################
+    
+    center_i = center_ijk[0,0]
+    center_j = center_ijk[0,1]
+    center_k = center_ijk[0,2]
+    
+    
+    
+    ################################################################################
+    # i dimension first
     # Iterate through the possible shell locations, starting with the i dimension
-    # this iteration does all the cells in the 
+    # this iteration does all the cells in the 2 "planes" at the "i +/- level"
+    # grid coordinate 
     ################################################################################
-    
-    
-    #i first
     for j in range(-level, level+1):
+        
         for k in range(-level, level+1):
             
+            out_i = <CELL_ID_t>level + center_i
+            out_j = <CELL_ID_t>j + center_j
+            out_k = <CELL_ID_t>k + center_k
             
-            out_i = level + center_ijk[0,0]
-            out_j = j + center_ijk[0,1]
-            out_k = k + center_ijk[0,2]
-            
-            #if (out_i, out_j, out_k) in galaxy_map:
             if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
                 
+                #print("Cell ID Writing: "+str(out_i)+","+str(out_j)+","+str(out_k), flush=True)
+                
                 out_idx += 3
                 num_written += 1
                 
-            out_i = -level + center_ijk[0,0]
-            out_j = j + center_ijk[0,1]
-            out_k = k + center_ijk[0,2]
+            out_i = <CELL_ID_t>(-level) + center_i
             
-            #if (out_i, out_j, out_k) in galaxy_map:
-            if galaxy_map.contains(out_i, out_j, out_k):
+            if out_i >= 0 and galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
                 
+                #print("Cell ID Writing: "+str(out_i)+","+str(out_j)+","+str(out_k), flush=True)
+                
                 out_idx += 3
                 num_written += 1
                 
                 
-            
-    
-    #do j
+    ################################################################################
+    # j dimension
+    # Next do the 2 "planes" at the "j +/- level" coordinates, except for the edges
+    # which have already been done by doing the "i +/- level" planes, so the i
+    # parameter below runs from (-level+1, level) instead of (-level, level+1)
+    ################################################################################
     for i in range(-level+1, level):
         for k in range(-level, level+1):
             
+            out_i = <CELL_ID_t>i + center_i
+            out_j = <CELL_ID_t>level + center_j
+            out_k = <CELL_ID_t>k + center_k
             
-            out_i = i + center_ijk[0,0]
-            out_j = level + center_ijk[0,1]
-            out_k = k + center_ijk[0,2]
-            
-            #if (out_i, out_j, out_k) in galaxy_map:
             if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
                 
+                #print("Cell ID Writing: "+str(out_i)+","+str(out_j)+","+str(out_k), flush=True)
+                
                 out_idx += 3
                 num_written += 1
                 
-                
-            out_i = i + center_ijk[0,0]
-            out_j = -level + center_ijk[0,1]
-            out_k = k + center_ijk[0,2]
-            
-            #if (out_i, out_j, out_k) in galaxy_map:
-            if galaxy_map.contains(out_i, out_j, out_k):
+            out_j = <CELL_ID_t>(-level) + center_j
+        
+            if out_j >= 0 and galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
                 
+                #print("Cell ID Writing: "+str(out_i)+","+str(out_j)+","+str(out_k), flush=True)
+                
                 out_idx += 3
                 num_written += 1
             
-            
-            
-            
-            
-    #do k
+    ################################################################################
+    # k dimension
+    # Lastly do the 2 "planes" at the "k +/- level" coordinates, noting that since
+    # we are in 3D and have already done i and j, the border cells around the
+    # positive and negative k planes have already been checked, so both i and j
+    # run from (-level+1, level) instead of (-level, level+1)
+    ################################################################################
     for i in range(-level+1, level):
         for j in range(-level+1, level):
             
+            out_i = <CELL_ID_t>i + center_i
+            out_j = <CELL_ID_t>j + center_j
+            out_k = <CELL_ID_t>level + center_k
             
-            
-            out_i = i + center_ijk[0,0]
-            out_j = j + center_ijk[0,1]
-            out_k = level + center_ijk[0,2]
-            
-            #if (out_i, out_j, out_k) in galaxy_map:
             if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
                 
+                #print("Cell ID Writing: "+str(out_i)+","+str(out_j)+","+str(out_k), flush=True)
+                
                 out_idx += 3
                 num_written += 1
                 
-                
-            out_i = i + center_ijk[0,0]
-            out_j = j + center_ijk[0,1]
-            out_k = -level + center_ijk[0,2]
-            
-            #if (out_i, out_j, out_k) in galaxy_map:
-            if galaxy_map.contains(out_i, out_j, out_k):
+            out_k = <CELL_ID_t>(-level) + center_k
+        
+            if out_k >= 0 and galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
                 
+                #print("Cell ID Writing: "+str(out_i)+","+str(out_j)+","+str(out_k), flush=True)
+                
                 out_idx += 3
                 num_written += 1
             
             
-            
-            
-            
-            
-    return num_written
+    cell_ID_mem.next_unused_row_idx += num_written
+    
+    cell_ID_mem.level_stop_idx[level] = cell_ID_mem.next_unused_row_idx
+    
+    return cell_ID_mem.level_start_idx[level], cell_ID_mem.level_stop_idx[level]
     
         
         
@@ -2053,68 +2227,35 @@ cdef DTYPE_INT64_t _gen_shell(DTYPE_INT64_t[:,:] center_ijk,
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef DTYPE_INT64_t _gen_cube(DTYPE_INT64_t[:,:] center_ijk, 
-                             DTYPE_INT64_t level,
+cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, 
+                             DTYPE_INT32_t level,
                              Cell_ID_Memory cell_ID_mem,
                              GalaxyMapCustomDict galaxy_map
-                             ):
+                             ) except *:
     """
     Description
     ===========
     
-    Only called once in _query_shell_radius
+    Only called once in _query_shell_radius() (this file) which is only called once in
+    find_next_galaxy() (also this file)
+    
+    Take advantage of the optimizations in _gen_shell()
     
     """
     
     
-    #if level == 0:
+    cdef DTYPE_INT32_t curr_level
+    
+    cdef DTYPE_INT64_t row_start, row_stop
+    
+    for curr_level in range(level+1): #level 5 means include 0,1,2,3,4,5 so do level+1 for range
         
-    #    return center_ijk
-    
-    
-    cdef ITYPE_t out_idx = 0
-    
-    cdef DTYPE_INT64_t i, j, k
-    
-    cdef DTYPE_INT64_t out_i, out_j, out_k
-    
-    cdef DTYPE_INT64_t num_return_rows = (2*level + 1)**3
-    
-    cdef DTYPE_INT64_t num_written = 0
-    
-    if cell_ID_mem.num_rows < num_return_rows:
-    
-        #print("Cell ID mem resizing to: ", num_return_rows)
-        #return_array = np.empty((num_return, 3), dtype=np.int64)
-        cell_ID_mem.resize(num_return_rows)
-    
-    
-    for i in range(-level, level+1):
-        for j in range(-level, level+1):
-            for k in range(-level, level+1):
+        row_start, row_stop = _gen_shell(center_ijk,
+                                         curr_level,
+                                         cell_ID_mem,
+                                         galaxy_map)
                 
-                
-                
-                
-                
-                out_i = i + center_ijk[0,0]
-                out_j = j + center_ijk[0,1]
-                out_k = k + center_ijk[0,2]
-                
-                #if (out_i, out_j, out_k) in galaxy_map:
-                if galaxy_map.contains(out_i, out_j, out_k):
-                
-                    cell_ID_mem.data[out_idx] = out_i
-                    cell_ID_mem.data[out_idx+1] = out_j
-                    cell_ID_mem.data[out_idx+2] = out_k
-                    
-                    out_idx += 3
-                    num_written += 1
-                
-                
-                
-            
-    return num_written
+    return cell_ID_mem.next_unused_row_idx
     
         
         

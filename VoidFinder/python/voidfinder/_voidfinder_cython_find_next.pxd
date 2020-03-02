@@ -47,7 +47,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                             #ITYPE_t[:] nearest_neighbor_x_ratio_index, \
                             ITYPE_t[:] nearest_neighbor_index, \
                             DTYPE_F64_t[:] min_x_ratio, \
-                            DTYPE_B_t[:] in_mask)
+                            DTYPE_B_t[:] in_mask) except *
                             #DTYPE_F64_t[:] PROFILE_kdtree_time) #except *
 
 
@@ -57,7 +57,7 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
                   DTYPE_B_t[:,:] survey_mask_ra_dec, \
                   DTYPE_INT32_t n, \
                   DTYPE_F64_t rmin, \
-                  DTYPE_F64_t rmax)
+                  DTYPE_F64_t rmax) except *
 
 
 
@@ -126,7 +126,7 @@ cdef class GalaxyMap:
     
     cdef public DTYPE_F64_t dl
     
-    cdef public DTYPE_INT64_t[:,:] reference_point_ijk
+    cdef public CELL_ID_t[:,:] reference_point_ijk
     
     cdef public DTYPE_F64_t[:,:] shell_boundaries_xyz
     
@@ -152,12 +152,24 @@ cdef class Cell_ID_Memory:
 
     cdef CELL_ID_t* data     
     
-    cdef DTYPE_INT64_t num_rows                  
+    cdef CELL_ID_t* curr_ijk  
+    
+    cdef DTYPE_INT64_t total_num_rows    
+    cdef DTYPE_INT64_t num_available_rows    
+    cdef DTYPE_INT64_t next_unused_row_idx
+    
+    cdef DTYPE_INT64_t* level_start_idx
+    cdef DTYPE_INT64_t* level_stop_idx
+    
+    cdef DTYPE_INT64_t max_level_mem
+    cdef DTYPE_INT64_t max_level_available
+    
+              
                                          
                                          
                                          
                                          
-cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk, \
+cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
                               DTYPE_F64_t[:,:] coord_min, \
                               DTYPE_F64_t dl, \
                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
@@ -166,7 +178,7 @@ cdef DistIdxPair _query_first(DTYPE_INT64_t[:,:] reference_point_ijk, \
                               DTYPE_INT64_t[:] galaxy_map_array, \
                               DTYPE_F64_t[:,:] w_coord, \
                               Cell_ID_Memory cell_ID_mem, \
-                              DTYPE_F64_t[:,:] reference_point_xyz)
+                              DTYPE_F64_t[:,:] reference_point_xyz) except *
                                          
                                          
                                          
