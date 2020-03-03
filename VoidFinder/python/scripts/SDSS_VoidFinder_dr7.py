@@ -60,11 +60,11 @@ survey_name = 'SDSS_dr7_'
 # File header
 
 if survey_name == 'SDSS_dr7_':
-    in_directory = '/home/oneills2/Desktop/data/SDSS/'
-    out_directory = '/home/oneills2/Desktop/data/SDSS/'
+    in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
+    out_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
 elif survey_name == 'SDSS_dr12_':
-    in_directory = '/home/oneills2/Desktop/data/'
-    out_directory = '/home/oneills2/Desktop/data/'
+    in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+    out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
 
 #in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'

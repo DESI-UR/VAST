@@ -69,8 +69,8 @@ survey_name = 'tao3043_'
 #in_directory = '/scratch/sbenzvi_lab/desi/dylanbranch/vfp8/VoidFinder/python/scripts/'
 #out_directory = '/scratch/sbenzvi_lab/desi/dylanbranch/vfp8/VoidFinder/python/scripts/'
 
-in_directory = '/home/oneills2/Desktop/data/'
-out_directory = '/home/oneills2/Desktop/data/'
+in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
+out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
 
 
 # Input file name

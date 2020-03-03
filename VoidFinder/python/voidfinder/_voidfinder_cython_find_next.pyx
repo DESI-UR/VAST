@@ -4,9 +4,6 @@
 
 from __future__ import print_function
 
-
-
-
 cimport cython
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
@@ -33,7 +30,6 @@ from numpy.math cimport NAN, INFINITY
 from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 
 #from libc.stdlib cimport malloc, free
-
 
 import time
 
@@ -80,10 +76,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                            ITYPE_t[:] nearest_neighbor_index,           #return variable
                            DTYPE_F64_t[:] min_x_ratio,                  #return variable
                            DTYPE_B_t[:] in_mask,                         #return variable
-                           #DTYPE_F64_t[:] PROFILE_kdtree_time
                            
-                           ) except *: 
-                           #) except *:              
+                           ):          
 
     '''
     Description:
@@ -658,7 +652,7 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
                   DTYPE_B_t[:,:] survey_mask_ra_dec, 
                   DTYPE_INT32_t n,
                   DTYPE_F64_t rmin, 
-                  DTYPE_F64_t rmax) except *:
+                  DTYPE_F64_t rmax):
     '''
     Description
     ===========
@@ -1526,7 +1520,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                               DTYPE_F64_t[:,:] w_coord,
                               Cell_ID_Memory cell_ID_mem,
                               DTYPE_F64_t[:,:] reference_point_xyz
-                              ) except *:
+                              ):
     """
     Description
     ===========
@@ -1711,7 +1705,7 @@ cdef ITYPE_t[:] _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
                                     Cell_ID_Memory cell_ID_mem,
                                     DTYPE_F64_t[:,:] reference_point_xyz, 
                                     DTYPE_F64_t search_radius_xyz
-                                    ) except *:
+                                    ):
     """
     Description
     ===========
@@ -1876,7 +1870,7 @@ cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz,
                                 DTYPE_F64_t dl,
                                 CELL_ID_t[:,:] center_ijk, 
                                 DTYPE_INT64_t level
-                                ) except *:
+                                ):
     """
     Calculate the xyz center of the cell given the ijk center, calculate the xyz arm length
     of the distance from the center of shell 0 to the edge of shell 'level', then add
@@ -1950,7 +1944,7 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                                                DTYPE_INT32_t level,
                                                Cell_ID_Memory cell_ID_mem,
                                                GalaxyMapCustomDict galaxy_map,
-                                               ) except *:
+                                               ):
     """
     Description
     ===========
@@ -2231,7 +2225,7 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
                              DTYPE_INT32_t level,
                              Cell_ID_Memory cell_ID_mem,
                              GalaxyMapCustomDict galaxy_map
-                             ) except *:
+                             ):
     """
     Description
     ===========

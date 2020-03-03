@@ -47,7 +47,7 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                             #ITYPE_t[:] nearest_neighbor_x_ratio_index, \
                             ITYPE_t[:] nearest_neighbor_index, \
                             DTYPE_F64_t[:] min_x_ratio, \
-                            DTYPE_B_t[:] in_mask) except *
+                            DTYPE_B_t[:] in_mask)
                             #DTYPE_F64_t[:] PROFILE_kdtree_time) #except *
 
 
@@ -57,7 +57,7 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
                   DTYPE_B_t[:,:] survey_mask_ra_dec, \
                   DTYPE_INT32_t n, \
                   DTYPE_F64_t rmin, \
-                  DTYPE_F64_t rmax) except *
+                  DTYPE_F64_t rmax)
 
 
 
@@ -178,7 +178,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
                               DTYPE_INT64_t[:] galaxy_map_array, \
                               DTYPE_F64_t[:,:] w_coord, \
                               Cell_ID_Memory cell_ID_mem, \
-                              DTYPE_F64_t[:,:] reference_point_xyz) except *
+                              DTYPE_F64_t[:,:] reference_point_xyz)
                                          
                                          
                                          
