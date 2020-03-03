@@ -1401,7 +1401,8 @@ def _hole_finder_multi_process(ngrid,
     # Calculate the number of cells we need to search
     ################################################################################
 
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
+    #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2]
     
 
     ################################################################################
@@ -2334,7 +2335,10 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     ################################################################################
     # Memmap in the memory for the results
     ################################################################################
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
+    #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2]
+    
+    
     
     result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
     

@@ -170,9 +170,9 @@ cpdef DTYPE_INT64_t fill_ijk_zig_zag(DTYPE_INT64_t[:,:] i_j_k_array,
         
                 k = remainder % k_lim
                 
-        skip_this_index = cell_ID_dict.contains(i,j,k)
+        #skip_this_index = cell_ID_dict.contains(i,j,k)
         
-        #skip_this_index = False
+        skip_this_index = False
         
         if not skip_this_index:
         
