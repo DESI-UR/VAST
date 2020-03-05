@@ -734,20 +734,34 @@ def find_voids(galaxy_coords_xyz,
     
     Main entry point for VoidFinder.  
     
-    Using the VoidFinder algorithm, this function grows spheres in each empty 
-    grid cell of the galaxy distribution.  It then combines these spheres into 
-    unique voids, identifying a maximal sphere for each void.
+    Using the VoidFinder algorithm, this function grows a sphere in each empty 
+    grid cell of a grid imposed over the target galaxy distribution.  It then combines 
+    these spheres into unique voids, identifying a maximal sphere for each void.
 
-    This algorithm at a high level uses 3 structures to find voids
+    This algorithm at a high level uses 3 data to find voids
     in the super-galactic structure of the universe:
     
     1).  The galaxy coordinates
     2).  A survey-limiting mask
-    3).  A cell grid of potential void locations
+    3).  A cubic-cell grid of potential void locations
     
-    At each grid cell, VoidFinder will grow a maximal sphere until it is
-    geometrically bounded by 4 galaxies.  Once every cell location has been searched,
-    these pre-voids will be filtered such that the potential voids along the edge of
+    Before running VoidFinder, a preprocessing stage of removing isolated galaxies from
+    the target galaxy survey is performed.  Currently this is done by removing galaxies
+    whose distance to their 3rd nearest neighbor is greater than 1.5 times the standard
+    deviation of 3rd nearest neighbor distance for the survey.  This step should be 
+    performed prior to calling this function.
+    
+    Next, VoidFinder will impose a grid of cubic cells over the remaining non-isolated,
+    or "wall" galaxies.  The cell size of this grid should be small enough to allow
+    a thorough search, but is also the primary consumer of time in this algorithm.
+    
+    At each grid cell, VoidFinder will evaluate whether that cubic cell is "empty"
+    or "nonempty."  Empty cells contain no galaxies, non-empty cells contain at least 1
+    galaxy.  This makes the removal of isolated galaxies in the preprocessing stage
+    important.
+    
+    VoidFinder will proceed to grow a sphere, called a hole, at every Empty grid cell.
+    These pre-void holes will be filtered such that the potential voids along the edge of
     the survey will be removed, since any void on the edge of the survey could
     potentially grow unbounded, and there may be galaxies not present which would
     have bounded the void.  After the filtering, these pre-voids will be combined
@@ -760,23 +774,50 @@ def find_voids(galaxy_coords_xyz,
     ijk = ((xyz - coords_min)/hole_grid_edge_length).astype(integer) 
     
     During the sphere growth, VoidFinder also uses a secondary grid to help find
-    the bounding galaxies for a sphere.  The grid facilitates nearest-neighbor
+    the bounding galaxies for a sphere.  This secondary grid facilitates nearest-neighbor
     and radius queries, and uses a coordinate space referred to in the code
     as pqr, which uses a similar transformation:
     
     pqr = ((xyz - coords_min)/neighbor_grid_edge_length).astype(integer)
     
     In VoidFinder terminology, a Void is a union of spheres, and a single sphere
-    is just a hole.  The Voids are found by taking the set of holes, ordering them
-    based on radius, and starting from the largest found hole, label it a maximal
+    is just a hole.  The Voids are found by taking the set of holes, and ordering them
+    based on radius. Starting from the largest found hole, label it a maximal
     sphere, and continue to the next hole.  If the next hole does not overlap with any of the
     previous maximal spheres by some factor, it is also considered a maximal sphere.  This process
     is repeated until there are no more maximal spheres, and all other spheres are joined to the
     maximal spheres.
     
     
+    A note on the purpose of VoidFinder - VoidFinder is intended to find distinct, discrete
+    void *locations* within the large scale structure of the universe.  This is in contrast
+    to finding the large scale void *structure*.  VoidFinder answers the question
+    "Where are the voids?" with a concrete "Here is a list of x,y,z coordinates", but it does not
+    answer the questions "What do the voids look like?  How are they shaped?  How much do
+    they overlap?"  These questions can be partially answered with additional analysis on the 
+    output of VoidFinder, but the main algorithm is intended to find discrete, disjoint x-y-z 
+    coordinates of the centers of void regions.  If you wanted a local density estimate for a
+    given galaxy, you could just use the distance to Nth nearest neighbor, for example.  This
+    is not what VoidFinder is for.
+    
+    
+    To do this, VoidFinder makes the following assumptions:
+    
+    1.  A Void region can be approximated by a sphere.
+    
+        1.a. the center of the maximal sphere in that void region will yield the x-y-z
+        
+    2.  Void regions are distinct/discrete - we're not looking for huge tunneling structures
+        throughout space, if does happen to be the structure of space (it basically does happen
+        to be that way) we want the locations of the biggest rooms
+    
+    
+    
+    
+    
+    
     Parameters
-    ----------
+    ==========
     
     galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
         coordinates of the galaxies in the survey, units of Mpc/h
@@ -786,8 +827,6 @@ def find_voids(galaxy_coords_xyz,
         minimum and maximum distance limit of the survey in units of Mpc/h
         (xyz space)
         
-    
-    
     mask : numpy.ndarray of shape (N,M) type bool
         represents the survey footprint in scaled ra/dec space.  Value of True 
         indicates that a location is within the survey
@@ -796,13 +835,11 @@ def find_voids(galaxy_coords_xyz,
     mask_resolution : integer
         Scale factor of coordinates needed to index mask
         
-    
     coords_min : ndarray of shape (3,) or (1,3)
         coordinates used for converting from xyz space into the grid ijk space
     
     hole_grid_shape : tuple of 3 integers
         ijk dimensions of the 3 grid directions
-    
         
     hole_grid_edge_length : float
         size in Mpc/h of the edge of 1 cube in the search grid, or

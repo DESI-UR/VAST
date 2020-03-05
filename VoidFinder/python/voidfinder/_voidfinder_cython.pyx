@@ -134,8 +134,6 @@ cpdef DTYPE_INT64_t fill_ijk_zig_zag(DTYPE_INT64_t[:,:] i_j_k_array,
     # again.  So k depends on the modulus of i and j, j depends on the modulus of i,
     # and i always runs positive.
     ################################################################################
-    #while num_attempt < batch_size:
-        
     for num_attempt in range(batch_size):
         
         if start_idx >= i_lim*j_lim*k_lim:
@@ -308,7 +306,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     ===========
     
     Given a potential void cell center denoted by i,j,k, find the 4 bounding galaxies
-    that maximize the interior dimensions of the void sphere at this location.
+    that maximize the interior dimensions of the hole sphere at this location.
     
     There are some really weird particulars to this algorithm that need to be laid out
     in better detail.
@@ -361,9 +359,14 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     return_array : memoryview into (N,4) numpy array
         memory for results, each row is (x,y,z,r)
         
-    cell_ID_mem: _voidfinder_cython_find_next.Cell_ID_Memory
+    cell_ID_mem : _voidfinder_cython_find_next.Cell_ID_Memory
         object which coordinates access to cell ID grid locations when
         searching for neighbor galaxies
+        
+    neighbor_mem : _voidfinder_cython_find_next.NeighborMemory
+        object which coordinates access to a handful of arrays
+        which may need to be dynamically resized during
+        nearest neighbor calculations
         
     verbose : int
         values >= 1 indicate to make a lot more print statements
@@ -417,18 +420,6 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     ################################################################################
     cdef DTYPE_INT64_t[:] nearest_gal_index_list = np.empty(3, dtype=np.int64, order='C')
     
-    
-    
-    ################################################################################
-    #memory for the return variables when calling find_next_galaxy
-    ################################################################################
-    cdef ITYPE_t[:] x_ratio_index_return_mem = np.zeros(1, dtype=np.int64, order='C')
-    
-    cdef ITYPE_t[:] gal_idx_return_mem = np.zeros(1, dtype=np.int64, order='C')
-    
-    cdef DTYPE_F64_t[:] min_x_return_mem = np.zeros(1, dtype=np.float64, order='C')
-    
-    cdef DTYPE_B_t[:] in_mask_return_mem = np.ones(1, dtype=np.uint8)
 
     ################################################################################
     # vector_modulus is re-used each time the new unit vector is calculated
@@ -496,10 +487,6 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     cdef DTYPE_F64_t[:] BC_memview = np.empty(3, dtype=np.float64, order='C')
     
     
-    
-    
-    
-    
     ################################################################################
     # Computation memory to pass into find_next_galaxy()
     #
@@ -509,26 +496,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     #
     #
     ################################################################################
-    
     cdef DTYPE_F64_t[:] Bcenter_memview = np.empty(3, dtype=np.float64, order='C')
-    
-    #cdef ITYPE_t[:] MAX_NEAREST = np.empty(1, dtype=np.int64)
-    
-    #MAX_NEAREST[0] = 16 #guess at the max number of results returned by kdtree
-    
-    #cdef ITYPE_t[:] i_nearest_reduced_memview = np.empty(MAX_NEAREST[0], dtype=np.int64)
-                
-    #cdef DTYPE_F64_t[:,:] candidate_minus_A_memview = np.empty((MAX_NEAREST[0], 3), dtype=np.float64, order='C')
-
-    #cdef DTYPE_F64_t[:,:] candidate_minus_center_memview = np.empty((MAX_NEAREST[0], 3), dtype=np.float64, order='C')
-    
-    #cdef DTYPE_F64_t[:] bot_memview = np.empty(MAX_NEAREST[0], dtype=np.float64, order='C')
-    
-    #cdef DTYPE_F64_t[:] top_memview = np.empty(MAX_NEAREST[0], dtype=np.float64, order='C')
-    
-    #cdef DTYPE_F64_t[:] x_ratio_memview = np.empty(MAX_NEAREST[0], dtype=np.float64, order='C')
-    
-    
     
     
     ################################################################################
@@ -538,9 +506,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
     cdef ITYPE_t num_cells = i_j_k_array.shape[0]
     
-    #cdef FindNextReturnVal[1] find_next_retval
     cdef FindNextReturnVal find_next_retval
-    
     
     
     ################################################################################
@@ -589,7 +555,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         ############################################################
         #
-        # Find Galaxy 1/A - super easy using KDTree
+        # Find Galaxy 1/A - super easy using _query_first
         #
         ############################################################
         
@@ -625,7 +591,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         hole_radius = vector_modulus
         
         ############################################################################
-        # Make a copy of the hole center for propogation during the galaxy finding
+        # Make a copy of the hole center for propagation during the galaxy finding
         # set the nearest_gal_index_list first neighbor index since we have a 
         # neighbor now
         #
@@ -644,8 +610,6 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ############################################################################
         nearest_gal_index_list[0] = k1g
         
-        #in_mask_return_mem[0] = 1
-        
         find_next_retval = find_next_galaxy(hole_center_memview,
                                              hole_center_2_3_memview, 
                                              hole_radius, 
@@ -661,25 +625,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              min_dist, 
                                              max_dist,
                                              Bcenter_memview,
-                                             #MAX_NEAREST,
-                                             #i_nearest_reduced_memview,
-                                             #candidate_minus_A_memview,
-                                             #candidate_minus_center_memview,
-                                             #bot_memview,
-                                             #top_memview,
-                                             #x_ratio_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
-                                             #find_next_retval,
-                                             #gal_idx_return_mem,        #return variable
-                                             #min_x_return_mem,          #return variable
-                                             #in_mask_return_mem,        #return variable
                                              )
     
-        #k2g = gal_idx_return_mem[0]
-        
-        #in_mask_2 = in_mask_return_mem[0]
-        
         k2g = find_next_retval.nearest_neighbor_index
         
         in_mask_2 = find_next_retval.in_mask
@@ -770,15 +719,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # Calculate vector pointing from the hole center to the second-nearest galaxy
         # Initialize moving hole center
         ############################################################################
-        '''
-        for idx in range(3):
-            
-            Acenter_memview[idx] = w_coord[k1g, idx] - hole_center_memview[0,idx]
         
-        for idx in range(3):
-            
-            Bcenter_memview[idx] = w_coord[k2g, idx] - hole_center_memview[0,idx]
-        '''
         for idx in range(3):
             
             hole_center_2_3_memview[0,idx] = hole_center_memview[0,idx]
@@ -788,13 +729,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #
         # Find galaxy 3/C
         #
-        # set neighbors 1 and 2 in the list, and re-init the in_mask variable to 1
+        # set neighbors 1 and 2 in the list
+        #
         ############################################################################
         nearest_gal_index_list[0] = k1g
         
         nearest_gal_index_list[1] = k2g
-    
-        #in_mask_return_mem[0] = 1
     
         find_next_retval = find_next_galaxy(hole_center_memview,
                                              hole_center_2_3_memview, 
@@ -811,27 +751,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              min_dist, 
                                              max_dist,
                                              Bcenter_memview,
-                                             #MAX_NEAREST,
-                                             #i_nearest_reduced_memview,
-                                             #candidate_minus_A_memview,
-                                             #candidate_minus_center_memview,
-                                             #bot_memview,
-                                             #top_memview,
-                                             #x_ratio_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
-                                             #find_next_retval,
-                                             #gal_idx_return_mem,        #return variable
-                                             #min_x_return_mem,          #return variable
-                                             #in_mask_return_mem,        #return variable
                                              )
     
-        #k3g = gal_idx_return_mem[0]
-        
-        #minx3 = min_x_return_mem[0]
-        
-        #in_mask_3 = in_mask_return_mem[0]
-        
         k3g = find_next_retval.nearest_neighbor_index
         
         minx3 = find_next_retval.min_x_ratio
@@ -933,35 +856,24 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # Calculate vector pointing from the hole center to the neighbor 2/B
         # Update new hole center for propagation
         ############################################################################
-        '''
-        for idx in range(3):
-    
-            Acenter_memview[idx] = w_coord[k1g, idx] - hole_center_memview[0, idx]
-    
-    
-        for idx in range(3):
-    
-            Bcenter_memview[idx] = w_coord[k2g, idx] - hole_center_memview[0, idx]
-        '''
-    
         for idx in range(3):
     
             hole_center_41_memview[0, idx] = hole_center_memview[0, idx]
+            
     
         ############################################################################
         #
         # Find galaxy 4/D-1
         #
         # update the exiting neighbors 1/A, 2/B and 3/C in the 
-        # nearest_gal_index_list and re-init in_mask to 1
+        # nearest_gal_index_list
+        #
         ############################################################################
         nearest_gal_index_list[0] = k1g
         
         nearest_gal_index_list[1] = k2g
         
         nearest_gal_index_list[2] = k3g
-    
-        #in_mask_return_mem[0] = 1
     
         find_next_retval = find_next_galaxy(hole_center_memview,
                                              hole_center_41_memview, 
@@ -978,27 +890,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              min_dist, 
                                              max_dist,
                                              Bcenter_memview,
-                                             #MAX_NEAREST,
-                                             #i_nearest_reduced_memview,
-                                             #candidate_minus_A_memview,
-                                             #candidate_minus_center_memview,
-                                             #bot_memview,
-                                             #top_memview,
-                                             #x_ratio_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
-                                             #find_next_retval,
-                                             #gal_idx_return_mem,        #return variable
-                                             #min_x_return_mem,          #return variable
-                                             #in_mask_return_mem,        #return variable
                                              )
     
-        #k4g1 = gal_idx_return_mem[0]
-        
-        #minx41 = min_x_return_mem[0]
-    
-        #in_mask_41 = in_mask_return_mem[0]
-        
         k4g1 = find_next_retval.nearest_neighbor_index
         
         minx41 = find_next_retval.min_x_ratio
@@ -1018,6 +913,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #
         # Repeat same search, but shift the hole center in the other direction 
         # this time, so flip the v3_unit_memview in other direction
+        #
         ############################################################################
         for idx in range(3):
     
@@ -1037,10 +933,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # Find galaxy 4/D-2
         #
         # nearest_neighbor_gal_list already updated from galaxy 4/D-1
-        # re-init in_mask to 1
+        # 
         ############################################################################
-        #in_mask_return_mem[0] = 1
-    
         find_next_retval = find_next_galaxy(hole_center_memview,
                                              hole_center_42_memview, 
                                              hole_radius, 
@@ -1056,27 +950,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              min_dist, 
                                              max_dist,
                                              Bcenter_memview,
-                                             #MAX_NEAREST,
-                                             #i_nearest_reduced_memview,
-                                             #candidate_minus_A_memview,
-                                             #candidate_minus_center_memview,
-                                             #bot_memview,
-                                             #top_memview,
-                                             #x_ratio_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
-                                             #find_next_retval,
-                                             #gal_idx_return_mem,        #return variable
-                                             #min_x_return_mem,          #return variable
-                                             #in_mask_return_mem,        #return variable
                                              )
     
-        #k4g2 = gal_idx_return_mem[0]
-        
-        #minx42 = min_x_return_mem[0]
-    
-        #in_mask_42 = in_mask_return_mem[0]
-        
         k4g2 = find_next_retval.nearest_neighbor_index
         
         minx42 = find_next_retval.min_x_ratio

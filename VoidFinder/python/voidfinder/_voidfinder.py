@@ -1543,8 +1543,8 @@ def _hole_finder_multi_process(ngrid,
                                           ijk_start, 
                                           write_start, 
                                           config_object))
-        '''
         
+        '''
         p.start()
         
         processes.append(p)

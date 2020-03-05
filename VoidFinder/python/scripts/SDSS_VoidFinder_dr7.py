@@ -51,11 +51,11 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 8
+num_cpus = 4
 
 #-------------------------------------------------------------------------------
-#survey_name = 'SDSS_dr7_'
-survey_name = 'SDSS_dr12_'
+survey_name = 'SDSS_dr7_'
+#survey_name = 'SDSS_dr12_'
 
 # File header
 
