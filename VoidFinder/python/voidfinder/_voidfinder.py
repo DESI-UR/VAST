@@ -33,7 +33,9 @@ from ._voidfinder_cython import main_algorithm, \
 
 from ._voidfinder_cython_find_next import GalaxyMap, \
                                           Cell_ID_Memory, \
-                                          GalaxyMapCustomDict
+                                          GalaxyMapCustomDict, \
+                                          HoleGridCustomDict, \
+                                          NeighborMemory
 
 
 
@@ -449,6 +451,64 @@ def _hole_finder_single_process(void_grid_shape,
         
         print("Grid: ", void_grid_shape, flush=True)
         
+        
+        
+        
+        
+        
+    ################################################################################
+    # First build a helper for the i,j,k generator, using the hole grid edge length
+    # We basically need a flag that says "there is a galaxy in this ijk cell"
+    # so VoidFinder can skip that i,j,k value when growing holes
+    ################################################################################
+    mesh_indices = ((galaxy_coords - coord_min)/void_grid_edge_length).astype(np.int64)
+    
+    hole_cell_ID_dict = {}
+    
+    for row in mesh_indices:
+        
+        hole_cell_ID_dict[tuple(row)] = 1
+    
+    
+    num_nonempty_hole_cells = len(hole_cell_ID_dict)
+    
+    
+    
+    hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
+    
+    hole_lookup_memory = np.zeros(hole_next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
+                                                          ("i", np.int16, ()),
+                                                          ("j", np.int16, ()),
+                                                          ("k", np.int16, ())])
+    
+    
+    new_hole_cell_ID_dict = HoleGridCustomDict(void_grid_shape, 
+                                               hole_lookup_memory)
+    
+    for curr_ijk in hole_cell_ID_dict:
+        
+        new_hole_cell_ID_dict.setitem(*curr_ijk)
+        
+    del hole_cell_ID_dict
+    
+    del mesh_indices
+    
+    if verbose > 0:
+        
+        print("Num nonempty hole cells: ", num_nonempty_hole_cells, flush=True)
+        
+        print("Total slots in hole_cell_ID_dict: ", hole_next_prime)
+        
+        print("Num collisions hole_cell_ID_dict: ", new_hole_cell_ID_dict.num_collisions)
+        
+        
+        
+        
+        
+        
+        
+        
+        
     ################################################################################
     # Create the GalaxyMap index and GalaxyMap data array 
     ################################################################################
@@ -504,12 +564,12 @@ def _hole_finder_single_process(void_grid_shape,
     
     next_prime = find_next_prime(2*num_galaxy_map_elements)
     
-    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, 1),
-                                                   ("i", np.int16, 1),
-                                                   ("j", np.int16, 1),
-                                                   ("k", np.int16, 1),
-                                                   ("offset", np.int64, 1),
-                                                   ("num_elements", np.int64, 1)])
+    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()),
+                                                   ("i", np.int16, ()),
+                                                   ("j", np.int16, ()),
+                                                   ("k", np.int16, ()),
+                                                   ("offset", np.int64, ()),
+                                                   ("num_elements", np.int64, ())])
     
     new_galaxy_map = GalaxyMapCustomDict(void_grid_shape,
                                          lookup_memory)
@@ -531,6 +591,8 @@ def _hole_finder_single_process(void_grid_shape,
         
         
     cell_ID_mem = Cell_ID_Memory(2)
+    
+    neighbor_mem = NeighborMemory(50)
     
     ################################################################################
     # Right now this object is a glorified data holder
@@ -555,7 +617,7 @@ def _hole_finder_single_process(void_grid_shape,
     cell_ID_gen = CellIDGenerator(void_grid_shape[0], 
                                   void_grid_shape[1], 
                                   void_grid_shape[2], 
-                                  galaxy_map)
+                                  new_hole_cell_ID_dict)
     
     if verbose > 1:
         
@@ -572,7 +634,7 @@ def _hole_finder_single_process(void_grid_shape,
     ################################################################################
     
     n_empty_cells = void_grid_shape[0]*void_grid_shape[1]*void_grid_shape[2] \
-                    - num_in_galaxy_map
+                    - num_nonempty_hole_cells
     
     RETURN_ARRAY = np.empty((n_empty_cells, 4), dtype=np.float64)
     
@@ -619,6 +681,8 @@ def _hole_finder_single_process(void_grid_shape,
     if verbose > 0:
         
         print_start_time = time.time()
+        
+        main_task_start_time = time.time()
         
     
     ################################################################################
@@ -667,7 +731,7 @@ def _hole_finder_single_process(void_grid_shape,
             
             if (curr_time - print_start_time) > print_after:
                 
-                print("Processed cell "+str(num_cells_processed)+" of "+str(n_empty_cells), str(round(curr_time - start_time, 2)))
+                print("Processed cell "+str(num_cells_processed)+" of "+str(n_empty_cells), str(round(curr_time - main_task_start_time, 2)))
             
                 print_start_time = curr_time
         
@@ -702,6 +766,7 @@ def _hole_finder_single_process(void_grid_shape,
                            max_dist,
                            return_array,
                            cell_ID_mem,
+                           neighbor_mem,
                            0,  
                            #PROFILE_array
                            )
@@ -721,7 +786,7 @@ def _hole_finder_single_process(void_grid_shape,
             
     if verbose > 0:
         
-        print("Main task finish time: ", time.time() - start_time)
+        print("Main task finish time: ", time.time() - main_task_start_time)
         
     ######################################################################
     # PROFILING CODE
@@ -811,26 +876,59 @@ def _hole_finder_multi_process(ngrid,
                                DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
                                ):
     """
+    Description
+    ===========
+    
     Work-horse method for running VoidFinder with the Cython code in parallel
     multi-process form.  
     
     This method contains the logic for:
     
     1). Sanity check the num_cpus to use
-    2). Open a few file handles and allocate memory for workers to memmap to
-    3). write a config object to a temporary disk location for the workers
+    2). Open file handles and allocate memory for workers to memmap to
+    3). Build a few data structures for the workers to share
     4). Register some cleanup helpers with the python interpreters for 
             making sure the disk space gets reclaimed when we're done
     5). Start the workers
     6). Make sure workers connect to the comm socket
-    7). Collect progress results from the workers
-    8). DEBUG - Make some plots of processing timings
+    7). Checkpoint the progress if those parameters are enabled
+    8). Collect progress results from the workers
+    
+    This function is designed to be run on Linux on an SMP (Symmetric Multi-Processing) architecture.
+    It takes advantage of 2 Linux-specific properties: the /dev/shm filesystem and the fork() method 
+    of spawning processes. /dev/shm is used as the preferred location for creating memory maps to 
+    share information between the worker processes since on Linux is is a RAMdisk, and the implementation
+    of fork() on Linux is used to share file descriptor values between the master and worker processes,
+    whereas on mac/OSX fork() is wonky and Windows does not offer fork() at all.  This has run successfully
+    on mac/OSX, in which case the /tmp directory is used for the memory maps and such, but the fork() on OSX
+    as far as this author understands is not 100% reliable, as the engineers at Apple seem to have certain
+    cases which enforce a fork()-then-exec() paradigm, and others which do not.  Use at your own risk.  
+    However, the single-threaded version of VoidFinder should have no trouble running on Linux, Windows, or OSx.
+    
+    Parameters
+    ==========
+    
+    FILL IN LATER
+    
+    Returns
+    =======
+    
+    valid_result_array : numpy.ndarray shape (?,4)
+        x,y,z and radius values for all holes which were found
+    
+    n_holes : int
+        number of valid holes found
     
     
     """
     
     
-        
+    ################################################################################
+    # If /dev/shm is not available, use /tmp as the shared resource filesystem
+    # location instead.  Since on Linux /dev/shm is guaranteed to be a mounted
+    # RAMdisk, I don't know if /tmp will be as fast or not, probably depends on
+    # kernel settings.
+    ################################################################################
     if not os.path.isdir(RESOURCE_DIR):
         
         print("WARNING: RESOURCE DIR ", RESOURCE_DIR, "does not exist.  Falling back to /tmp but could be slow", flush=True)
@@ -846,7 +944,6 @@ def _hole_finder_multi_process(ngrid,
     # multiprocessing version?
     #
     ################################################################################
-    
     if (num_cpus is None):
           
         num_cpus = cpu_count(logical=False)
@@ -855,8 +952,14 @@ def _hole_finder_multi_process(ngrid,
         
         print("Running multi-process mode,", str(num_cpus), "cpus", flush=True)
         
+        print("Grid: ", ngrid, flush=True)
         
-    
+        
+    ################################################################################
+    # Set up so that VoidFinder will periodically save a checkpoint file so that it
+    # can be restarted from the middle of a run, this saves a checkpoint file
+    # after every 'save_after' cells have been processed
+    ################################################################################
     ENABLE_SAVE_MODE = False
     
     if save_after is not None:
@@ -874,6 +977,10 @@ def _hole_finder_multi_process(ngrid,
         num_acknowledges = 0
     
     
+    ################################################################################
+    # Set up so that VoidFinder can be restarted from an on-disk checkpoint
+    # file, if the use_start_checkpoint parameter has been enabled
+    ################################################################################
     START_FROM_CHECKPOINT = False
     
     if use_start_checkpoint == True:
@@ -890,24 +997,60 @@ def _hole_finder_multi_process(ngrid,
             raise ValueError("Since use_start_checkpoint was True, expected to find "+survey_name+"VoidFinderCheckpoint.h5 file to use as starting checkpoint file, file was not found")
     
     
+    ################################################################################
+    # First build a helper for the i,j,k generator, using the hole grid edge length
+    # We basically need a flag that says "there is a galaxy in this ijk cell"
+    # so VoidFinder can skip that i,j,k value when growing holes
+    ################################################################################
+    mesh_indices = ((w_coord - coord_min)/dl).astype(np.int64)
     
+    hole_cell_ID_dict = {}
     
-    
-    
-    
+    for row in mesh_indices:
         
+        hole_cell_ID_dict[tuple(row)] = 1
+    
+    num_nonempty_hole_cells = len(hole_cell_ID_dict)
+    
     
     ################################################################################
-    # An output counter for total number of holes found, and calculate the
-    # total number of cells we're going to have to check based on the grid
-    # dimensions and the total number of previous cells in the cell_ID_dict which
-    # we already discovered we do NOT have to check.
-    #
-    #
-    # Create the GalaxyMap index and GalaxyMap data array and memmap them for the 
-    # workers
+    # Now convert this ijk helper into the cython class so we can share its
+    # memory array among the processes to not duplicate memory, also the custom
+    # hash function it uses is faster than the built-in python one since we're
+    # taking advantage of the sequential nature of grid cells
     ################################################################################
+    hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
     
+    hole_lookup_memory = np.zeros(hole_next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
+                                                          ("i", np.int16, ()),
+                                                          ("j", np.int16, ()),
+                                                          ("k", np.int16, ())])
+    
+    new_hole_cell_ID_dict = HoleGridCustomDict(ngrid, 
+                                               hole_lookup_memory)
+    
+    for curr_ijk in hole_cell_ID_dict:
+        
+        new_hole_cell_ID_dict.setitem(*curr_ijk)
+        
+    del hole_cell_ID_dict
+    
+    del mesh_indices
+    
+    if verbose > 0:
+        
+        print("Num nonempty hole cells: ", num_nonempty_hole_cells, flush=True)
+        
+        print("Total slots in hole_cell_ID_dict: ", hole_next_prime)
+        
+        print("Num collisions hole_cell_ID_dict: ", new_hole_cell_ID_dict.num_collisions)
+    
+    
+    ################################################################################
+    # Next create the GalaxyMap p-q-r-space index, which is constructed identically
+    # to the hole_grid i-j-k-space, except that we use a larger cell edge length
+    # so we get more galaxies per cell
+    ################################################################################
     if verbose > 0:
         
         galaxy_map_start_time = time.time()
@@ -915,289 +1058,6 @@ def _hole_finder_multi_process(ngrid,
         print("Building galaxy map", flush=True)
     
     mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
-    
-    
-    
-    
-    
-    
-    '''
-    #TSNE bin sort
-    unique_bins = np.unique(mesh_indices, axis=0)
-    
-    print("Starting TSNE, num_gal, unique bins: ", w_coord.shape[0], len(unique_bins))
-    
-    tsne_time = time.time()
-    
-    embedding = TSNE(n_components=1, verbose=1).fit_transform(unique_bins)
-    
-    print(embedding.shape)
-    
-    print(embedding[0:10])
-    
-    print("Finished TSNE", time.time() - tsne_time)
-    
-    bin_sort_order = np.argsort(embedding[:,0])
-    
-    
-    bin_sort_map = {}
-    for idx, row in enumerate(unique_bins):
-        bin_sort_map[tuple(row)] = bin_sort_order[idx]
-        
-        
-    master_sort_order = []
-    for _ in range(bin_sort_order.shape[0]):
-        master_sort_order.append([])
-    
-    
-    for idx in range(mesh_indices.shape[0]):
-        bin_ID = tuple(mesh_indices[idx])
-        bin_order = bin_sort_map[bin_ID]
-        master_sort_order[bin_order].append(idx)
-        
-        
-    w_coord_sort_order = np.concatenate(master_sort_order)
-    
-    
-    sorted_w_coord = w_coord[w_coord_sort_order]
-    
-    del w_coord
-    
-    w_coord = sorted_w_coord
-    
-    del mesh_indices
-    
-    
-    
-    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
-    '''
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    '''
-    #HDBSCAN bin sort
-    unique_bins = np.unique(mesh_indices, axis=0)
-    
-    print("Starting HDBSCAN, num_gal, unique bins: ", w_coord.shape[0], len(unique_bins))
-    
-    hdbscan_time = time.time()
-    
-    clusterer = hdbscan.HDBSCAN()
-    clusterer.fit(unique_bins)
-    
-    labels = clusterer.labels_
-    
-    probs = clusterer.probabilities_
-    
-    print("PROBS SHAPE: ", probs.shape)
-    #print(probs[0:10])
-    
-    #labels = np.argmax(probs, axis=1)
-    
-    #unique_labels = np.unique(labels)
-    
-    #or curr_label in unique_labels:
-        
-        
-    
-    
-    
-    
-    print(labels.shape)
-    
-    print(labels[0:10])
-    
-    print("Finished HDBSCAN", time.time() - hdbscan_time)
-    
-    bin_sort_order = np.argsort(labels)
-    
-    
-    
-    
-    
-    
-    bin_sort_map = {}
-    for idx, row in enumerate(unique_bins):
-        bin_sort_map[tuple(row)] = bin_sort_order[idx]
-        
-        
-    master_sort_order = []
-    for _ in range(bin_sort_order.shape[0]):
-        master_sort_order.append([])
-    
-    
-    for idx in range(mesh_indices.shape[0]):
-        bin_ID = tuple(mesh_indices[idx])
-        bin_order = bin_sort_map[bin_ID]
-        master_sort_order[bin_order].append(idx)
-        
-        
-    w_coord_sort_order = np.concatenate(master_sort_order)
-    
-    
-    sorted_w_coord = w_coord[w_coord_sort_order]
-    
-    del w_coord
-    
-    w_coord = sorted_w_coord
-    
-    del mesh_indices
-    
-    
-    
-    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
-    '''
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    '''
-    unique_bins, bin_counts = np.unique(mesh_indices, return_counts=True, axis=0)
-    
-    print("Max bin: ", bin_counts.max())
-    print("Min bin: ", bin_counts.min())
-    #bin_pre_sort_index = ngrid[1]*ngrid[2]*unique_bins[:,0] + \
-    #                        ngrid[2]*unique_bins[:,1] + \
-    #                        unique_bins[:,2]
-    
-    
-    
-    
-    #bin_sort_order = np.argsort(bin_pre_sort_index)
-    bin_sort_order = np.argsort(bin_counts)[::-1]
-    
-    bin_sort_map = {}
-    for idx, row in enumerate(unique_bins):
-        bin_sort_map[tuple(row)] = bin_sort_order[idx]
-        
-        
-    master_sort_order = []
-    for _ in range(bin_sort_order.shape[0]):
-        master_sort_order.append([])
-    
-    
-    for idx in range(mesh_indices.shape[0]):
-        bin_ID = tuple(mesh_indices[idx])
-        bin_order = bin_sort_map[bin_ID]
-        master_sort_order[bin_order].append(idx)
-        
-        
-    w_coord_sort_order = np.concatenate(master_sort_order)
-    
-    
-    sorted_w_coord = w_coord[w_coord_sort_order]
-    
-    del w_coord
-    
-    w_coord = sorted_w_coord
-    
-    del mesh_indices
-    
-    
-    
-    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
-    '''
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    '''
-    #bin sort?
-    galaxy_pre_sort_index = ngrid[1]*ngrid[2]*mesh_indices[:,0] + \
-                            ngrid[2]*mesh_indices[:,1] + \
-                            mesh_indices[:,2]
-                            
-    del mesh_indices
-                            
-    w_coord_sort_order = np.argsort(galaxy_pre_sort_index)
-    
-    sorted_w_coord = w_coord[w_coord_sort_order]
-    
-    del w_coord
-    
-    w_coord = sorted_w_coord
-    
-    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
-    '''
-    
-    
-    
-    
-    
-    '''
-    #Scramble
-    
-    w_coord_scramble_order = np.random.permutation(w_coord.shape[0])
-    
-    scrambled_w_coord = w_coord[w_coord_scramble_order]
-    
-    del w_coord
-    
-    w_coord = scrambled_w_coord
-    
-    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
-    '''
-    
-    
-    
-    
-    
-    
-    
-    
         
     galaxy_map = {}
 
@@ -1215,11 +1075,18 @@ def _hole_finder_multi_process(ngrid,
     
     num_in_galaxy_map = len(galaxy_map)
     
-    ################################################################################
-    # Convert the galaxy map from a map of grid_cell_ID -> belonging galaxy indices
-    # to a map from grid_cell_ID -> (offset, num) into 
-    ################################################################################
     
+    ################################################################################
+    # When we use the GalaxyMap we're going to need to get all the galaxies in the
+    # survey that belong to a desired p-q-r cell.  So, the GalaxyMap itself is going
+    # to store key-value pairs where the key is the p-q-r cell ID, and the value
+    # is an (offset,num_elements) pair.  The offset represents the index into the
+    # galaxy_map_array, which in turn holds the indices of the galaxies belonging
+    # to the p-q-r cell we're interested in.  The num_elements tells us how many
+    # elements at the offset in the galaxy_map_array belong to this p-q-r cell.
+    # The values in galaxy_map_array tell us the rows in the main galaxy_coords 
+    # array where the galaxies in our p-q-r cell of interest are.
+    ################################################################################
     offset = 0
     
     galaxy_map_list = []
@@ -1240,14 +1107,14 @@ def _hole_finder_multi_process(ngrid,
     
     del galaxy_map_list
     
-    
-    ################################################################################
-    # Convert the galaxy_map dictionary into a custom dictionary that we can
-    # use to memmap down to our workers
-    ################################################################################
-    
     num_galaxy_map_elements = len(galaxy_map)
     
+    
+    ################################################################################
+    # Now convert the galaxy_map python dict created above into a custom dictionary 
+    # type which exposes the backing hash-table array, so we can mem-map that array 
+    # and share it among our worker processes.
+    ################################################################################
     next_prime = find_next_prime(2*num_galaxy_map_elements)
     
     lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
@@ -1257,10 +1124,7 @@ def _hole_finder_multi_process(ngrid,
                                                 ("offset", np.int64, ()),
                                                 ("num_elements", np.int64, ())])
     
-    #new_galaxy_map = GalaxyMapCustomDict(ngrid, 
-    #                                     lookup_memory)
-    
-    new_galaxy_map = GalaxyMapCustomDict((43,47,53), 
+    new_galaxy_map = GalaxyMapCustomDict(ngrid, 
                                          lookup_memory)
     
     for curr_pqr in galaxy_map:
@@ -1275,7 +1139,9 @@ def _hole_finder_multi_process(ngrid,
         
         print("Galaxy Map build time: ", time.time() - galaxy_map_start_time, flush=True)
         
-        print("Size: ", num_in_galaxy_map, "Total slots: ", next_prime, flush=True)
+        print("Num items in Galaxy Map: ", num_in_galaxy_map, flush=True)
+        
+        print("Total slots in galaxy map hash table: ", next_prime, flush=True)
         
         print("Num collisions in rebuild: ", new_galaxy_map.num_collisions, flush=True)
     
@@ -1299,12 +1165,14 @@ def _hole_finder_multi_process(ngrid,
     # left the link (the path) on the filesystem and VF crashed, the RAM that it 
     # refers to isn't freed until the filesystem link is manually removed.
     #
-    # Note that this scheme probably doesn't work for fork() + exec() child process
-    # creation, because the child isn't guaranteed that the same file descriptor
-    # values point to the same entries in the kernel's open file description table.
-    # 'spawn' and 
+    # I am assuming that this scheme doesn't work for fork() + exec() child process
+    # creation, but I really should open my textbook and double check to be sure.
+    # If I remember correctly a lot of file descriptors "close on exec()" so
+    # maybe it would work, maybe it wouldn't - either way in practice this means
+    # I don't know if the python multiprocessing "spawn" or "forkserver" methods
+    # would work correctly on this code, and if we needed to use them it might
+    # require re-engineering this code.
     ################################################################################
-    
     w_coord_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -1321,19 +1189,9 @@ def _hole_finder_multi_process(ngrid,
     
     w_coord_buffer = mmap.mmap(w_coord_fd, w_coord_buffer_length)
     
-    
-    
-    
-    #sorted_w_coord = w_coord[w_coord_sort_order]
-    
-    #del w_coord
-    
     w_coord_buffer.write(w_coord.astype(np.float64).tobytes())
     
     del w_coord
-    
-    
-    
     
     w_coord = np.frombuffer(w_coord_buffer, dtype=np.float64)
     
@@ -1342,14 +1200,10 @@ def _hole_finder_multi_process(ngrid,
     os.unlink(WCOORD_BUFFER_PATH)
     
     
-    
-    
-    
     ################################################################################
     # memmap the lookup memory for the galaxy map
     # maybe rename it to the galaxy map hash table
     ################################################################################
-    
     lookup_fd, LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -1370,9 +1224,31 @@ def _hole_finder_multi_process(ngrid,
     
     
     ################################################################################
+    # memmap the lookup memory for the hole_cell_ID_dict
+    # maybe rename it to the hole_cell_ID hash table
+    ################################################################################
+    hole_lookup_fd, HOLE_LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    
+    if verbose > 0:
+        
+        print("Hole cell lookup memmap: ", HOLE_LOOKUPMEM_BUFFER_PATH, hole_lookup_fd, flush=True)
+    
+    hole_lookup_buffer_length = hole_next_prime*7 #7 bytes per element
+    
+    os.ftruncate(hole_lookup_fd, hole_lookup_buffer_length)
+    
+    hole_lookup_buffer = mmap.mmap(hole_lookup_fd, hole_lookup_buffer_length)
+    
+    hole_lookup_buffer.write(hole_lookup_memory.tobytes())
+    
+    del hole_lookup_memory
+    
+    os.unlink(HOLE_LOOKUPMEM_BUFFER_PATH)
+    
+    
+    ################################################################################
     # Memmap the galaxy map array to our worker processes 
     ################################################################################
-    
     gma_fd, GMA_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -1397,20 +1273,19 @@ def _hole_finder_multi_process(ngrid,
     
     galaxy_map_array.shape = (num_gma_indices,)
     
+    
     ################################################################################
     # Calculate the number of cells we need to search
     ################################################################################
-
-    #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2]
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_nonempty_hole_cells
+    
     
 
     ################################################################################
-    # Setup a file handle for output memory, we're going to memmap in the
+    # Setup a mem-map for output memory, we're going to memmap in the
     # worker processes to store results and then we'll use numpy.frombuffer
     # to convert it back into an array to pass back up the chain.
     ################################################################################
-    
     result_fd, RESULT_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -1430,6 +1305,10 @@ def _hole_finder_multi_process(ngrid,
     os.unlink(RESULT_BUFFER_PATH)
     
     
+    ################################################################################
+    # If we're starting from a voidfinder checkpoint file, we need to write
+    # the already calculated results back into the result buffer before we begin
+    ################################################################################
     if START_FROM_CHECKPOINT:
         
         starting_result_data = start_checkpoint_infile["result_array"][()]
@@ -1439,13 +1318,6 @@ def _hole_finder_multi_process(ngrid,
         result_buffer.write(starting_result_data.tobytes())
         
         del starting_result_data
-    
-    
-    
-    
-    
-    
-    
     
     
     ################################################################################
@@ -1468,18 +1340,35 @@ def _hole_finder_multi_process(ngrid,
     '''
     
     ################################################################################
-    # Shared memory values to help generating Cell IDs
+    # We need 2 lock-protected values in order to synchronize our worker processes
+    # correctly - the ijk index to start a batch of calculations at, and the
+    # index into the result memory to write your block of results at.
+    #
+    # ijk_start is a simple integer which represents a sequential index into a 
+    # hole_grid location, for example:
+    #     0 -> (0,0,0), 1 -> (0,0,1), 2 -> (0,0,2)
+    # The CellIDGenerator will use this value to generate a batch of cell IDs, and
+    # by synchronizing access to this value we can ensure 2 workers never work
+    # on the same cell ID
+    #
+    # write_start is also an integer which represents the next row index into the
+    # result buffer at which new results can be written.  Workers acquire access
+    # to this value after processing a batch of results, and update it with however
+    # many rows they have to write, then release it, effectively guaranteeing their
+    # own access to a block of rows in the result buffer.
+    #
+    # If we're starting from a VoidFinder checkpoint file, we have to update these
+    # 2 values to wherever we left off.  We can also close the checkpoint infile
+    # at this point.
     ################################################################################
-    
-    
     if START_FROM_CHECKPOINT:
         
         next_cell_idx = start_checkpoint_infile.attrs["next_cell_idx"]
         
         num_written_rows = start_checkpoint_infile.attrs["num_written_rows"]
         
-        
         print("Closing: ", start_checkpoint_infile)
+        
         start_checkpoint_infile.close()
         
         ijk_start = Value(c_int64, next_cell_idx, lock=True)
@@ -1499,16 +1388,13 @@ def _hole_finder_multi_process(ngrid,
         num_cells_processed = 0
     
     
-    
-    
     ################################################################################
-    # Dump configuration to a file for worker processes to get it
+    # In previous versions of voidfinder, we were dumping this configuration 
+    # object to disk, and re-reading it in from the worker processes.  Since we're
+    # using fork(), there's really no need to do that, but all the data which the 
+    # worker processes need are packed up into this config_object below to make 
+    # the process of starting the worker processes a lot simpler.
     ################################################################################
-    if verbose > 0:
-        
-        print("Grid: ", ngrid, flush=True)
-        
-        #print("Dumping config pickle to disk for workers at: ", CONFIG_PATH)
     
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "RESULT_BUFFER_PATH" : RESULT_BUFFER_PATH,
@@ -1522,6 +1408,10 @@ def _hole_finder_multi_process(ngrid,
                      "LOOKUPMEM_BUFFER_PATH" : LOOKUPMEM_BUFFER_PATH,
                      "lookup_fd" : lookup_fd,
                      "next_prime" : next_prime,
+                     "HOLE_LOOKUPMEM_BUFFER_PATH" : HOLE_LOOKUPMEM_BUFFER_PATH,
+                     "hole_lookup_fd" : hole_lookup_fd,
+                     "hole_next_prime" : hole_next_prime,
+                     "num_nonempty_hole_cells" : num_nonempty_hole_cells,
                      #"CELL_ID_BUFFER_PATH" : CELL_ID_BUFFER_PATH,
                      #"PROFILE_BUFFER_PATH" : PROFILE_BUFFER_PATH,
                      #"cell_ID_dict" : cell_ID_dict,
@@ -1544,17 +1434,15 @@ def _hole_finder_multi_process(ngrid,
                      "DEBUG_DIR" : DEBUG_DIR
                      }
     
-    '''
-    outfile = open(CONFIG_PATH, 'wb')
-    
-    pickle.dump(config_object, outfile)
-    
-    outfile.close()
-    '''
     
     ################################################################################
     # Register some functions to be called when the python interpreter exits
     # to clean up any leftover file memory on disk or socket files, etc
+    #
+    # Note - needs an additional check, but I believe most of these atexit functions
+    # are now obsolete, since we're using os.unlink() on all the filesystem paths 
+    # correctly above.  Also worth noting that these functions don't get called on
+    # a SIGKILL, which kinda defeats their purpose anyway.
     ################################################################################
     
     def cleanup_config():
@@ -1617,7 +1505,10 @@ def _hole_finder_multi_process(ngrid,
     # Start the worker processes
     #
     # For whatever reason, OSX doesn't define the socket.SOCK_CLOEXEC constants
-    # so check for that before opening the listener socket
+    # so check for that attribute on the socket module before opening the listener 
+    # socket.  Not super critical, but the child processes don't need a file
+    # descriptor for the listener socket so I was trying to be clean and have it
+    # "close on exec"
     ################################################################################
     
     if hasattr(socket, "SOCK_CLOEXEC"):
@@ -1639,18 +1530,20 @@ def _hole_finder_multi_process(ngrid,
     for proc_idx in range(num_cpus):
         
         #p = startup_context.Process(target=_main_hole_finder_startup, args=(proc_idx, CONFIG_PATH))
-        '''
+        
         p = startup_context.Process(target=_hole_finder_worker, 
                                     args=(proc_idx, 
                                           ijk_start, 
                                           write_start, 
                                           config_object))
+        
         '''
         p = startup_context.Process(target=_hole_finder_worker_profile, 
                                     args=(proc_idx, 
                                           ijk_start, 
                                           write_start, 
                                           config_object))
+        '''
         
         p.start()
         
@@ -1661,10 +1554,22 @@ def _hole_finder_multi_process(ngrid,
     ################################################################################
     # Make sure each worker process connects to the main socket, so we block on
     # the accept() call below until we get a connection, and make sure we get 
-    # exactly num_cpus connections
+    # exactly num_cpus connections.
+    #
+    # To avoid waiting for hours and hours without getting a successful socket 
+    # connection, we set the timeout to the reasonably high value of 10.0 seconds
+    # (remember, 0.1 seconds is on the order of 100 million cycles for a 1GHz
+    # processor), and if we don't get a connection within that time frame we're
+    # going to intentionally raise a RunTimeError
+    #
+    # If successful, we save off references to our new worker sockets by their
+    # file descriptor integer value so we can refer to them by that value using
+    # select() later, then shut down and close our listener/server socket since
+    # we're done with it.
     ################################################################################
     if verbose > 0:
-        print("Waiting on workers to connect", flush=True)
+        
+        print("Attempting to connect workers", flush=True)
     
     num_active_processes = 0
     
@@ -1753,15 +1658,16 @@ def _hole_finder_multi_process(ngrid,
     
     ################################################################################
     # LOOP TO LISTEN FOR RESULTS WHILE WORKERS WORKING
+    # This loop has 3 primary jobs 
+    # 1). accumulate results from reading the worker sockets
+    # 2). periodically print the status/results from the workers
+    # 3). Save checkpoint files after every 'safe_after' results
     ################################################################################
     if verbose > 0:
         
         print_after_time = time.time()
         
-        
         main_task_start_time = time.time()
-    
-    
     
     empty1 = []
     
@@ -1813,6 +1719,13 @@ def _hole_finder_multi_process(ngrid,
                     print(str(round(cells_per_sec,2)), "cells per sec")
         '''
         
+        ################################################################################
+        # END DEBUGGING CODE
+        ################################################################################
+        
+        ################################################################################
+        # Print status updates if verbose is on
+        ################################################################################
         if verbose > 0:
             
             curr_time = time.time()
@@ -1823,11 +1736,11 @@ def _hole_finder_multi_process(ngrid,
                 
                 print_after_time = curr_time
             
-        ################################################################################
-        # END DEBUGGING CODE
-        ################################################################################
+        
             
-            
+        ################################################################################
+        # Accumulate status updates from the worker sockets
+        ################################################################################
         read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, select_timeout)
         
         if read_socks:
@@ -1874,10 +1787,10 @@ def _hole_finder_multi_process(ngrid,
                         
                         num_acknowledges += 1
                         
-                        
+        ################################################################################
+        # Save checkpoint if that has been enabled
+        ################################################################################
         if ENABLE_SAVE_MODE and save_after_counter <= 0:
-            
-            
             
             if not sent_syncs:
             
@@ -1890,26 +1803,22 @@ def _hole_finder_multi_process(ngrid,
                 
             if num_acknowledges == num_cpus:
                 
-                
-                
-                
-                #don't need synchronized access since we sync-paused all the workers
+                ################################################################################
+                # we don't need synchronized/locked access to ijk_start and write_start since 
+                # we sync-paused all the workers
+                # and we've received an acknowledgement from all workers
+                ################################################################################
                 next_cell_idx = ijk_start.value
     
                 num_written_rows = write_start.value
                 
-                
                 print("Saving checkpoint: ", num_cells_processed, next_cell_idx, num_written_rows, flush=True)
-                
                 
                 temp_result_array = np.frombuffer(result_buffer, dtype=np.float64)
     
                 temp_result_array.shape = (n_empty_cells, 4)
                 
                 temp_result = temp_result_array[0:num_written_rows,:]
-                
-                
-                #Save the file
                 
                 if os.path.isfile(survey_name+"VoidFinderCheckpoint.h5"):
                     
@@ -1925,14 +1834,18 @@ def _hole_finder_multi_process(ngrid,
                 
                 outfile.close()
                 
-                print("Saved checkpoint", flush=True)
+                print("Saved checkpoint "+survey_name+"VoidFinderCheckpoint.h5", flush=True)
                 
                 del next_cell_idx
                 del num_written_rows
                 del temp_result_array
                 del temp_result
                 
-                
+                ################################################################################
+                # Now the checkpoint is complete, tell the workers to resume working and
+                # resent the sync, ack, and save_after_counter variables to track until the
+                # next checkpoint
+                ################################################################################
                 for worker_sock in worker_sockets:
                     
                     worker_sock.send(b"resume")
@@ -1943,28 +1856,20 @@ def _hole_finder_multi_process(ngrid,
                 
                 save_after_counter = save_after
                 
-                
-                
-                
-
 
     ################################################################################
-    # Clean up worker processes
+    # We're done the main work! Clean up worker processes.  Block until we've
+    # joined everybody so that we know everything completed correctly.
     ################################################################################
-    
     if verbose > 0:
         
         print("Main task finish time: ", time.time() - main_task_start_time, flush=True)
-    
     
     if not sent_exit_commands:
         
         for idx in range(num_cpus):
             
-            #print("Main sending exit: " +str(idx), flush=True)
-                
             worker_sockets[idx].send(b"exit")
-    
     
     for p in processes:
         
@@ -2014,13 +1919,12 @@ def _hole_finder_multi_process(ngrid,
             plot_cell_kdtree_times(curr_data, idx, 'Multi', DEBUG_DIR)
     '''
     ################################################################################
-    # Close the unneeded file handles to the shared memory, and return the file
-    # handle to the result memory buffer
+    # Extract the results from the shared memory map into a numpy array (using
+    # frombuffer() so we don't copy the memory), then filter out the invalid rows
+    #
+    # A row will have a NAN in the 0th column if it is invalid - aka was outside
+    # the survey mask, or such
     ################################################################################
-    #cell_ID_buffer.close()
-    
-    #PROFILE_buffer.close()
-    
     result_buffer.seek(0)
     
     result_array = np.frombuffer(result_buffer, dtype=np.float64)
@@ -2033,6 +1937,7 @@ def _hole_finder_multi_process(ngrid,
     
     valid_result_array = result_array[valid_idx,:]
     
+    
     ################################################################################
     # Since we just indexed into the result array with a boolean index (valid_idx)
     # this will force a copy of the data into the new valid_result_array.  Since
@@ -2041,12 +1946,16 @@ def _hole_finder_multi_process(ngrid,
     # this to not copy the memory, we can't call .close() on the memmap or we lose
     # access to the underlying data buffer, and VoidFinder crashes with no
     # traceback for some reason.
+    #
+    # Also close all our other mem-maps.
     ################################################################################
     result_buffer.close()
     
     gma_buffer.close()
     
     lookup_buffer.close()
+    
+    hole_lookup_buffer.close()
     
     w_coord_buffer.close()
         
@@ -2199,8 +2108,10 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     LOOKUPMEM_BUFFER_PATH = config["LOOKUPMEM_BUFFER_PATH"]
     lookup_fd = config["lookup_fd"]
     next_prime = config["next_prime"]
-    #CELL_ID_BUFFER_PATH = config["CELL_ID_BUFFER_PATH"]
-    #PROFILE_BUFFER_PATH = config["PROFILE_BUFFER_PATH"]
+    HOLE_LOOKUPMEM_BUFFER_PATH = config["HOLE_LOOKUPMEM_BUFFER_PATH"]
+    hole_lookup_fd = config["hole_lookup_fd"]
+    hole_next_prime = config["hole_next_prime"]
+    num_nonempty_hole_cells = config["num_nonempty_hole_cells"]
     num_in_galaxy_map = config["num_in_galaxy_map"]
     ngrid = config["ngrid"]
     dl = config["dl"]
@@ -2248,12 +2159,11 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     #
     # Note that since we're using the fork() method of spawning workers, that means
     # that this worker has access to the same file descriptors that the master
-    # process had.  In the config, we just passed those file descriptor values 
-    # into this worker, so we can just directly use those file descriptor values.
-    # On a "spawn" worker method, or a fork() + exec() worker, this won't work.
-    # This is part of why this code won't run multiprocessed on Windows, since Windows
-    # doesn't offer fork(), and may or may not run on OSX (it did run successfully
-    # in some tests) since OSX unreliably offers fork().
+    # process had, for example file descriptor 5 means the same thing in the
+    # master process and in this worker process.  I don't know if this holds true
+    # for fork() + exec() style child process creation, so I don't know if this
+    # method will work if we use the python multiprocessing "spawn" or "forkserver"
+    # methods.  
     #
     # Note that the python mmap() call creates a duplicate file descriptor, which
     # we have no access to (in both the master and in each child).  Hopefully
@@ -2262,7 +2172,6 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     # on the whole system).
     #
     ################################################################################
-    
     wcoord_buffer_length = num_galaxies*3*8 # 3 since xyz and 8 since float64
     
     wcoord_mmap_buffer = mmap.mmap(w_coord_fd, wcoord_buffer_length)
@@ -2285,16 +2194,23 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     
     ################################################################################
-    #
     # Primary data structure for the lookup of galaxies in cells.  Used to be
     # a scipy KDTree, then switched to sklearn KDTree for better performance, then
     # re-wrote to use a map from elements of the search grid to the galaxies it
-    # is closest to, and lastly, re-wrote a custom dict class, I was using the 
+    # is closest to, and lastly, re-wrote a custom dict class. I was using the 
     # built-in python dict, but I needed the underlying memory to be exposed so 
-    # I could memmap it, so I wrote a new class which I can do that with.
+    # I could memmap it, so I wrote a new class which I can do that with.  Also 
+    # with the new dict class, which works just like the python class, backed by
+    # a hash-table array, we can take advantage of the uniformness of our key values
+    # which are cell IDs, and their sequential nature, so our custom dict class
+    # actually sped up voidfinder by about a factor of 2.
     #
+    # The galaxy_map keys are p-q-r triplet cell ID values, and the value associated
+    # with each key is the offset into the galaxy_map_array, and the number of
+    # elements at that offset, which correspond to the galaxies which belong to
+    # that p-q-r cell.  The num_elements galaxy_map_array values are the indices
+    # into w_coord for the galaxies at the p-q-r cell
     ################################################################################
-    
     lookup_buffer_length = next_prime*23 # 23 bytes per element
     
     lookup_mmap_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
@@ -2312,11 +2228,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     lookup_memory.shape = (next_prime,)
 
-    #galaxy_map = GalaxyMapCustomDict(ngrid,
-    #                                 lookup_memory)
-    
-    
-    galaxy_map = GalaxyMapCustomDict((43,47,53),
+    galaxy_map = GalaxyMapCustomDict(ngrid,
                                      lookup_memory)
 
     galaxy_tree = GalaxyMap(w_coord, 
@@ -2324,20 +2236,29 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                             search_grid_edge_length,
                             galaxy_map,
                             galaxy_map_array)
-
+    
+    
     ################################################################################
     # Create an object which controls the allocation of memory for storing cell IDs
     # when searching the grid for galaxy neighbors
+    # The parameter 10 in Cell_ID_Memory(10) refers to "level 10" meaning enough
+    # memory to store a 21x21x21 grid (2*10+1 = 21 = grid edge size).  If we knew
+    # the largest query to be performed for this run we could set this value
+    # appropriately here, but we typically don't, so Cell_ID_Memory is capable
+    # of self-resizing to accomodate larger queries.
+    #
+    # Also now an object similar to Cell_ID_Memory, for storing the indices
+    # of nearest neighbor galaxies
     ################################################################################
     cell_ID_mem = Cell_ID_Memory(10)
+    
+    neighbor_mem = NeighborMemory(50)
 
     
     ################################################################################
     # Memmap in the memory for the results
     ################################################################################
-    #n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_in_galaxy_map
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2]
-    
+    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_nonempty_hole_cells
     
     
     result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
@@ -2345,7 +2266,29 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     result_mmap_buffer = mmap.mmap(result_fd, result_buffer_length)
     
     
+    ################################################################################
+    # Load/mmap the dictionary corresponding to the hole grid. The
+    # 
+    #
+    ################################################################################
+    hole_lookup_buffer_length = hole_next_prime*7 # 7 bytes per element
     
+    hole_lookup_mmap_buffer = mmap.mmap(hole_lookup_fd, hole_lookup_buffer_length)
+    
+    hole_lookup_dtype = [("filled_flag", np.uint8, ()), #() indicating scalar length 1
+                         ("i", np.int16, ()),
+                         ("j", np.int16, ()),
+                         ("k", np.int16, ())]
+                    
+
+    hole_input_numpy_dtype = np.dtype(hole_lookup_dtype, align=False)
+    
+    hole_lookup_memory = np.frombuffer(hole_lookup_mmap_buffer, dtype=hole_input_numpy_dtype)
+    
+    hole_lookup_memory.shape = (hole_next_prime,)
+    
+    hole_cell_ID_dict = HoleGridCustomDict(ngrid,
+                                           hole_lookup_memory)
     
     ################################################################################
     # Build Cell ID generator
@@ -2354,7 +2297,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     cell_ID_gen = CellIDGenerator(ngrid[0],
                                   ngrid[1],
                                   ngrid[2],
-                                  galaxy_map)
+                                  hole_cell_ID_dict)
     
     ################################################################################
     #
@@ -2541,6 +2484,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                max_dist,
                                return_array,
                                cell_ID_mem,
+                               neighbor_mem,
                                0,  #verbose level
                                #PROFILE_array
                                )
@@ -2564,6 +2508,9 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                 ################################################################################
                 # Write out the current results into our memmap
                 ################################################################################
+                
+                #print("Worker "+str(worker_idx)+" writing row: "+str(out_start_idx)+" num write: "+str(num_write), flush=True)
+                
                 seek_location = 32*out_start_idx
                 
                 result_mmap_buffer.seek(seek_location)

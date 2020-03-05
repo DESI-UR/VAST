@@ -17,9 +17,13 @@ from typedefs cimport DTYPE_CP128_t, \
                       CELL_ID_t
 
 
+cdef struct FindNextReturnVal:
+    ITYPE_t nearest_neighbor_index
+    DTYPE_F64_t min_x_ratio
+    DTYPE_B_t in_mask
 
-cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
-                           DTYPE_F64_t[:,:] moving_hole_center_memview, \
+cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
+                            DTYPE_F64_t[:,:] moving_hole_center_memview, \
                             DTYPE_F64_t hole_radius, \
                             DTYPE_F64_t dr, \
                             DTYPE_F64_t direction_mod,\
@@ -36,18 +40,21 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                             
                             DTYPE_F64_t[:] Bcenter_memview, \
                             
-                            ITYPE_t[:] MAX_NEAREST, \
-                            ITYPE_t[:] i_nearest_reduced_memview, \
-                            DTYPE_F64_t[:,:] candidate_minus_A_memview, \
-                            DTYPE_F64_t[:,:] candidate_minus_center_memview, \
-                            DTYPE_F64_t[:] bot_memview, \
-                            DTYPE_F64_t[:] top_memview, \
-                            DTYPE_F64_t[:] x_ratio_memview, \
+                            #ITYPE_t[:] MAX_NEAREST, \
+                            #ITYPE_t[:] i_nearest_reduced_memview, \
+                            #DTYPE_F64_t[:,:] candidate_minus_A_memview, \
+                            #DTYPE_F64_t[:,:] candidate_minus_center_memview, \
+                            #DTYPE_F64_t[:] bot_memview, \
+                            #DTYPE_F64_t[:] top_memview, \
+                            #DTYPE_F64_t[:] x_ratio_memview, \
                             Cell_ID_Memory cell_ID_mem, \
+                            NeighborMemory neighbor_mem, \
+                            #FindNextReturnVal* retval,
                             #ITYPE_t[:] nearest_neighbor_x_ratio_index, \
-                            ITYPE_t[:] nearest_neighbor_index, \
-                            DTYPE_F64_t[:] min_x_ratio, \
-                            DTYPE_B_t[:] in_mask)
+                            #ITYPE_t[:] nearest_neighbor_index, \
+                            #DTYPE_F64_t[:] min_x_ratio, \
+                            #DTYPE_B_t[:] in_mask
+                            )
                             #DTYPE_F64_t[:] PROFILE_kdtree_time) #except *
 
 
@@ -78,9 +85,45 @@ cdef packed struct LOOKUPMEM_t:
     DTYPE_INT64_t offset
     DTYPE_INT64_t num_elements                   
      
-                                        
+
+cdef packed struct HOLE_LOOKUPMEM_t:
+    DTYPE_B_t filled_flag
+    CELL_ID_t key_i
+    CELL_ID_t key_j
+    CELL_ID_t key_k
+    
+
+
 cdef struct OffsetNumPair:
     DTYPE_INT64_t offset, num_elements       
+
+
+cdef class HoleGridCustomDict:
+
+
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
+    
+    cdef public HOLE_LOOKUPMEM_t[:] lookup_memory
+    
+    cdef public DTYPE_INT64_t num_collisions
+    
+    cdef DTYPE_INT64_t mem_length
+
+    cdef public DTYPE_INT64_t custom_hash(self, 
+                                          CELL_ID_t i, 
+                                          CELL_ID_t j, 
+                                          CELL_ID_t k)
+    
+    cpdef public DTYPE_B_t contains(self,
+                                 CELL_ID_t i, 
+                                 CELL_ID_t j, 
+                                 CELL_ID_t k)
+
+    cpdef public void setitem(self, 
+                           CELL_ID_t i,
+                           CELL_ID_t j,
+                           CELL_ID_t k)
+
 
 
 cdef class GalaxyMapCustomDict:
@@ -118,6 +161,9 @@ cdef class GalaxyMapCustomDict:
 
 
 
+
+
+
 cdef class GalaxyMap:
     
     cdef public DTYPE_F64_t[:,:] w_coord
@@ -147,7 +193,36 @@ cdef class GalaxyMap:
     #cdef public DTYPE_INT64_t[:,:] cell_ID_mem
 
 
-                                         
+
+cdef class NeighborMemory:
+    
+    cdef size_t max_num_neighbors
+    
+    cdef size_t next_neigh_idx
+    
+    
+    cdef DTYPE_INT64_t* i_nearest
+    
+    cdef DTYPE_B_t* boolean_nearest
+    
+    cdef ITYPE_t* i_nearest_reduced
+    
+    cdef DTYPE_F64_t* candidate_minus_A
+    
+    cdef DTYPE_F64_t* candidate_minus_center
+    
+    cdef DTYPE_F64_t* bot_ratio
+    
+    cdef DTYPE_F64_t* top_ratio
+    
+    cdef DTYPE_F64_t* x_ratio
+    
+    
+    cdef void resize(self, size_t max_num_neighbors)
+    
+    cdef void append(self, DTYPE_INT64_t neigh_idx_val)
+
+           
 cdef class Cell_ID_Memory:
 
     cdef CELL_ID_t* data     

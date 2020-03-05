@@ -43,41 +43,44 @@ import time
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, 
-                           DTYPE_F64_t[:,:] temp_hole_center_memview,
-                           DTYPE_F64_t search_radius, 
-                           DTYPE_F64_t dr, 
-                           DTYPE_F64_t direction_mod,
-                           DTYPE_F64_t[:] unit_vector_memview, 
-                           
-                           galaxy_tree, 
-                           
-                           DTYPE_INT64_t[:] nearest_gal_index_list, 
-                           ITYPE_t num_neighbors,
-                           DTYPE_F64_t[:,:] w_coord, 
-                           DTYPE_B_t[:,:] mask, 
-                           DTYPE_INT32_t mask_resolution,
-                           DTYPE_F64_t min_dist, 
-                           DTYPE_F64_t max_dist, 
-                           
-                           
-                           DTYPE_F64_t[:] Bcenter_memview,
-                           
-                           ITYPE_t[:] MAX_NEAREST,
-                           ITYPE_t[:] i_nearest_reduced_memview_z,
-                           DTYPE_F64_t[:,:] candidate_minus_A_memview_z,
-                           DTYPE_F64_t[:,:] candidate_minus_center_memview_z,
-                           DTYPE_F64_t[:] bot_memview_z,
-                           DTYPE_F64_t[:] top_memview_z,
-                           DTYPE_F64_t[:] x_ratio_memview_z,
-                           Cell_ID_Memory cell_ID_mem,
-                           
-                           
-                           ITYPE_t[:] nearest_neighbor_index,           #return variable
-                           DTYPE_F64_t[:] min_x_ratio,                  #return variable
-                           DTYPE_B_t[:] in_mask,                         #return variable
-                           
-                           ):          
+cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, 
+                                       DTYPE_F64_t[:,:] temp_hole_center_memview,
+                                       DTYPE_F64_t search_radius, 
+                                       DTYPE_F64_t dr, 
+                                       DTYPE_F64_t direction_mod,
+                                       DTYPE_F64_t[:] unit_vector_memview, 
+                                       
+                                       galaxy_tree, 
+                                       
+                                       DTYPE_INT64_t[:] nearest_gal_index_list, 
+                                       ITYPE_t num_neighbors,
+                                       DTYPE_F64_t[:,:] w_coord, 
+                                       DTYPE_B_t[:,:] mask, 
+                                       DTYPE_INT32_t mask_resolution,
+                                       DTYPE_F64_t min_dist, 
+                                       DTYPE_F64_t max_dist, 
+                                       
+                                       
+                                       DTYPE_F64_t[:] Bcenter_memview,
+                                       
+                                       #ITYPE_t[:] MAX_NEAREST,
+                                       #ITYPE_t[:] i_nearest_reduced_memview_z,
+                                       #TYPE_F64_t[:,:] candidate_minus_A_memview_z,
+                                       #DTYPE_F64_t[:,:] candidate_minus_center_memview_z,
+                                       #DTYPE_F64_t[:] bot_memview_z,
+                                       #DTYPE_F64_t[:] top_memview_z,
+                                       #DTYPE_F64_t[:] x_ratio_memview_z,
+                                       
+                                       Cell_ID_Memory cell_ID_mem,
+                                       NeighborMemory neighbor_mem,
+                                       #FindNextReturnVal* retval,
+                                       
+                                       
+                                       #ITYPE_t[:] nearest_neighbor_index,           #return variable
+                                       #DTYPE_F64_t[:] min_x_ratio,                  #return variable
+                                       #DTYPE_B_t[:] in_mask,                         #return variable
+                                       
+                                       ):          
 
     '''
     Description:
@@ -219,18 +222,26 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     x_ratio_memview = np.empty(num_nearest, dtype=np.float64, order='C')
     '''
 
+
+    ############################################################################
+    #
+    #
+    # THE 6 VARIABLES OF INTEREST ARE HERE
+    #
+    #
+    ############################################################################
     
-    cdef ITYPE_t[:] i_nearest_reduced_memview
+    #cdef ITYPE_t[:] i_nearest_reduced_memview
     
-    cdef DTYPE_F64_t[:,:] candidate_minus_A_memview
+    #cdef DTYPE_F64_t[:,:] candidate_minus_A_memview
     
-    cdef DTYPE_F64_t[:,:] candidate_minus_center_memview
+    #cdef DTYPE_F64_t[:,:] candidate_minus_center_memview
     
-    cdef DTYPE_F64_t[:] bot_memview
+    #cdef DTYPE_F64_t[:] bot_memview
     
-    cdef DTYPE_F64_t[:] top_memview
+    #cdef DTYPE_F64_t[:] top_memview
     
-    cdef DTYPE_F64_t[:] x_ratio_memview
+    #cdef DTYPE_F64_t[:] x_ratio_memview
     
 
 
@@ -240,6 +251,9 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     #
     ############################################################################
 
+    
+    cdef FindNextReturnVal retval
+    
     
     ############################################################################
     # helper index and calculation variables, re-useable
@@ -258,13 +272,13 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     # Used in filtering exiting neighbors out of results
     ############################################################################
     
-    cdef ITYPE_t[:] i_nearest_memview
+    #cdef ITYPE_t[:] i_nearest_memview
     
     cdef ITYPE_t num_results
     
     cdef ITYPE_t num_nearest
     
-    cdef DTYPE_B_t[:] boolean_nearest_memview
+    #cdef DTYPE_B_t[:] boolean_nearest_memview
     
     
     
@@ -346,16 +360,25 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             
         
         
+        ############################################################################
+        # use GalaxyMap to find the galaxies within our target sphere
+        ############################################################################
         
-        #print("Check1")
-        ############################################################################
-        # use KDtree to find the galaxies within our target sphere
-        ############################################################################
+        neighbor_mem.next_neigh_idx = 0
 
-        #PROFILE_kdtree_time_collect = time.time()
+        _query_shell_radius(galaxy_tree.reference_point_ijk,
+                            galaxy_tree.w_coord,
+                            galaxy_tree.coord_min,
+                            galaxy_tree.dl, 
+                            galaxy_tree.galaxy_map,
+                            galaxy_tree.galaxy_map_array,
+                            cell_ID_mem,
+                            neighbor_mem,
+                            temp_hole_center_memview, 
+                            search_radius) 
 
-        #i_nearest = galaxy_tree.query_radius(temp_hole_center_memview, r=search_radius) #sklearn
-        #i_nearest = galaxy_tree.query_ball_point(temp_hole_center_memview, search_radius) #scipy
+
+        '''
         i_nearest_memview = _query_shell_radius(galaxy_tree.reference_point_ijk,
                                                 galaxy_tree.w_coord,
                                                 galaxy_tree.coord_min,
@@ -364,38 +387,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                                 galaxy_tree.galaxy_map_array,
                                                 cell_ID_mem,
                                                 temp_hole_center_memview, 
-                                                search_radius) #custom
-        
-        
-        #i_nearest = galaxy_kdtree.query_radius(temp_hole_center_memview, r=search_radius)
-        
-        
-        #for idx, element in enumerate(i_nearest[0]):
-            
-        #    if i_nearest[idx] != i_nearest_memview[idx]:
-                
-        #        print("Radius query mismatch")
-        
-        
-        #PROFILE_kdtree_time[0] += time.time() - PROFILE_kdtree_time_collect
-        
-        
-        
-        #i_nearest = i_nearest[0] #sklearn kdtree and scipy kdtree not custom
-        
-        
-        #print("I NEAREST: ", len(i_nearest), flush=True)
-        
-        
-        #if i_nearest: #added for scipy KDTree
-
-                
-    
-        #i_nearest_memview = i_nearest #sklearn kdtree
-        #i_nearest_memview = np.array(i_nearest) #added cast to numpy.array for scipy KDTree
-
-        
-        #print("Check2")
+                                                search_radius) 
+        '''
         
         ############################################################################
         # The resulting galaxies may include galaxies we already found in previous
@@ -404,9 +397,15 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         # for the next step.
         ############################################################################
 
-        num_results = i_nearest_memview.shape[0]
+        #num_results = i_nearest_memview.shape[0]
+        num_results = <ITYPE_t>(neighbor_mem.next_neigh_idx)
 
-        boolean_nearest_memview = np.ones(num_results, dtype=np.uint8)
+        #boolean_nearest_memview = np.ones(num_results, dtype=np.uint8)
+        
+        for idx in range(num_results):
+        
+            neighbor_mem.boolean_nearest[idx] = 1
+            
         
         num_nearest = num_results
 
@@ -414,9 +413,12 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
             for jdx in range(num_neighbors):
                 
-                if i_nearest_memview[idx] == nearest_gal_index_list[jdx]:
+                #if i_nearest_memview[idx] == nearest_gal_index_list[jdx]:
+                if neighbor_mem.i_nearest[idx] == nearest_gal_index_list[jdx]:
 
-                    boolean_nearest_memview[idx] = 0
+                    #boolean_nearest_memview[idx] = 0
+                    
+                    neighbor_mem.boolean_nearest[idx] = 0
                     
                     num_nearest -= 1
                     
@@ -458,17 +460,18 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 
                 MAX_NEAREST[0] = num_nearest
             '''
-            i_nearest_reduced_memview = np.empty(num_nearest, dtype=np.int64)
+            
+            #i_nearest_reduced_memview = np.empty(num_nearest, dtype=np.int64)
                 
-            candidate_minus_A_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+            #candidate_minus_A_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
 
-            candidate_minus_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
+            #candidate_minus_center_memview = np.empty((num_nearest, 3), dtype=np.float64, order='C')
             
-            bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+            #bot_memview = np.empty(num_nearest, dtype=np.float64, order='C')
             
-            top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+            #top_memview = np.empty(num_nearest, dtype=np.float64, order='C')
             
-            x_ratio_memview = np.empty(num_nearest, dtype=np.float64, order='C')
+            #x_ratio_memview = np.empty(num_nearest, dtype=np.float64, order='C')
             ############################################################################
             # copy the valid galaxy indicies into the i_nearest_reduced memory
             ############################################################################
@@ -479,9 +482,12 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             
             for idx in range(num_results):
                 
-                if boolean_nearest_memview[idx]:
+                #if boolean_nearest_memview[idx]:
+                if neighbor_mem.boolean_nearest[idx]:
                     
-                    i_nearest_reduced_memview[jdx] = i_nearest_memview[idx]
+                    #i_nearest_reduced_memview[jdx] = i_nearest_memview[idx]
+                    #i_nearest_reduced_memview[jdx] = neighbor_mem.i_nearest[idx]
+                    neighbor_mem.i_nearest_reduced[jdx] = neighbor_mem.i_nearest[idx]
                     
                     jdx += 1
             
@@ -498,20 +504,24 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             
             for idx in range(num_nearest):
 
-                temp_idx = i_nearest_reduced_memview[idx]
+                #temp_idx = i_nearest_reduced_memview[idx]
+                temp_idx = neighbor_mem.i_nearest_reduced[idx]
 
                 for jdx in range(3):
                     
                     if num_neighbors == 1:
                         
-                        candidate_minus_A_memview[idx, jdx] = w_coord[nearest_gal_index_list[0], jdx] - w_coord[temp_idx, jdx]
+                        #candidate_minus_A_memview[idx, jdx] = w_coord[nearest_gal_index_list[0], jdx] - w_coord[temp_idx, jdx]
+                        neighbor_mem.candidate_minus_A[3*idx+jdx] = w_coord[nearest_gal_index_list[0], jdx] - w_coord[temp_idx, jdx]
+                        
                         
                     else:
 
-                        candidate_minus_A_memview[idx, jdx] = w_coord[temp_idx, jdx] - w_coord[nearest_gal_index_list[0], jdx]
-
-                    candidate_minus_center_memview[idx, jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
-
+                        #candidate_minus_A_memview[idx, jdx] = w_coord[temp_idx, jdx] - w_coord[nearest_gal_index_list[0], jdx]
+                        neighbor_mem.candidate_minus_A[3*idx+jdx] = w_coord[temp_idx, jdx] - w_coord[nearest_gal_index_list[0], jdx]
+                        
+                    #candidate_minus_center_memview[idx, jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
+                    neighbor_mem.candidate_minus_center[3*idx+jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
 
             ############################################################################
             # Calculate bottom of ratio to be minimized
@@ -524,9 +534,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 
                 for jdx in range(3):
                     
-                    temp_f64_accum += candidate_minus_A_memview[idx,jdx]*unit_vector_memview[jdx]
+                    #temp_f64_accum += candidate_minus_A_memview[idx,jdx]*unit_vector_memview[jdx]
+                    temp_f64_accum += neighbor_mem.candidate_minus_A[3*idx+jdx]*unit_vector_memview[jdx]
                     
-                bot_memview[idx] = 2*temp_f64_accum
+                #bot_memview[idx] = 2*temp_f64_accum
+                neighbor_mem.bot_ratio[idx] = 2*temp_f64_accum
             
             
             ############################################################################
@@ -542,9 +554,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                     
                     for jdx in range(3):
                         
-                        temp_f64_accum += candidate_minus_A_memview[idx,jdx]*candidate_minus_A_memview[idx,jdx]
+                        #temp_f64_accum += candidate_minus_A_memview[idx,jdx]*candidate_minus_A_memview[idx,jdx]
+                        temp_f64_accum += neighbor_mem.candidate_minus_A[3*idx+jdx]*neighbor_mem.candidate_minus_A[3*idx+jdx]
                         
-                    top_memview[idx] = temp_f64_accum
+                    #top_memview[idx] = temp_f64_accum
+                    neighbor_mem.top_ratio[idx] = temp_f64_accum
 
             else:
 
@@ -568,9 +582,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                     
                     for jdx in range(3):
                         
-                        temp_f64_accum += candidate_minus_center_memview[idx, jdx]*candidate_minus_center_memview[idx, jdx]
+                        #temp_f64_accum += candidate_minus_center_memview[idx, jdx]*candidate_minus_center_memview[idx, jdx]
+                        temp_f64_accum += neighbor_mem.candidate_minus_center[3*idx+jdx]*neighbor_mem.candidate_minus_center[3*idx+jdx]
                         
-                    top_memview[idx] = temp_f64_accum - temp_f64_val
+                    #top_memview[idx] = temp_f64_accum - temp_f64_val
+                    neighbor_mem.top_ratio[idx] = temp_f64_accum - temp_f64_val
 
 
 
@@ -581,7 +597,11 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
             for idx in range(num_nearest):
 
-                x_ratio_memview[idx] = top_memview[idx]/bot_memview[idx]
+                #x_ratio_memview[idx] = top_memview[idx]/bot_memview[idx]
+                
+                #x_ratio_memview[idx] = neighbor_mem.top_ratio[idx]/neighbor_mem.bot_ratio[idx]
+                
+                neighbor_mem.x_ratio[idx] = neighbor_mem.top_ratio[idx]/neighbor_mem.bot_ratio[idx]
 
             ############################################################################
             # Locate positive values of x_ratio
@@ -594,7 +614,8 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             
             for idx in range(num_nearest):
                 
-                temp_f64_val = x_ratio_memview[idx]
+                #temp_f64_val = x_ratio_memview[idx]
+                temp_f64_val = neighbor_mem.x_ratio[idx]
                 
                 if temp_f64_val > 0.0:
                     
@@ -613,23 +634,35 @@ cdef void find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             ############################################################################
             if any_valid:
                 
-                nearest_neighbor_index[0] = i_nearest_reduced_memview[valid_min_idx]
+                #nearest_neighbor_index[0] = i_nearest_reduced_memview[valid_min_idx]
 
-                min_x_ratio[0] = x_ratio_memview[valid_min_idx]
+                #min_x_ratio[0] = x_ratio_memview[valid_min_idx]
                 
-                galaxy_search = False
-            
+                #galaxy_search = False
+                
+                
+                #retval.nearest_neighbor_index = i_nearest_reduced_memview[valid_min_idx]
+                retval.nearest_neighbor_index = neighbor_mem.i_nearest_reduced[valid_min_idx]
+                #retval.min_x_ratio = x_ratio_memview[valid_min_idx]
+                retval.min_x_ratio = neighbor_mem.x_ratio[valid_min_idx]
+                retval.in_mask = True
+                
+                return retval
+                
 
         elif not_in_mask(temp_hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
-            galaxy_search = False
+            #galaxy_search = False
 
-            in_mask[0] = False
+            #in_mask[0] = False
             
-        #print("Check4")
+            retval.in_mask = False
+            
+            return retval
+            
+    #should never reach this point
 
-
-    return
+    return retval
 
 
 
@@ -793,6 +826,214 @@ cdef struct OffsetNumPair:
     DTYPE_INT64_t offset, num_elements   
     
 '''
+
+
+
+cdef class HoleGridCustomDict:
+    """
+    
+    layout of lookup_memory:
+    
+    lookup_memory = numpy.zeros(next_prime, dtype=[("filled_flag", numpy.uint8, 1),
+                                                   ("ijk", numpy.uint16, 1),
+                                                   ("j", numpy.uint16, 1),
+                                                   ("k", numpy.uint16, 1),
+                                                   ("offset", numpy.int64, 1),
+                                                   ("num_elements", numpy.int64, 1])
+                                                   
+    23 bytes per element - 1 + 2*3 + 8*2 = 23
+    
+    Since ijk are limited to uint16 right now that means a maximum grid of
+    shape (65536, 65536, 65536), or 2.8*10^14 (2^48) grid locations.  
+                                            
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
+    cdef LOOKUPMEM_t[:] lookup_memory
+    cdef DTYPE_INT64_t mem_length
+    """
+
+    def __init__(self, 
+                 grid_dimensions, 
+                 lookup_memory):
+            
+            self.i_dim = grid_dimensions[0]
+            self.j_dim = grid_dimensions[1]
+            self.k_dim = grid_dimensions[2]
+            
+            self.jk_mod = self.j_dim*self.k_dim
+            
+            #print("GALAXYMAPCUSTOMDICT: ", np.asarray(self.lookup_memory))
+            #print("GALAXYMAPCUSTOMDICT: ", lookup_memory.shape, lookup_memory.dtype)
+            
+            self.lookup_memory = lookup_memory
+            
+            
+            #self.lookup_memory = np.zeros(5000, dtype=[("filled_flag", np.uint8, 1),
+            #                                              ("ijk", np.uint16, 3),
+            #                                              ("offset_and_num", np.int64, 2)])
+            
+            self.mem_length = lookup_memory.shape[0]
+            
+            self.num_collisions = 0
+            
+            
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef DTYPE_INT64_t custom_hash(self, 
+                                   CELL_ID_t i, 
+                                   CELL_ID_t j, 
+                                   CELL_ID_t k):
+        """
+        Given a cell ID (i,j,k), calculate its hash address in our
+        memory array.  Uses the natural grid cell ordering
+        0->(0,0,0), 1->(0,0,1), 2->(0,0,2) etc, to calculate the sequential
+        grid cell index, then takes that value modulus of the number of slots
+        in the memory array.
+        """
+        
+        cdef DTYPE_INT64_t index
+        cdef DTYPE_INT64_t hash_addr
+        
+        index = self.jk_mod * <DTYPE_INT64_t>i + \
+                self.k_dim * <DTYPE_INT64_t>j + \
+                <DTYPE_INT64_t>k
+        
+        hash_addr = index % self.mem_length
+        
+        return hash_addr
+    
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cpdef DTYPE_B_t contains(self,
+                                 CELL_ID_t i, 
+                                 CELL_ID_t j, 
+                                 CELL_ID_t k):
+        
+        cdef DTYPE_INT64_t hash_addr
+        
+        cdef DTYPE_INT64_t hash_offset
+        
+        cdef DTYPE_INT64_t curr_hash_addr
+        
+        cdef DTYPE_B_t mem_flag
+        
+        cdef HOLE_LOOKUPMEM_t curr_element
+        
+        hash_addr = self.custom_hash(i, j, k)
+        
+        for hash_offset in range(self.mem_length):
+            
+            curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
+            
+            curr_element = self.lookup_memory[curr_hash_addr]
+            
+            #mem_flag = curr_element.filled_flag
+            
+            if not curr_element.filled_flag:
+                
+                return False
+            
+            else:
+                
+                #mem_key = self.lookup_memory[curr_hash_addr][1]
+                
+                if curr_element.key_i == i and \
+                   curr_element.key_j == j and \
+                   curr_element.key_k == k:
+                    
+                    return True
+                        
+        return False
+    
+    
+    
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cpdef void setitem(self, 
+                           CELL_ID_t i,
+                           CELL_ID_t j,
+                           CELL_ID_t k, 
+                           ):
+        """
+        Will always succeed since we initialize the length of
+        self.lookup_memory to be longer than the number of items
+        """
+        
+        cdef DTYPE_INT64_t hash_addr
+        
+        cdef DTYPE_INT64_t hash_offset
+        
+        cdef DTYPE_INT64_t curr_hash_addr
+        
+        cdef DTYPE_B_t mem_flag
+        
+        cdef HOLE_LOOKUPMEM_t curr_element
+        
+        cdef HOLE_LOOKUPMEM_t out_element
+        
+        cdef DTYPE_B_t first_try = True
+        
+        out_element.filled_flag = 1
+        out_element.key_i = i
+        out_element.key_j = j
+        out_element.key_k = k
+        
+                
+        
+        hash_addr = self.custom_hash(i, j, k)
+        
+        
+        
+        for hash_offset in range(self.mem_length):
+            
+            curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
+            
+            curr_element = self.lookup_memory[curr_hash_addr]
+            
+            #mem_flag = self.lookup_memory[curr_hash_addr][0]
+            
+            #if not mem_flag:
+            if not curr_element.filled_flag:
+                
+                if not first_try:
+                    
+                    self.num_collisions += 1
+                
+                self.lookup_memory[curr_hash_addr] = out_element
+                
+                return
+            
+            else:
+                
+                #mem_key = self.lookup_memory[curr_hash_addr][1]
+                
+                #if numpy.all(mem_key == numpy.array(ijk).astype(numpy.uint16)):
+                if curr_element.key_i == i and \
+                   curr_element.key_j == j and \
+                   curr_element.key_k == k:
+                    
+                    if not first_try:
+                    
+                        self.num_collisions += 1
+                    
+                    self.lookup_memory[curr_hash_addr] = out_element
+                
+                    return
+                
+            first_try = False
+    
+    
+
+
+
+
+
+
+
 
 cdef class GalaxyMapCustomDict:
     """
@@ -1371,7 +1612,231 @@ cdef class GalaxyMap:
         return return_array + center_ijk
     
 
+cdef class NeighborMemory:
+    """
+    
+    cdef DTYPE_INT64_t* i_nearest
+    
+    cdef DTYPE_B_t* boolean_nearest
+    
+    cdef ITYPE_t* i_nearest_reduced
+    
+    cdef DTYPE_F64_t* candidate_minus_A
+    
+    cdef DTYPE_F64_t* candidate_minus_center
+    
+    cdef DTYPE_F64_t* bot_ratio
+    
+    cdef DTYPE_F64_t* top_ratio
+    
+    cdef DTYPE_F64_t* x_ratio
+    """
 
+    def __cinit__(self, size_t max_num_neighbors):
+    
+        self.max_num_neighbors = max_num_neighbors
+        
+        self.next_neigh_idx = 0
+        
+        ################################################################################
+        # 1 memory for the neighbor indices
+        ################################################################################
+        self.i_nearest = <DTYPE_INT64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_INT64_t))
+        
+        if not self.i_nearest:
+            
+            raise MemoryError()
+        
+        ################################################################################
+        # 2
+        ################################################################################
+        self.boolean_nearest = <DTYPE_B_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_B_t))
+        
+        if not self.boolean_nearest:
+            
+            raise MemoryError()
+        
+        
+        ################################################################################
+        # 3
+        ################################################################################
+        self.i_nearest_reduced = <ITYPE_t*> PyMem_Malloc(max_num_neighbors * sizeof(ITYPE_t))
+        
+        if not self.i_nearest_reduced:
+            
+            raise MemoryError()
+        
+        ################################################################################
+        # 4
+        ################################################################################
+        self.candidate_minus_A = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
+        
+        if not self.candidate_minus_A:
+            
+            raise MemoryError()
+        
+        
+        ################################################################################
+        # 5
+        ################################################################################
+        self.candidate_minus_center = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
+        
+        if not self.candidate_minus_center:
+            
+            raise MemoryError()
+        
+        
+        ################################################################################
+        # 6
+        ################################################################################
+        self.bot_ratio = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_F64_t))
+        
+        if not self.bot_ratio:
+            
+            raise MemoryError()
+        
+        ################################################################################
+        # 7
+        ################################################################################
+        self.top_ratio = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_F64_t))
+        
+        if not self.top_ratio:
+            
+            raise MemoryError()
+        
+        ################################################################################
+        # 8
+        ################################################################################
+        self.x_ratio = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_F64_t))
+        
+        if not self.x_ratio:
+            
+            raise MemoryError()
+        
+        
+        
+        
+    cdef void resize(self, size_t max_num_neighbors):
+    
+    
+        print("Neighbor mem resizing: "+str(max_num_neighbors), flush=True)
+    
+        self.max_num_neighbors = max_num_neighbors
+        
+        
+        ################################################################################
+        # 1
+        ################################################################################
+        mem = <DTYPE_INT64_t*> PyMem_Realloc(self.i_nearest, max_num_neighbors * sizeof(DTYPE_INT64_t))
+            
+        if not mem:
+            
+            raise MemoryError()
+        
+        # Only overwrite the pointer if the memory was really reallocated.
+        # On error (mem is NULL), the original memory has not been freed.
+        self.i_nearest = mem
+    
+    
+        ################################################################################
+        # 2
+        ################################################################################
+        mem2 = <DTYPE_B_t*> PyMem_Realloc(self.boolean_nearest, max_num_neighbors * sizeof(DTYPE_B_t))
+            
+        if not mem2:
+            
+            raise MemoryError()
+        
+        self.boolean_nearest = mem2
+    
+    
+        ################################################################################
+        # 3
+        ################################################################################
+        mem3 = <ITYPE_t*> PyMem_Realloc(self.i_nearest_reduced, max_num_neighbors * sizeof(ITYPE_t))
+            
+        if not mem3:
+            
+            raise MemoryError()
+        
+        self.i_nearest_reduced = mem3
+        
+        ################################################################################
+        # 4
+        ################################################################################
+        mem4 = <DTYPE_F64_t*> PyMem_Realloc(self.candidate_minus_A, max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
+            
+        if not mem4:
+            
+            raise MemoryError()
+        
+        self.candidate_minus_A = mem4
+        
+        
+        ################################################################################
+        # 5
+        ################################################################################
+        mem5 = <DTYPE_F64_t*> PyMem_Realloc(self.candidate_minus_center, max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
+            
+        if not mem5:
+            
+            raise MemoryError()
+        
+        self.candidate_minus_center = mem5
+        
+        
+        ################################################################################
+        # 6
+        ################################################################################
+        mem6 = <DTYPE_F64_t*> PyMem_Realloc(self.bot_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
+            
+        if not mem6:
+            
+            raise MemoryError()
+        
+        self.bot_ratio = mem6
+        
+        ################################################################################
+        # 7
+        ################################################################################
+        mem7 = <DTYPE_F64_t*> PyMem_Realloc(self.top_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
+            
+        if not mem7:
+            
+            raise MemoryError()
+        
+        self.top_ratio = mem7
+        
+        ################################################################################
+        # 8
+        ################################################################################
+        mem8 = <DTYPE_F64_t*> PyMem_Realloc(self.x_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
+            
+        if not mem8:
+            
+            raise MemoryError()
+        
+        self.x_ratio = mem8
+    
+    
+    
+    
+    
+    cdef void append(self, DTYPE_INT64_t neigh_idx_val):
+    
+        if self.next_neigh_idx >= self.max_num_neighbors:
+            
+            self.resize(50+self.max_num_neighbors)
+            
+        self.i_nearest[self.next_neigh_idx] = neigh_idx_val
+        
+        self.next_neigh_idx += 1
+        
+        
+        
+        
+    
+    
 
     
 cdef class Cell_ID_Memory:
@@ -1499,6 +1964,8 @@ cdef class Cell_ID_Memory:
     def __dealloc__(self):
         
         PyMem_Free(self.data)  # no-op if self.data is NULL
+        PyMem_Free(self.level_start_idx)
+        PyMem_Free(self.level_stop_idx)
 
 
 
@@ -1690,19 +2157,20 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
 
 
 
-
+#cdef ITYPE_t[:] _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef ITYPE_t[:] _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
+cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
                                     DTYPE_F64_t[:,:] w_coord, 
                                     DTYPE_F64_t[:,:] coord_min, 
                                     DTYPE_F64_t dl,
                                     GalaxyMapCustomDict galaxy_map,
                                     DTYPE_INT64_t[:] galaxy_map_array,
                                     Cell_ID_Memory cell_ID_mem,
+                                    NeighborMemory neighbor_mem,
                                     DTYPE_F64_t[:,:] reference_point_xyz, 
                                     DTYPE_F64_t search_radius_xyz
                                     ):
@@ -1729,7 +2197,9 @@ cdef ITYPE_t[:] _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
     #print("Reference point ijk: ", reference_point_ijk[0,0], reference_point_ijk[0,1], reference_point_ijk[0,2], flush=True)
     
                     
-    output = []
+    #output = []
+    
+    
     
     cdef DTYPE_INT32_t max_shell
     
@@ -1845,11 +2315,13 @@ cdef ITYPE_t[:] _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
             
             if dist_sq < search_radius_xyz_sq:
                 
-                output.append(curr_galaxy_idx)
+                #output.append(curr_galaxy_idx)
+                
+                neighbor_mem.append(curr_galaxy_idx)
                 
             #print("Poop", flush=True)
 
-    
+    '''
     if output:
         
         return np.array(output).astype(np.intp)
@@ -1857,7 +2329,8 @@ cdef ITYPE_t[:] _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
     else:
         
         return np.array([], dtype=np.intp)
-                
+    '''
+    return      
 
 
 @cython.boundscheck(False)
