@@ -578,7 +578,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #
         # Start Galaxy 2/B
         #
-        # v1_unit_memview - unit vector hole propagation direction
+        # unit_vector_memview - unit vector hole propagation direction.  It actually 
+        #     points TOWARDS the k1g galaxy right now since we're doing 
+        #     k1g - hole_center in the calculation below
         #
         # modv1 - l2 norm modulus of v1_unit
         #
@@ -606,6 +608,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # Find galaxy 2/B
         #
         # set the nearest neighbor 1 index in the list and init the in_mask to 1
+        # Using direction_mod = -1.0 since the unit_vector points TOWARDS k1g
+        # as per the above calculation
         #
         ############################################################################
         nearest_gal_index_list[0] = k1g
@@ -650,9 +654,42 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #
         # Start Galaxy 3/C
         #
-        # Calculate the new starting hole radius, and move the hole center where it 
-        # already was?
-        # then make sure that location is still in the mask
+        # When we found Galaxy 2/B, we only found the next closest neighbor as we iterated
+        # away from Galaxy 1/A.  Since we iterated by jumps of dr, we may not have found
+        # the exact center of the circle formed by the points k1g, k2g and the unit_vector
+        #
+        # Before finding Galaxy 3/C, we need to reinitialize our hole center by calculating
+        # the exact position of the center of the circle, and then check that that location
+        # is still within the mask.
+        #
+        # Since we know k1g and k2g are both distance R from the center of this circle,
+        # we can use the triangle formed by k1g, k2g and the center C of the circle, to
+        # first determine the value of R.  Then, we know the hole center C is going to be
+        # along the unit_vector direction a distance of R plus the k1g location
+        # (its actually going to be k1g - R*unit_vector below because unit_vector is 
+        # pointing in the opposite direction than we want).
+        #
+        # The triangle formed by k1g, k2g and C has sides, R, R, and |k1g-k2g|.  If we 
+        # allow the side of length R formed by k1g and C to be divided into 2 parts, we end
+        # up with 2 triangles:  (k1g, k2g, x) and (C,k2g,x) who share the edge (k2g, x) 
+        # which is perpendicular to the line (k1g, C).  In triangle 1, call the line
+        # (k1g,x) to have length b, and b = the projection of k1g-k2g in the unit vector
+        # direction, or b = dot((k1g-k2g), unit_vector)
+        #
+        #          k2g
+        #          /|-__
+        # k1g-k2g / |   -__R
+        #        /  |      -__
+        #       /___|_________-_ C
+        #   k1g   b
+        #             R
+        # By pythagorean theorem:  |k1g-k2g|^2 - b^2 = R^2 - (R-b)^2
+        # We get:
+        # 
+        #     R = (|k1g-k2g|^2)/(2b) = (|k1g-k2g|^2)/(2(k1g-k2g).u)
+        #
+        # temp_f64_accum calculates |k1g-k2g|^2
+        # temp_f64_accum2 calculates dot((k1g-k2g), unit_vector)
         ##################################################################################
         
         temp_f64_accum = 0.0
@@ -688,9 +725,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             continue
     
         ############################################################################
-        # Find the midpoint between the two nearest galaxies
-        # calculate the new modulus between the hole center and midpoint spot
         # Define the new unit vector along which to move the hole center
+        #
+        # Use the line which runs through the midpoint of k1g and k2g, and the
+        # center of the new circle we defined to define the new unit vector
+        # direction
+        # This time, the unit vector is pointing AWAY from the existing neighbors
         ############################################################################
         
         for idx in range(3):
@@ -715,9 +755,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         
         ############################################################################
-        # Calculate vector pointing from the hole center to the nearest galaxy
-        # Calculate vector pointing from the hole center to the second-nearest galaxy
-        # Initialize moving hole center
+        # Copy the center of the circle formed by k1g and k2g that we found
+        # just a bit ago into the other memory, this will be our starting location
+        # for finding galaxy 3/C
         ############################################################################
         
         for idx in range(3):
@@ -730,6 +770,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # Find galaxy 3/C
         #
         # set neighbors 1 and 2 in the list
+        # 
         #
         ############################################################################
         nearest_gal_index_list[0] = k1g

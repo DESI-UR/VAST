@@ -239,11 +239,13 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         # For finding 3/C and 4/D neighbors, we're still going to use the distance 
         # between the hole center and the 1/A neighbor galaxy for the search_radius
         #
-        # TODO:
-        # May be possible to remove this sqrt() call and still increment by dr if
-        # we can verify for 2/B, 3/C and 4/D that the given hole search radius
-        # is correct
-        #
+        # For finding galaxies 3/C and 4/D, the current scheme wants the sphere
+        # boundary to still pass through galaxy 1/A, and this results in a case
+        # where the previous sphere is not a complete subset of the next sphere to
+        # be grown.  Since we're using 1/A as the reference point, moving the
+        # hole by an amount of dr will not result in a search radius difference
+        # of dr, since the unit vector we're moving along is not aligned with
+        # the vector from the moving hole center to galaxy 1/A
         ############################################################################
         if num_neighbors == 1:
             
@@ -361,6 +363,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
             ############################################################################
             # Calculate bottom of ratio to be minimized
+            # 2*dot(candidate_minus_A, unit_vector)
             ############################################################################
             for idx in range(num_nearest):
                 
