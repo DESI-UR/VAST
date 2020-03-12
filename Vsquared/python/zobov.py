@@ -62,46 +62,106 @@ class Zobov:
             self.zones       = zones
         if end>2:
             self.prevoids    = voids
+
+
+    ############################################################################
+    #---------------------------------------------------------------------------
     def sortVoids(self,method=0,minsig=2,dc=denscut):
+
         if not hasattr(self,'prevoids'):
             print("Run all stages of Zobov first")
             return
+
+        ########################################################################
+        # Selecting void candidates
+        #-----------------------------------------------------------------------
         print("Selecting void candidates...")
+
+        #-----------------------------------------------------------------------
         if method==0:
+            print('Method 0')
+
             voids  = []
+
             minvol = np.mean(self.tesselation.volumes[self.tesselation.volumes>0])/dc
+
             for i in range(len(self.prevoids.ovols)):
+
                 vl = self.prevoids.ovols[i]
+
                 if len(vl)>2 and vl[-2] < minvol:
                     continue
+
                 voids.append([c for q in self.prevoids.voids[i] for c in q])
+
+        #-----------------------------------------------------------------------
         elif method==1:
+            print('Method 1')
+
             voids = [[c for q in v for c in q] for v in self.prevoids.voids]
+
+        #-----------------------------------------------------------------------
         elif method==2:
+            print('Method 2')
+
             voids = []
+
             for i in range(len(self.prevoids.mvols)):
+
                 vh = self.prevoids.mvols[i]
                 vl = self.prevoids.ovols[i][-1]
+
                 r  = vh / vl
                 p  = P(r)
+
                 if stats.norm.isf(p/2.) >= minsig:
                     voids.append([c for q in self.prevoids.voids[i] for c in q])
+
+        #-----------------------------------------------------------------------
         elif method==3:
-            print("Coming soon")
+            print("Method 3 coming soon")
             return
+
+        #-----------------------------------------------------------------------
         else:
             print("Choose a valid method")
             return
+
+        print('Void candidates selected...')
+        ########################################################################
+
+
+        ########################################################################
+        #-----------------------------------------------------------------------
         vcuts = np.array([list(flatten(self.zones.zcell[v])) for v in voids])
+        print('vcuts')
+
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
+        print('gcut')
         cutco = self.catalog.coord[gcut]
+        print('cutco')
+
+        # Build array of void volumes
         vvols = np.array([np.sum(self.tesselation.volumes[vcut]) for vcut in vcuts])
-        vrads = (vvols*3./(4*np.pi))**(1./3)
-        rcut  = vrads>minrad
+        print('vvols')
+
+        # Calculate effective radius of voids
+        vrads = (vvols*3/(4*np.pi))**(1/3)
+        print('Effective void radius calculated')
+
+        # Locate all voids with radii smaller than set minimum
+        rcut  = vrads > minrad
+        
         voids = np.array(voids)[rcut]
         vcuts = vcuts[rcut]
         vvols = vvols[rcut]
         vrads = vrads[rcut]
+        print('Removed voids smaller than', minrad, 'Mpc/h')
+        ########################################################################
+
+
+        ########################################################################
+        #-----------------------------------------------------------------------
         print("Finding void centers...")
         vcens = np.array([wCen(self.tesselation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
         if method==0:
@@ -111,6 +171,11 @@ class Zobov:
             vrads = vrads[rcut]
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
+        ########################################################################
+
+
+        ########################################################################
+        #-----------------------------------------------------------------------
         print("Calculating ellipsoid axes...")
         vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
@@ -124,10 +189,22 @@ class Zobov:
                 else:
                     zvoid[j][0] = i
                     zvoid[j][1] = i
+        ########################################################################
+
+
+        ########################################################################
+        #-----------------------------------------------------------------------
         self.vrads = vrads
         self.vcens = vcens
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
+        ########################################################################
+    ############################################################################
+
+
+
+    ############################################################################
+    #---------------------------------------------------------------------------
     def saveVoids(self):
         if not hasattr(self,'vcens'):
             print("Sort voids first")
