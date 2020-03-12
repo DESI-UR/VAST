@@ -58,16 +58,16 @@ survey_name = 'SDSS_dr7_'
 #survey_name = 'SDSS_dr12_'
 
 # File header
-
+'''
 if survey_name == 'SDSS_dr7_':
     in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
     out_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
 elif survey_name == 'SDSS_dr12_':
     in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
     out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
-
-#in_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
-#out_directory = '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/data/SDSS/'
+'''
+in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
+out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 
 
 # Input file name
@@ -127,8 +127,7 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, 
-                                      verbose=1)
+mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1)
 
 
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
@@ -178,8 +177,8 @@ find_voids(wall_coords_xyz,
            coords_min,
            hole_grid_shape,
            survey_name,
-           save_after=50000,
-           use_start_checkpoint=True,
+           #save_after=50000,
+           #use_start_checkpoint=True,
            hole_grid_edge_length=5.0,
            galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,

@@ -59,7 +59,7 @@ import matplotlib.pyplot as plt
 
 
 from sklearn.manifold import TSNE
-import hdbscan
+#import hdbscan
 
 
 
