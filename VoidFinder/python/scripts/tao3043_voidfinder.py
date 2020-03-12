@@ -57,7 +57,7 @@ start_time = time.time()
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 15
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'tao3043_'
@@ -93,12 +93,18 @@ max_z = 0.7
 ################################################################################
 
 
+
+'''
+
 galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, 
                                                                                in_directory, 
                                                                                out_directory, 
                                                                                min_z=min_z, 
                                                                                max_z=max_z,
                                                                                verbose=1)
+
+
+'''
 
 
 print("#"*80)
@@ -112,15 +118,22 @@ print("#"*80)
 #
 ################################################################################
 
-
+'''
 mask, mask_resolution = generate_mask(galaxy_data_table,
                                       verbose=1)
+
+'''
+
+
 
 '''
 temp_outfile = open(survey_name + 'mask.pickle', 'wb')
 pickle.dump((mask, mask_resolution), temp_outfile)
 temp_outfile.close()
 '''
+
+
+
 print("#"*80)
 print("Generating mask done at:", time.time() - start_time)
 print("#"*80)
@@ -136,15 +149,20 @@ mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 '''
 
+
+
+'''
+
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min  = filter_galaxies_2(galaxy_data_table,
                                                                                     survey_name,
                                                                                     write_table=False,
                                                                                     verbose=1)
 
+
 del galaxy_data_table
 
 
-
+'''
 
 
 
@@ -174,6 +192,41 @@ temp_infile.close()
 
 
 
+
+
+'''
+checkpoint_dict = {"wall_coords_xyz" : wall_coords_xyz,
+                   "dist_limits" : dist_limits,
+                   "mask" : mask,
+                   "mask_resolution" : mask_resolution,
+                   "coords_min" : coords_min,
+                   "hole_grid_shape" : hole_grid_shape,
+                   "out1_filename" : out1_filename,
+                   "out2_filename" : out2_filename}
+
+temp_outfile = open(survey_name+"preprocessing_checkpont.pickle", 'wb')
+pickle.dump(checkpoint_dict, temp_outfile)
+temp_outfile.close()
+'''
+
+
+
+
+temp_infile = open(survey_name+"preprocessing_checkpont.pickle", 'rb')
+checkpoint_dict = pickle.load(temp_infile)
+temp_infile.close()
+
+wall_coords_xyz = checkpoint_dict["wall_coords_xyz"]
+dist_limits = checkpoint_dict["dist_limits"]
+mask = checkpoint_dict["mask"]
+mask_resolution = checkpoint_dict["mask_resolution"]
+coords_min = checkpoint_dict["coords_min"]
+hole_grid_shape = checkpoint_dict["hole_grid_shape"]
+out1_filename = checkpoint_dict["out1_filename"]
+out2_filename = checkpoint_dict["out2_filename"]
+
+
+
 print("#"*80)
 print("Starting VoidFinder at:", time.time() - start_time)
 print("#"*80)
@@ -185,8 +238,8 @@ find_voids(wall_coords_xyz,
            coords_min,
            hole_grid_shape,
            survey_name,
-           save_after=20000000,
-           use_start_checkpoint=False,
+           #save_after=20000000,
+           #use_start_checkpoint=False,
            hole_grid_edge_length=5,
            galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,
