@@ -533,8 +533,6 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         hole_center_memview[0,1] = i_j_k_array[working_idx, 1]
         
         hole_center_memview[0,2] = i_j_k_array[working_idx, 2]
-        
-        #print("Working ijk: "+str(i_j_k_array[working_idx, 0])+","+str(i_j_k_array[working_idx, 1])+","+str(i_j_k_array[working_idx, 2]), flush=True)
     
         
         for idx in range(3):
