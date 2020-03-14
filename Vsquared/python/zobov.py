@@ -133,7 +133,7 @@ class Zobov:
 
         ########################################################################
         #-----------------------------------------------------------------------
-        vcuts = np.array([list(flatten(self.zones.zcell[v])) for v in voids])
+        vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
         print('vcuts')
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
@@ -153,7 +153,7 @@ class Zobov:
         rcut  = vrads > minrad
         
         voids = np.array(voids)[rcut]
-        vcuts = vcuts[rcut]
+        vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]]
         vvols = vvols[rcut]
         vrads = vrads[rcut]
         print('Removed voids smaller than', minrad, 'Mpc/h')
