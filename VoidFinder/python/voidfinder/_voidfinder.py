@@ -60,9 +60,6 @@ import matplotlib.pyplot as plt
 
 
 
-#from sklearn.manifold import TSNE
-#import hdbscan
-
 
 
 def _hole_finder(hole_grid_shape, 

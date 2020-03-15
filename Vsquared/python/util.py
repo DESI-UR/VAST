@@ -64,8 +64,27 @@ def getSMA(vrad,coords):
 def P(r):
     return np.exp(-5.12*(r-1.) - 0.28*((r-1.)**2.8))
 
-#flattens a list
+
+################################################################################
+# Flattens a list
+#-------------------------------------------------------------------------------
 def flatten(l):
+    '''
+    Recursivley flattens a list
+
+
+    PARAMETERS
+    ==========
+
+    l : list
+        List to be flattened
+
+
+    RETURNS
+    =======
+
+
+    '''
     for el in l:
         if isinstance(el,collections.Iterable) and not isinstance(el,(str,bytes)):
             yield from flatten(el)

@@ -3,15 +3,17 @@
 from astropy.table import Table
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from absmag_comovingdist_functions import Distance
+from voidfinder.distance import z_to_comoving_dist
 
-'''z = [.7]
+'''
+z = [.7]
 omega_m = 0.3 
 h = 0.7345
 
-dist = Distance(z,omega_m,h)
+dist = z_to_comoving_dist(z,omega_m,h)
 
-print(dist)'''
+print(dist)
+'''
 
 
 fig = plt.figure()

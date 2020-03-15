@@ -19,7 +19,7 @@ import pickle
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
 from voidfinder.vflag import determine_vflag
 from voidfinder.voidfinder_functions import build_mask
-from voidfinder.absmag_comovingdist_functions import Distance
+from voidfinder.distance import z_to_comoving_dist
 
 
 ################################################################################
@@ -113,7 +113,7 @@ print('Converting coordinate system')
 # Convert redshift to distance
 if dist_metric == 'comoving':
     if 'Rgal' not in galaxies.columns:
-        galaxies['Rgal'] = Distance(galaxies['redshift'], Omega_M, h)
+        galaxies['Rgal'] = z_to_comoving_dist(galaxies['redshift'], Omega_M, h)
     galaxies_r = galaxies['Rgal']
 else:
     galaxies_r = c*galaxies['redshift']/H

@@ -90,33 +90,65 @@ class Tesselation:
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
         self.neighbors = np.array(nei)
+################################################################################
 
+
+
+
+
+################################################################################
+#-------------------------------------------------------------------------------
 class Zones:
     def __init__(self,tess):
         vol   = tess.volumes
         nei   = tess.neighbors
+
+        ########################################################################
+        # Sort the Voronoi cells by their volume
+        #-----------------------------------------------------------------------
         print("Sorting cells...")
-        srt   = np.argsort(-1.*vol)        
+
+        srt   = np.argsort(-1.*vol)
+
         vol2  = vol[srt]
         nei2  = nei[srt]
-        lut   = np.zeros(len(vol),dtype=int)
+        ########################################################################
+
+
+        ########################################################################
+        # Build zones from the cells
+        #-----------------------------------------------------------------------
+        lut   = np.zeros(len(vol), dtype=int)
+
         zvols = []
         zcell = []
+
         print("Building zones...")
+
         for i in range(len(vol)):
+
             ns = nei2[i]
             vs = vol[ns]
             n  = ns[np.argmax(vs)]
+
             if n == srt[i]:
+                # This cell has the largest volume of its neighbors
                 lut[n] = len(zvols)
                 zcell.append([n])
                 zvols.append(vol[n])
             else:
                 lut[srt[i]] = lut[n]
                 zcell[lut[n]].append(srt[i])
+
         self.zcell = np.array(zcell)
         self.zvols = np.array(zvols)
-        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]       
+
+        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
+        ########################################################################
+
+
+        ########################################################################
+        #-----------------------------------------------------------------------
         print("Linking zones...")
         for i in range(len(vol)):
             ns = nei[i]
@@ -136,7 +168,14 @@ class Zones:
                     zlinks[1][z1][j] = ml
                     zlinks[1][z2][k] = ml
         self.zlinks = zlinks
+        ########################################################################
+################################################################################
 
+
+
+
+################################################################################
+#-------------------------------------------------------------------------------
 class Voids:
     def __init__(self,zon):
         zvols  = np.array(zon.zvols)
