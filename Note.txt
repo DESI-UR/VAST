@@ -1,7 +1,0 @@
-Just putting a note here - the zobov code should probably be its own complete
-project on git, it shouldn't be a subset of the VoidFinder repo.  It could still
-be under the DESI/ group of projects but it's really its own thing right now.  If we want 
-to expose zobov as a subset of the VoidFinder package ("from voidfinder import zobov_algorithm
-or find_voids(params ... backend='zobov') or something like that it can be done too, but it
-was in the way of the setup.py script for installing voidfinder, so I (Steve) moved it to the top-level of the VoidFinder directory to help
-keep it separate.

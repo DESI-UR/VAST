@@ -133,7 +133,45 @@ class Zobov:
 
         ########################################################################
         #-----------------------------------------------------------------------
-        vcuts = np.array([list(flatten(self.zones.zcell[v])) for v in voids])
+
+        some_list = []
+
+        for idx, v in enumerate(voids):
+
+            #if idx%100==0:
+            #    print("Working: ", idx)
+
+            #print('Starting new v')
+            #print(v)
+            #print(len(v))
+
+            items = self.zones.zcell[v]
+
+            #print(len(items))
+
+            #print(item)
+
+            #print(len(items[0]))
+
+            #flattened_items = flatten(item)
+
+
+
+            curr_list = []
+
+            for item in items:
+
+                curr_list.extend(item)
+
+            some_list.append(curr_list)
+
+        #vcuts = np.array(some_list)
+        vcuts = some_list
+
+        #print(vcuts.shape)
+        print(len(vcuts))
+
+        #vcuts = np.array([list(flatten(self.zones.zcell[v])) for v in voids])
         print('vcuts')
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
@@ -153,7 +191,15 @@ class Zobov:
         rcut  = vrads > minrad
         
         voids = np.array(voids)[rcut]
-        vcuts = vcuts[rcut]
+
+        select_list = []
+        for idx, keep_idx in enumerate(rcut):
+            if keep_idx:
+                select_list.append(vcuts[idx])
+        del vcuts
+        vcuts = select_list
+
+        #vcuts = vcuts[rcut]
         vvols = vvols[rcut]
         vrads = vrads[rcut]
         print('Removed voids smaller than', minrad, 'Mpc/h')
@@ -177,15 +223,28 @@ class Zobov:
         ########################################################################
         #-----------------------------------------------------------------------
         print("Calculating ellipsoid axes...")
+
         vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
+        ########################################################################
+
+
+        ########################################################################
+        #-----------------------------------------------------------------------
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
+
+
         for i in range(len(voids)):
+
             for j in voids[i]:
-                if zvoid[j][0]>-0.5:
-                    if len(voids[i])<len(voids[zvoid[j][0]]):
+
+                if zvoid[j][0] > -0.5:
+
+                    if len(voids[i]) < len(voids[zvoid[j][0]]):
                         zvoid[j][0] = i
-                    elif len(voids[i])>len(voids[zvoid[j][1]]):
+
+                    elif len(voids[i]) > len(voids[zvoid[j][1]]):
                         zvoid[j][1] = i
+
                 else:
                     zvoid[j][0] = i
                     zvoid[j][1] = i
@@ -214,24 +273,40 @@ class Zobov:
         vax1 = np.array([vx[0] for vx in self.vaxes]).T
         vax2 = np.array([vx[1] for vx in self.vaxes]).T
         vax3 = np.array([vx[2] for vx in self.vaxes]).T
-        vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+
+        vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+                    names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
         vT.write(outdir+catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
-        vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],names=('zone','void0','void1'))
-        vZ.write(outdir+catname+"_zonevoids.dat",format='ascii.commented_header',overwrite=True)
+
+        vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],
+                    names=('zone','void0','void1'))
+        vZ.write(outdir+catname+"_zonevoids.dat", 
+                 format='ascii.commented_header', 
+                 overwrite=True)
+
+
+    ############################################################################
+    #---------------------------------------------------------------------------
     def saveZones(self):
+
         if not hasattr(self,'zones'):
             print("Build zones first")
             return
+
         ngal  = len(self.catalog.coord)
         glist = np.arange(ngal)
         glut1 = glist[self.catalog.nnls==glist]
         glut2 = [[] for _ in glut1]
+
         for i,l in enumerate(glut2):
             l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
+
         zlist = -1 * np.ones(ngal,dtype=int)
         zcell = self.zones.zcell
+
         for i,cl in enumerate(zcell):
             for c in cl:
                 zlist[glut2[c]] = i
+
         zT = Table([glist,zlist],names=('gal','zone'))
         zT.write(outdir+catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
