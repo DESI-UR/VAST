@@ -329,7 +329,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                 hole_center_memview,
                                 curr_level
                                 )
-                                
+        
         #When we're looping through, keep track of the last ijk so we can track whether or not
         #we have already queried this "level" with respect to the hole_center on next loop and
         #short circuit if the movement of length dr didn't move us into a new ijk cell                        

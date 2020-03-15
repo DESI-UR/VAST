@@ -385,6 +385,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     ############################################################
     
     
+    DEBUG_OUTFILE = open("VF_DEBUG.txt", 'a')
+    
+    
     cdef ITYPE_t working_idx
     
     cdef ITYPE_t idx
@@ -544,6 +547,19 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
         if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
+            
+            out_str = ""
+            out_str += str(i_j_k_array[working_idx, 0])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 1])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 2])
+            out_str += " "
+            out_str += "nim1"
+            out_str += "\n"
+            DEBUG_OUTFILE.write(out_str)
+            
+            
             return_array[working_idx, 0] = NAN
             
             return_array[working_idx, 1] = NAN
@@ -640,6 +656,20 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         in_mask_2 = find_next_retval.in_mask
         
         if not in_mask_2:
+            
+            
+            out_str = ""
+            out_str += str(i_j_k_array[working_idx, 0])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 1])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 2])
+            out_str += " "
+            out_str += "nim2"
+            out_str += "\n"
+            DEBUG_OUTFILE.write(out_str)
+            
+            
         
             return_array[working_idx, 0] = NAN
             
@@ -715,6 +745,21 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         
         if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+            
+            
+            out_str = ""
+            out_str += str(i_j_k_array[working_idx, 0])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 1])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 2])
+            out_str += " "
+            out_str += "nim3"
+            out_str += "\n"
+            DEBUG_OUTFILE.write(out_str)
+            
+            
+            
             
             return_array[working_idx, 0] = NAN
             
@@ -805,6 +850,21 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         in_mask_3 = find_next_retval.in_mask
         
         if not in_mask_3:
+            
+            
+            
+            out_str = ""
+            out_str += str(i_j_k_array[working_idx, 0])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 1])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 2])
+            out_str += " "
+            out_str += "nim4"
+            out_str += "\n"
+            DEBUG_OUTFILE.write(out_str)
+            
+            
         
             return_array[working_idx, 0] = NAN
             
@@ -846,6 +906,21 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
     
         if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        
+        
+            out_str = ""
+            out_str += str(i_j_k_array[working_idx, 0])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 1])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 2])
+            out_str += " "
+            out_str += "nim5"
+            out_str += "\n"
+            DEBUG_OUTFILE.write(out_str)
+        
+        
+        
         
             return_array[working_idx, 0] = NAN
             
@@ -1048,6 +1123,23 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
         else:
             
+            
+            
+            
+            out_str = ""
+            out_str += str(i_j_k_array[working_idx, 0])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 1])
+            out_str += ","
+            out_str += str(i_j_k_array[working_idx, 2])
+            out_str += " "
+            out_str += "nim6"
+            out_str += "\n"
+            DEBUG_OUTFILE.write(out_str)
+            
+            
+            
+            
             return_array[working_idx, 0] = NAN
             
             return_array[working_idx, 1] = NAN
@@ -1082,6 +1174,30 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         return_array[working_idx, 2] = hole_center_memview[0, 2]
         
         return_array[working_idx, 3] = hole_radius
+        
+        
+        
+        out_str = ""
+        out_str += str(i_j_k_array[working_idx, 0])
+        out_str += ","
+        out_str += str(i_j_k_array[working_idx, 1])
+        out_str += ","
+        out_str += str(i_j_k_array[working_idx, 2])
+        out_str += " "
+        out_str += "hole"
+        out_str += " "
+        out_str += str(hole_center_memview[0, 0])
+        out_str += ","
+        out_str += str(hole_center_memview[0, 1])
+        out_str += ","
+        out_str += str(hole_center_memview[0, 2])
+        out_str += ","
+        out_str += str(hole_radius)
+        out_str += "\n"
+        DEBUG_OUTFILE.write(out_str)
+        
+        
+    DEBUG_OUTFILE.close()
         
     return
 
