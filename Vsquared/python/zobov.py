@@ -79,7 +79,7 @@ class Zobov:
 
         #-----------------------------------------------------------------------
         if method==0:
-            print('Method 0')
+            #print('Method 0')
 
             voids  = []
 
@@ -96,13 +96,13 @@ class Zobov:
 
         #-----------------------------------------------------------------------
         elif method==1:
-            print('Method 1')
+            #print('Method 1')
 
             voids = [[c for q in v for c in q] for v in self.prevoids.voids]
 
         #-----------------------------------------------------------------------
         elif method==2:
-            print('Method 2')
+            #print('Method 2')
 
             voids = []
 
@@ -133,55 +133,13 @@ class Zobov:
 
         ########################################################################
         #-----------------------------------------------------------------------
-
-        some_list = []
-
-        for idx, v in enumerate(voids):
-
-            #if idx%100==0:
-            #    print("Working: ", idx)
-
-            #print('Starting new v')
-            #print(v)
-            #print(len(v))
-
-            items = self.zones.zcell[v]
-
-            #print(len(items))
-
-            #print(item)
-
-            #print(len(items[0]))
-
-            #flattened_items = flatten(item)
-
-
-
-            curr_list = []
-
-            for item in items:
-
-                curr_list.extend(item)
-
-            some_list.append(curr_list)
-
-        #vcuts = np.array(some_list)
-        vcuts = some_list
-
-        #print(vcuts.shape)
-        print(len(vcuts))
-
-        #vcuts = np.array([list(flatten(self.zones.zcell[v])) for v in voids])
-        print('vcuts')
+        vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
-        print('gcut')
         cutco = self.catalog.coord[gcut]
-        print('cutco')
 
         # Build array of void volumes
         vvols = np.array([np.sum(self.tesselation.volumes[vcut]) for vcut in vcuts])
-        print('vvols')
 
         # Calculate effective radius of voids
         vrads = (vvols*3/(4*np.pi))**(1/3)
@@ -192,14 +150,7 @@ class Zobov:
         
         voids = np.array(voids)[rcut]
 
-        select_list = []
-        for idx, keep_idx in enumerate(rcut):
-            if keep_idx:
-                select_list.append(vcuts[idx])
-        del vcuts
-        vcuts = select_list
-
-        #vcuts = vcuts[rcut]
+        vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]]
         vvols = vvols[rcut]
         vrads = vrads[rcut]
         print('Removed voids smaller than', minrad, 'Mpc/h')

@@ -13,3 +13,11 @@ newZobov.sortVoids()
 newZobov.saveVoids()
 newZobov.saveZones()
 ```
+
+`saveVoids` produces two output files:
+ 
+a `zobovoids` file with columns for void center positions (`x, y, z, redshift, ra, dec`), void radii (`radius`), and cartesian components of voids' three ellipsoidal axes (`x1, y1, z1, x2, y2, z2, x3, y3, z3`)
+
+and a `zonevoids` file with columns for zone IDs (`zone`), zones' smallest containing void (`void0`), and zones' largest containing void (`void1`).
+
+`saveZones` produces one output file: a `galzones` file with columns for galaxy IDs (`gal`) and for galaxies' containing zone (`zone`).
