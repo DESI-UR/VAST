@@ -305,19 +305,22 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     Description
     ===========
     
-    Given a potential void cell center denoted by i,j,k, find the 4 bounding galaxies
-    that maximize the interior dimensions of the hole sphere at this location.
+    Given a potential void cell center denoted by i,j,k, find the 4 bounding 
+    galaxies that maximize the interior dimensions of the hole sphere at this 
+    location.
     
-    There are some really weird particulars to this algorithm that need to be laid out
-    in better detail.
+    There are some really weird particulars to this algorithm that need to be 
+    laid out in better detail.
 
-    The code below will utilize the naming scheme galaxy A, B, C, and D to denote the
-    1st, 2nd, 3rd, and 4th "neighbor" bounding galaxies found during the running of this algorithm.
-    I tried to use 1/A, 2/B, 3/C and 4/D to be clear on the numbers and letters are together.
+    The code below will utilize the naming scheme galaxy A, B, C, and D to 
+    denote the 1st, 2nd, 3rd, and 4th "neighbor" bounding galaxies found during 
+    the running of this algorithm.  I tried to use 1/A, 2/B, 3/C and 4/D to be 
+    clear on the numbers and letters are together.
     
-    The distance metrics are somewhat special.  Galaxy A is found by normal minimzation of euclidean
-    distance between the cell center and itself and the other neighbors.  Galaxies B, C, and D are 
-    found by propogating a hole center in specific directions and minimizing a ratio of two other
+    The distance metrics are somewhat special.  Galaxy A is found by normal 
+    minimzation of euclidean distance between the cell center and itself and the 
+    other neighbors.  Galaxies B, C, and D are found by propogating a hole 
+    center in specific directions and minimizing a ratio of two other 
     distance-metric-like values.  This needs more detail on how and why.
     
     
@@ -325,10 +328,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     ===========
     
     i_j_k_array : memoryview of (N,3) numpy array
-        a batch of N cell IDs to run the VoidFinder hole-growing algorithm on
+        a batch of N cell IDs on which to run the VoidFinder hole-growing 
+        algorithm
       
     galaxy_tree : python object
-        a glorified wrapper around a couple of the data structures used by VoidFinder
+        a glorified wrapper around a couple of the data structures used by 
+        VoidFinder
         
     w_coord : memoryview to (K,3) numpy array
         xyz space galaxy coordinates
@@ -337,36 +342,37 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         edge length in Mpc/h of the hole grid cell size
         
     dr : float
-        FILL IN 
+        Step-size for moving the hole center used while searching for the next 
+        nearest galaxy. 
         
     coord_min : memoryview to (1,3) numpy array
-        xyz-space coordinates of the (0,0,0) origin location of the hole grid and
-        galaxy map grids 
+        xyz-space coordinates of the (0,0,0) origin location of the hole grid 
+        and galaxy map grids 
     
     mask : memoryview into (?,?) numpy array
-        True when a location is inside the survey, False when a location is outside
-        the survey
+        True when a location is inside the survey, False when a location is 
+        outside the survey
         
     mask_resolution : int
-        FILL IN
+        The length of the mask binning used to generate the survey mask, in 
+        units of degrees. 
         
     min_dist : float
-        FILL IN
+        Minimum distance of the galaxy distribution.
         
     max_dist : float
-        FILL IN
+        Maximum distance of the galaxy distribution.
         
     return_array : memoryview into (N,4) numpy array
         memory for results, each row is (x,y,z,r)
         
     cell_ID_mem : _voidfinder_cython_find_next.Cell_ID_Memory
-        object which coordinates access to cell ID grid locations when
-        searching for neighbor galaxies
+        object which coordinates access to cell ID grid locations when seaching 
+        for neighbor galaxies
         
     neighbor_mem : _voidfinder_cython_find_next.NeighborMemory
-        object which coordinates access to a handful of arrays
-        which may need to be dynamically resized during
-        nearest neighbor calculations
+        object which coordinates access to a handful of arrays which may need to 
+        be dynamically resized during nearest neighbor calculations
         
     verbose : int
         values >= 1 indicate to make a lot more print statements
@@ -379,10 +385,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     '''
     
     
-    ############################################################
+    ############################################################################
     # re-used helper index variables
     # re-used helper computation variables
-    ############################################################
+    ############################################################################
     
     
     cdef ITYPE_t working_idx
@@ -400,10 +406,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
     cdef DTYPE_F64_t temp_f64_val
     
-    ################################################################################
-    #hole center vector and propogate hole center memory.  We can re-use the same
-    #memory for finding galaxies 2/B and 3/C but not for galaxy 4/D
-    ################################################################################
+    ############################################################################
+    # Hole center vector and propogate hole center memory.  We can re-use the 
+    # same memory for finding galaxies 2/B and 3/C but not for galaxy 4/D
+    ############################################################################
     cdef DTYPE_F64_t[:,:] hole_center_memview = np.empty((1,3), dtype=np.float64, order='C')
     
     cdef DTYPE_F64_t[:,:] hole_center_2_3_memview = np.empty((1,3), dtype=np.float64, order='C')
@@ -412,21 +418,20 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
     cdef DTYPE_F64_t[:,:] hole_center_42_memview = np.empty((1,3), dtype=np.float64, order='C')
     
-    ################################################################################
-    # the nearest_gal_index_list variable stores 2 things -
-    # the sentinel value -1 meaning 'no value here' or the 
-    # index of the found galaxies A,B,C (but not D since its 
-    # the last one)
-    ################################################################################
+    ############################################################################
+    # The nearest_gal_index_list variable stores 2 things - the sentinel value 
+    # -1 meaning 'no value here' or the index of the found galaxies A,B,C (but 
+    # not D since it is the last one)
+    ############################################################################
     cdef DTYPE_INT64_t[:] nearest_gal_index_list = np.empty(3, dtype=np.int64, order='C')
     
 
-    ################################################################################
+    ############################################################################
     # vector_modulus is re-used each time the new unit vector is calculated
     # unit_vector_memview is re-used each time the new unit vector is calculated
     # v3_memview is used in calculating the cross product for galaxy 4/D
     # hole_radius is used in some hole update calculations
-    ################################################################################
+    ############################################################################
     cdef DTYPE_F64_t vector_modulus
     
     cdef DTYPE_F64_t[:] unit_vector_memview = np.empty(3, dtype=np.float64, order='C')
@@ -437,9 +442,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
     
     
-    ################################################################################
-    #variables for the 4 galaxy seaarches whether the hole center is in the mask
-    ################################################################################
+    ############################################################################
+    # Variables for the 4 galaxy seaarches whether the hole center is in the 
+    # mask
+    ############################################################################
     cdef DTYPE_B_t in_mask_2
     
     cdef DTYPE_B_t in_mask_3
@@ -449,10 +455,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     cdef DTYPE_B_t in_mask_42
     
     
-    ################################################################################
-    #variables for the 4 bounding galaxies (gal 4/D gets 3 variables because it uses 2 searches
-    #and then picks one of the two based on some criteria)
-    ################################################################################
+    ############################################################################
+    # variables for the 4 bounding galaxies (gal 4/D gets 3 variables because it 
+    # uses 2 searches and then picks one of the two based on some criteria)
+    ############################################################################
     cdef ITYPE_t k1g
     
     cdef ITYPE_t k2g
@@ -465,19 +471,19 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
     cdef ITYPE_t k4g
     
-    ################################################################################
-    #minx3 is used in updating a hole center and minx41-42 are used in comparing to find
-    #galaxy 4/D
-    ################################################################################
+    ############################################################################
+    # minx3 is used in updating a hole center and minx41-42 are used in 
+    # comparing to find galaxy 4/D
+    ############################################################################
     cdef DTYPE_F64_t minx3
     
     cdef DTYPE_F64_t minx41
     
     cdef DTYPE_F64_t minx42
     
-    ################################################################################
-    #these are used in calcuating the unit vector for galaxy 4/D
-    ################################################################################
+    ############################################################################
+    # These are used in calcuating the unit vector for galaxy 4/D
+    ############################################################################
     cdef DTYPE_F64_t[:] midpoint_memview = np.empty(3, dtype=np.float64, order='C')
     
     #cdef DTYPE_F64_t[:] Acenter_memview = np.empty(3, dtype=np.float64, order='C')
@@ -487,21 +493,19 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     cdef DTYPE_F64_t[:] BC_memview = np.empty(3, dtype=np.float64, order='C')
     
     
-    ################################################################################
+    ############################################################################
     # Computation memory to pass into find_next_galaxy()
     #
-    # NOTE: This memory is currently unused because of 
-    # I need to figure out how to reallocate it if it isnt
-    # big enough without leaking memory and causing a segfault
-    #
-    #
-    ################################################################################
+    # NOTE: This memory is currently unused because I need to figure out how to 
+    #       reallocate it if it is not big enough without leaking memory and 
+    #       causing a segfault
+    ############################################################################
     cdef DTYPE_F64_t[:] Bcenter_memview = np.empty(3, dtype=np.float64, order='C')
     
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     cdef DistIdxPair query_vals
     
     cdef ITYPE_t num_cells = i_j_k_array.shape[0]
@@ -509,25 +513,24 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     cdef FindNextReturnVal find_next_retval
     
     
-    ################################################################################
+    ############################################################################
     # Main Loop - grow a hole in each of the N hole grid cell locations
-    ################################################################################
+    ############################################################################
     for working_idx in range(num_cells):
         
         
-        ################################################################################
-        # re-init nearest gal index list on new cell
-        ################################################################################
+        ########################################################################
+        # Re-init nearest gal index list on new cell
+        ########################################################################
         for idx in range(3):
         
             nearest_gal_index_list[idx] = -1
     
         
-        ############################################################
-        # initialize the starting hole center based on the given
-        # i,j,k and grid spacing parameters, and then check to
-        # make sure it's in the survey
-        ############################################################
+        ########################################################################
+        # Initialize the starting hole center based on the given i,j,k and grid 
+        # spacing parameters, and then check to make sure it is in the survey
+        ########################################################################
         hole_center_memview[0,0] = i_j_k_array[working_idx, 0]
         
         hole_center_memview[0,1] = i_j_k_array[working_idx, 1]
@@ -553,11 +556,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             continue
         
         
-        ############################################################
+        ########################################################################
         #
         # Find Galaxy 1/A - super easy using _query_first
         #
-        ############################################################
+        ########################################################################
         
         query_vals = _query_first(galaxy_tree.reference_point_ijk,
                                   galaxy_tree.coord_min,
@@ -574,17 +577,17 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         vector_modulus = query_vals.dist
         
-        ############################################################################
+        ########################################################################
         #
         # Start Galaxy 2/B
         #
-        # unit_vector_memview - unit vector hole propagation direction.  It actually 
-        #     points TOWARDS the k1g galaxy right now since we're doing 
-        #     k1g - hole_center in the calculation below
+        # unit_vector_memview - unit vector hole propagation direction.  It 
+        #     actually points TOWARDS the k1g galaxy right now since we are 
+        #     doing k1g - hole_center in the calculation below
         #
         # modv1 - l2 norm modulus of v1_unit
         #
-        ############################################################################
+        ########################################################################
         
         for idx in range(3):
             
@@ -592,26 +595,26 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
         hole_radius = vector_modulus
         
-        ############################################################################
-        # Make a copy of the hole center for propagation during the galaxy finding
-        # set the nearest_gal_index_list first neighbor index since we have a 
-        # neighbor now
+        ########################################################################
+        # Make a copy of the hole center for propagation during the galaxy 
+        # finding set the nearest_gal_index_list first neighbor index since we 
+        # have a neighbor now
         #
         # Also fill in neighbor 1/A into the existing neighbor idx list
-        ############################################################################
+        ########################################################################
         for idx in range(3):
             
             hole_center_2_3_memview[0,idx] = hole_center_memview[0,idx]
     
-        ############################################################################
+        ########################################################################
         #
         # Find galaxy 2/B
         #
-        # set the nearest neighbor 1 index in the list and init the in_mask to 1
+        # Set the nearest neighbor 1 index in the list and init the in_mask to 1
         # Using direction_mod = -1.0 since the unit_vector points TOWARDS k1g
         # as per the above calculation
         #
-        ############################################################################
+        ########################################################################
         nearest_gal_index_list[0] = k1g
         
         find_next_retval = find_next_galaxy(hole_center_memview,
@@ -650,31 +653,34 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             continue
         
         
-        ###################################################################################
+        ########################################################################
         #
         # Start Galaxy 3/C
         #
-        # When we found Galaxy 2/B, we only found the next closest neighbor as we iterated
-        # away from Galaxy 1/A.  Since we iterated by jumps of dr, we may not have found
-        # the exact center of the circle formed by the points k1g, k2g and the unit_vector
+        # When we found Galaxy 2/B, we only found the next closest neighbor as 
+        # we iterated away from Galaxy 1/A.  Since we iterated by jumps of dr, 
+        # we may not have found the exact center of the circle formed by the 
+        # points k1g, k2g and the unit_vector
         #
-        # Before finding Galaxy 3/C, we need to reinitialize our hole center by calculating
-        # the exact position of the center of the circle, and then check that that location
-        # is still within the mask.
+        # Before finding Galaxy 3/C, we need to reinitialize our hole center by 
+        # calculating the exact position of the center of the circle, and then 
+        # check that that location is still within the mask.
         #
-        # Since we know k1g and k2g are both distance R from the center of this circle,
-        # we can use the triangle formed by k1g, k2g and the center C of the circle, to
-        # first determine the value of R.  Then, we know the hole center C is going to be
-        # along the unit_vector direction a distance of R plus the k1g location
-        # (its actually going to be k1g - R*unit_vector below because unit_vector is 
-        # pointing in the opposite direction than we want).
+        # Since we know k1g and k2g are both distance R from the center of this 
+        # circle, we can use the triangle formed by k1g, k2g and the center C of 
+        # the circle, to first determine the value of R.  Then, we know the hole 
+        # center C is going to be along the unit_vector direction a distance of 
+        # R plus the k1g location (it is actually going to be 
+        # k1g - R*unit_vector below because unit_vector is pointing in the 
+        # opposite direction than we want).
         #
-        # The triangle formed by k1g, k2g and C has sides, R, R, and |k1g-k2g|.  If we 
-        # allow the side of length R formed by k1g and C to be divided into 2 parts, we end
-        # up with 2 triangles:  (k1g, k2g, x) and (C,k2g,x) who share the edge (k2g, x) 
-        # which is perpendicular to the line (k1g, C).  In triangle 1, call the line
-        # (k1g,x) to have length b, and b = the projection of k1g-k2g in the unit vector
-        # direction, or b = dot((k1g-k2g), unit_vector)
+        # The triangle formed by k1g, k2g and C has sides, R, R, and |k1g-k2g|.  
+        # If we allow the side of length R formed by k1g and C to be divided 
+        # into 2 parts, we end up with 2 triangles:  (k1g, k2g, x) and (C,k2g,x) 
+        # who share the edge (k2g, x) which is perpendicular to the line 
+        # (k1g, C).  In triangle 1, call the line (k1g,x) to have length b, and 
+        # b = the projection of k1g-k2g in the unit vector direction, or 
+        # b = dot((k1g-k2g), unit_vector)
         #
         #          k2g
         #          /|-__
@@ -690,7 +696,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #
         # temp_f64_accum calculates |k1g-k2g|^2
         # temp_f64_accum2 calculates dot((k1g-k2g), unit_vector)
-        ##################################################################################
+        #########################################################################
         
         temp_f64_accum = 0.0
         
@@ -724,14 +730,16 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
             continue
     
-        ############################################################################
+        ########################################################################
         # Define the new unit vector along which to move the hole center
         #
         # Use the line which runs through the midpoint of k1g and k2g, and the
         # center of the new circle we defined to define the new unit vector
-        # direction
-        # This time, the unit vector is pointing AWAY from the existing neighbors
-        ############################################################################
+        # direction.
+        #
+        # This time, the unit vector is pointing AWAY from the existing 
+        # neighbors.
+        ########################################################################
         
         for idx in range(3):
             
@@ -754,25 +762,24 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             unit_vector_memview[idx] = (hole_center_memview[0,idx] - midpoint_memview[idx])/vector_modulus
         
         
-        ############################################################################
-        # Copy the center of the circle formed by k1g and k2g that we found
-        # just a bit ago into the other memory, this will be our starting location
+        ########################################################################
+        # Copy the center of the circle formed by k1g and k2g that we found just 
+        # a bit ago into the other memory, this will be our starting location 
         # for finding galaxy 3/C
-        ############################################################################
+        ########################################################################
         
         for idx in range(3):
             
             hole_center_2_3_memview[0,idx] = hole_center_memview[0,idx]
         
     
-        ############################################################################
+        ########################################################################
         #
         # Find galaxy 3/C
         #
-        # set neighbors 1 and 2 in the list
+        # Set neighbors 1 and 2 in the list
         # 
-        #
-        ############################################################################
+        ########################################################################
         nearest_gal_index_list[0] = k1g
         
         nearest_gal_index_list[1] = k2g
@@ -814,19 +821,19 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
             continue
     
-        ###########################################################################
+        ########################################################################
         #
         # Start Galaxy 4/D-1 (galaxy 4/D takes 2 attempts)
         #
         # Process is very similar as before, except we do not know if we have to 
-        # move above or below the plane.  Therefore, we will find the next closest 
-        # if we move above the plane, and the next closest if we move below the 
-        # plane.
+        # move above or below the plane.  Therefore, we will find the next 
+        # closest if we move above the plane, and the next closest if we move 
+        # below the plane.
         #
         # Update hole center
         # update hole radius
         #
-        ###########################################################################
+        ########################################################################
         for idx in range(3):
         
             hole_center_memview[0,idx] += minx3*unit_vector_memview[idx]
@@ -855,15 +862,15 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
             continue
     
-        ############################################################################
+        ########################################################################
         #
         # The vector along which to move the hole center is defined by the cross 
         # product of the vectors pointing between the three nearest galaxies.
         #
-        # Calculate the cross product of the difference vectors, calculate
-        # the modulus of that vector and normalize to a unit vector
+        # Calculate the cross product of the difference vectors, calculate the 
+        # modulus of that vector and normalize to a unit vector.
         # 
-        ############################################################################
+        ########################################################################
     
         for idx in range(3):
     
@@ -892,24 +899,24 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
             unit_vector_memview[idx] = v3_memview[idx]/vector_modulus
     
-        ############################################################################
+        ########################################################################
         # Calculate vector pointing from the hole center to the neighbor 1/A
         # Calculate vector pointing from the hole center to the neighbor 2/B
         # Update new hole center for propagation
-        ############################################################################
+        ########################################################################
         for idx in range(3):
     
             hole_center_41_memview[0, idx] = hole_center_memview[0, idx]
             
     
-        ############################################################################
+        ########################################################################
         #
         # Find galaxy 4/D-1
         #
         # update the exiting neighbors 1/A, 2/B and 3/C in the 
         # nearest_gal_index_list
         #
-        ############################################################################
+        ########################################################################
         nearest_gal_index_list[0] = k1g
         
         nearest_gal_index_list[1] = k2g
@@ -948,14 +955,14 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
                 hole_center_41_memview[0, idx] = hole_center_memview[0, idx] + minx41*unit_vector_memview[idx]
 
-        ############################################################################
+        ########################################################################
         #
         # Start galaxy 4/D-2
         #
         # Repeat same search, but shift the hole center in the other direction 
-        # this time, so flip the v3_unit_memview in other direction
+        # this time, so flip the v3_unit_memview in other direction.
         #
-        ############################################################################
+        ########################################################################
         for idx in range(3):
     
             unit_vector_memview[idx] *= -1.0
@@ -969,13 +976,13 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             hole_center_42_memview[0, idx] = hole_center_memview[0, idx]
     
         
-        ############################################################################
+        ########################################################################
         #
         # Find galaxy 4/D-2
         #
         # nearest_neighbor_gal_list already updated from galaxy 4/D-1
         # 
-        ############################################################################
+        ########################################################################
         find_next_retval = find_next_galaxy(hole_center_memview,
                                              hole_center_42_memview, 
                                              hole_radius, 
@@ -1010,13 +1017,14 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
         
         
-        ############################################################################
+        ########################################################################
         # Figure out whether galaxy 4/D is 4/D-1 or 4/D-2
-        # use the minx41 and minx42 variables to figure out which one is 
-        # closer? then set the 4th galaxy index based on that and update the
-        # output hole center based on that.  Or, if the conditions aren't filled
-        # because we left the survey, return NAN output
-        ############################################################################
+        #
+        # Use the minx41 and minx42 variables to figure out which one is closer?
+        # Then set the 4th galaxy index based on that and update the output hole 
+        # center based on that.  Or, if the conditions are not filled because we 
+        # left the survey, return NAN output
+        ########################################################################
         
         not_in_mask_41 = not_in_mask(hole_center_41_memview, mask, mask_resolution, min_dist, max_dist)
     
@@ -1057,10 +1065,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             continue
     
     
-        ############################################################################
+        ########################################################################
         # Now that we have all 4 bounding galaxies, calculate the hole radius
         # and write the valid (x,y,z,r) values!
-        ############################################################################
+        ########################################################################
     
         temp_f64_accum = 0.0
     
