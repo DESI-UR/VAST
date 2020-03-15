@@ -62,8 +62,8 @@ extensions = [
                         include_dirs=[".", numpy.get_include()],
                         library_dirs=["m"]),
               
-              Extension("voidfinder.dist_funcs_cython", 
-                        ["voidfinder/dist_funcs_cython.pyx"],
+              Extension("voidfinder.distance", 
+                        ["voidfinder/distance.pyx"],
                         include_dirs=[".", numpy.get_include()],
                         library_dirs=["m"]),
 

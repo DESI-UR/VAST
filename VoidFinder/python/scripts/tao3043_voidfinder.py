@@ -37,7 +37,7 @@ from voidfinder import find_voids, \
                        
 from voidfinder.preprocessing import file_preprocess
 from voidfinder.multizmask import generate_mask
-from voidfinder.dist_funcs_cython import z_to_comoving_dist
+from voidfinder.distance import z_to_comoving_dist
 from voidfinder.table_functions import to_vector, to_array
 
 from astropy.table import Table

@@ -58,8 +58,8 @@ cpdef np.ndarray z_to_comoving_dist(DTYPE_F32_t[:] z_input,
     Description
     ===========
     
-    Convert redshift values into the comoving distance cosmology using 
-    the integral of the R-W function
+    Convert redshift values into the comoving distance cosmology using the 
+    integral of the Robertson-Walker metric.
     
     
     Parameters
@@ -69,17 +69,17 @@ cpdef np.ndarray z_to_comoving_dist(DTYPE_F32_t[:] z_input,
         redshift values to compute distances for
         
     omega_M : float
-        Kelly fill this in
+        Cosmological matter energy density
         
     h : float
-        Kelly fill this in too
+        Hubble constant factor
         
         
     Returns
     =======
     
-    numpy.ndarray of shape (N,)
-        the comoving distance values
+    output_comov_dists : numpy.ndarray of shape (N,)
+        the comoving distance values in units of Mpc/h
     """
     
     
@@ -106,17 +106,16 @@ cpdef np.ndarray z_to_comoving_dist(DTYPE_F32_t[:] z_input,
         
         a_start = 1.0/(1.0+curr_redshift)
         
-        ################################################################################
-        # This function is the python scipy wrapper/interface around the _quadpack
-        # FORTRAN library.  Included here for reference since we're being sneaky
-        # and skipping the main scipy interface for a lower-level scipy wrapper.
+        ########################################################################
+        # This function is the python scipy wrapper/interface around the 
+        # _quadpack FORTRAN library.  Included here for reference since we are 
+        # being sneaky and skipping the main scipy interface for a lower-level 
+        # scipy wrapper.
         #
-        # def quad(func, a, b, args=(), full_output=0, epsabs=1.49e-8, epsrel=1.49e-8,
-        #          limit=50, points=None, weight=None, wvar=None, wopts=None, maxp1=50,
-        #          limlst=50):
-        #
-        #
-        ################################################################################
+        # def quad(func, a, b, args=(), full_output=0, epsabs=1.49e-8, 
+        #          epsrel=1.49e-8, limit=50, points=None, weight=None, 
+        #          wvar=None, wopts=None, maxp1=50, limlst=50):
+        ########################################################################
         
         retval = _quadpack._qagse(R_W_interval, a_start, 1.0, (omega_M,), 0, 1.49e-8, 1.49e-8, 50)
                                 

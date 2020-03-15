@@ -3,7 +3,7 @@ import numpy as np
 
 from astropy.table import Table
 
-from voidfinder.dist_funcs_cython import z_to_comoving_dist
+from voidfinder.distance import z_to_comoving_dist
 
 import time
 
