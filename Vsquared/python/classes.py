@@ -137,25 +137,29 @@ class Zones:
                 zcell.append([n])
                 zvols.append(vol[n])
             else:
+                # This cell is put into its least-dense neighbor's zone
                 lut[srt[i]] = lut[n]
                 zcell[lut[n]].append(srt[i])
 
         self.zcell = np.array(zcell)
         self.zvols = np.array(zvols)
-
-        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
         ########################################################################
 
 
         ########################################################################
+        # Identify neighboring zones and the least-dense cells linking them
         #-----------------------------------------------------------------------
+        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
+
         print("Linking zones...")
+
         for i in range(len(vol)):
             ns = nei[i]
             z1 = lut[i]
             for n in ns:
                 z2 = lut[n]
                 if z1 != z2:
+                    # This neighboring cell is in a different zone
                     if z2 not in zlinks[0][z1]:
                         zlinks[0][z1].append(z2)
                         zlinks[0][z2].append(z1)
@@ -163,6 +167,7 @@ class Zones:
                         zlinks[1][z2].append(0.)
                     j  = np.where(zlinks[0][z1] == z2)[0][0]
                     k  = np.where(zlinks[0][z2] == z1)[0][0]
+                    # Update maximum link volume if needed
                     nl = np.amin([vol[i],vol[n]])
                     ml = np.amax([zlinks[1][z1][j],nl])
                     zlinks[1][z1][j] = ml
@@ -180,28 +185,45 @@ class Voids:
     def __init__(self,zon):
         zvols  = np.array(zon.zvols)
         zlinks = zon.zlinks
+
+        ########################################################################
+        # Sort zone links by volume, identify zones linked at each volume
+        #-----------------------------------------------------------------------
         print("Sorting links...")
-        zl1   = np.array(list(flatten(zlinks[1])))
-        zlu   = -1.*np.sort(-1.*np.unique(zl1))
+
         zl0   = np.array(list(flatten(zlinks[0])))
+        zl1   = np.array(list(flatten(zlinks[1])))
+
+        zlu   = -1.*np.sort(-1.*np.unique(zl1))
         zlut  = [np.unique(zl0[np.where(zl1==zl)[0]]).tolist() for zl in zlu]
+
         voids = []
         mvols = []
         ovols = []
         vlut  = np.arange(len(zvols))
         mvlut = np.array(zvols)
         ovlut = np.array(zvols)
+
+        ########################################################################
+        # For each zone-linking by descending link volume, create void from     
+        # all zones and groups of zones linked at this volume except for that   
+        # with the highest maximum cell volume (the "shallower" voids flow into 
+        # the "deepest" void with which they are linked)
+        #-----------------------------------------------------------------------
         print("Expanding voids...")
+
         for i in range(len(zlu)):
             lvol  = zlu[i]
             mxvls = mvlut[zlut[i]]
             mvarg = np.argmax(mxvls)
             mxvol = mxvls[mvarg]
             for j in zlut[i]:
-                if mvlut[j] < mxvol:                
+                if mvlut[j] < mxvol:
+                    # This is not the "deepest" zone or void being linked
                     voids.append([])
                     ovols.append([])
                     vcomp = np.where(vlut==vlut[j])[0]
+                    # Store void's "overflow" volumes, largest max cell volume, constituent zones
                     for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
                         ocomp = np.where(ovlut[vcomp]==ov)[0]
                         voids[-1].append(vcomp[ocomp].tolist())
