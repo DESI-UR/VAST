@@ -198,19 +198,19 @@ class Voids:
             mvarg = np.argmax(mxvls)
             mxvol = mxvls[mvarg]
             for j in zlut[i]:
-                #if mvlut[j] < mxvol:                
-                voids.append([])
-                ovols.append([])
-                vcomp = np.where(vlut==vlut[j])[0]
-                for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
-                    ocomp = np.where(ovlut[vcomp]==ov)[0]
-                    voids[-1].append(vcomp[ocomp].tolist())
-                    ovols[-1].append(ov)
-                ovols[-1].append(lvol)
-                mvols.append(mvlut[j])
-                vlut[vcomp]  = vlut[zlut[i]][mvarg]
-                mvlut[vcomp] = mxvol
-                ovlut[vcomp] = lvol
+                if mvlut[j] < mxvol:                
+                    voids.append([])
+                    ovols.append([])
+                    vcomp = np.where(vlut==vlut[j])[0]
+                    for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
+                        ocomp = np.where(ovlut[vcomp]==ov)[0]
+                        voids[-1].append(vcomp[ocomp].tolist())
+                        ovols[-1].append(ov)
+                    ovols[-1].append(lvol)
+                    mvols.append(mvlut[j])
+                    vlut[vcomp]  = vlut[zlut[i]][mvarg]
+                    mvlut[vcomp] = mxvol
+                    ovlut[vcomp] = lvol
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols
