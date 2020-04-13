@@ -18,7 +18,6 @@ import pickle
 #import sys
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
 from voidfinder.vflag import determine_vflag
-from voidfinder.voidfinder_functions import build_mask
 from voidfinder.distance import z_to_comoving_dist
 
 
@@ -31,21 +30,22 @@ from voidfinder.distance import z_to_comoving_dist
 
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
-void_filename = '../../data/vollim_dr7_cbp_102709_comoving_holes.txt'
+void_filename = '../../data/SDSS/vollim_dr7_cbp_102709_comoving_holes.txt'
 
 dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # SURVEY MASK FILE
-mask_filename = '../../data/dr7_mask.pickle'
+mask_filename = '../../data/SDSS/SDSS_dr7_mask.pickle'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # FILE OF OBJECTS TO BE CLASSIFIED
 
 #galaxy_file = input('Galaxy data file (with extension): ')
-galaxy_filename = '/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag.txt'
+#galaxy_filename = '/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag.txt'
+galaxy_filename = '/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag_Voronoi_CMD.txt'
 
 galaxy_file_format = 'commented_header'
 #-------------------------------------------------------------------------------
@@ -96,10 +96,8 @@ else:
 
 # Read in survey mask
 mask_infile = open(mask_filename, 'rb')
-mask_resolution, maskfile = pickle.load(mask_infile)
+mask, mask_resolution = pickle.load(mask_infile)
 mask_infile.close()
-
-mask = build_mask(maskfile, mask_resolution)
 
 print('Data and mask imported')
 ################################################################################
