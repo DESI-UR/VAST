@@ -137,7 +137,7 @@ print("Dist limits: ", dist_limits)
 mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1)
 
 
-temp_outfile = open(survey_name + 'mask.pickle', 'wb')
+temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
 pickle.dump((mask, mask_resolution), temp_outfile)
 temp_outfile.close()
 
@@ -147,7 +147,7 @@ temp_outfile.close()
 #
 ################################################################################
 
-temp_infile = open(survey_name + 'mask.pickle', 'rb')
+temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 

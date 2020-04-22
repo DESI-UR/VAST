@@ -69,8 +69,12 @@ class Zobov:
     def sortVoids(self,method=0,minsig=2,dc=denscut):
 
         if not hasattr(self,'prevoids'):
-            print("Run all stages of Zobov first")
-            return
+            if method != 4:
+                print("Run all stages of Zobov first")
+                return
+            else:
+                if not hasattr(self,'zones'):
+                    print("Run all stages of Zobov first")
 
         ########################################################################
         # Selecting void candidates
@@ -123,6 +127,11 @@ class Zobov:
             return
 
         #-----------------------------------------------------------------------
+        elif method==4:
+            #print('Method 4')
+            voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
+
+        #-----------------------------------------------------------------------
         else:
             print("Choose a valid method")
             return
@@ -146,6 +155,8 @@ class Zobov:
         print('Effective void radius calculated')
 
         # Locate all voids with radii smaller than set minimum
+        if method==4:
+            minrad = np.median(vrads)
         rcut  = vrads > minrad
         
         voids = np.array(voids)[rcut]
