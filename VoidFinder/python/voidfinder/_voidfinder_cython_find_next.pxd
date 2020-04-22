@@ -69,7 +69,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         )
                             
 
-cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
+cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
                   DTYPE_B_t[:,:] survey_mask_ra_dec, \
                   DTYPE_INT32_t n, \
                   DTYPE_F64_t rmin, \

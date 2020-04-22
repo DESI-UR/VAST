@@ -34,6 +34,8 @@ from ._voidfinder import _hole_finder
 
 from .constants import c
 
+from ._voidfinder_cython import check_mask_overlap
+
 
 ######################################################################
 # I made these constants into default parameters in filter_galaxies()
@@ -50,255 +52,18 @@ DtoR = np.pi/180.
 RtoD = 180./np.pi
 
 
-def filter_galaxies(galaxy_table, 
-                    #mask_array, 
-                    #mask_resolution, 
+
+def filter_galaxies(galaxy_table,
                     survey_name, 
                     mag_cut_flag=True, 
-                    rm_isolated_flag=True, 
+                    rm_isolated_flag=True,
+                    write_table=True,
+                    sep_neighbor=3,
                     distance_metric='comoving', 
                     h=1.0,
-                    search_grid_edge_length=5,
-                    ):
-    '''
-    Filter the input galaxy catalog, removing galaxies fainter than some limit 
-    and removing isolated galaxies.
-
-
-    Parameters:
-    ===========
-
-    galaxy_table : astropy table
-        List of galaxies and their coordinates (ra, dec, redshift) and magnitudes
-
-    (REFACTORED OUT) mask_array : numpy array of shape (2,n)
-        n pairs of RA,dec coordinates that are within the survey limits and are 
-        scaled by the mask_resolution.  Oth row is RA; 1st row is dec.
-
-    (REFACTORED OUT) mask_resolution : integer
-        Scale factor of coordinates in mask_array
-
-    survey_name : string
-        Name of galaxy catalog
-
-    mag_cut_flag : boolean
-        Determines whether or not to remove galaxies fainter than Mr = -20.  True 
-        (default) will remove the faint galaxies.
-
-    rm_isolated_flag : boolean
-        Determines whether or not to remove isolated galaxies.  True (default) 
-        will remove the isolated galaxies.
-
-    distance_metric : string
-        Distance metric to use in calculations.  Options are 'comoving' 
-        (default; distance dependent on cosmology) and 'redshift' (distance 
-        independent of cosmology).
-
-    h : float
-        Fractional value of Hubble's constant.  Default value is 1 (where 
-        H0 = 100h).
-    
-    search_grid_edge_length : float
-        length in Mpc/h of the edge of one cell of a grid cube
-        
-
-
-    Returns:
-    ========
-
-    coord_min_table : astropy table
-        Minimum values of the galaxy coordinates in x, y, and z.
-
-    mask : numpy array of shape (n,m)
-        Index array of the coordinates that are within the survey footprint
-
-    ngrid[0] : numpy array of shape (3,)
-        Number of cells in each cartesian direction.
-
-    '''
-    
-    ################################################################################
-    #
-    #   PRE-PROCESS DATA
-    #
-    ################################################################################
-    print('Filter Galaxies Start', flush=True)
-
-    # Remove faint galaxies
-    if mag_cut_flag:
-        galaxy_table = mag_cut(galaxy_table,-20)
-
-    # Convert galaxy coordinates to Cartesian
-    if distance_metric == 'comoving':
-        r_gal = galaxy_table['Rgal']
-    else:
-        r_gal = c*galaxy_table['redshift']/(100*h)
-        
-    xin = r_gal*np.cos(galaxy_table['ra']*DtoR)*np.cos(galaxy_table['dec']*DtoR)
-    yin = r_gal*np.sin(galaxy_table['ra']*DtoR)*np.cos(galaxy_table['dec']*DtoR)
-    zin = r_gal*np.sin(galaxy_table['dec']*DtoR)
-    coord_in_table = Table([xin, yin, zin], names=('x','y','z'))
-
-    # Cartesian coordinate minima
-    coord_min_x = [min(coord_in_table['x'])]
-    coord_min_y = [min(coord_in_table['y'])]
-    coord_min_z = [min(coord_in_table['z'])]
-    coord_min_table = Table([coord_min_x, coord_min_y, coord_min_z], names=('x','y','z'))
-
-    # Cartesian coordinate maxima
-    coord_max_x = [max(coord_in_table['x'])]
-    coord_max_y = [max(coord_in_table['y'])]
-    coord_max_z = [max(coord_in_table['z'])]
-    coord_max_table = Table([coord_max_x, coord_max_y, coord_max_z], names=('x','y','z'))
-
-    # Number of galaxies
-    N_gal = len(galaxy_table)
-
-    print('x:', coord_min_table['x'][0], coord_max_table['x'][0], flush=True)
-    print('y:', coord_min_table['y'][0], coord_max_table['y'][0], flush=True)
-    print('z:', coord_min_table['z'][0], coord_max_table['z'][0], flush=True)
-    print('There are', N_gal, 'galaxies in this catalog.', flush=True)
-
-    # Convert coord_in, coord_min, coord_max tables to numpy arrays
-    coord_in = to_array(coord_in_table)
-    coord_min = to_vector(coord_min_table)
-    coord_max = to_vector(coord_max_table)
-
-
-    #print('Reading mask',flush=True)
-
-    #mask = build_mask(mask_array, mask_resolution)
-
-    #print('Read mask',flush=True)
-
-    ################################################################################
-    #
-    #   PUT THE GALAXIES ON A CHAIN MESH
-    #
-    ################################################################################
-
-
-    #dl = box/ngrid # length of each side of the box
-    #print('Number of grid cells is', ngrid, dl, box)
-
-    #print('Making the grid')
-
-    #print('coord_min shape:', coord_min.shape)
-    #print('coord_max shape:', coord_max.shape)
-
-    # Array of size of survey in x, y, z directions [Mpc/h]
-    #box = np.array([coord_max_x[0] - coord_min_x[0], coord_max_y[0] - coord_min_y[0], coord_max_z[0] - coord_min_z[0]])
-    box = coord_max - coord_min
-    
-    print("Box: ", box)
-    print("search_grid_edge_length", search_grid_edge_length)
-
-    #print('box shape:', box.shape)
-
-    # Array of number of cells in each direction
-    ngrid = box/search_grid_edge_length
-    
-    print("Ngrid: ", ngrid)
-    
-    ngrid = np.ceil(ngrid).astype(int)
-    
-    
-
-    #print('ngrid shape:', ngrid.shape)
-
-    print('Number of grid cells is', ngrid, 'with side lengths of', search_grid_edge_length, 'Mpc/h', flush=True)
-
-    '''
-    # Bin the galaxies onto a 3D grid
-    #mesh_indices, ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, ngrid)
-    #ngal, chainlist, linklist = mesh_galaxies(coord_in_table, coord_min_table, dl, tuple(ngrid))
-
-    #print('Made the grid')
-
-  
-    print('Checking the grid')
-    grid_good = True
-
-    for i in range(ngrid[0]):
-        for j in range(ngrid[1]):
-            for k in range(ngrid[2]):
-                count = 0
-                igal = chainlist[i,j,k]
-                while igal != -1:
-                    count += 1
-                    igal = linklist[igal]
-                if count != ngal[i,j,k]:
-                    print(i,j,k, count, ngal[i,j,k])
-                    grid_good = False
-    if grid_good:
-        print('Grid construction was successful.')
-    '''
-    ################################################################################
-    #
-    #   SEPARATION
-    #
-    ################################################################################
-    
-    if rm_isolated_flag:
-        sep_start = time.time()
-
-        print('Finding sep',flush=True)
-
-        l, avsep, sd, dists3 = av_sep_calc(coord_in_table)
-
-        print('Average separation of n3rd gal is', avsep, flush=True)
-        print('The standard deviation is', sd,flush=True)
-
-        # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
-        # l = 7.36181  # s0 = 3.5, gamma = 1.4
-        # or force l to have a fixed number by setting l = ****
-
-        print('Going to build wall with search value', l, flush=True)
-
-        sep_end = time.time()
-
-        print('Time to find sep =',sep_end-sep_start, flush=True)
-
-        fw_start = time.time()
-
-        f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
-
-    else:
-        w_coord_table = coord_in_table
-        f_coord_table = Table(names=coord_in_table.colnames)
-
-    print(f_coord_table.colnames)
-    print(f_coord_table.dtype)
-
-    f_coord_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
-    w_coord_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
-
-
-    if rm_isolated_flag:
-        fw_end = time.time()
-
-        print('Time to sort field and wall gals =', fw_end-fw_start, flush=True)
-
-
-    nf =  len(f_coord_table)
-    nwall = len(w_coord_table)
-    print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
-
-    return coord_min_table, ngrid[0]
-
-
-
-def filter_galaxies_2(galaxy_table,
-                      survey_name, 
-                      mag_cut_flag=True, 
-                      rm_isolated_flag=True,
-                      write_table=True,
-                      sep_neighbor=3,
-                      distance_metric='comoving', 
-                      h=1.0,
-                      hole_grid_edge_length=5.0,
-                      magnitude_limit=-20.0,
-                      verbose=0):
+                    hole_grid_edge_length=5.0,
+                    magnitude_limit=-20.0,
+                    verbose=0):
     """
     Description
     ===========
@@ -515,7 +280,7 @@ def ra_dec_to_xyz(galaxy_table,
         
     else:
         
-        r_gal = c*galaxy_table['redshift'].data/(100*h)
+        r_gal = c*galaxy_table['z'].data/(100*h)
         
         
     ra = galaxy_table['ra'].data
@@ -714,6 +479,7 @@ def find_voids(galaxy_coords_xyz,
                coords_min,
                hole_grid_shape,
                survey_name,
+               max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
                galaxy_map_grid_edge_length=None,
                hole_center_iter_dist=1.0,
@@ -846,6 +612,13 @@ def find_voids(galaxy_coords_xyz,
         distance between 2 grid cells
         (xyz space)
         
+    max_hole_mask_overlap : float in range (0, 0.5)
+        when the volume of a hole overlaps the mask by this fraction,
+        discard that hole.  Maximum value of 0.5 because a value of 0.5
+        means that the hole center will be outside the mask, but more importantly
+        because the numpy.roots() function used below won't return a valid
+        polynomial root.
+        
     survey_name : str
         identifier for the survey running, may be prepended or appended
         to output filenames including the checkpoint filename
@@ -926,7 +699,67 @@ def find_voids(galaxy_coords_xyz,
     maximal spheres table
     
     """
-
+    ############################################################################
+    # Calculate the radial value at which we need to check a finished hole
+    # for overlap with the mask
+    #
+    # We're assuming axis-aligned intersection only, so this calculation uses
+    # the area of a "spherical cap" https://en.wikipedia.org/wiki/Spherical_cap
+    # We set the area of the spherical cap equal to some fraction p times the
+    # area of the whole sphere, and if that volume of the sphere is in the mask
+    # then we discard the current hole.  Instead of calculating the actual 
+    # volume at any point, instead we calculate the percentage of the radius
+    # at which that volume is achieved, which is the same for every sphere, then
+    # we can check the 6 directions from the center of a hole as a proxy for
+    # an actual 10% volume overlap.  This is a good-enough approximation, since
+    # the mask is already composed of cubic cells anyway.
+    #
+    #
+    # let l = r - Y, where r is the radius of a sphere, and Y is the distance
+    # along the radius at the volume we care about
+    # V_cap = pi*l*l*(3r-l)/3 
+    # V_sphere = (4/3)*pi*r^3
+    # let 'p' be the fraction of the volume we care about (say, 10% or 0.1)
+    #
+    # pi*(r-Y)*(r-Y)*(3r-r+Y)/3 = p*(4/3)*pi*r^3
+    #
+    # algebra
+    #
+    # (Y/r)^3 - 3(Y/r) + (2-4p) = 0
+    #
+    # Solve for the value (Y/r) given parameter p using the numpy.roots, which
+    # solves the roots of polynomials in the form ax^n + bx^(n-1) ... + C = 0
+    # https://docs.scipy.org/doc/numpy/reference/generated/numpy.roots.html
+    # The root we care about will be in the interval (0,1)
+    #
+    # a = 1
+    # b = 0
+    # c = -3
+    # d = 2 - 4*p
+    #
+    # DEPRECATED THIS IN FAVOR OF A NEW STRATEGY
+    # 
+    ############################################################################
+    '''
+    coeffs = [1.0, 0.0, -3.0, 2.0 - 4.0*max_hole_mask_overlap]
+    
+    roots = np.roots(coeffs)
+    
+    radial_mask_check = None
+    
+    for root in roots:
+        
+        if root > 0.0 and root < 1.0:
+            
+            radial_mask_check = root
+            
+    if radial_mask_check is None:
+        
+        raise ValueError("Could not calculate appropriate radial check value for input max_hole_mask_overlap "+str(max_hole_mask_overlap))
+    
+    
+    print("For mask volume check of: ", max_hole_mask_overlap, "Using radial hole value of: ", radial_mask_check)
+    '''
     ############################################################################
     #
     #   GROW HOLES
@@ -952,6 +785,7 @@ def find_voids(galaxy_coords_xyz,
                                            dist_limits[1],
                                            galaxy_coords_xyz,
                                            survey_name,
+                                           #radial_mask_check,
                                            save_after=save_after,
                                            use_start_checkpoint=use_start_checkpoint,
                                            batch_size=batch_size,
@@ -964,6 +798,47 @@ def find_voids(galaxy_coords_xyz,
 
     print('Time to find all holes =', time.time() - tot_hole_start, flush=True)
     
+    
+    
+    
+    ############################################################################
+    # New method for
+    #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
+    #
+    ############################################################################
+    '''
+    coordinates = np.empty((1,3), dtype=np.float64)
+    temp_coordinates = np.empty((1,3), dtype=np.float64)
+    mask = mask.astype(np.uint8)
+    
+    keep_holes = np.ones(x_y_z_r_array.shape[0], dtype=np.bool)
+    
+    for idx in range(x_y_z_r_array.shape[0]):
+    
+        hole_radius = x_y_z_r_array[idx,3]
+        
+        coordinates[0,0] = x_y_z_r_array[idx,0]
+        coordinates[0,1] = x_y_z_r_array[idx,1]
+        coordinates[0,2] = x_y_z_r_array[idx,2]
+    
+        discard = check_mask_overlap(coordinates,
+                           temp_coordinates,
+                           radial_mask_check,
+                           hole_radius,
+                           mask, 
+                           mask_resolution,
+                           dist_limits[0],
+                           dist_limits[1])
+        
+        if discard:
+            
+            keep_holes[idx] = False
+    
+    x_y_z_r_array = x_y_z_r_array[keep_holes]
+    
+    
+    print("After volume cut, remaining holes: ", x_y_z_r_array.shape[0])
+    '''
     ############################################################################
     #
     #   SORT HOLES BY SIZE
@@ -990,17 +865,24 @@ def find_voids(galaxy_coords_xyz,
     #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
     #
     ############################################################################
-
+    
     print('Removing holes with at least 10% of their volume outside the mask', flush=True)
 
+    mask = mask.astype(np.uint8)
 
+
+    cut_start = time.time()
     potential_voids_table = volume_cut(potential_voids_table, 
                                        mask, 
                                        mask_resolution, 
                                        dist_limits)
 
+    print("Time to volume-cut holes: ", time.time() - cut_start, flush=True)
+    
+    print("Num volume-cut holes: ", len(potential_voids_table), flush=True)
+    
     potential_voids_table.write(potential_voids_filename, format='ascii.commented_header', overwrite=True)
-
+    
     ############################################################################
     #
     #   FILTER AND SORT HOLES INTO UNIQUE VOIDS

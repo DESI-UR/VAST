@@ -4,6 +4,8 @@ import numpy as np
 
 from .table_functions import to_array,to_vector
 
+import time
+
 #import warnings
 #warnings.simplefilter('error')
 
@@ -87,19 +89,26 @@ def combine_holes(spheres_table, frac=0.1):
     '''
 
 
+
+    time_start = time.time()
+
     ############################################################################
     # Remove duplicate holes
     #---------------------------------------------------------------------------
     unique_spheres_table = remove_duplicates(spheres_table)
     ############################################################################
 
+    print("remove_duplicates: ", time.time() - time_start)
 
 
     ############################################################################
     # Maximal spheres
     #---------------------------------------------------------------------------
+    time_start = time.time()
+    
     maximal_spheres_table, maximal_spheres_indices = find_maximals(unique_spheres_table, frac)
 
+    print("find_maximals: ", time.time() - time_start)
 
     # Array of coordinates for maximal spheres
     maximal_spheres_coordinates = to_array(maximal_spheres_table)
@@ -115,8 +124,11 @@ def combine_holes(spheres_table, frac=0.1):
     ############################################################################
     # Assign spheres to voids
     #---------------------------------------------------------------------------
+    
+    time_start = time.time()
     holes_table = find_holes(unique_spheres_table, maximal_spheres_table, maximal_spheres_indices)
     ############################################################################
+    print("find_holes: ", time.time() - time_start)
 
 
     return maximal_spheres_table, holes_table
@@ -156,8 +168,8 @@ def remove_duplicates(spheres_table, tol=0.1):
     # At least the first sphere will remain
     unique_spheres_indices = [0]
 
-
-    for i in range(len(spheres_table))[1:]:
+    
+    for i in range(1, len(spheres_table)):
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
@@ -185,11 +197,13 @@ def remove_duplicates(spheres_table, tol=0.1):
         if (separation > tol) or (unique_sphere_radius - sphere_i_radius > tol):
             # Sphere i is a unique sphere
             unique_spheres_indices.append(i)
+    
         '''
         else:
             # Sphere i is the same as the last unique sphere
             print('Sphere i is not a unique sphere')
         '''
+
 
 
     # Build unique_spheres_table
@@ -239,19 +253,35 @@ def find_maximals(spheres_table, frac):
     '''
 
 
-    large_spheres_indices = np.nonzero(spheres_table['radius'] > 10)
+    large_spheres_indices = np.nonzero(spheres_table['radius'] > 10)[0]
+    
+    all_sphere_coords = to_array(spheres_table)
+    all_sphere_radii = spheres_table['radius'].data
+    
+    maximal_spheres_coordinates = np.empty((large_spheres_indices.shape[0], 3))
+    maximal_spheres_radii = np.empty(large_spheres_indices.shape[0])
+
+
+    maximal_spheres_coordinates[0,:] = to_vector(spheres_table[0])
+    maximal_spheres_radii[0] = spheres_table['radius'][0]
+    
+    out_idx = 1
+
 
     # The largest hole is a void
     N_voids = 1
     maximal_spheres_indices = [0]
 
-    for i in large_spheres_indices[0][1:]:
+    for i in large_spheres_indices[1:]:
 
         # Coordinates of sphere i
-        sphere_i_coordinates = to_vector(spheres_table[i])
+        #sphere_i_coordinates = to_vector(spheres_table[i])
 
         # Radius of sphere i
-        sphere_i_radius = spheres_table['radius'][i]
+        #sphere_i_radius = spheres_table['radius'][i]
+        
+        sphere_i_coordinates = all_sphere_coords[i,:]
+        sphere_i_radius = all_sphere_radii[i]
 
         ########################################################################
         #
@@ -260,18 +290,18 @@ def find_maximals(spheres_table, frac):
         ########################################################################
 
         # Array of coordinates for previously identified maximal spheres
-        maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
+        #maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
 
         # Array of radii for previously identified maximal spheres
-        maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
+        #maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
 
         # Distance between sphere i's center and the centers of the other maximal spheres
-        separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
+        separation = np.linalg.norm((maximal_spheres_coordinates[0:out_idx,:] - sphere_i_coordinates), axis=1)
 
         ########################################################################
         # Does sphere i live completely inside another maximal sphere?
         #-----------------------------------------------------------------------
-        if any((maximal_spheres_radii - sphere_i_radius) >= separation):
+        if any((maximal_spheres_radii[0:out_idx] - sphere_i_radius) >= separation):
             # Sphere i is completely inside another sphere --- sphere i is not a maximal sphere
             #print('Sphere i is completely inside another sphere')
             continue
@@ -282,7 +312,7 @@ def find_maximals(spheres_table, frac):
         # Does sphere i overlap by less than x% with another maximal sphere?
         #-----------------------------------------------------------------------
         # First - determine which maximal spheres overlap with sphere i
-        overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii)
+        overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii[0:out_idx])
 
         if any(overlap_boolean):
             # Sphere i overlaps at least one maximal sphere by some amount.
@@ -290,15 +320,15 @@ def find_maximals(spheres_table, frac):
 
             # Heights of the spherical caps
             height_i = cap_height(sphere_i_radius, 
-                                  maximal_spheres_radii[overlap_boolean], 
+                                  maximal_spheres_radii[0:out_idx][overlap_boolean], 
                                   separation[overlap_boolean])
 
-            height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], 
+            height_maximal = cap_height(maximal_spheres_radii[0:out_idx][overlap_boolean], 
                                         sphere_i_radius, separation[overlap_boolean])
 
             # Overlap volume
             overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) \
-                             + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
+                             + spherical_cap_volume(maximal_spheres_radii[0:out_idx][overlap_boolean], height_maximal)
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
@@ -309,17 +339,25 @@ def find_maximals(spheres_table, frac):
                 #print('Overlap by less than x%: maximal sphere')
                 N_voids += 1
                 maximal_spheres_indices.append(i)
+                maximal_spheres_coordinates[out_idx,:] = sphere_i_coordinates
+                maximal_spheres_radii[out_idx] = sphere_i_radius
+                out_idx += 1
 
         else:
             # No overlap!  Sphere i is a maximal sphere
             #print('No overlap: maximal sphere')
             N_voids += 1
             maximal_spheres_indices.append(i)
+            maximal_spheres_coordinates[out_idx,:] = sphere_i_coordinates
+            maximal_spheres_radii[out_idx] = sphere_i_radius
+            out_idx += 1
         ########################################################################
 
 
     # Extract table of maximal spheres
-    maximal_spheres_table = spheres_table[maximal_spheres_indices]
+    #maximal_spheres_table = spheres_table[maximal_spheres_indices]
+    maximal_spheres_table = Table(maximal_spheres_coordinates[0:out_idx], names=['x','y','z'])
+    maximal_spheres_table['radius'] = maximal_spheres_radii[0:out_idx]
 
     # Add void flag identifier to maximal spheres
     maximal_spheres_table['flag'] = np.arange(N_voids) + 1
@@ -388,26 +426,44 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
     maximal_spheres_radii = np.array(maximal_spheres_table['radius'])
 
     maximal_indices = np.arange(len(maximal_spheres_indices))
+    
+    
+    all_sphere_coords = to_array(spheres_table)
+    all_sphere_radii = spheres_table['radius'].data
+    
+    
+    
+    
+    maximal_sphere_index = {}
+    
+    for idx,element in enumerate(maximal_spheres_indices):
+        
+        maximal_sphere_index[element] = idx
+    
+    
 
     for i in range(N_spheres):
 
         ########################################################################
         # First - check if i is a maximal sphere
         #-----------------------------------------------------------------------
-        if i in maximal_spheres_indices:
+        if i in maximal_sphere_index:
             N_holes += 1
             holes_indices.append(i)
-            spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_spheres_indices == i]
+            #spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_spheres_indices == i]
+            spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_sphere_index[i]]
             #print('sphere i is a maximal sphere')
             continue
         ########################################################################
 
 
         # Coordinates of sphere i
-        sphere_i_coordinates = to_vector(spheres_table[i])
+        #sphere_i_coordinates = to_vector(spheres_table[i])
+        sphere_i_coordinates = all_sphere_coords[i,:]
 
         # Radius of sphere i
-        sphere_i_radius = spheres_table['radius'][i]
+        #sphere_i_radius = spheres_table['radius'][i]
+        sphere_i_radius = all_sphere_radii[i]
 
 
         ########################################################################
@@ -452,6 +508,7 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
             height_i = cap_height(sphere_i_radius, 
                                   maximal_spheres_radii[overlap_boolean], 
                                   separation[overlap_boolean])
+            
             height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], 
                                         sphere_i_radius, 
                                         separation[overlap_boolean])

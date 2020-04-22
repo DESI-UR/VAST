@@ -234,17 +234,17 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     
     while galaxy_search:
 
-        #dr *= 1.1
+        dr *= 1.1
         
-        curr_level += 1
+        #curr_level += 1
         
         ############################################################################
         # shift hole center
         ############################################################################
         for idx in range(3):
 
-            #temp_hole_center_memview[0, idx] = temp_hole_center_memview[0, idx] + direction_mod*dr*unit_vector_memview[idx]
-            temp_hole_center_memview[0, idx] = temp_hole_center_memview[0, idx] + direction_mod*galaxy_tree.dl*unit_vector_memview[idx]
+            temp_hole_center_memview[0, idx] = temp_hole_center_memview[0, idx] + direction_mod*dr*unit_vector_memview[idx]
+            #temp_hole_center_memview[0, idx] = temp_hole_center_memview[0, idx] + direction_mod*galaxy_tree.dl*unit_vector_memview[idx]
             
             #curr_pqr[idx] = <CELL_ID_t>((temp_hole_center_memview[0,0] - galaxy_tree.coord_min[0,0])/galaxy_tree.dl)
         
@@ -258,6 +258,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         #    
         #else:
         #    continue
+        
         
         ############################################################################
         # calculate new search radius
@@ -276,7 +277,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         # of dr, since the unit vector we're moving along is not aligned with
         # the vector from the moving hole center to galaxy 1/A
         ############################################################################
-        '''
+        
         if num_neighbors == 1:
             
             search_radius += dr
@@ -292,7 +293,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 temp_f64_accum += temp_f64_val*temp_f64_val
                 
             search_radius = sqrt(temp_f64_accum)
-        '''
+        
         
         
         ############################################################################
@@ -305,7 +306,8 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         
         neighbor_mem.next_neigh_idx = 0
         
-        '''
+        #print("Loc-C1", flush=True)
+        
         _query_shell_radius(galaxy_tree.reference_point_ijk,
                             galaxy_tree.w_coord,
                             galaxy_tree.coord_min,
@@ -316,6 +318,8 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                             neighbor_mem,
                             temp_hole_center_memview, 
                             search_radius)
+        
+        #print("Loc-C2", flush=True)
         
         '''
         
@@ -329,7 +333,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                 hole_center_memview,
                                 curr_level
                                 )
-        
+        '''
         #When we're looping through, keep track of the last ijk so we can track whether or not
         #we have already queried this "level" with respect to the hole_center on next loop and
         #short circuit if the movement of length dr didn't move us into a new ijk cell                        
@@ -517,7 +521,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 
                 final_level = True
                 
-                #return retval
+                return retval
                 
             elif any_valid and final_level:
                 
@@ -532,7 +536,6 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 #galaxy_search = False
                 
                 return retval
-                
                 
 
         elif not_in_mask(temp_hole_center_memview, mask, mask_resolution, min_dist, max_dist):
@@ -561,7 +564,7 @@ cdef DTYPE_F64_t dec_offset = -90
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, 
+cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, 
                            DTYPE_B_t[:,:] survey_mask_ra_dec, 
                            DTYPE_INT32_t n,
                            DTYPE_F64_t rmin, 
@@ -772,6 +775,17 @@ cdef class HoleGridCustomDict:
         
         hash_addr = index % self.mem_length
         
+        ############################################################
+        # the @cython.cdivision(True) directive, while providing
+        # speedup benefits, means that -1 % 5 = -1, not 4 as in
+        # python, so we have to explicitly check for negative vals
+        ############################################################
+        if hash_addr < 0:
+            
+            hash_addr += self.mem_length
+        
+        
+        
         return hash_addr
     
     
@@ -977,6 +991,16 @@ cdef class GalaxyMapCustomDict:
         
         hash_addr = index % self.mem_length
         
+        ############################################################
+        # the @cython.cdivision(True) directive, while providing
+        # speedup benefits, means that -1 % 5 = -1, not 4 as in
+        # python, so we have to explicitly check for negative vals
+        ############################################################
+        if hash_addr < 0:
+            
+            hash_addr += self.mem_length
+        
+        
         return hash_addr
     
     
@@ -1006,6 +1030,8 @@ cdef class GalaxyMapCustomDict:
         for hash_offset in range(self.mem_length):
             
             curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
+            
+            #print("Loc-G1: "+str(curr_hash_addr), flush=True)
             
             curr_element = self.lookup_memory[curr_hash_addr]
             
@@ -2200,6 +2226,9 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
     cdef DTYPE_INT64_t num_written = 0
     
     
+    
+    
+    
     ################################################################################
     # We can precompute the maximum number of rows we might need for this shell 
     # generation to be successful, so if necessary resize the cell_ID_mem to be big 
@@ -2215,6 +2244,7 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
     if cell_ID_mem.max_level_mem < <DTYPE_INT64_t>level:
         
         cell_ID_mem.resize(<size_t>level)
+    
     
     
     ################################################################################
@@ -2262,7 +2292,9 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
         
         cell_ID_mem.level_start_idx[level] = 0
         
-        
+    
+    
+    
     ################################################################################
     # For level 0, the algorithm below actually would write out the original
     # cell ijk twice, but we only want to write it once so have a special block
@@ -2290,7 +2322,6 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
         cell_ID_mem.level_stop_idx[level] = cell_ID_mem.next_unused_row_idx
         
         return cell_ID_mem.level_start_idx[level], cell_ID_mem.level_stop_idx[level]
-    
     
     ################################################################################
     # Technically not necessary but made the code below look a tad cleaner
@@ -2334,7 +2365,7 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 out_idx += 3
                 num_written += 1
                 
-                
+    #print("Loc-E5", flush=True)
     ################################################################################
     # j dimension
     # Next do the 2 "planes" at the "j +/- level" coordinates, except for the edges
@@ -2348,7 +2379,12 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
             out_j = <CELL_ID_t>level + center_j
             out_k = <CELL_ID_t>k + center_k
             
+            
+            #print("Loc-F1: "+str(out_i)+" "+str(out_j)+" "+str(out_k), flush=True)
+            
             if galaxy_map.contains(out_i, out_j, out_k):
+                
+                #print("Loc-F2", flush=True)
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -2356,6 +2392,8 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 
                 out_idx += 3
                 num_written += 1
+                
+            #print("Loc-F3", flush=True)
                 
             out_j = <CELL_ID_t>(-level) + center_j
         
@@ -2367,7 +2405,11 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 
                 out_idx += 3
                 num_written += 1
-            
+                
+                
+    
+    #print("Loc-E6", flush=True)
+    
     ################################################################################
     # k dimension
     # Lastly do the 2 "planes" at the "k +/- level" coordinates, noting that since
@@ -2435,6 +2477,8 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
     """
     
     
+    #print("Loc-D2", flush=True)
+    
     cdef DTYPE_INT32_t curr_level
     
     cdef DTYPE_INT64_t row_start, row_stop
@@ -2445,6 +2489,9 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
                                          curr_level,
                                          cell_ID_mem,
                                          galaxy_map)
+        
+    
+    #rint("Loc-D3", flush=True)
                 
     return cell_ID_mem.next_unused_row_idx
     

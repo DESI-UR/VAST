@@ -73,6 +73,7 @@ def _hole_finder(hole_grid_shape,
                  max_dist,
                  galaxy_coords,
                  survey_name,
+                 #hole_radial_mask_check_dist,
                  save_after=None,
                  use_start_checkpoint=False,
                  batch_size=1000,
@@ -139,6 +140,9 @@ def _hole_finder(hole_grid_shape,
         identifier for the survey running, may be prepended or appended
         to output filenames including the checkpoint filename
         
+    DEPRECATED hole_radial_mask_check_dist : float in (0.0,1.0)
+        radial distance to check whether or not a hole overlaps with outside the mask
+        too much
         
     save_after : int or None
         save a VoidFinderCheckpoint.h5 file after *approximately* every save_after
@@ -235,7 +239,6 @@ def _hole_finder(hole_grid_shape,
     
     if isinstance(num_cpus, int) and num_cpus == 1:
         
-        
         #cProfile.runctx("run_single_process_cython(ngrid, dl, dr, coord_min, mask, mask_resolution, min_dist, max_dist, w_coord, batch_size=batch_size, verbose=verbose, print_after=print_after, num_cpus=num_cpus)", globals(), locals(), 'prof_single.prof')
         #x_y_z_r_array = None
         #n_holes = None
@@ -252,6 +255,7 @@ def _hole_finder(hole_grid_shape,
                                                              max_dist,
                                                              galaxy_coords,
                                                              survey_name,
+                                                             #hole_radial_mask_check_dist,
                                                              save_after=save_after,
                                                              use_start_checkpoint=use_start_checkpoint,
                                                              batch_size=batch_size,
@@ -273,6 +277,7 @@ def _hole_finder(hole_grid_shape,
                                                             max_dist,
                                                             galaxy_coords,
                                                             survey_name,
+                                                            #hole_radial_mask_check_dist,
                                                             save_after=save_after,
                                                             use_start_checkpoint=use_start_checkpoint,
                                                             batch_size=batch_size,
@@ -426,6 +431,7 @@ def _hole_finder_single_process(void_grid_shape,
                                 max_dist,
                                 galaxy_coords,
                                 survey_name,
+                                #hole_radial_mask_check_dist,
                                 save_after=None,
                                 use_start_checkpoint=False,
                                 batch_size=1000,
@@ -761,6 +767,7 @@ def _hole_finder_single_process(void_grid_shape,
                            mask_resolution,
                            min_dist,
                            max_dist,
+                           #hole_radial_mask_check_dist,
                            return_array,
                            cell_ID_mem,
                            neighbor_mem,
@@ -856,6 +863,7 @@ def _hole_finder_multi_process(ngrid,
                                max_dist,
                                w_coord,
                                survey_name,
+                               #hole_radial_mask_check_dist,
                                batch_size=1000,
                                verbose=0,
                                print_after=10000,
@@ -1409,6 +1417,7 @@ def _hole_finder_multi_process(ngrid,
                      "hole_lookup_fd" : hole_lookup_fd,
                      "hole_next_prime" : hole_next_prime,
                      "num_nonempty_hole_cells" : num_nonempty_hole_cells,
+                     #"hole_radial_mask_check_dist" : hole_radial_mask_check_dist,
                      #"CELL_ID_BUFFER_PATH" : CELL_ID_BUFFER_PATH,
                      #"PROFILE_BUFFER_PATH" : PROFILE_BUFFER_PATH,
                      #"cell_ID_dict" : cell_ID_dict,
@@ -2109,6 +2118,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     hole_lookup_fd = config["hole_lookup_fd"]
     hole_next_prime = config["hole_next_prime"]
     num_nonempty_hole_cells = config["num_nonempty_hole_cells"]
+    #hole_radial_mask_check_dist = config["hole_radial_mask_check_dist"]
     num_in_galaxy_map = config["num_in_galaxy_map"]
     ngrid = config["ngrid"]
     dl = config["dl"]
@@ -2479,6 +2489,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                mask_resolution,
                                min_dist,
                                max_dist,
+                               #hole_radial_mask_check_dist,
                                return_array,
                                cell_ID_mem,
                                neighbor_mem,

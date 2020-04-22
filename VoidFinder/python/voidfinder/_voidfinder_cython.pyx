@@ -296,6 +296,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                           DTYPE_INT32_t mask_resolution,
                           DTYPE_F64_t min_dist,
                           DTYPE_F64_t max_dist,
+                          #DTYPE_F64_t hole_radial_mask_check_dist,
                           DTYPE_F64_t[:,:] return_array,
                           Cell_ID_Memory cell_ID_mem,
                           NeighborMemory neighbor_mem,
@@ -363,6 +364,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     max_dist : float
         Maximum distance of the galaxy distribution.
         
+    DEPRECATED hole_radial_mask_check_dist : float
+        fraction of hole radius at which to check the 6 directions +/- x,y,z to see
+        if too much of the hole is outside the mask, and if so, discard the hole
+        
     return_array : memoryview into (N,4) numpy array
         memory for results, each row is (x,y,z,r)
         
@@ -391,7 +396,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     ############################################################################
     
     
-    DEBUG_OUTFILE = open("VF_DEBUG.txt", 'a')
+    #DEBUG_OUTFILE = open("VF_DEBUG.txt", 'a')
     
     
     cdef ITYPE_t working_idx
@@ -456,6 +461,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     cdef DTYPE_B_t in_mask_41
     
     cdef DTYPE_B_t in_mask_42
+    
+    cdef DTYPE_B_t discard_mask_overlap
     
     
     ############################################################################
@@ -550,7 +557,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
         if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
-            
+            '''
             out_str = ""
             out_str += str(i_j_k_array[working_idx, 0])
             out_str += ","
@@ -561,7 +568,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             out_str += "nim1"
             out_str += "\n"
             DEBUG_OUTFILE.write(out_str)
-            
+            '''
             
             return_array[working_idx, 0] = NAN
             
@@ -660,7 +667,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         if not in_mask_2:
             
-            
+            '''
             out_str = ""
             out_str += str(i_j_k_array[working_idx, 0])
             out_str += ","
@@ -671,7 +678,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             out_str += "nim2"
             out_str += "\n"
             DEBUG_OUTFILE.write(out_str)
-            
+            '''
             
         
             return_array[working_idx, 0] = NAN
@@ -752,7 +759,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
-            
+            '''
             out_str = ""
             out_str += str(i_j_k_array[working_idx, 0])
             out_str += ","
@@ -763,7 +770,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             out_str += "nim3"
             out_str += "\n"
             DEBUG_OUTFILE.write(out_str)
-            
+            '''
             
             
             
@@ -859,7 +866,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         if not in_mask_3:
             
             
-            
+            '''
             out_str = ""
             out_str += str(i_j_k_array[working_idx, 0])
             out_str += ","
@@ -870,7 +877,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             out_str += "nim4"
             out_str += "\n"
             DEBUG_OUTFILE.write(out_str)
-            
+            '''
             
         
             return_array[working_idx, 0] = NAN
@@ -914,7 +921,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
         if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
         
-        
+            '''
             out_str = ""
             out_str += str(i_j_k_array[working_idx, 0])
             out_str += ","
@@ -925,7 +932,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             out_str += "nim5"
             out_str += "\n"
             DEBUG_OUTFILE.write(out_str)
-        
+            '''
         
         
         
@@ -1133,7 +1140,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
             
             
-            
+            '''
             out_str = ""
             out_str += str(i_j_k_array[working_idx, 0])
             out_str += ","
@@ -1144,7 +1151,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             out_str += "nim6"
             out_str += "\n"
             DEBUG_OUTFILE.write(out_str)
-            
+            '''
             
             
             
@@ -1158,10 +1165,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             
             continue
     
-    
+        
         ########################################################################
         # Now that we have all 4 bounding galaxies, calculate the hole radius
-        # and write the valid (x,y,z,r) values!
         ########################################################################
     
         temp_f64_accum = 0.0
@@ -1175,6 +1181,53 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         hole_radius = sqrt(temp_f64_accum)
     
     
+    
+    
+        ########################################################################
+        # 
+        # DEPRECATED
+        #
+        # Finally, check 6 directions: +/- x,y,z with a proportion of the
+        # radius to see if too much of this hole falls outside the mask
+        # (This implements the "If 10% falls outside the mask, discard hole"
+        # check)
+        #
+        # re-using hole_center_42_memview as empty memory
+        #
+        # We are removing this function and making a new implementation
+        # outside of the _voidfinder_cython.main_algorithm 
+        #
+        ########################################################################
+        '''
+        discard_mask_overlap = check_mask_overlap(hole_center_memview,
+                                                  hole_center_42_memview,
+                                                   hole_radial_mask_check_dist,
+                                                   hole_radius,
+                                                   mask, 
+                                                   mask_resolution, 
+                                                   min_dist, 
+                                                   max_dist)
+        
+        if discard_mask_overlap:
+            
+            return_array[working_idx, 0] = NAN
+            
+            return_array[working_idx, 1] = NAN
+            
+            return_array[working_idx, 2] = NAN
+            
+            return_array[working_idx, 3] = NAN
+            
+            continue
+        '''
+        
+    
+        ########################################################################
+        # Passed all checks, write the valid (x,y,z,r) values!
+        ########################################################################
+    
+    
+    
         return_array[working_idx, 0] = hole_center_memview[0, 0]
         
         return_array[working_idx, 1] = hole_center_memview[0, 1]
@@ -1184,7 +1237,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         return_array[working_idx, 3] = hole_radius
         
         
-        
+        '''
         out_str = ""
         out_str += str(i_j_k_array[working_idx, 0])
         out_str += ","
@@ -1203,19 +1256,91 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         out_str += str(hole_radius)
         out_str += "\n"
         DEBUG_OUTFILE.write(out_str)
+        '''
         
-        
-    DEBUG_OUTFILE.close()
+    #DEBUG_OUTFILE.close()
         
     return
 
 
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.profile(True)
+cpdef DTYPE_B_t check_mask_overlap(DTYPE_F64_t[:,:] coordinates,
+                                  DTYPE_F64_t[:,:] temp_coordinates,
+                                  DTYPE_F64_t hole_radial_mask_check_dist,
+                                  DTYPE_F64_t hole_radius,
+                                  DTYPE_B_t[:,:] mask, 
+                                  DTYPE_INT32_t mask_resolution,
+                                  DTYPE_F64_t min_dist, 
+                                  DTYPE_F64_t max_dist):
+                                   
+    cdef DTYPE_B_t discard
+    cdef DTYPE_F64_t check_dist = hole_radius*hole_radial_mask_check_dist
+    
+    #Positive X direction
+    temp_coordinates[0,0] = coordinates[0,0] + check_dist
+    temp_coordinates[0,1] = coordinates[0,1]
+    temp_coordinates[0,2] = coordinates[0,2]
 
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Negative X direction
+    temp_coordinates[0,0] = coordinates[0,0] - check_dist
 
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Positive Y direction
+    temp_coordinates[0,0] = coordinates[0,0] #reset X
+    temp_coordinates[0,1] = coordinates[0,1] + check_dist
 
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Negative Y direction
+    temp_coordinates[0,1] = coordinates[0,1] - check_dist
 
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Positive Z direction
+    temp_coordinates[0,1] = coordinates[0,1] #reset Y
+    temp_coordinates[0,2] = coordinates[0,2] + check_dist
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Negative Z direction
+    temp_coordinates[0,2] = coordinates[0,2] - check_dist
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    return False
+    
 
 
 @cython.boundscheck(False)

@@ -28,7 +28,7 @@
 #
 ################################################################################
 
-from voidfinder import find_voids, filter_galaxies_2
+from voidfinder import find_voids, filter_galaxies
 
 from voidfinder.multizmask import generate_mask
 from voidfinder.preprocessing import file_preprocess
@@ -126,6 +126,8 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
                                                                                max_z=max_z,
                                                                                verbose=1)
 
+print("Dist limits: ", dist_limits)
+
 ################################################################################
 #
 #   GENERATE MASK
@@ -149,9 +151,9 @@ temp_infile = open(survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
-wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies_2(galaxy_data_table,
-                                                                                   survey_name,
-                                                                                   verbose=1)
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies(galaxy_data_table,
+                                                                                 survey_name,
+                                                                                 verbose=1)
 
 del galaxy_data_table
 

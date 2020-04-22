@@ -23,10 +23,27 @@ from astropy.table import Table
 ################################################################################
 
 
-holes_xyz, holes_radii, holes_flags = load_hole_data("../../data/SDSS/vollim_dr7_cbp_102709_comoving_holes.txt")
+#holes_xyz, holes_radii, holes_flags = load_hole_data("../../data/SDSS/vollim_dr7_cbp_102709_comoving_holes.txt")
+
+holes_infile = "../../data/SDSS/VF_FORTRAN_HOLES.dat"
+
+holes_table = Table.read(holes_infile, format='ascii.commented_header')
+
+num_holes = len(holes_table)
+
+holes_xyz = np.concatenate((holes_table['x'].data.reshape(num_holes,1), 
+                              holes_table['y'].data.reshape(num_holes,1), 
+                              holes_table['z'].data.reshape(num_holes,1)), axis=1)
+
+holes_radii = holes_table['r'].data
+
+holes_flags = holes_table['flag'].data
 
 
-wall_gal_infile = "../../data/SDSS/SDSS_dr7_wall_gal_file.txt"
+
+
+#wall_gal_infile = "../../data/SDSS/SDSS_dr7_wall_gal_file.txt"
+wall_gal_infile = "../../data/SDSS/VF_FORTRAN_WALL_GALAXIES.dat"
 
 wall_gal_table = Table.read(wall_gal_infile, format="ascii.commented_header")
 
@@ -41,7 +58,8 @@ wall_galaxy_data = np.concatenate((wall_gal_table['x'].data.reshape(num_wall,1),
 
 
 
-field_galaxy_infile = "../../data/SDSS/SDSS_dr7_field_gal_file.txt"
+#field_galaxy_infile = "../../data/SDSS/SDSS_dr7_field_gal_file.txt"
+field_galaxy_infile = "../../data/SDSS/VF_FORTRAN_FIELD_GALAXIES.dat"
 
 field_gal_table = Table.read(field_galaxy_infile, format="ascii.commented_header")
 
