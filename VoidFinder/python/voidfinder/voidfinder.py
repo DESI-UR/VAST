@@ -7,7 +7,7 @@ from astropy.table import Table
 
 import time
 
-from .hole_combine import combine_holes
+from .hole_combine import combine_holes, combine_holes_2
 
 from .voidfinder_functions import mesh_galaxies, \
                                   in_mask, \
@@ -24,7 +24,7 @@ from .table_functions import add_row, \
                              table_dtype_cast, \
                              table_divide
 
-from .volume_cut import volume_cut
+from .volume_cut import volume_cut, check_hole_bounds
 
 from .avsepcalc import av_sep_calc
 
@@ -798,6 +798,47 @@ def find_voids(galaxy_coords_xyz,
 
     print('Time to find all holes =', time.time() - tot_hole_start, flush=True)
     
+    ############################################################################
+    # 
+    # New cythonized versions of what happens below, which is commented out
+    #
+    ############################################################################
+    
+    vol_cut_start = time.time()
+    
+    print("Starting volume cut")
+    
+    hole_bound_time = time.time()
+    
+    valid_idx, monte_index = check_hole_bounds(x_y_z_r_array, 
+                                              mask.astype(np.uint8), 
+                                              mask_resolution, 
+                                              dist_limits,
+                                              cut_pct=0.1,
+                                              pts_per_unit_volume=.01,
+                                              num_surf_pts=20,
+                                              num_cpus=num_cpus)
+    
+    print("Found " + str(np.sum(np.logical_not(valid_idx)))+" holes to cut", time.time() - vol_cut_start)
+    
+    x_y_z_r_array = x_y_z_r_array[valid_idx]
+    
+    print("Sorting holes based on radius")
+    
+    sort_order = x_y_z_r_array[:,3].argsort()[::-1]
+    
+    x_y_z_r_array = x_y_z_r_array[sort_order]
+    
+    print("Combining holes into unique voids")
+    
+    combine_start = time.time()
+    
+    maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array)
+    
+    print("Combine time: ", time.time() - combine_start)
+    
+    print('Number of unique voids is', len(maximal_spheres_table), flush=True)
+    
     
     
     
@@ -844,28 +885,28 @@ def find_voids(galaxy_coords_xyz,
     #   SORT HOLES BY SIZE
     #
     ############################################################################
-
+    '''
     sort_start = time.time()
-
+    
     print('Sorting holes by size', flush=True)
-
+    
     potential_voids_table = Table(x_y_z_r_array, names=('x','y','z','radius'))
 
     potential_voids_table.sort('radius')
     
     potential_voids_table.reverse()
-
+    
     sort_end = time.time()
 
     print('Holes are sorted; Time to sort holes =', sort_end-sort_start, flush=True)
-
+    '''
 
     ############################################################################
     #
     #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
     #
     ############################################################################
-    
+    '''
     print('Removing holes with at least 10% of their volume outside the mask', flush=True)
 
     mask = mask.astype(np.uint8)
@@ -882,34 +923,42 @@ def find_voids(galaxy_coords_xyz,
     print("Num volume-cut holes: ", len(potential_voids_table), flush=True)
     
     potential_voids_table.write(potential_voids_filename, format='ascii.commented_header', overwrite=True)
-    
+    '''
     ############################################################################
     #
     #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
     #
     ############################################################################
-
+    '''
     combine_start = time.time()
 
     print('Combining holes into unique voids', flush=True)
 
     maximal_spheres_table, myvoids_table = combine_holes(potential_voids_table)
-
+    
     print('Number of unique voids is', len(maximal_spheres_table), flush=True)
-
-    # Save list of all void holes
-    myvoids_table.write(void_table_filename, format='ascii.commented_header', overwrite=True)
-
+    
     combine_end = time.time()
 
     print('Time to combine holes into voids =', combine_end-combine_start, flush=True)
-
     '''
+    
+    ############################################################################
+    #
+    # Save list of all void holes
+    #
+    ############################################################################
+    myvoids_table.write(void_table_filename, format='ascii.commented_header', overwrite=True)
+
+    
+
+    
     ############################################################################
     #
     #   COMPUTE VOLUME OF EACH VOID
     #
     ############################################################################
+    '''
     print('Compute void volumes')
 
     # Initialize void volume array
@@ -936,12 +985,13 @@ def find_voids(galaxy_coords_xyz,
         
         void_vol[i] = (rad**3)*nsph/nran
     
-    
+    '''
     ############################################################################
     #
     #   IDENTIFY VOID GALAXIES
     #
     ############################################################################
+    '''
     print('Assign field galaxies to voids')
 
     # Count the number of galaxies in each void
@@ -972,13 +1022,13 @@ def find_voids(galaxy_coords_xyz,
 
     save_maximals(maximal_spheres_table, maximal_spheres_filename)
 
-    '''
+    
     ############################################################################
     #
     #   VOID REGION SIZES
     #
     ############################################################################
-
+    '''
 
     # Initialize
     void_regions = Table()

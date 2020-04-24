@@ -62,6 +62,16 @@ extensions = [
                         include_dirs=[".", numpy.get_include()],
                         library_dirs=["m"]),
               
+              Extension("voidfinder._vol_cut_cython", 
+                        ["voidfinder/_vol_cut_cython.pyx"],
+                        include_dirs=[".", numpy.get_include()],
+                        library_dirs=["m"]),
+              
+              Extension("voidfinder._hole_combine_cython", 
+                        ["voidfinder/_hole_combine_cython.pyx"],
+                        include_dirs=[".", numpy.get_include()],
+                        library_dirs=["m"]),
+              
               Extension("voidfinder.distance", 
                         ["voidfinder/distance.pyx"],
                         include_dirs=[".", numpy.get_include()],
