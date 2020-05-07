@@ -134,7 +134,7 @@ print("Dist limits: ", dist_limits)
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1)
+mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1, smooth_mask=True)
 
 
 temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')

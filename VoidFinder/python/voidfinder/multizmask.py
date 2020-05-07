@@ -14,7 +14,8 @@ dec_offset = -90
 
 
 def generate_mask(gal_data, 
-                  #dist_metric='comoving', 
+                  #dist_metric='comoving',
+                  smooth_mask=True,
                   h=1.0, 
                   O_m=0.3,
                   verbose=0):
@@ -152,8 +153,42 @@ def generate_mask(gal_data,
     for row in pre_mask:
         
         mask[row[0], row[1] - mask_resolution*dec_offset] = True
+        
+        
+    
+    if smooth_mask:
+        
+        correct_idxs = []
+    
+        for idx in range(mask.shape[0]):
+            
+            for jdx in range(mask.shape[1]):
+                
+                if idx < 1 or jdx < 1 or idx > mask.shape[0] - 2 or jdx > mask.shape[1] - 2:
+                    continue
+                
+                curr_val = mask[idx, jdx]
+                
+                neigh1 = int(mask[idx-1,jdx])
+                neigh2 = int(mask[idx+1,jdx])
+                neigh3 = int(mask[idx,jdx-1])
+                neigh4 = int(mask[idx,jdx+1])
+                
+                if curr_val == 0 and neigh1+neigh2+neigh3+neigh4 >= 3:
+                    correct_idxs.append((idx,jdx))
+        
+        for (idx, jdx) in correct_idxs:
+            
+            mask[idx,jdx] = 1
 
     return mask, mask_resolution
+
+
+
+
+
+    
+    
 
 
 
