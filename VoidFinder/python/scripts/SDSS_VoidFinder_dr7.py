@@ -55,58 +55,42 @@ num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
-#survey_name = 'SDSS_dr12_'
 
 # File header
-'''
-if survey_name == 'SDSS_dr7_':
-    in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
-    out_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
-    #in_directory = '/home/oneills2/Desktop/data/SDSS/'
-    #out_directory = '/home/oneills2/Desktop/data/SDSS/'
-elif survey_name == 'SDSS_dr12_':
-    in_directory = '/home/moose/VoidFinder/VoidFinder/data/'
-    out_directory = '/home/moose/VoidFinder/VoidFinder/data/'
-    #in_directory = '/home/oneills2/Desktop/data/'
-    #out_directory = '/home/oneills2/Desktop/data/'
-'''
 in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 
 
 
 # Input file name
-if survey_name == 'SDSS_dr7_':
-    galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-elif survey_name == 'SDSS_dr12_':
-    galaxies_filename = 'dr12r.dat'
+galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Survey parameters
 # Note: These can be set to None, in which case VoidFinder will use the limits 
 # of the galaxy catalog.
-if survey_name == 'SDSS_dr7_':
-    min_z = 0
-    max_z = 0.1026
-elif survey_name == 'SDSS_dr12_':
-    min_z = None
-    max_z = None
+min_z = 0
+max_z = 0.1026
 
 # Cosmology (uncomment and change values to change cosmology)
+# Need to also uncomment relevent inputs in function calls below
 #Omega_M = 0.3
 #h = 1
 
 # Uncomment if you do NOT want to use comoving distances
+# Need to also uncomment relevent inputs in function calls below
 #dist_metric = 'redshift'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
+# Need to also uncomment relevent input in function call below
 #mag_cut = False
 
 
 # Uncomment if you do NOT want to remove isolated galaxies
+# Need to also uncomment relevent input in function call below
 #rm_isolated = False
 #-------------------------------------------------------------------------------
 
@@ -122,8 +106,13 @@ elif survey_name == 'SDSS_dr12_':
 galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, 
                                                                                in_directory, 
                                                                                out_directory, 
+                                                                               #mag_cut=mag_cut,
+                                                                               #rm_isolated=rm_isolated,
+                                                                               #dist_metric=dist_metric,
                                                                                min_z=min_z, 
                                                                                max_z=max_z,
+                                                                               #Omega_M=Omega_M,
+                                                                               #h=h,
                                                                                verbose=1)
 
 ################################################################################
@@ -151,6 +140,8 @@ temp_infile.close()
 
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies_2(galaxy_data_table,
                                                                                    survey_name,
+                                                                                   #distance_metric=dist_metric,
+                                                                                   #h=h,
                                                                                    verbose=1)
 
 del galaxy_data_table
