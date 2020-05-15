@@ -4,8 +4,12 @@ import numpy as np
 
 from .table_functions import to_array,to_vector
 
+import time
+
 #import warnings
 #warnings.simplefilter('error')
+
+from ._hole_combine_cython import remove_duplicates_2, find_maximals_2, find_holes_2
 
 
 ################################################################################
@@ -87,19 +91,26 @@ def combine_holes(spheres_table, frac=0.1):
     '''
 
 
+
+    time_start = time.time()
+
     ############################################################################
     # Remove duplicate holes
     #---------------------------------------------------------------------------
     unique_spheres_table = remove_duplicates(spheres_table)
     ############################################################################
 
+    print("remove_duplicates: ", time.time() - time_start)
 
 
     ############################################################################
     # Maximal spheres
     #---------------------------------------------------------------------------
+    time_start = time.time()
+    
     maximal_spheres_table, maximal_spheres_indices = find_maximals(unique_spheres_table, frac)
 
+    print("find_maximals: ", time.time() - time_start)
 
     # Array of coordinates for maximal spheres
     maximal_spheres_coordinates = to_array(maximal_spheres_table)
@@ -115,11 +126,85 @@ def combine_holes(spheres_table, frac=0.1):
     ############################################################################
     # Assign spheres to voids
     #---------------------------------------------------------------------------
+    
+    time_start = time.time()
     holes_table = find_holes(unique_spheres_table, maximal_spheres_table, maximal_spheres_indices)
     ############################################################################
+    print("find_holes: ", time.time() - time_start)
 
 
     return maximal_spheres_table, holes_table
+
+
+def combine_holes_2(x_y_z_r_array,
+                    dup_tol=0.1,
+                    maximal_overlap_frac=0.1,
+                    min_maximal_radius=10.0,
+                    hole_join_frac=0.5
+                    ):
+    """
+    Description
+    ===========
+    
+    Perform 3 steps to unionize the found holes into Voids.
+    
+    1).  Remove specific duplicate holes
+    2).  Find holes which qualify as a Maximal
+    3).  Join all other holes to the Maximals to form Voids.
+    
+    Parameters
+    ==========
+    
+    x_y_z_r_array : ndarray of shape (N,4)
+        the xyz coordinates of the holes and their radii r
+        
+    dup_tol : float 
+        the tolerance in units of distance to check 2 hole centers
+        against in the remove duplicates step
+        
+    maximal_overlap_frac : float in [0.0, 1.0)
+        in the find maximals step, any 2 potential maximals which overlap
+        by more than this percentage means the smaller hole will not be
+        considered a maximal
+        
+    min_maximal_radius : float
+        the minimum radius in units of distance for a hole to be considered
+        for maximal status
+        
+    hole_join_frac : float in [0,1.0)
+        the fraction of the hole's volume required to overlap for a maximal
+        for the hole to join that maximal's Void    
+
+    """
+    
+    unique_index = remove_duplicates_2(x_y_z_r_array, dup_tol)
+    
+    x_y_z_r_array = x_y_z_r_array[unique_index]
+    
+    maximal_spheres_indices = find_maximals_2(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
+    
+    hole_flag_array = find_holes_2(x_y_z_r_array, maximal_spheres_indices, hole_join_frac)
+    
+    holes_index = hole_flag_array[:,0]
+    
+    holes_flag_index = hole_flag_array[:,1]
+    
+    maximals_xyzr = x_y_z_r_array[maximal_spheres_indices]
+    
+    holes_xyzr = x_y_z_r_array[holes_index]
+    
+    ################################################################################
+    # Format the results as astropy tables
+    ################################################################################
+    
+    maximals_table = Table(maximals_xyzr, names=('x','y','z','radius'))
+    maximals_table["flag"] = np.arange(maximals_xyzr.shape[0])
+    holes_table =  Table(holes_xyzr, names=('x','y','z','radius'))
+    holes_table["flag"] = holes_flag_index
+    
+    return maximals_table, holes_table
+
+
 
 
 
@@ -153,11 +238,15 @@ def remove_duplicates(spheres_table, tol=0.1):
     '''
 
 
+
+    '''
+    time_1 = time.time()
+
     # At least the first sphere will remain
     unique_spheres_indices = [0]
 
-
-    for i in range(len(spheres_table))[1:]:
+    
+    for i in range(1, len(spheres_table)):
 
         # Coordinates of sphere i
         sphere_i_coordinates = to_vector(spheres_table[i])
@@ -185,15 +274,37 @@ def remove_duplicates(spheres_table, tol=0.1):
         if (separation > tol) or (unique_sphere_radius - sphere_i_radius > tol):
             # Sphere i is a unique sphere
             unique_spheres_indices.append(i)
-        '''
-        else:
-            # Sphere i is the same as the last unique sphere
-            print('Sphere i is not a unique sphere')
-        '''
+    
+        
+        #else:
+        #    # Sphere i is the same as the last unique sphere
+        #    print('Sphere i is not a unique sphere')
+        
 
+
+    '''     
+
+    #print("TESTING NEW REMOVE DUPLICATES:")
+    #print("Time 1: ", time.time() - time_1)
+    
+    array = np.array([spheres_table['x'], spheres_table['y'], spheres_table['z'], spheres_table['radius']])
+    x_y_z_r_array = array.T
+
+    
+    #time_2 = time.time()
+    unique_index = remove_duplicates_2(x_y_z_r_array, tol)
+    #print("Time 2: ", time.time() - time_2)
+    
+    #test = np.where(unique_index)[0]
+    #print(unique_spheres_indices[0:10])
+    #print(test[0:10])
+    #print(np.all(np.array(unique_spheres_indices)==test))
+    
+    
 
     # Build unique_spheres_table
-    unique_spheres_table = spheres_table[unique_spheres_indices]
+    #unique_spheres_table = spheres_table[unique_spheres_indices]
+    unique_spheres_table = spheres_table[unique_index]
 
     return unique_spheres_table
 
@@ -239,19 +350,51 @@ def find_maximals(spheres_table, frac):
     '''
 
 
-    large_spheres_indices = np.nonzero(spheres_table['radius'] > 10)
+
+    array = np.array([spheres_table['x'], spheres_table['y'], spheres_table['z'], spheres_table['radius']])
+    x_y_z_r_array = array.T
+    
+    time_1 = time.time()
+    
+    maximal_spheres_indices_2 = find_maximals_2(x_y_z_r_array, frac, 10.0)
+    
+    print("New FIND_MAXIMALS, TIME_1: ", time.time() - time_1)
+
+
+
+
+    time_2 = time.time()
+
+
+    large_spheres_indices = np.nonzero(spheres_table['radius'] > 10)[0]
+    
+    all_sphere_coords = to_array(spheres_table)
+    all_sphere_radii = spheres_table['radius'].data
+    
+    maximal_spheres_coordinates = np.empty((large_spheres_indices.shape[0], 3))
+    maximal_spheres_radii = np.empty(large_spheres_indices.shape[0])
+
+
+    maximal_spheres_coordinates[0,:] = to_vector(spheres_table[0])
+    maximal_spheres_radii[0] = spheres_table['radius'][0]
+    
+    out_idx = 1
+
 
     # The largest hole is a void
     N_voids = 1
     maximal_spheres_indices = [0]
 
-    for i in large_spheres_indices[0][1:]:
+    for i in large_spheres_indices[1:]:
 
         # Coordinates of sphere i
-        sphere_i_coordinates = to_vector(spheres_table[i])
+        #sphere_i_coordinates = to_vector(spheres_table[i])
 
         # Radius of sphere i
-        sphere_i_radius = spheres_table['radius'][i]
+        #sphere_i_radius = spheres_table['radius'][i]
+        
+        sphere_i_coordinates = all_sphere_coords[i,:]
+        sphere_i_radius = all_sphere_radii[i]
 
         ########################################################################
         #
@@ -260,18 +403,18 @@ def find_maximals(spheres_table, frac):
         ########################################################################
 
         # Array of coordinates for previously identified maximal spheres
-        maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
+        #maximal_spheres_coordinates = to_array(spheres_table[maximal_spheres_indices])
 
         # Array of radii for previously identified maximal spheres
-        maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
+        #maximal_spheres_radii = np.array(spheres_table['radius'][maximal_spheres_indices])
 
         # Distance between sphere i's center and the centers of the other maximal spheres
-        separation = np.linalg.norm((maximal_spheres_coordinates - sphere_i_coordinates), axis=1)
+        separation = np.linalg.norm((maximal_spheres_coordinates[0:out_idx,:] - sphere_i_coordinates), axis=1)
 
         ########################################################################
         # Does sphere i live completely inside another maximal sphere?
         #-----------------------------------------------------------------------
-        if any((maximal_spheres_radii - sphere_i_radius) >= separation):
+        if any((maximal_spheres_radii[0:out_idx] - sphere_i_radius) >= separation):
             # Sphere i is completely inside another sphere --- sphere i is not a maximal sphere
             #print('Sphere i is completely inside another sphere')
             continue
@@ -282,7 +425,7 @@ def find_maximals(spheres_table, frac):
         # Does sphere i overlap by less than x% with another maximal sphere?
         #-----------------------------------------------------------------------
         # First - determine which maximal spheres overlap with sphere i
-        overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii)
+        overlap_boolean =  separation <= (sphere_i_radius + maximal_spheres_radii[0:out_idx])
 
         if any(overlap_boolean):
             # Sphere i overlaps at least one maximal sphere by some amount.
@@ -290,15 +433,15 @@ def find_maximals(spheres_table, frac):
 
             # Heights of the spherical caps
             height_i = cap_height(sphere_i_radius, 
-                                  maximal_spheres_radii[overlap_boolean], 
+                                  maximal_spheres_radii[0:out_idx][overlap_boolean], 
                                   separation[overlap_boolean])
 
-            height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], 
+            height_maximal = cap_height(maximal_spheres_radii[0:out_idx][overlap_boolean], 
                                         sphere_i_radius, separation[overlap_boolean])
 
             # Overlap volume
             overlap_volume = spherical_cap_volume(sphere_i_radius, height_i) \
-                             + spherical_cap_volume(maximal_spheres_radii[overlap_boolean], height_maximal)
+                             + spherical_cap_volume(maximal_spheres_radii[0:out_idx][overlap_boolean], height_maximal)
 
             # Volume of sphere i
             volume_i = (4./3.)*np.pi*sphere_i_radius**3
@@ -309,23 +452,37 @@ def find_maximals(spheres_table, frac):
                 #print('Overlap by less than x%: maximal sphere')
                 N_voids += 1
                 maximal_spheres_indices.append(i)
+                maximal_spheres_coordinates[out_idx,:] = sphere_i_coordinates
+                maximal_spheres_radii[out_idx] = sphere_i_radius
+                out_idx += 1
 
         else:
             # No overlap!  Sphere i is a maximal sphere
             #print('No overlap: maximal sphere')
             N_voids += 1
             maximal_spheres_indices.append(i)
+            maximal_spheres_coordinates[out_idx,:] = sphere_i_coordinates
+            maximal_spheres_radii[out_idx] = sphere_i_radius
+            out_idx += 1
         ########################################################################
 
 
     # Extract table of maximal spheres
-    maximal_spheres_table = spheres_table[maximal_spheres_indices]
+    #maximal_spheres_table = spheres_table[maximal_spheres_indices]
+    maximal_spheres_table = Table(maximal_spheres_coordinates[0:out_idx], names=['x','y','z'])
+    maximal_spheres_table['radius'] = maximal_spheres_radii[0:out_idx]
 
     # Add void flag identifier to maximal spheres
     maximal_spheres_table['flag'] = np.arange(N_voids) + 1
 
     # Convert maximal_spheres_indices to numpy array of type int
     maximal_spheres_indices = np.array(maximal_spheres_indices, dtype=int)
+    
+    print("New FIND_MAXIMALS, TIME_2: ", time.time() - time_2)
+    
+    print(maximal_spheres_indices_2[0:10])
+    print(maximal_spheres_indices[0:10])
+    print(np.all(maximal_spheres_indices==maximal_spheres_indices_2))
 
     return maximal_spheres_table, maximal_spheres_indices
 
@@ -369,6 +526,23 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
     '''
 
 
+    array = np.array([spheres_table['x'], spheres_table['y'], spheres_table['z'], spheres_table['radius']])
+    x_y_z_r_array = array.T
+    
+    time_1 = time.time()
+
+    out = find_holes_2(x_y_z_r_array, maximal_spheres_indices, 0.5)
+    
+    new_holes_index = out[:,0]
+    new_flag_col = out[:,1]
+    
+    print("NEW FIND HOLES TIME: ", time.time() - time_1)
+
+
+
+    time_2 = time.time()
+
+
     # Initialize void flag identifier
     spheres_table['flag'] = -1
 
@@ -388,26 +562,44 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
     maximal_spheres_radii = np.array(maximal_spheres_table['radius'])
 
     maximal_indices = np.arange(len(maximal_spheres_indices))
+    
+    
+    all_sphere_coords = to_array(spheres_table)
+    all_sphere_radii = spheres_table['radius'].data
+    
+    
+    
+    
+    maximal_sphere_index = {}
+    
+    for idx,element in enumerate(maximal_spheres_indices):
+        
+        maximal_sphere_index[element] = idx
+    
+    
 
     for i in range(N_spheres):
 
         ########################################################################
         # First - check if i is a maximal sphere
         #-----------------------------------------------------------------------
-        if i in maximal_spheres_indices:
+        if i in maximal_sphere_index:
             N_holes += 1
             holes_indices.append(i)
-            spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_spheres_indices == i]
+            #spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_spheres_indices == i]
+            spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_sphere_index[i]]
             #print('sphere i is a maximal sphere')
             continue
         ########################################################################
 
 
         # Coordinates of sphere i
-        sphere_i_coordinates = to_vector(spheres_table[i])
+        #sphere_i_coordinates = to_vector(spheres_table[i])
+        sphere_i_coordinates = all_sphere_coords[i,:]
 
         # Radius of sphere i
-        sphere_i_radius = spheres_table['radius'][i]
+        #sphere_i_radius = spheres_table['radius'][i]
+        sphere_i_radius = all_sphere_radii[i]
 
 
         ########################################################################
@@ -452,6 +644,7 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
             height_i = cap_height(sphere_i_radius, 
                                   maximal_spheres_radii[overlap_boolean], 
                                   separation[overlap_boolean])
+            
             height_maximal = cap_height(maximal_spheres_radii[overlap_boolean], 
                                         sphere_i_radius, 
                                         separation[overlap_boolean])
@@ -491,6 +684,28 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
     ############################################################################
 
     holes_table = spheres_table[holes_indices]
+    
+    print("OLD FIND HOLES TIME: ", time.time() - time_2)
+    print(new_holes_index[0:10])
+    print(np.array(holes_indices)[0:10])
+    
+    matches = new_holes_index==np.array(holes_indices)
+    print(np.array(holes_indices).shape[0])
+    print(new_holes_index.shape[0])
+    print(np.sum(matches))
+    
+    n_match = 0
+    for elem in np.array(holes_indices):
+        
+        if elem in new_holes_index:
+            n_match += 1
+            
+    print("N_match: ", n_match)
+    
+    
+    #print(match_pct)
+    print(np.all(new_holes_index==np.array(holes_indices)))
+    
 
     return holes_table
 

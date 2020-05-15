@@ -149,6 +149,10 @@ def in_mask_table(coordinates, survey_mask, r_limits):
 def in_mask(coordinates, survey_mask, n, r_limits):
     '''
     Determine whether the specified coordinates are within the masked area.
+    
+    coordinates : astropy Table of shape (N,3), or Row
+    
+    
     '''
 
     # Convert coordinates to table if not already
@@ -157,6 +161,9 @@ def in_mask(coordinates, survey_mask, n, r_limits):
     elif isinstance(coordinates, Row):
         coordinates = to_vector(coordinates)
         coordinates.shape = (1,3)
+        
+    #print(coordinates.shape)
+    #exit()
 
     r = np.linalg.norm(coordinates, axis=1)
     ra = np.arctan(coordinates[:,1]/coordinates[:,0])*RtoD
@@ -168,12 +175,14 @@ def in_mask(coordinates, survey_mask, n, r_limits):
     ra[ra < 0] += 360.
 
     angood = []
+    
     for i in range(len(ra)):
         
         angood.append( survey_mask[ int(n*ra[i]), int(n*dec[i]) - n*dec_offset])
         
         
-    good = np.logical_and.reduce((np.array(angood), r <= r_limits[1], r >= r_limits[0]))
+    #good = np.logical_and.reduce((np.array(angood), r <= r_limits[1], r >= r_limits[0]))
+    good = np.logical_and.reduce((np.array(angood), r < r_limits[1], r > r_limits[0]))
 
     return good
 

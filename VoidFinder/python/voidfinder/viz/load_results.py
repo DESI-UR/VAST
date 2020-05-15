@@ -14,8 +14,8 @@ from voidfinder.preprocessing import load_data_to_Table
 c = 3e5
 DtoR = numpy.pi/180.
 RtoD = 180./numpy.pi
-#distance_metric = 'comoving'
-distance_metric = 'redshift'
+distance_metric = 'comoving'
+#distance_metric = 'redshift'
 Omega_M = 0.3
 h = 1.0
 

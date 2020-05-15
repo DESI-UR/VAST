@@ -327,6 +327,48 @@ void main()
 """
 
 
+
+vert_wall_lines = """
+
+#version 120
+
+uniform mat4 u_view;
+uniform mat4 u_projection;
+
+attribute vec4 a_position;
+
+uniform vec4 u_color;
+
+varying vec4 v_color;
+
+void main()
+{
+    v_color = u_color;
+    gl_Position = u_projection * u_view * a_position;
+}
+
+
+"""
+
+frag_wall_lines = """
+
+#version 120
+
+varying vec4 v_color;
+
+void main()
+{
+
+    gl_FragColor = v_color;
+    //gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+}
+
+"""
+
+
+
+
+
 class Triangle(object):
     """
     Simple helper class for icosahedron sphere triangularization.
@@ -349,6 +391,8 @@ class VoidRender(app.Canvas):
                  holes_group_IDs=None,
                  galaxy_xyz=None,
                  galaxy_display_radius=2.0,
+                 wall_galaxy_xyz=None,
+                 wall_distance=3.5,
                  remove_void_intersects=1,
                  filter_for_degenerate=True,
                  canvas_size=(800,600),
@@ -358,6 +402,7 @@ class VoidRender(app.Canvas):
                  start_translation_sensitivity=1.0,
                  start_rotation_sensitivity=1.0,
                  galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
+                 wall_galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
                  void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
                  SPHERE_TRIANGULARIZATION_DEPTH=3
                  ):
@@ -514,6 +559,8 @@ class VoidRender(app.Canvas):
         
         self.galaxies_enabled = galaxy_xyz is not None
         
+        self.walls_enabled = wall_galaxy_xyz is not None
+        
         self.enabled_programs = []
         
         ######################################################################
@@ -557,7 +604,23 @@ class VoidRender(app.Canvas):
             self.galaxy_color = galaxy_color
             
             self.setup_galaxy_program()
+            
+
+        ######################################################################
+        #
+        ######################################################################
         
+        if self.walls_enabled:
+            
+            self.wall_galaxy_xyz = wall_galaxy_xyz
+            
+            self.wall_galaxy_color = wall_galaxy_color
+            
+            self.num_wall_gal = self.wall_galaxy_xyz.shape[0]
+            
+            self.wall_distance = wall_distance
+            
+            self.setup_wall_galaxy_program()
         
         ######################################################################
         #
@@ -808,6 +871,141 @@ class VoidRender(app.Canvas):
         
         self.enabled_programs.append((self.galaxy_point_program, "points"))
 
+        
+        
+        
+    
+
+    def setup_wall_galaxy_program(self):
+        """
+        Set up the OpenGL program via vispy that will display each of the
+        galaxy coordinates provided in xyz-space as a gl_PointCoord
+        
+        # Set up some numpy arrays to work with the vispy/OpenGL vertex 
+        # shaders and fragment shaders.  The names (string variables) used
+        # in the below code match up to names used in the vertex and
+        # fragment shader code strings used above
+        
+        # Create the color arrays in RGBA format for the holes and galaxies
+        # I believe bg color is 'background' and fg is 'foreground' color
+        
+        # Since the data is currently being displayed as disks instead of
+        # Spheres, use a fixed radius of 2.0 for galaxies for now since they
+        # are small compared to void holes
+        #
+        """
+        
+        
+        
+        ######################################################################
+        # Set up the vertex buffer backend
+        ######################################################################
+        self.wall_galaxy_vertex_data = np.zeros(self.num_wall_gal, [('a_position', np.float32, 4),
+                                                          ('a_bg_color', np.float32, 4),
+                                                          ('a_fg_color', np.float32, 4),
+                                                          ('a_size', np.float32)])
+        
+        w_col = np.ones((self.num_wall_gal, 1), dtype=np.float32)
+        
+        self.wall_galaxy_vertex_data['a_position'] = np.concatenate((self.wall_galaxy_xyz, w_col), axis=1)
+        
+        self.wall_galaxy_vertex_data['a_bg_color'] = np.tile(self.wall_galaxy_color, (self.num_wall_gal,1))
+        
+        black = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32) #black color
+        
+        self.wall_galaxy_vertex_data['a_fg_color'] = np.tile(black, (self.num_wall_gal,1)) 
+        
+        self.wall_galaxy_vertex_data['a_size'] = self.max_galaxy_display_radius #broadcast to whole array?
+        
+        self.wall_galaxy_point_VB = gloo.VertexBuffer(self.wall_galaxy_vertex_data)
+        
+        ######################################################################
+        # Set up the program to display galaxy points
+        ######################################################################
+        u_linewidth = 0.0
+        
+        u_antialias = 0.0 #0.0==turned this off it looks weird
+        
+        self.wall_galaxy_point_program = gloo.Program(vert, frag)
+    
+        self.wall_galaxy_point_program.bind(self.wall_galaxy_point_VB)
+        
+        self.wall_galaxy_point_program['u_linewidth'] = u_linewidth
+        
+        self.wall_galaxy_point_program['u_antialias'] = u_antialias
+        
+        #self.galaxy_point_program['u_view'] = self.view
+        
+        self.wall_galaxy_point_program['u_size'] = 1.0
+        
+        self.enabled_programs.append((self.wall_galaxy_point_program, "points"))
+
+        ######################################################################
+        # Set up the program to display wall lines
+        ######################################################################
+        
+        
+        #self.wall_distance
+        
+        wall_KDTree = neighbors.KDTree(self.wall_galaxy_xyz)
+        
+        neighbor_indices = wall_KDTree.query_radius(self.wall_galaxy_xyz, self.wall_distance)
+        
+        #print(neighbor_indices)
+        
+        wall_lines_list = []
+        
+        for idx, curr_neighbors in enumerate(neighbor_indices):
+            
+            curr_pt = self.wall_galaxy_xyz[idx,:]
+            
+            for neighbor_idx in curr_neighbors:
+                
+                if idx == neighbor_idx:
+                    
+                    continue
+                
+                wall_lines_list.append(curr_pt)
+                
+                wall_lines_list.append(self.wall_galaxy_xyz[neighbor_idx,:])
+        
+        
+        wall_lines = np.array(wall_lines_list)
+        
+        del wall_lines_list
+        
+        #print(wall_lines.shape)
+        
+        
+        
+        self.wall_line_data = np.ones(wall_lines.shape[0], 
+                                      [('a_position', np.float32, 4)])
+        
+        
+        self.wall_line_data['a_position'][:,0:3] = wall_lines
+        
+        #self.wall_line_data['color'] = np.tile(self.wall_galaxy_color, (wall_lines.shape[0],1))
+        
+        
+        self.wall_line_data_VB = gloo.VertexBuffer(self.wall_line_data)
+        
+        print(self.wall_line_data_VB)
+        
+        self.wall_line_data_program = gloo.Program(vert_wall_lines, frag_wall_lines)
+        
+        self.wall_line_data_program.bind(self.wall_line_data_VB)
+        
+        self.enabled_programs.append((self.wall_line_data_program, "lines"))
+        
+        self.wall_line_data_program['u_color'] = self.wall_galaxy_color
+        
+        
+        
+        
+        
+        
+        
+        
         
         
     def setup_void_sphere_program(self):
@@ -2335,8 +2533,14 @@ class VoidRender(app.Canvas):
         self.point_size_denominator = max(1.0, self.point_size_denominator)
         
         self.point_size_denominator = min(10.0, self.point_size_denominator)
-    
-        self.galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
+        
+        if self.galaxies_enabled:
+            
+            self.galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
+        
+        if self.walls_enabled:
+        
+            self.wall_galaxy_point_program['u_size'] = 1.0 / self.point_size_denominator
         
         self.update()
         

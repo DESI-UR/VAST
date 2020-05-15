@@ -28,7 +28,7 @@
 #
 ################################################################################
 
-from voidfinder import find_voids, filter_galaxies_2
+from voidfinder import find_voids, filter_galaxies
 
 from voidfinder.multizmask import generate_mask
 from voidfinder.preprocessing import file_preprocess
@@ -51,7 +51,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 1
+num_cpus = 4
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -59,8 +59,6 @@ survey_name = 'SDSS_dr7_'
 # File header
 in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-
-
 
 # Input file name
 galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
@@ -115,13 +113,15 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
                                                                                #h=h,
                                                                                verbose=1)
 
+print("Dist limits: ", dist_limits)
+
 ################################################################################
 #
 #   GENERATE MASK
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1)
+mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1, smooth_mask=True)
 
 
 temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
