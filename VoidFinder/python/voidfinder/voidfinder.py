@@ -800,13 +800,14 @@ def find_voids(galaxy_coords_xyz,
     
     ############################################################################
     # 
-    # New cythonized versions of what happens below, which is commented out
+    #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
     #
     ############################################################################
-    
+    # Cythonized version
+    #---------------------------------------------------------------------------
     vol_cut_start = time.time()
     
-    print("Starting volume cut")
+    print("Starting volume cut", flush=True)
     
     hole_bound_time = time.time()
     
@@ -819,35 +820,14 @@ def find_voids(galaxy_coords_xyz,
                                               num_surf_pts=20,
                                               num_cpus=num_cpus)
     
-    print("Found " + str(np.sum(np.logical_not(valid_idx)))+" holes to cut", time.time() - vol_cut_start)
-    
+    print("Found ", np.sum(np.logical_not(valid_idx)), " holes to cut", 
+          time.time() - vol_cut_start, flush=True)
+
     x_y_z_r_array = x_y_z_r_array[valid_idx]
-    
-    print("Sorting holes based on radius")
-    
-    sort_order = x_y_z_r_array[:,3].argsort()[::-1]
-    
-    x_y_z_r_array = x_y_z_r_array[sort_order]
-    
-    print("Combining holes into unique voids")
-    
-    combine_start = time.time()
-    
-    maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array)
-    
-    print("Combine time: ", time.time() - combine_start)
-    
-    print('Number of unique voids is', len(maximal_spheres_table), flush=True)
-    
-    
-    
-    
-    ############################################################################
-    # New method for
-    #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
-    #
-    ############################################################################
+    #---------------------------------------------------------------------------
     '''
+    # Pure python version
+    #---------------------------------------------------------------------------
     coordinates = np.empty((1,3), dtype=np.float64)
     temp_coordinates = np.empty((1,3), dtype=np.float64)
     mask = mask.astype(np.uint8)
@@ -879,12 +859,18 @@ def find_voids(galaxy_coords_xyz,
     
     
     print("After volume cut, remaining holes: ", x_y_z_r_array.shape[0])
+    #---------------------------------------------------------------------------
     '''
     ############################################################################
     #
     #   SORT HOLES BY SIZE
     #
     ############################################################################
+    print("Sorting holes based on radius", flush=True)
+    
+    sort_order = x_y_z_r_array[:,3].argsort()[::-1]
+    
+    x_y_z_r_array = x_y_z_r_array[sort_order]
     '''
     sort_start = time.time()
     
@@ -929,6 +915,15 @@ def find_voids(galaxy_coords_xyz,
     #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
     #
     ############################################################################
+    print("Combining holes into unique voids", flush=True)
+    
+    combine_start = time.time()
+    
+    maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array)
+    
+    print("Combine time:", time.time() - combine_start, flush=True)
+    
+    print('Number of unique voids is', len(maximal_spheres_table), flush=True)
     '''
     combine_start = time.time()
 
