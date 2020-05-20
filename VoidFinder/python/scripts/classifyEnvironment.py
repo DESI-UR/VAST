@@ -30,14 +30,14 @@ from voidfinder.distance import z_to_comoving_dist
 
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
-void_filename = '../../data/SDSS/vollim_dr7_cbp_102709_comoving_holes.txt'
+void_filename = '../../data/SDSS/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_Voronoi_CMD_vflag_comoving_comoving_holes.txt'
 
 dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # SURVEY MASK FILE
-mask_filename = '../../data/SDSS/SDSS_dr7_mask.pickle'
+mask_filename = '../../data/SDSS/kias1033_5_mask.pickle'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
