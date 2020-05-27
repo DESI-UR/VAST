@@ -93,10 +93,16 @@ class Zobov:
 
                 vl = self.prevoids.ovols[i]
 
-                if len(vl)>2 and vl[-2] < minvol:
-                    continue
+                vbuff = []
 
-                voids.append([c for q in self.prevoids.voids[i] for c in q])
+                for j in range(len(vl)-1):
+
+                    if j > 0 and vl[j] < minvol:
+                        break
+
+                    vbuff.extend(self.prevoids.voids[i][j])
+
+                voids.append(vbuff)
 
         #-----------------------------------------------------------------------
         elif method==1:

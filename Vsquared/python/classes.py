@@ -233,6 +233,17 @@ class Voids:
                     vlut[vcomp]  = vlut[zlut[i]][mvarg]
                     mvlut[vcomp] = mxvol
                     ovlut[vcomp] = lvol
+        
+        # Include the "deepest" void in the survey and its subvoids
+        voids.append([])
+        ovols.append([])
+        for ov in -1.*np.sort(-1.*np.unique(ovlut)):
+            ocomp = np.where(ovlut==ov)[0]
+            voids[-1].append(ocomp.tolist())
+            ovols[-1].append(ov)
+        ovols[-1].append(0.)
+        mvols.append(mvlut[0])
+
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols
