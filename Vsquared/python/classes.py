@@ -6,7 +6,7 @@ from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 from util import toCoord, flatten
 
 class Catalog:
-    def __init__(self,catfile,nside,zmin,zmax,maglim=None,maskfile=None):
+    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,maskfile=None):
         print("Extracting data...")
         hdulist = fits.open(catfile)
         z    = hdulist[1].data['z']
@@ -17,7 +17,7 @@ class Catalog:
             print("Choose valid redshift limits")
             return
         scut = zcut
-        c1,c2,c3   = toCoord(z,ra,dec)
+        c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
         self.coord = np.array([c1,c2,c3]).T
         nnls = np.arange(len(z))
         nnls[zcut<1] = -1

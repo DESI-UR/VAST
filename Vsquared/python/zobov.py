@@ -1,60 +1,71 @@
 import numpy as np
 import pickle
+import configparser
 from scipy import stats
 from astropy.table import Table
 
 from util import toSky, inSphere, wCen, getSMA, P, flatten
 from classes import Catalog, Tesselation, Zones, Voids
 
-infile  = "../data/vollim_dr7_cbp_102709.fits"
-outdir  = "../data/"
-catname = "DR7"
-intloc  = "../intermediate/" + catname
-nside   = 32
-zmin    = 0.
-zmax    = 1.
-maglim  = None
-denscut = 0.2
-minrad  = 10 #minimum void radius
-
 class Zobov:
-    def __init__(self,start=0,end=3,save_intermediate=True):
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True):
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
             return
+
+        config = configparser.ConfigParser()
+        config.read(configfile)
+
+        self.infile  = config['Paths']['Input Catalog']
+        self.catname = config['Paths']['Catalog Name']
+        self.outdir  = config['Paths']['Output Directory']
+        self.intloc  = "../intermediate/" + self.catname
+        
+        self.H0   = float(config['Cosmology']['H_0'])
+        self.Om_m = float(config['Cosmology']['Omega_m'])
+
+        self.zmin   = float(config['Settings']['redshift_min'])
+        self.zmax   = float(config['Settings']['redshift_max'])
+        self.minrad = float(config['Settings']['radius_min'])
+        self.zstep  = float(config['Settings']['redshift_step'])
+        self.nside  = int(config['Settings']['nside'])
+        self.maglim = config['Settings']['rabsmag_min']
+        self.maglim = None if self.maglim=="None" else float(self.maglim)
+
+
         if start<4:
             if start<3:
                 if start<2:
                     if start<1:
-                        ctlg = Catalog(catfile=infile,nside=nside,zmin=zmin,zmax=zmax,maglim=maglim)
+                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m)
                         if save_intermediate:
-                            pickle.dump(ctlg,open(intloc+"_ctlg.pkl",'wb'))
+                            pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
-                        ctlg = pickle.load(open(intloc+"_ctlg.pkl",'rb'))
+                        ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
                     if end>0:
                         tess = Tesselation(ctlg)
                         if save_intermediate:
-                            pickle.dump(tess,open(intloc+"_tess.pkl",'wb'))
+                            pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
                 else:
-                    ctlg = pickle.load(open(intloc+"_ctlg.pkl",'rb'))
-                    tess = pickle.load(open(intloc+"_tess.pkl",'rb'))
+                    ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
+                    tess = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
                 if end>1:
                     zones = Zones(tess)
                     if save_intermediate:
-                        pickle.dump(zones,open(intloc+"_zones.pkl",'wb'))
+                        pickle.dump(zones,open(self.intloc+"_zones.pkl",'wb'))
             else:
-                ctlg  = pickle.load(open(intloc+"_ctlg.pkl",'rb'))
-                tess  = pickle.load(open(intloc+"_tess.pkl",'rb'))
-                zones = pickle.load(open(intloc+"_zones.pkl",'rb'))
+                ctlg  = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
+                tess  = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
+                zones = pickle.load(open(self.intloc+"_zones.pkl",'rb'))
             if end>2:
                 voids = Voids(zones)
                 if save_intermediate:
-                    pickle.dump(voids,open(intloc+"_voids.pkl",'wb'))
+                    pickle.dump(voids,open(self.intloc+"_voids.pkl",'wb'))
         else:
-            ctlg  = pickle.load(open(intloc+"_ctlg.pkl",'rb'))
-            tess  = pickle.load(open(intloc+"_tess.pkl",'rb'))
-            zones = pickle.load(open(intloc+"_zones.pkl",'rb'))
-            voids = pickle.load(open(intloc+"_voids.pkl",'rb'))
+            ctlg  = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
+            tess  = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
+            zones = pickle.load(open(self.intloc+"_zones.pkl",'rb'))
+            voids = pickle.load(open(self.intloc+"_voids.pkl",'rb'))
         self.catalog = ctlg
         if end>0:
             self.tesselation = tess
@@ -66,7 +77,7 @@ class Zobov:
 
     ############################################################################
     #---------------------------------------------------------------------------
-    def sortVoids(self,method=0,minsig=2,dc=denscut):
+    def sortVoids(self,method=0,minsig=2,dc=0.2):
 
         if not hasattr(self,'prevoids'):
             if method != 4:
@@ -162,15 +173,15 @@ class Zobov:
 
         # Locate all voids with radii smaller than set minimum
         if method==4:
-            minrad = np.median(vrads)
-        rcut  = vrads > minrad
+            self.minrad = np.median(vrads)
+        rcut  = vrads > self.minrad
         
         voids = np.array(voids)[rcut]
 
         vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]]
         vvols = vvols[rcut]
         vrads = vrads[rcut]
-        print('Removed voids smaller than', minrad, 'Mpc/h')
+        print('Removed voids smaller than', self.minrad, 'Mpc/h')
         ########################################################################
 
 
@@ -236,7 +247,7 @@ class Zobov:
         if not hasattr(self,'vcens'):
             print("Sort voids first")
             return
-        vz,vra,vdec = toSky(self.vcens)
+        vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
         vcen = self.vcens.T
         vax1 = np.array([vx[0] for vx in self.vaxes]).T
         vax2 = np.array([vx[1] for vx in self.vaxes]).T
@@ -244,11 +255,11 @@ class Zobov:
 
         vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
                     names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
-        vT.write(outdir+catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
+        vT.write(self.outdir+self.catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
 
         vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],
                     names=('zone','void0','void1'))
-        vZ.write(outdir+catname+"_zonevoids.dat", 
+        vZ.write(self.outdir+self.catname+"_zonevoids.dat", 
                  format='ascii.commented_header', 
                  overwrite=True)
 
@@ -277,4 +288,4 @@ class Zobov:
                 zlist[glut2[c]] = i
 
         zT = Table([glist,zlist],names=('gal','zone'))
-        zT.write(outdir+catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
+        zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
