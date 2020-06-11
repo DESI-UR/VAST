@@ -42,7 +42,7 @@ class Catalog:
         self.mask = mask
 
 class Tesselation:
-    def __init__(self,cat):
+    def __init__(self,cat,viz=False):
         coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))]
         print("Tesselating...")
         Vor = Voronoi(coords)
@@ -77,6 +77,12 @@ class Tesselation:
         #hul = [ConvexHull(ver[r]) for r in reg[cut]]
         vol[cut] = np.array([h.volume for h in hul])
         self.volumes = vol
+        if viz:
+            self.vertIDs = reg
+            vecut = np.zeros(len(vol),dtype=bool)
+            vecut[cut] = True
+            self.vecut = vecut
+            self.verts = ver
         print("Triangulating...")
         Del = Delaunay(coords,qhull_options='QJ')
         sim = Del.simplices
@@ -99,7 +105,7 @@ class Tesselation:
 ################################################################################
 #-------------------------------------------------------------------------------
 class Zones:
-    def __init__(self,tess):
+    def __init__(self,tess,viz=False):
         vol   = tess.volumes
         nei   = tess.neighbors
 
@@ -151,6 +157,10 @@ class Zones:
         #-----------------------------------------------------------------------
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
 
+        if viz:
+            zverts = [[] for _ in range(len(zvols))]
+            znorms = [[] for _ in range(len(zvols))]
+
         print("Linking zones...")
 
         for i in range(len(vol)):
@@ -172,7 +182,20 @@ class Zones:
                     ml = np.amax([zlinks[1][z1][j],nl])
                     zlinks[1][z1][j] = ml
                     zlinks[1][z2][k] = ml
+                    if viz and tess.vecut[i]:
+                        vts = tess.vertIDs[i].copy()
+                        vts.extend(tess.vertIDs[n])
+                        vts = np.array(vts)
+                        vts = vts[[len(vts[vts==v])==2 for v in vts]]
+                        #vts = np.unique(vts[vts!=-1])
+                        if len(vts)>2:
+                            vcs = (tess.verts[vts].T[0:2]).T
+                            zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
+                            znorms[z1].append([i,n])
         self.zlinks = zlinks
+        if viz:
+            self.zverts = zverts
+            self.znorms = znorms
         ########################################################################
 ################################################################################
 

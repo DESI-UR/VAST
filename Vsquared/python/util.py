@@ -4,7 +4,7 @@ import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM, z_at_value
 from scipy import interpolate
 
-c    = 3e6
+c    = 3e5
 D2R  = np.pi/180.
 
 #changes to comoving coordinates

@@ -5,13 +5,15 @@ To find voids and save void and zone information, open a python shell in the `py
 ```python
 from zobov import Zobov
 
-newZobov = Zobov("/path/to/config.ini",0,3) 
+newZobov = Zobov("/path/to/config.ini",0,3) # options: save_intermediate (default True), visualize (default False)
 # if intermediate steps 0-3 were saved (the default), use Zobov(4,4) instead; 
 # if only 0-n (n<3) were saved, use Zobov(n+1,3) to run the remaining steps
 
-newZobov.sortVoids()
+newZobov.sortVoids() # pass void pruning method number to this function, default 0
 newZobov.saveVoids()
 newZobov.saveZones()
+# finally, if intending to run visualization:
+# newZobov.preViz()
 ```
 
 `saveVoids` produces two output files:

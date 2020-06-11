@@ -8,16 +8,18 @@ from util import toSky, inSphere, wCen, getSMA, P, flatten
 from classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
-    def __init__(self,configfile,start=0,end=3,save_intermediate=True):
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False):
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
             return
+
+        self.visualize = visualize
 
         config = configparser.ConfigParser()
         config.read(configfile)
 
         self.infile  = config['Paths']['Input Catalog']
-        self.catname = config['Paths']['Catalog Name']
+        self.catname = config['Paths']['Survey Name']
         self.outdir  = config['Paths']['Output Directory']
         self.intloc  = "../intermediate/" + self.catname
         
@@ -43,14 +45,14 @@ class Zobov:
                     else:
                         ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
                     if end>0:
-                        tess = Tesselation(ctlg)
+                        tess = Tesselation(ctlg,viz=visualize)
                         if save_intermediate:
                             pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
                 else:
                     ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
                     tess = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
                 if end>1:
-                    zones = Zones(tess)
+                    zones = Zones(tess,viz=visualize)
                     if save_intermediate:
                         pickle.dump(zones,open(self.intloc+"_zones.pkl",'wb'))
             else:
@@ -79,6 +81,10 @@ class Zobov:
     #---------------------------------------------------------------------------
     def sortVoids(self,method=0,minsig=2,dc=0.2):
 
+        if self.visualize and method != 4:
+            print("Changing method to 4 for visualization")
+            method = 4
+
         if not hasattr(self,'prevoids'):
             if method != 4:
                 print("Run all stages of Zobov first")
@@ -86,6 +92,7 @@ class Zobov:
             else:
                 if not hasattr(self,'zones'):
                     print("Run all stages of Zobov first")
+                    return
 
         ########################################################################
         # Selecting void candidates
@@ -289,3 +296,64 @@ class Zobov:
 
         zT = Table([glist,zlist],names=('gal','zone'))
         zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
+
+
+    ############################################################################
+    #---------------------------------------------------------------------------
+    def preViz(self):
+
+        if not self.visualize:
+            print("Rerun with visualize=True")
+            return
+        if not hasattr(self,'vcens'):
+            print("Sort voids first")
+            return
+
+        galc = self.catalog.coord[self.catalog.nnls==np.arange(len(self.catalog.coord))]
+        gids = np.arange(len(self.catalog.coord))
+        gids = gids[self.catalog.nnls==gids]
+        g2v = -1*np.ones(len(self.catalog.coord),dtype=int)
+        g2v2 = -1*np.ones(len(self.catalog.coord),dtype=int)
+        verc = self.tesselation.verts
+        zverts = self.zones.zverts
+        znorms = self.zones.znorms
+        z2v = self.zvoid.T[0]
+        z2v2 = np.arange(len(z2v))[z2v!=-1]
+        zcut = [np.product(self.tesselation.volumes[self.zones.zcell[z2]])>0 for z2 in z2v2]
+
+        tri1 = []
+        tri2 = []
+        tri3 = []
+        norm = []
+        vid  = []
+
+        for k,z in enumerate(z2v2[zcut]):
+            for i in range(len(znorms[z])):
+                p = znorms[z][i]
+                n = galc[p[1]] - galc[p[0]]
+                n = n/np.sqrt(np.sum(n**2.))
+                polids = zverts[z][i]
+                trids = [[polids[0],polids[j],polids[j+1]] for j in range(1,len(polids)-1)]
+                for t in trids:
+                    tri1.append(verc[t[0]])
+                    tri2.append(verc[t[1]])
+                    tri3.append(verc[t[2]])
+                    norm.append(n)
+                    vid.append(k)
+                g2v[gids[p[0]]] = k
+        for k,z in enumerate(z2v2[zcut]):
+            for i in range(len(znorms[z])):
+                if g2v[gids[p[1]]] != -1:
+                    g2v2[gids[p[1]]] = k
+
+        tri1 = np.array(tri1).T
+        tri2 = np.array(tri2).T
+        tri3 = np.array(tri3).T
+        norm = np.array(norm).T
+        vid = np.array(vid)
+
+        vizT = Table([vid,norm[0],norm[1],norm[2],tri1[0],tri1[1],tri1[2],tri2[0],tri2[1],tri2[2],tri3[0],tri3[1],tri3[2]],
+                     names=('void_id','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z'))
+        vizT.write(self.outdir+self.catname+"_triangles.dat",format='ascii.commented_header',overwrite=True)
+        g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=('gid','g2v','g2v2'))
+        g2vT.write(self.outdir+self.catname+"_galviz.dat",format='ascii.commented_header',overwrite=True)
