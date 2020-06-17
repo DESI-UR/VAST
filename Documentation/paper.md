@@ -44,7 +44,7 @@ Analyzing the next generation of cosmological surveys will require the ability t
 
 # V<sup>2</sup>
 
-`Vsquared` is a software package for finding voids based on the ZOBOV (ZOnes Bordering On Voidness) algorithm [@Neyrinck:2007]. This algorithm first produces a Voronoi tessellation of the galaxy catalog, and the volumes of the Voronoi cells are used to identify local density minima. Zones are then grown from density minima in the distribution of cells using a watershed transform, where each cell is linked to its least dense neighbor. Finally, voids are formed from these by identifying low-density boundaries between adjacent zones and using them to grow unions of weakly divided zones. A void-pruning step is usually also run at the end of the algorithm, to remove void candidates unlikely to be true voids; there exists a variety of implementations of this step, and `Vsquared' includes several. [in progress]
+`Vsquared` is a software package for finding voids based on the ZOBOV (ZOnes Bordering On Voidness) algorithm [@Neyrinck:2007]. This algorithm first produces a Voronoi tessellation of the galaxy catalog, and the volumes of the Voronoi cells are used to identify local density minima. Zones are then grown from density minima in the distribution of cells using a watershed transform, where each cell is linked to its least dense neighbor. Finally, voids are formed from these by identifying low-density boundaries between adjacent zones and using them to grow unions of weakly divided zones. A void-pruning step is usually also run at the end of the algorithm, to remove void candidates unlikely to be true voids; there exists a variety of implementations of this step, and `Vsquared' includes several.
 
 
 
