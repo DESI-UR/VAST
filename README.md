@@ -1,8 +1,11 @@
-# UR work on voids
+# vast
 
-There are two void-finding algorithms which live here: VoidFinder and V<sup>2</sup>.
+The Void Analysis Software Toolkit, or VAST, provides pure Python implementations of two popular classes of void-finding algorithms in galaxy catalogs:
 
-VoidFinder is an algorithm which utilizes a sphere-growing method on a grid search and a unionization of the sufficiently large spheres.  The `VoidFinder/python/voidfinder/` directory contains the package, which includes an efficient Multi-Process Cythonized version of VoidFinder (`from voidfinder import find_voids`), as well as an OpenGL based visualization for the output of VoidFinder (the `voidfinder.viz` package).
+1. Void identification by growing spherical voids..
+1. Void identification using watershed algorithms.
+
+VoidFinder is the algorithm which utilizes a sphere-growing method on a grid search and a unionization of the sufficiently large spheres.  The `VoidFinder/python/voidfinder/` directory contains the package, which includes an efficient Multi-Process Cythonized version of VoidFinder (`from voidfinder import find_voids`), as well as an OpenGL based visualization for the output of VoidFinder (the `voidfinder.viz` package).
 
 See [here](https://www.youtube.com/playlist?list=PLCZohAzuOVRK4itOBDQNFMl3w2uvox16a) for 3D OpenGL-based visualization of VoidFinder's voids in SDSS DR7!
 
