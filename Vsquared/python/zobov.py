@@ -81,10 +81,6 @@ class Zobov:
     #---------------------------------------------------------------------------
     def sortVoids(self,method=0,minsig=2,dc=0.2):
 
-        if self.visualize and method != 4:
-            print("Changing method to 4 for visualization")
-            method = 4
-
         if not hasattr(self,'prevoids'):
             if method != 4:
                 print("Run all stages of Zobov first")
@@ -317,9 +313,9 @@ class Zobov:
         verc = self.tesselation.verts
         zverts = self.zones.zverts
         znorms = self.zones.znorms
-        z2v = self.zvoid.T[0]
-        z2v2 = np.arange(len(z2v))[z2v!=-1]
-        zcut = [np.product(self.tesselation.volumes[self.zones.zcell[z2]])>0 for z2 in z2v2]
+        z2v = self.zvoid.T[1]
+        z2v2 = np.array([np.where(z2v==z2)[0] for z2 in np.unique(z2v[z2v!=-1])])
+        zcut = [np.product([np.product(self.tesselation.volumes[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
 
         tri1 = []
         tri2 = []
@@ -327,24 +323,30 @@ class Zobov:
         norm = []
         vid  = []
 
-        for k,z in enumerate(z2v2[zcut]):
-            for i in range(len(znorms[z])):
-                p = znorms[z][i]
-                n = galc[p[1]] - galc[p[0]]
-                n = n/np.sqrt(np.sum(n**2.))
-                polids = zverts[z][i]
-                trids = [[polids[0],polids[j],polids[j+1]] for j in range(1,len(polids)-1)]
-                for t in trids:
-                    tri1.append(verc[t[0]])
-                    tri2.append(verc[t[1]])
-                    tri3.append(verc[t[2]])
-                    norm.append(n)
-                    vid.append(k)
-                g2v[gids[p[0]]] = k
-        for k,z in enumerate(z2v2[zcut]):
-            for i in range(len(znorms[z])):
-                if g2v[gids[p[1]]] != -1:
-                    g2v2[gids[p[1]]] = k
+        for k,v in enumerate(z2v2[zcut]):
+            for z in v:
+                for i in range(len(znorms[z])):
+                    p = znorms[z][i]
+                    n = galc[p[1]] - galc[p[0]]
+                    n = n/np.sqrt(np.sum(n**2.))
+                    polids = zverts[z][i]
+                    trids = [[polids[0],polids[j],polids[j+1]] for j in range(1,len(polids)-1)]
+                    for t in trids:
+                        tri1.append(verc[t[0]])
+                        tri2.append(verc[t[1]])
+                        tri3.append(verc[t[2]])
+                        norm.append(n)
+                        vid.append(k)
+                    g2v[gids[p[0]]] = k
+        for k,v in enumerate(z2v2[zcut]):
+            for z in v:
+                for i in range(len(znorms[z])):
+                    if g2v[gids[p[1]]] != -1:
+                        g2v2[gids[p[1]]] = k
+
+        if len(vid)==0:
+            print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")
+            return
 
         tri1 = np.array(tri1).T
         tri2 = np.array(tri2).T
