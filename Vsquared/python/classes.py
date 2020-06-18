@@ -125,6 +125,7 @@ class Zones:
         # Build zones from the cells
         #-----------------------------------------------------------------------
         lut   = np.zeros(len(vol), dtype=int)
+        depth = np.zeros(len(vol), dtype=int)
 
         zvols = []
         zcell = []
@@ -144,11 +145,13 @@ class Zones:
                 zvols.append(vol[n])
             else:
                 # This cell is put into its least-dense neighbor's zone
-                lut[srt[i]] = lut[n]
+                lut[srt[i]]   = lut[n]
+                depth[srt[i]] = depth[n]+1
                 zcell[lut[n]].append(srt[i])
 
         self.zcell = np.array(zcell)
         self.zvols = np.array(zvols)
+        self.depth = depth
         ########################################################################
 
 

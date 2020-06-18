@@ -22,4 +22,4 @@ a `zobovoids` file with columns for void center positions (`x, y, z, redshift, r
 
 and a `zonevoids` file with columns for zone IDs (`zone`), zones' smallest containing void (`void0`), and zones' largest containing void (`void1`).
 
-`saveZones` produces one output file: a `galzones` file with columns for galaxy IDs (`gal`) and for galaxies' containing zone (`zone`).
+`saveZones` produces one output file: a `galzones` file with columns for galaxy IDs (`gal`), galaxies' containing zone (`zone`), and galaxies' "depth" within their containing zone (`depth`).

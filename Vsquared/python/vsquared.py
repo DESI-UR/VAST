@@ -25,7 +25,7 @@ newZobov.sortVoids(method=method)
 
 newZobov.saveVoids()
 
-newZobov.sortVoids()
+newZobov.saveZones()
 
 if visualize:
     newZobov.preViz()

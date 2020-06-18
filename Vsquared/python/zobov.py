@@ -279,9 +279,11 @@ class Zobov:
         glist = np.arange(ngal)
         glut1 = glist[self.catalog.nnls==glist]
         glut2 = [[] for _ in glut1]
+        dlist = -1 * np.ones(ngal,dtype=int)
 
         for i,l in enumerate(glut2):
             l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
+            dlist[l] = self.zones.depth[i]
 
         zlist = -1 * np.ones(ngal,dtype=int)
         zcell = self.zones.zcell
@@ -290,7 +292,7 @@ class Zobov:
             for c in cl:
                 zlist[glut2[c]] = i
 
-        zT = Table([glist,zlist],names=('gal','zone'))
+        zT = Table([glist,zlist,dlist],names=('gal','zone','depth'))
         zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
 
 
