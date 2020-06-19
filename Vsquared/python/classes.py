@@ -6,7 +6,7 @@ from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 from util import toCoord, flatten
 
 class Catalog:
-    def __init__(self,catfile,nside,zmin,zmax,maglim=None,maskfile=None):
+    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,maskfile=None):
         print("Extracting data...")
         hdulist = fits.open(catfile)
         z    = hdulist[1].data['z']
@@ -17,7 +17,7 @@ class Catalog:
             print("Choose valid redshift limits")
             return
         scut = zcut
-        c1,c2,c3   = toCoord(z,ra,dec)
+        c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
         self.coord = np.array([c1,c2,c3]).T
         nnls = np.arange(len(z))
         nnls[zcut<1] = -1
@@ -42,7 +42,7 @@ class Catalog:
         self.mask = mask
 
 class Tesselation:
-    def __init__(self,cat):
+    def __init__(self,cat,viz=False):
         coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))]
         print("Tesselating...")
         Vor = Voronoi(coords)
@@ -77,6 +77,12 @@ class Tesselation:
         #hul = [ConvexHull(ver[r]) for r in reg[cut]]
         vol[cut] = np.array([h.volume for h in hul])
         self.volumes = vol
+        if viz:
+            self.vertIDs = reg
+            vecut = np.zeros(len(vol),dtype=bool)
+            vecut[cut] = True
+            self.vecut = vecut
+            self.verts = ver
         print("Triangulating...")
         Del = Delaunay(coords,qhull_options='QJ')
         sim = Del.simplices
@@ -99,7 +105,7 @@ class Tesselation:
 ################################################################################
 #-------------------------------------------------------------------------------
 class Zones:
-    def __init__(self,tess):
+    def __init__(self,tess,viz=False):
         vol   = tess.volumes
         nei   = tess.neighbors
 
@@ -119,6 +125,7 @@ class Zones:
         # Build zones from the cells
         #-----------------------------------------------------------------------
         lut   = np.zeros(len(vol), dtype=int)
+        depth = np.zeros(len(vol), dtype=int)
 
         zvols = []
         zcell = []
@@ -138,11 +145,13 @@ class Zones:
                 zvols.append(vol[n])
             else:
                 # This cell is put into its least-dense neighbor's zone
-                lut[srt[i]] = lut[n]
+                lut[srt[i]]   = lut[n]
+                depth[srt[i]] = depth[n]+1
                 zcell[lut[n]].append(srt[i])
 
         self.zcell = np.array(zcell)
         self.zvols = np.array(zvols)
+        self.depth = depth
         ########################################################################
 
 
@@ -150,6 +159,10 @@ class Zones:
         # Identify neighboring zones and the least-dense cells linking them
         #-----------------------------------------------------------------------
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
+
+        if viz:
+            zverts = [[] for _ in range(len(zvols))]
+            znorms = [[] for _ in range(len(zvols))]
 
         print("Linking zones...")
 
@@ -172,7 +185,20 @@ class Zones:
                     ml = np.amax([zlinks[1][z1][j],nl])
                     zlinks[1][z1][j] = ml
                     zlinks[1][z2][k] = ml
+                    if viz and tess.vecut[i]:
+                        vts = tess.vertIDs[i].copy()
+                        vts.extend(tess.vertIDs[n])
+                        vts = np.array(vts)
+                        vts = vts[[len(vts[vts==v])==2 for v in vts]]
+                        #vts = np.unique(vts[vts!=-1])
+                        if len(vts)>2:
+                            vcs = (tess.verts[vts].T[0:2]).T
+                            zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
+                            znorms[z1].append([i,n])
         self.zlinks = zlinks
+        if viz:
+            self.zverts = zverts
+            self.znorms = znorms
         ########################################################################
 ################################################################################
 
@@ -233,6 +259,17 @@ class Voids:
                     vlut[vcomp]  = vlut[zlut[i]][mvarg]
                     mvlut[vcomp] = mxvol
                     ovlut[vcomp] = lvol
+        
+        # Include the "deepest" void in the survey and its subvoids
+        voids.append([])
+        ovols.append([])
+        for ov in -1.*np.sort(-1.*np.unique(ovlut)):
+            ocomp = np.where(ovlut==ov)[0]
+            voids[-1].append(ocomp.tolist())
+            ovols[-1].append(ov)
+        ovols[-1].append(0.)
+        mvols.append(mvlut[0])
+
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols

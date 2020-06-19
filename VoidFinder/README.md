@@ -9,10 +9,9 @@ Please cite [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566
 
 ## Operating System
 
-Currently the Multi-Process version of VoidFinder is Unix-only.  VoidFinder relies on
-the tmpfs filesystem (RAMdisk) on /dev/shm for shared memory, and this filesystem is currently
-(as of February 2020) a Linux-only feature.  However, VoidFinder will fall back to memmapping
-files in the /tmp directory if /dev/shm does not exist, so can still run on OSX.  Depending on the
+VoidFinder is currently Unix-only.  VoidFinder relies on the tmpfs filesystem (RAMdisk) on /dev/shm for shared memory, 
+and this filesystem is currently (as of February 2020) a Linux-only feature.  However, VoidFinder will fall back to 
+memmapping files in the /tmp directory if /dev/shm does not exist, so can still run on OSX.  Depending on the
 OSX kernel configuration, there may be no speed/performance loss if running shared memory out of /tmp,
 but it entirely depends on the kernel buffer sizes.
 
@@ -21,7 +20,7 @@ not exist on Windows.
 
 Single & Multi process versions tested successfully on 64-bit Ubuntu 18.04 and 64-bit OSX 10.14.6, with Python 3.7.3.
 
-The single-process version of VoidFinder should run on Linux, OSX, and Windows.
+We have not yet been able to resolve the Windows mishandling of the complex.h library.
 
 
 ## Building Voidfinder

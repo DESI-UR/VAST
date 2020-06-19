@@ -4,16 +4,12 @@ import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM, z_at_value
 from scipy import interpolate
 
-H0   = 100
-Om_m = 0.3
-c    = 3e6
-zstp = 5e-5
+c    = 3e5
 D2R  = np.pi/180.
 
-Kos = FlatLambdaCDM(H0,Om_m)
-
 #changes to comoving coordinates
-def toCoord(z,ra,dec):
+def toCoord(z,ra,dec,H0,Om_m):
+    Kos = FlatLambdaCDM(H0,Om_m)
     r = Kos.comoving_distance(z)
     r = np.array([d.value for d in r])
     #r = c*z/H0
@@ -23,7 +19,8 @@ def toCoord(z,ra,dec):
     return c1,c2,c3
 
 #changes to sky coordinates
-def toSky(cs):
+def toSky(cs,H0,Om_m,zstep):
+    Kos = FlatLambdaCDM(H0,Om_m)
     c1 = cs.T[0]
     c2 = cs.T[1]
     c3 = cs.T[2]
@@ -32,9 +29,9 @@ def toSky(cs):
     ra  = (np.arccos(c1/np.sqrt(c1**2.+c2**2.))*np.sign(c2)/D2R)%360
     zmn = z_at_value(Kos.comoving_distance,np.amin(r)*u.Mpc)
     zmx = z_at_value(Kos.comoving_distance,np.amax(r)*u.Mpc)
-    zmn = zmn-(zstp+zmn%zstp)
-    zmx = zmx+(2*zstp-zmx%zstp)
-    ct  = np.array([np.linspace(zmn,zmx,int(np.ceil(zmn/zstp))),Kos.comoving_distance(np.linspace(zmn,zmx,int(np.ceil(zmn/zstp)))).value]).T
+    zmn = zmn-(zstep+zmn%zstep)
+    zmx = zmx+(2*zstep-zmx%zstep)
+    ct  = np.array([np.linspace(zmn,zmx,int(np.ceil(zmn/zstep))),Kos.comoving_distance(np.linspace(zmn,zmx,int(np.ceil(zmn/zstep)))).value]).T
     r2z = interpolate.pchip(*ct[:,::-1].T)
     z = r2z(r)
     #z = H0*r/c
