@@ -51,7 +51,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 4
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -138,11 +138,11 @@ temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
-wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies_2(galaxy_data_table,
-                                                                                   survey_name,
-                                                                                   #distance_metric=dist_metric,
-                                                                                   #h=h,
-                                                                                   verbose=1)
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies(galaxy_data_table,
+                                                                                 survey_name,
+                                                                                 #distance_metric=dist_metric,
+                                                                                 #h=h,
+                                                                                 verbose=1)
 
 del galaxy_data_table
 
