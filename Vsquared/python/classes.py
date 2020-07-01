@@ -36,10 +36,11 @@ class Catalog:
         if maskfile is None:
             print("Generating mask...")
             mask = np.zeros(hp.nside2npix(nside),dtype=bool)
-            for i in range(len(ra[scut])):
-                pid = hp.ang2pix(nside,ra[scut][i],dec[scut][i],lonlat=True)
-                mask[pid] = True
+            pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True)
+            mask[pids] = True
         self.mask = mask
+        pids = hp.ang2pix(nside,ra,dec,lonlat=True)
+        self.imsk = mask[pids]*zcut
 
 class Tesselation:
     def __init__(self,cat,viz=False):

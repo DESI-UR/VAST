@@ -288,12 +288,18 @@ class Zobov:
         zlist = -1 * np.ones(ngal,dtype=int)
         zcell = self.zones.zcell
 
+        olist = 1-np.array(self.catalog.imsk,dtype=int)
+        elist = np.zeros(ngal,dtype=int)
+
         for i,cl in enumerate(zcell):
             for c in cl:
                 zlist[glut2[c]] = i
+                if self.tesselation.volumes[c]==0. and not olist[glut2[c]].all():
+                    elist[glut2[c]] = 1
+        elist[np.array(olist,dtype=bool)] = 0
 
-        zT = Table([glist,zlist,dlist],names=('gal','zone','depth'))
-        zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
+        zT = Table([glist,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
+        zT.write(outdir+catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
 
 
     ############################################################################
