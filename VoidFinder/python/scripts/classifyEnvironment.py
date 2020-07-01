@@ -111,7 +111,7 @@ print('Converting coordinate system')
 # Convert redshift to distance
 if dist_metric == 'comoving':
     if 'Rgal' not in galaxies.columns:
-        galaxies['Rgal'] = z_to_comoving_dist(galaxies['redshift'], Omega_M, h)
+        galaxies['Rgal'] = z_to_comoving_dist(galaxies['redshift'].data.astype(np.float32), Omega_M, h)
     galaxies_r = galaxies['Rgal']
 else:
     galaxies_r = c*galaxies['redshift']/H
