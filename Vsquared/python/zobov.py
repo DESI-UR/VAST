@@ -299,7 +299,7 @@ class Zobov:
         elist[np.array(olist,dtype=bool)] = 0
 
         zT = Table([glist,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
-        zT.write(outdir+catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
+        zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
 
 
     ############################################################################
