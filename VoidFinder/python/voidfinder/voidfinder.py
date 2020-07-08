@@ -37,19 +37,18 @@ from .constants import c
 from ._voidfinder_cython import check_mask_overlap
 
 
-######################################################################
-# I made these constants into default parameters in filter_galaxies()
-# and find_voids() because a user may wish to try different
-# grid spacings and such.  I left DtoR and RtoD because they will
-# never ever change since they're based on pi.
-# dec_offset was unused in the code
-######################################################################
-#dec_offset = -90
+################################################################################
+# I made these constants into default parameters in filter_galaxies() and 
+# find_voids() because a user may wish to try different grid spacings and such.  
+# I left DtoR and RtoD because they will never ever change since they're based 
+# on pi.
+#-------------------------------------------------------------------------------
 #dl = 5           # Cell side length [Mpc/h]
 #dr = 1.          # Distance to shift the hole centers
 #c = 3e5
 DtoR = np.pi/180.
 RtoD = 180./np.pi
+################################################################################
 
 
 
