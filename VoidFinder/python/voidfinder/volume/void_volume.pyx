@@ -23,7 +23,7 @@ cpdef DTYPE_F32_t calculate_void_volume(hole_centers_np,
                                         DTYPE_F32_t step_size):
     '''
     Calculate the volume of a void (union of some number of spheres) via a 
-    finite cube approximation.
+    finite-element cube approximation.
     
     
     PARAMETERS
