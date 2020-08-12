@@ -11,6 +11,8 @@ import h5py
 
 from voidfinder.constants import c #speed of light
 
+import os
+
 
 
 def load_data_to_Table(input_filepath):
@@ -52,7 +54,28 @@ def load_data_to_Table(input_filepath):
         
     else:
         
-        data_table = Table.read(input_filepath, format='ascii.commented_header')
+        if os.path.getsize(input_filepath) < 5e9:
+            
+            data_table = Table.read(input_filepath, format='ascii.commented_header')
+
+        else:
+        
+            # Import header line
+            data_table_fobj = open(input_filepath, 'r')
+
+            header_line = data_table_fobj.readline()
+
+            data_table_fobj.close()
+
+            # Parse header line
+            col_names = header_line.split(' ')
+
+            # Read in the data in 100 Mb chunks
+            data_table = ascii.read(input_filepath, 
+                                    format='no_header', 
+                                    names=col_names[1:], 
+                                    guess=False, 
+                                    fast_reader={'chunk_size': 100*1000000})
         
     return data_table
     
