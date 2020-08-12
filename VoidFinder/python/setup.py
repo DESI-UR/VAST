@@ -45,7 +45,8 @@ setup_keywords['requires'] = ['Python (>3.7.0)']
 setup_keywords['zip_safe'] = False
 setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = ['voidfinder', 
-                              'voidfinder.viz']
+                              'voidfinder.viz', 
+                              'voidfinder.volume']
 #setup_keywords['package_dir'] = {'': 'python'}
 #setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 #setup_keywords['test_suite'] = 'nose.collector'
@@ -84,6 +85,11 @@ extensions = [
     
               Extension("voidfinder.viz.neighborize",
                         ["voidfinder/viz/neighborize.pyx"],
+                        include_dirs=[numpy.get_include()],
+                        library_dirs=["m"]),
+              
+              Extension("voidfinder.volume.void_volume",
+                        ["voidfinder/volume/void_volume.pyx"], 
                         include_dirs=[numpy.get_include()],
                         library_dirs=["m"])
 
