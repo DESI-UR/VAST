@@ -57,8 +57,9 @@ num_cpus = 1
 survey_name = 'SDSS_dr7_16grid_'
 
 # File header
-in_directory = '/home/moose/VoidFinder/VoidFinder/data/SDSS/'
-out_directory = '/home/moose/VoidFinder/VoidFinder/void_catalogs/SDSS/'
+in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
+out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/void_catalogs/SDSS/python_implementation/'
+
 
 # Input file name
 galaxies_filename = 'kias1033_5.txt'  # File format: RA, dec, redshift, comoving distance, absolute magnitude

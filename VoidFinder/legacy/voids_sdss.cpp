@@ -31,16 +31,17 @@ int min(int in1, int in2) {
 }
 
 void qsort(vector<vector<double> > &myvoids, int nvd) {
-
+  
   if (nvd <= 1)
     return;
   vector<vector<double> > less;
+  /*
   vector<vector<double> > more;
   vector<double> pivot = myvoids[0];
   int i;
   int nless = 0;
   int nmore = 0;
-
+  
   for (i=1;i<nvd;i++) {
     if (myvoids[i][3]>pivot[3]) {
       more.push_back(myvoids[i]);
@@ -61,9 +62,9 @@ void qsort(vector<vector<double> > &myvoids, int nvd) {
   for (i=0;i<nless;i++) {
     myvoids[nmore+i+1] = less[i];
   }
-
+  */
 }
-
+/*
 int sign(double in) {
   if (in>0)
     return 1;
@@ -75,9 +76,9 @@ int sign(double in) {
 double dist(double x1, double y1, double z1, double x2, double y2, double z2) {
   return sqrt(pow(x2-x1,2)+pow(y2-y1,2)+pow(z2-z1,2));
 }
-
+*/
 int main() {   
-
+  /*
   printf("predecs\n");
 
   FILE *infile, *out1, *out2, *out3, *voidgals, *maskfile;
@@ -813,12 +814,12 @@ int main() {
 		            ra += 180.;
 		          if (ra<0.)
 		            ra += 360.;
-		          /*
-		          printf("%f %f %f\n",xcen,ycen,zcen);
-		          printf("%f %f %f\n",xcen2,ycen2,zcen2);
-		          printf("%f %f %f\n",xcen3,ycen3,zcen3);
-		          printf("%f %f %f\n",xcen4,ycen4,zcen4);
-		          */
+		          
+		          //printf("%f %f %f\n",xcen,ycen,zcen);
+		          //printf("%f %f %f\n",xcen2,ycen2,zcen2);
+		          //printf("%f %f %f\n",xcen3,ycen3,zcen3);
+		          //printf("%f %f %f\n",xcen4,ycen4,zcen4);
+		          
 		          if ((mask[int(ra)][int(dec)-decoffset]==0)||(r>maxdist)||(r<mindist))
 		            continue;
 		          if (flg > 0) {
@@ -917,11 +918,11 @@ int main() {
 	      flag[i] = j;
 	    }
 	    else if (sep<=(r2+r1)) {
-	      /*
-	      a1 = (pow(sep,2)+pow(r1,2)-pow(r2,2))/2./sep;
-	      a2 = sep-a1;
-	      v = 2*pi*(pow(r1,3)+pow(r2,3))/3. - pi*(pow(r1,2)*a1+pow(r2,2)*a2-pow(a1,3)/3-pow(a2,3)/3);
-	      */
+	      
+	      //a1 = (pow(sep,2)+pow(r1,2)-pow(r2,2))/2./sep;
+	      //a2 = sep-a1;
+	      //v = 2*pi*(pow(r1,3)+pow(r2,3))/3. - pi*(pow(r1,2)*a1+pow(r2,2)*a2-pow(a1,3)/3-pow(a2,3)/3);
+	      
 	      v = pi/(12*sep)*pow(r1+r2-sep,2)*(pow(sep,2)+2*sep*r2-3*pow(r2,2)+2*sep*r1+6*r2*r1-3*pow(r1,2));
 	      vs = 4.*pi*pow(r1,3)/3.;
 	      if (v>(frac*vs)) {
@@ -1016,5 +1017,5 @@ int main() {
   //go back through galaxy list and find void galaxies
 
 
-
+  */
 }

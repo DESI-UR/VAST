@@ -16,4 +16,6 @@ VoidFinder/python/voidfinder/__pycache__/
 VoidFinder/doc/debug_dir
 VoidFinder/doc/profiling
 VoidFinder/data/
+VoidFinder/legacy/*
+WorkingDir/
 .settings/
