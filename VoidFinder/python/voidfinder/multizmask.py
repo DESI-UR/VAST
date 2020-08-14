@@ -115,9 +115,12 @@ def generate_mask(gal_data,
     #
     # Mask resolution (inverse of the angular radius of the minimum void at the 
     # maximum distance)
+    # The hardcoded value of 10.0 here represents the minimum radius for a
+    # maximal sphere
     ###########################################################################
     
     mask_resolution = 1 + int(D2R*np.amax(r)/10) #scalar value despite use of amax
+    
     
     ###########################################################################
     # Now that we know the mask_resolution scale factor, convert our ra-dec

@@ -201,7 +201,7 @@ def file_preprocess(galaxies_filename,
     ############################################################################
     # Rename columns
     #---------------------------------------------------------------------------
-    if 'rabsmag' not in galaxy_data_table.columns:
+    if mag_cut and ('rabsmag' not in galaxy_data_table.columns):
         galaxy_data_table['magnitude'].name = 'rabsmag'
         
     if 'z' not in galaxy_data_table.columns:
