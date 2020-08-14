@@ -6,6 +6,8 @@
 *.so
 *.html
 *.dat
+*.fits
+*.fit
 *.txt
 *.pickle
 *.png
