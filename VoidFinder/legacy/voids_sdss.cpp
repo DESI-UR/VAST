@@ -150,7 +150,7 @@ int main() {
 
   //EDIT FILE NAMES HERE
   //Inputs
-  infile = fopen("../data/SDSS/vollim_dr7_cbp_102709.dat","r"); // File format: RA, dec, redshift, comoving distance, absolute magnitude
+  infile = fopen("../data/SDSS/vollim_dr7_cbp_102709_original.dat","r"); // File format: RA, dec, redshift, comoving distance, absolute magnitude
   maskfile = fopen("../data/SDSS/cbpdr7mask.dat","r"); // File format: RA, dec
   //Outputs
   out1 = fopen("../void_catalogs/SDSS/Cpp_implementation/out1_vollim_dr7_cbp_102709.dat","w"); // List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
@@ -194,18 +194,21 @@ int main() {
 
   xmax = -1000.;
   ymax = -1000.;
-  zmax = -1000.;  
+  zmax = -1000.;
 
   while (fscanf(infile,"%lf %lf %lf %lf %lf\n",&ra,&dec,&z,&r,&absmag)!=EOF) {
+	//printf("Line number: %i\n", nin);
     xin[nin] = r*cos(ra*dtor)*cos(dec*dtor);
     yin[nin] = r*sin(ra*dtor)*cos(dec*dtor);
     zin[nin] = r*sin(dec*dtor);
+    //printf("Converted from sky to cartesian\n");
     xmin = min(xmin,xin[nin]);
     ymin = min(ymin,yin[nin]);
     zmin = min(zmin,zin[nin]);
     xmax = max(xmax,xin[nin]);
     ymax = max(ymax,yin[nin]);
     zmax = max(zmax,zin[nin]);
+    //printf("Updated min and max\n");
     nin++;
   }
 
