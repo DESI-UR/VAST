@@ -9,6 +9,8 @@
 *.fits
 *.fit
 *.txt
+*.py~
+*.py#
 *.pickle
 *.png
 *.mp4
