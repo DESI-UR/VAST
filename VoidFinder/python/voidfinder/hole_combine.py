@@ -177,13 +177,42 @@ def combine_holes_2(x_y_z_r_array,
 
     """
     
+    print("Starting Hole Combine")
+    
+    ################################################################################
+    # Remove holes who are nearly identical
+    ################################################################################
+    
+    remove_dup_start = time.time()
+    
     unique_index = remove_duplicates_2(x_y_z_r_array, dup_tol)
+    
+    print("Remove dup time: ", time.time() - remove_dup_start)
     
     x_y_z_r_array = x_y_z_r_array[unique_index]
     
+    ################################################################################
+    # Iterate through all the holes to find the maximal spheres, return an array
+    # of the indices which correspond to the holes which are maximals
+    ################################################################################
+    
+    maximals_start = time.time()
+    
     maximal_spheres_indices = find_maximals_2(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
     
+    print("Find maximals time: ", time.time() - maximals_start)
+    
+    
+    ################################################################################
+    # Using the list of maximals, build a group of holes (A void, finally!) 
+    # around each maximal based on percent intersection
+    ################################################################################
+    
+    hole_merge_start = time.time()
+    
     hole_flag_array = find_holes_2(x_y_z_r_array, maximal_spheres_indices, hole_join_frac)
+    
+    print("Hole merge time: ", time.time() - hole_merge_start)
     
     holes_index = hole_flag_array[:,0]
     

@@ -42,6 +42,22 @@ cpdef np.ndarray remove_duplicates_2(DTYPE_F64_t[:,:] x_y_z_r_array,
     compare pairwise adjacent holes to remove duplicates only from that 
     selection.
     
+    Note that we do not check for holes which are completely contained within
+    other holes, because the main voidfinder will continue growing any sphere
+    until it is bounded by galaxies - so the only way for a hole to be
+    completely contained within another hole is to have the exact same bounding
+    galaxies - so the centers will have a separation distance of less than
+    the provided tolerance.
+    
+    Parameters
+    ==========
+    
+    x-y_z_r_array : numpy.ndarray of shape (N,4)
+    
+    tolerance : float
+        absolute tolerance (ex: Mpc/h) beyond which holes are 
+        considered unique
+    
     """
     
     cdef ITYPE_t num_holes = x_y_z_r_array.shape[0]
@@ -145,6 +161,34 @@ cpdef np.ndarray find_maximals_2(DTYPE_F64_t[:,:] x_y_z_r_array,
                                                DTYPE_F64_t frac,
                                                DTYPE_F64_t min_radius):
                                                
+    """
+    Description
+    ===========
+    
+    Build an array of the indices which correspond to maximal
+    holes in the input x_y_z_r_array.  Since x_y_z_r_array is sorted by radius,
+    we can assume the hole at index 0 is the first maximal hole.
+    
+    Parameters
+    =========
+    
+    x_y_z_r_array : ndarray of shape (N,4)
+        must be sorted such that index 0 corresponds to the largest hole radius.
+        
+    frac : float in [0, 1)
+        any 2 potential maximals which overlap
+        by more than this percentage means the smaller hole will not be
+        considered a maximal
+    
+    min_radius : float
+    
+    
+    Returns
+    =======
+    
+    out_maximals_index : ndarray of shape (N,)
+    """
+                                               
                                                
     #out_maximals_xyzr = np.empty(x_y_z_r_array.shape, dtype=np.float64)
     out_maximals_index = np.empty(x_y_z_r_array.shape[0], dtype=np.int64)
@@ -178,6 +222,7 @@ cpdef np.ndarray find_maximals_2(DTYPE_F64_t[:,:] x_y_z_r_array,
         
         curr_sphere_volume_thresh = frac*(4.0/3.0)*np.pi*curr_radius*curr_radius*curr_radius
         
+        #Compare the current sphere against all the previously marked maximals
         for jdx in range(N_voids):
             
             maximal_idx = out_maximals_index[jdx]
@@ -240,6 +285,9 @@ cpdef np.ndarray find_holes_2(DTYPE_F64_t[:,:] x_y_z_r_array,
                                             DTYPE_F64_t frac,
                                             ):
     """
+    
+    Rename this to 'build_void_groups'
+    
     We have found the maximals, so intuitively one might think the 'holes' would
     just be all the remaining rows in the table.  However, some may be discarded 
     still because they are completely contained within another hole.  Also,
