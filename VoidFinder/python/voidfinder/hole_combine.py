@@ -12,7 +12,8 @@ import time
 from ._hole_combine_cython import remove_duplicates_2, \
                                   find_maximals_2, \
                                   find_maximals_3, \
-                                  find_holes_2
+                                  find_holes_2, \
+                                  join_holes_to_maximals
 
 
 ################################################################################
@@ -202,7 +203,7 @@ def combine_holes_2(x_y_z_r_array,
     maximals_start = time.time()
     
     #maximal_spheres_indices = find_maximals_2(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
-    maximal_spheres_indices = find_maximals_3(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
+    maximal_spheres_indices, maximal_grid_info = find_maximals_3(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
     
     print("Find maximals time: ", time.time() - maximals_start)
     
@@ -214,7 +215,8 @@ def combine_holes_2(x_y_z_r_array,
     
     hole_merge_start = time.time()
     
-    hole_flag_array = find_holes_2(x_y_z_r_array, maximal_spheres_indices, hole_join_frac)
+    #hole_flag_array = find_holes_2(x_y_z_r_array, maximal_spheres_indices, hole_join_frac)
+    hole_flag_array = join_holes_to_maximals(x_y_z_r_array, maximal_spheres_indices, hole_join_frac, maximal_grid_info)
     
     print("Hole merge time: ", time.time() - hole_merge_start)
     
