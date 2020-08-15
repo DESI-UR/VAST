@@ -9,7 +9,10 @@ import time
 #import warnings
 #warnings.simplefilter('error')
 
-from ._hole_combine_cython import remove_duplicates_2, find_maximals_2, find_holes_2
+from ._hole_combine_cython import remove_duplicates_2, \
+                                  find_maximals_2, \
+                                  find_maximals_3, \
+                                  find_holes_2
 
 
 ################################################################################
@@ -198,7 +201,8 @@ def combine_holes_2(x_y_z_r_array,
     
     maximals_start = time.time()
     
-    maximal_spheres_indices = find_maximals_2(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
+    #maximal_spheres_indices = find_maximals_2(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
+    maximal_spheres_indices = find_maximals_3(x_y_z_r_array, maximal_overlap_frac, min_maximal_radius)
     
     print("Find maximals time: ", time.time() - maximals_start)
     
