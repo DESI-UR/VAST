@@ -223,7 +223,10 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
                                          
                                          
                                          
-                                         
+cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, \
+                             DTYPE_INT32_t level, \
+                             Cell_ID_Memory cell_ID_mem, \
+                             GalaxyMapCustomDict galaxy_map)
                                          
                                          
                                          

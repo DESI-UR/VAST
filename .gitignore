@@ -13,7 +13,10 @@
 *__pycache__*
 VoidFinder/python/voidfinder.egg-info/
 VoidFinder/python/voidfinder/__pycache__/
+VoidFinder/python/build/
 VoidFinder/doc/debug_dir
 VoidFinder/doc/profiling
 VoidFinder/data/
+VoidFinder/legacy/*
+WorkingDir/
 .settings/
