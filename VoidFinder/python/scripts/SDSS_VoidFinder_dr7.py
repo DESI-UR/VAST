@@ -51,10 +51,10 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 1
+num_cpus = None
 
 #-------------------------------------------------------------------------------
-survey_name = 'SDSS_dr7_16grid_'
+survey_name = 'SDSS_dr7_'
 
 # File header
 in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
@@ -62,7 +62,7 @@ out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/void_c
 
 
 # Input file name
-galaxies_filename = 'kias1033_5.txt'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
+galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ temp_infile.close()
 
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies(galaxy_data_table,
                                                                                  survey_name,
-                                                                                 hole_grid_edge_length=16.0,
+                                                                                 #hole_grid_edge_length=5.0,
                                                                                  #distance_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=1)
@@ -177,9 +177,9 @@ find_voids(wall_coords_xyz,
            survey_name,
            #save_after=50000,
            #use_start_checkpoint=True,
-           hole_grid_edge_length=16.0,
-           galaxy_map_grid_edge_length=None,
-           hole_center_iter_dist=1.0,
+           #hole_grid_edge_length=5.0,
+           #galaxy_map_grid_edge_length=None,
+           #hole_center_iter_dist=1.0,
            maximal_spheres_filename=out1_filename,
            void_table_filename=out2_filename,
            potential_voids_filename=survey_name+'potential_voids_list.txt',
