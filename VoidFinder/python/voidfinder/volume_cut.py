@@ -280,6 +280,12 @@ def check_hole_bounds(x_y_z_r_array,
         boolean array of length corresponding to input x_y_z_r_array
         True if hole is within bounds, False is hole falls outside
         the mask too far based on the cut_pct criteria
+        
+    monte_index : numpy.ndarray of shape (N,)
+        boolean array - True if the current point underwent
+        the additional monte-carlo analysis, and False if all the points
+        on the shell were inside the mask and therefore no volume
+        analysis was necessary
     """
 
    
