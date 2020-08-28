@@ -54,7 +54,7 @@ from astropy.table import Table
 from .table_functions import to_array
 
 import matplotlib
-matplotlib.use('TkAgg')
+#matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 
