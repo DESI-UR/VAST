@@ -258,13 +258,10 @@ def in_survey(coordinates, min_limit, max_limit):
 ################################################################################
 ################################################################################
 
-def save_maximals(sphere_table, out1_filename):
+def xyz_to_radecz(sphere_table):
     '''
-    Calculate the ra, dec coordinates for the centers of each of the maximal spheres
-    Save the maximal spheres to a text file
+    Calculate the ra, dec coordinates for the centers of each sphere
     '''
-    
-    print("Saving maximals to: ", out1_filename)
 
     r = np.linalg.norm(to_array(sphere_table), axis=1)
     sphere_table['r'] = r.T
@@ -274,6 +271,22 @@ def save_maximals(sphere_table, out1_filename):
     # Adjust ra value as necessary
     boolean = np.logical_and(sphere_table['y'] != 0, sphere_table['x'] < 0)
     sphere_table['ra'][boolean] += 180.
+
+    return sphere_table
+
+
+################################################################################
+################################################################################
+
+def save_maximals(sphere_table, out1_filename):
+    '''
+    Calculate the ra, dec coordinates for the centers of each of the maximal spheres
+    Save the maximal spheres to a text file
+    '''
+    
+    print("Saving maximals to: ", out1_filename)
+
+    sphere_table = xyz_to_radecz(sphere_table)
 
     #print(sphere_table)
 
