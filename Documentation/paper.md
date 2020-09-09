@@ -54,7 +54,9 @@ Analyzing the next generation of cosmological surveys will require the ability t
 # 3D Visualization
 
 Both `VoidFinder` and `Vsquared` include OpenGL based visulization for their outputs. [in progress]
-
+- Screen shot of VoidFinder and V2 voids in 3D using SDSS DR7 NGC. Maybe sub-select to show the largest voids only so it's not a hugely messy-looking image.
+- Description of scriptable animation options available with ffmpeg3. Details avaialable in online documentation.
+- Slice plots? Probably overkill to include a plot... just mention this is available?
 
 
 
