@@ -21,11 +21,18 @@ authors:
   - name: Fatima Zaidouni
     orcid: 0000-0003-0931-0868
     affiliation: 1
+  - name: Michaela Guzzetti
+    orcid:
+    affiliation: 1,3,4
 affiliations:
   - name: University of Rochester
     index: 1
   - name: Independent Researcher
     index: 2
+  - name: Smith College
+    index: 3
+  - name: University of Washington
+    index: 4
 date: September 2020
 bibliography: paper.bib
 ---
