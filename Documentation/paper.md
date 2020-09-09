@@ -18,12 +18,15 @@ authors:
   - name: Segev BenZvi
     orcid: 0000-0001-5537-4710
     affiliation: 1
+  - name: Fatima Zaidouni
+    orcid: 0000-0003-0931-0868
+    affiliation: 1
 affiliations:
   - name: University of Rochester
     index: 1
   - name: Independent Researcher
     index: 2
-date: August 2020
+date: September 2020
 bibliography: paper.bib
 ---
 
