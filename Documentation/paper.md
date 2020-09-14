@@ -14,6 +14,7 @@ authors:
     orcid: 0000-0001-8101-2836
     affiliation: 1
   - name: Stephen W. O'Neill, Jr.
+    orcid: 0000-0003-1366-7325
     affiliation: 2
   - name: Segev BenZvi
     orcid: 0000-0001-5537-4710
