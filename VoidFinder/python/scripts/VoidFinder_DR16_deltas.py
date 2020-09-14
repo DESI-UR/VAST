@@ -60,11 +60,11 @@ survey_name = 'DR16_reconstructed'
 # File header
 #in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
-out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
+in_directory = '$MY_DATA_DELTAFIELDS'
+out_directory = '$MY_DATA_DELTAFIELDS'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-galaxies_filename = 'data_reconstructed.dat' 
+galaxies_filename = 'mini_data_reconstructed.dat' 
 #deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
 #-------------------------------------------------------------------------------
 
@@ -138,18 +138,16 @@ temp_outfile.close()
 #
 ################################################################################
 
-mag_cut_flag=False
-
 temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
-wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_flux(galaxy_data_table,
+wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies(galaxy_data_table,
                                                                                  survey_name,
                                                                                  #distance_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=1)
-print('I did filter galaxies.')
+
 del galaxy_data_table
 
 

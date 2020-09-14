@@ -18,10 +18,10 @@
 ################################################################################
 
 
-#import sys
+import sys
 #sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
-
+sys.path.insert(1, '/scratch/ierez/IGMCosmo/VoidFinder/python/')
 ################################################################################
 #
 #   IMPORT MODULES
@@ -57,8 +57,8 @@ num_cpus = 1
 survey_name = 'SDSS_dr7_'
 
 # File header
-in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/void_catalogs/SDSS/python_implementation/'
+in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/SDSS/'
+out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/SDSS/'
 
 # Input file name
 galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude

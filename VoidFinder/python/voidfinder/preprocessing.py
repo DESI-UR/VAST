@@ -3,6 +3,8 @@ import numpy as np
 
 from astropy.table import Table
 
+from astropy.io import ascii
+
 from voidfinder.distance import z_to_comoving_dist
 
 import time
@@ -76,7 +78,8 @@ def load_data_to_Table(input_filepath):
                                     names=col_names[1:], 
                                     guess=False, 
                                     fast_reader={'chunk_size': 100*1000000})
-        
+    
+    
     return data_table
     
     
@@ -116,7 +119,7 @@ def file_preprocess(galaxies_filename,
     mag_cut : boolean
         Determines whether or not to implement a magnitude cut on the galaxy 
         survey.  Default is True (remove all galaxies fainter than Mr = -20).
-        
+
     rm_isolated : boolean
         Determines whether or not to remove isolated galaxies (defined as those 
         with the distance to their third nearest neighbor greater than the sum 
@@ -207,7 +210,7 @@ def file_preprocess(galaxies_filename,
     if 'z' not in galaxy_data_table.columns:
         galaxy_data_table['redshift'].name = 'z'
     ############################################################################
-    
+
     
     ############################################################################
     # Determine min and max redshifts if not supplied by user
@@ -246,7 +249,8 @@ def file_preprocess(galaxies_filename,
             print("Finished Rgal calculation time: ", time.time() - calc_start_time, flush=True)
     ############################################################################
     
-    
+    print(galaxy_data_table)
+
     return galaxy_data_table, dist_limits, out1_filename, out2_filename
 
 

@@ -7,6 +7,10 @@ from astropy.table import Table
 
 import time
 
+import matplotlib as mpl
+
+import matplotlib.pyplot as plt
+
 from .hole_combine import combine_holes, combine_holes_2
 
 from .voidfinder_functions import mesh_galaxies, \
@@ -54,7 +58,8 @@ RtoD = 180./np.pi
 
 def filter_galaxies(galaxy_table,
                     survey_name, 
-                    mag_cut_flag=True, 
+                    mag_cut_flag=True,
+                    filter_flux=None, 
                     rm_isolated_flag=True,
                     write_table=True,
                     sep_neighbor=3,
@@ -93,6 +98,8 @@ def filter_galaxies(galaxy_table,
     mag_cut_flag : bool
         whether or not to cut on magnitude, removing galaxies less than
         magnitude_limit
+    
+    filter_flux : float
         
     magnitude_limit : float
         value at which to perform magnitude cut
@@ -153,6 +160,7 @@ def filter_galaxies(galaxy_table,
         print('Filter Galaxies Start', flush=True)
 
     # Remove faint galaxies
+
     if mag_cut_flag:
         
         galaxy_table = galaxy_table[galaxy_table['rabsmag'] < magnitude_limit]
@@ -160,7 +168,6 @@ def filter_galaxies(galaxy_table,
     coords_xyz = ra_dec_to_xyz(galaxy_table,
                                distance_metric,
                                h)
-    
     
     ################################################################################
     #
@@ -170,7 +177,7 @@ def filter_galaxies(galaxy_table,
     
     hole_grid_shape, coords_min = calculate_grid(coords_xyz,
                                                  hole_grid_edge_length)
-    
+    print('Calculated grid')
     ################################################################################
     #
     #   SEPARATION
@@ -228,6 +235,239 @@ def filter_galaxies(galaxy_table,
 
 
 
+
+def filter_flux(galaxy_table,
+                    survey_name,
+                    mag_cut_flag=True,
+                    flux_cut=None,
+                    rm_isolated_flag=True,
+                    write_table=True,
+                    sep_neighbor=3,
+                    distance_metric='comoving',
+                    h=1.0,
+                    hole_grid_edge_length=5.0,
+                    magnitude_limit=-20.0,
+                    verbose=0):
+    """
+    Description
+    ===========
+
+    A hodge podge of miscellaneous tasks which need to be done to format the data into
+    something the main find_voids() function can use.
+
+    1). Optional magnitude cut
+    2). Convert from ra-dec-redshift space into xyz space
+    3). Calculate the hole search grid shape
+    4). Optional remove isolated galaxies by partitioning them into wall (non-isolated)
+            and field (isolated) groups
+    5). Optionally write out the wall and field galaxies to disk
+    Parameters
+    ==========
+
+    galaxy_table : astropy.table of shape (N,?)
+        variable number of required columns.  If doing magnitude cut, must include
+        'rabsmag' column. If distance metric is 'comoving', must include 'Rgal'
+        column, otherwise must include 'redshift'.  Also must always include 'ra'
+        and 'dec'
+
+    survey_name : str
+        Name of the galxy catalog, string value to prepend or append to output names
+
+    mag_cut_flag : bool
+        whether or not to cut on magnitude, removing galaxies less than
+        magnitude_limit
+
+    flux_cut : float
+
+    magnitude_limit : float
+        value at which to perform magnitude cut
+
+    rm_isolated_flag : bool
+        whether or not to perform Nth neighbor distance calculation, and use it
+        to partition the input galaxies into wall and field galaxies
+
+    write_table : bool
+        use astropy.table.Table.write to write out the wall and field galaxies
+        to file
+
+    sep_neighbor : int, positive
+        if rm_isolated_flag is true, find the Nth galaxy neighbors based on this value
+
+    distance_metric : str
+        Distance metric to use in calculations.  Options are 'comoving'
+        (default; distance dependent on cosmology) and 'redshift' (distance
+        independent of cosmology).
+
+    h : float
+        Fractional value of Hubble's constant.  Default value is 1 (where
+        H0 = 100h).
+
+    hole_grid_edge_length : float
+        length in Mpc/h of the edge of one cell of a grid cube for the search grid
+
+    verbose : int
+        values greater than zero indicate to print output
+
+     Returns
+    =======
+
+    wall_gals_xyz : numpy.ndarray of shape (K,3)
+        the galaxies which were designated not to be isolated
+
+    field_gals_xyz : numpy.ndarray of shape (L,3)
+        the galaxies designated as isolated
+
+    hole_grid_shape : tuple of 3 integers (i,j,k)
+        shape of the hole search grid
+
+    coords_min : numpy.ndarray of shape (3,)
+        coordinates of the minimum of the survey used for converting from
+        xyz space into ijk space
+
+    """
+
+
+
+    ################################################################################
+    # PRE-PROCESS DATA
+    # Filter based on magnitude and convert from redshift to radius if necessary
+    #
+    ################################################################################
+    # mag_cut_flag=False #I have added because seems like it doesn't see it.
+    if verbose > 0:
+        print('Filter Galaxies Start', flush=True)
+
+    # Remove faint galaxies
+    print(len(galaxy_table))
+    print(mag_cut_flag) 
+
+    if mag_cut_flag:
+        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < magnitude_limit]
+    
+    print(galaxy_table)
+    coords_xyz = ra_dec_to_xyz(galaxy_table,
+                               distance_metric,
+                               h)
+
+    ################################################################################
+    #
+    #Filter transmission flux rate or Transmitted Flux Density
+    #
+    ################################################################################
+    if verbose > 0:
+        print('Filter Transmitted Flux Density Start', flush=True)
+    
+    print(galaxy_table[0:5])
+    print(galaxy_table['rabsmag'][0:5])
+    # Remove ?tomographic maps                                                                                                                                                                             
+    #Plot the hoistogram for all of the data without cut
+    plt.figure()
+    plt.rc('text', usetex=False)
+    plt.rc('font', family='serif')
+
+    plt.grid(True,ls='-.',alpha=.4)
+    plt.title(r'Histogram for Flux Contrast',fontsize=16)
+    plt.xlabel(r'Flux Contrast $\delta$',fontsize=14)
+    plt.ylabel(r'Number',fontsize=18)
+
+    # plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')
+    plt.hist(galaxy_table['rabsmag'])  #, color='teal') 
+    #plt.show()
+    plt.savefig('galaxy-original.png')
+    print(len(galaxy_table))
+    
+    if flux_cut is None:
+        print('No filter is applied on transmission flux rate.')
+    else:
+        print('Filter is applied on transmission flux rate.')
+        print(flux_cut)
+        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < flux_cut]
+        print(len(galaxy_table))
+        print(galaxy_table[0:5])
+    
+    plt.figure()
+    plt.rc('text', usetex=False)
+    plt.rc('font', family='serif')
+
+    plt.grid(True,ls='-.',alpha=.4)
+    plt.title(r'Histogram for Flux Contrast',fontsize=16)
+    plt.xlabel(r'Flux Contrast $\delta$',fontsize=14)
+    plt.ylabel(r'Number',fontsize=18)
+
+    # plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')                                                                    
+    plt.hist(galaxy_table['rabsmag'])  #, color='teal')                                                                                                                                                     
+    #plt.show()                                                                                                                                                                                                
+    plt.savefig('galaxy-cut.png')
+
+    coords_xyz = ra_dec_to_xyz(galaxy_table,
+                               distance_metric,
+                               h)
+
+
+    ################################################################################
+    #
+    # Grid shape
+    #
+    ################################################################################
+
+    hole_grid_shape, coords_min = calculate_grid(coords_xyz,
+                                                 hole_grid_edge_length)
+    print('Calculated grid')
+    ################################################################################
+    #
+    #   SEPARATION
+    #
+    ################################################################################
+
+    if rm_isolated_flag:
+
+        wall_gals_xyz, field_gals_xyz = wall_field_separation(coords_xyz,
+                                                              sep_neighbor=sep_neighbor,
+                                                              verbose=verbose)
+
+    else:
+
+        wall_gals_xyz = coords_xyz
+
+        field_gals_xyz = np.array([])
+
+
+    ################################################################################
+    #
+    # Write results to disk if desired
+    #
+    ################################################################################
+
+    if write_table:
+
+
+        write_start = time.time()
+
+
+        wall_xyz_table = Table(data=wall_gals_xyz, names=["x", "y", "z"])
+
+        wall_xyz_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
+
+
+        field_xyz_table = Table(data=field_gals_xyz, names=["x", "y", "z"])
+
+        field_xyz_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
+
+
+        if verbose > 0:
+
+            print("Time to write field and wall tables: ", time.time() - write_start, flush=True)
+
+
+    nf =  len(field_gals_xyz)
+
+    nwall = len(wall_gals_xyz)
+
+    if verbose > 0:
+
+        print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
+
+    return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
 
 
 

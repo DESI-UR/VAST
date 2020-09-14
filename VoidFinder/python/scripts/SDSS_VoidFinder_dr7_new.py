@@ -18,18 +18,17 @@
 ################################################################################
 
 
-#import sys
+import sys
 #sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
-import sys
-sys.path.insert(0, "/scratch/ierez/IGMCosmo/VoidFinder/python/")
+sys.path.insert(1, '/scratch/ierez/IGMCosmo/VoidFinder/python/')
 ################################################################################
 #
 #   IMPORT MODULES
 #
 ################################################################################
 
-from voidfinder import find_voids, filter_galaxies
+from voidfinder import find_voids, filter_flux
 
 from voidfinder.multizmask import generate_mask
 from voidfinder.preprocessing import file_preprocess
@@ -55,25 +54,22 @@ import numpy as np
 num_cpus = 1
 
 #-------------------------------------------------------------------------------
-survey_name = 'DR16_reconstructed'
+survey_name = 'SDSS_dr7_'
 
 # File header
-#in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-#out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
-out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
+in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/SDSS/'
+out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/SDSS/'
+
 # Input file name
-#galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-galaxies_filename = 'data_reconstructed.dat' 
-#deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
+galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Survey parameters
 # Note: These can be set to None, in which case VoidFinder will use the limits 
 # of the galaxy catalog.
-min_z = 2.1
-max_z = 3.2
+min_z = 0
+max_z = 0.1026
 
 # Cosmology (uncomment and change values to change cosmology)
 # Need to also uncomment relevent inputs in function calls below
@@ -88,7 +84,7 @@ max_z = 3.2
 #-------------------------------------------------------------------------------
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
 # Need to also uncomment relevent input in function call below
-mag_cut = False
+#mag_cut = False
 
 
 # Uncomment if you do NOT want to remove isolated galaxies
@@ -108,12 +104,12 @@ mag_cut = False
 galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, 
                                                                                in_directory, 
                                                                                out_directory, 
-                                                                               mag_cut=mag_cut,
+                                                                               #mag_cut=mag_cut,
                                                                                #rm_isolated=rm_isolated,
                                                                                #dist_metric=dist_metric,
                                                                                min_z=min_z, 
                                                                                max_z=max_z,
-                                                                               Omega_M= 0.3147, #CHANGED THE NUMBER
+                                                                               #Omega_M=Omega_M,
                                                                                #h=h,
                                                                                verbose=1)
 
@@ -138,18 +134,17 @@ temp_outfile.close()
 #
 ################################################################################
 
-mag_cut_flag=False
-
 temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_flux(galaxy_data_table,
                                                                                  survey_name,
+                                                                                 flux_cut=-21,
                                                                                  #distance_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=1)
-print('I did filter galaxies.')
+
 del galaxy_data_table
 
 

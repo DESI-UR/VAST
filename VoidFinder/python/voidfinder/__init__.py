@@ -15,6 +15,7 @@ from ._version import __version__
 #"from voidfinder.voidfinder import filter galaxies"
 
 from .voidfinder import filter_galaxies, \
+                        filter_flux, \
                         ra_dec_to_xyz, \
                         calculate_grid, \
                         wall_field_separation, \
