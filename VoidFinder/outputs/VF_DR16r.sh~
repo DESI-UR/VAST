@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH --mem=400G
+#SBATCH --job-name=test
+#SBATCH --time=01:00:00
+#SBATCH --mail-user=email
+#SBATCH -o $MY_OUTPUTS/VF_DR16r_output.log                                                                                                                                                             
+#SBATCH -e $MY_OUTPUTS/VF_DR16r_error.log  
+
+
+echo 'Running the reconstructed maps on VoidFinder.'
+hostname
+module load anaconda3
+time
+python $MY_SCRIPTS/VoidFinder_DR16_reconstructed.py
+time
