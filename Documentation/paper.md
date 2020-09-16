@@ -24,7 +24,7 @@ authors:
     affiliation: 1
   - name: Michaela Guzzetti
     orcid: 0000-0001-6866-8291
-    affiliation: "1","3","4"
+    affiliation: "1, 3, 4"
 affiliations:
   - name: University of Rochester
     index: 1
