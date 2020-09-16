@@ -76,7 +76,7 @@ An animated example of the VoidRender visualization can be found on [YouTube](ht
 
 # Acknowledgements
 
-SB and DV acknowledge support from the DOE Office of High Energy Physics under award number DE-SC0008475. MG was supported by the NSF Research Experience for Undergraduates program under award number 1757062. KD and FZ acknowledge support from the University of Rochester (UR) and UR Research Innovation Grants program.
+SB and DV acknowledge support from the DOE Office of High Energy Physics under award number DE-SC0008475. MG was supported by the NSF Research Experience for Undergraduates program under award number 1757062. KD and FZ acknowledge support from the University of Rochester (UR), and FZ acknowledges support from the UR Research Innovation Grants program.
 
 
 # References
