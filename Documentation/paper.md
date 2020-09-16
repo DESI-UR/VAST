@@ -70,15 +70,13 @@ In order to aid in assessing the quality of the VoidFinder algorithm, the `voidf
 
 ![`Vsquared` visualization of the output from SDSS DR7.\label{fig:v2viz}](vsquared_viz.png)
 
-An animated example of the VoidRender visualization can be found on [youtube](https://www.youtube.com/watch?v=PmyoUAt4Qa8). VoidRender can be utilized to produce screenshots or videos such as this example if a user's environment includes the `ffmpeg` library. `Vsquared` also includes an `OpenGL` and `vispy` based visualization for its output. The surfaces of voids found by the ZOBOV algorithm are made up of convex polygons, and are rendered exactly in 3D. Controls for movement and production of screenshots and videos are identical to those of VoidRender. An example of the `Vsquared` visualization is shown in Figure \autoref{fig:v2viz}.
+An animated example of the VoidRender visualization can be found on [YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8). VoidRender can be utilized to produce screenshots or videos such as this example if a user's environment includes the `ffmpeg` library. `Vsquared` also includes an `OpenGL` and `vispy` based visualization for its output. The surfaces of voids found by the ZOBOV algorithm are made up of convex polygons, and are rendered exactly in 3D. Controls for movement and production of screenshots and videos are identical to those of VoidRender. An example of the `Vsquared` visualization is shown in Figure \autoref{fig:v2viz}.
 
 
 
 # Acknowledgements
 
-We acknowledge support from the DOE Office of High Energy Physics under grant number DE-SC0008475.
-
-
+SB and DV acknowledge support from the DOE Office of High Energy Physics under award number DE-SC0008475. MG was supported by the NSF Research Experience for Undergraduates program under award number 1757062. KD and FZ acknowledge support from the University of Rochester (UR) and UR Research Innovation Grants program.
 
 
 # References
