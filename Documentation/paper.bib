@@ -41,7 +41,7 @@ eprint = {astro-ph/9702135},
 primaryClass = {astro-ph}
 }
 
-@article{Neyrinck:2007,
+@article{Neyrinck:2007,  % 2008 not 2007?
 author         = "Neyrinck, Mark C.",
 title          = "{ZOBOV: a parameter-free void-finding algorithm}",
 journal        = "Mon. Not. Roy. Astron. Soc.",
@@ -70,6 +70,339 @@ Title = {The DESI Experiment, a whitepaper for Snowmass 2013},
 Year = {2013},
 Eprint = {arXiv:1308.0847}
 }
+
+% ------------------------------------------------ Potentially useful additional references --------------------------------------------------------------------------------
+
+% (summary section) Potential papers to include  that speak to the importance of voids in science:
+
+% one of the first papers describing voids, the begining of the story, can go next to the first sentence.
+@article{de1986slice,
+  title={A slice of the universe},
+  author={De Lapparent, Val{\'e}rie and Geller, Margaret J and Huchra, John P},
+  journal={The Astrophysical Journal},
+  volume={302},
+  pages={L1--L5},
+  year={1986}
+}
+% examples of how voids have been used: 
+
+
+%constraining cosmological models (after the sentence from the summary about this):
+@article{lavaux2012precision,
+  title={Precision cosmography with stacked voids},
+  author={Lavaux, Guilhem and Wandelt, Benjamin D},
+  journal={The Astrophysical Journal},
+  volume={754},
+  number={2},
+  pages={109},
+  year={2012},
+  publisher={IOP Publishing}
+}
+% same as above, with neutrino and dark energy studies
+@article{PhysRevD.99.063525,
+  title = {Cluster-void degeneracy breaking: Neutrino properties and dark energy},
+  author = {Sahl\'en, Martin},
+  journal = {Phys. Rev. D},
+  volume = {99},
+  issue = {6},
+  pages = {063525},
+  numpages = {10},
+  year = {2019},
+  month = {Mar},
+  publisher = {American Physical Society},
+  doi = {10.1103/PhysRevD.99.063525},
+  url = {https://link.aps.org/doi/10.1103/PhysRevD.99.063525}
+}
+
+% for galaxy formation:
+
+
+
+@article{peebles2001void,
+  title={The void phenomenon},
+  author={Peebles, PJE},
+  journal={The Astrophysical Journal},
+  volume={557},
+  number={2},
+  pages={495},
+  year={2001},
+  publisher={IOP Publishing}
+}
+
+
+% for star formation :
+
+@article{10.1093/mnras/stw280,
+    author = {Beygu, B. and Kreckel, K. and van der Hulst, J. M. and Jarrett, T. H and Peletier, R. and van de Weygaert, R. and van Gorkom, J. H. and Aragon-Calvo, M. A.},
+    title = "{The void galaxy survey: Star formation properties}",
+    journal = {Monthly Notices of the Royal Astronomical Society},
+    volume = {458},
+    number = {1},
+    pages = {394-409},
+    year = {2016},
+    month = {02}, a
+    issn = {0035-8711},
+    doi = {10.1093/mnras/stw280},
+    url = {https://doi.org/10.1093/mnras/stw280},
+    eprint = {https://academic.oup.com/mnras/article-pdf/458/1/394/8181260/stw280.pdf},
+}
+
+
+% using voids for dark energy probing
+@article{pisani2015counting,
+  title={Counting voids to probe dark energy},
+  author={Pisani, Alice and Sutter, PM and Hamaus, Nico and Alizadeh, Esfandiar and Biswas, Rahul and Wandelt, Benjamin D and Hirata, Christopher M},
+  journal={Physical Review D},
+  volume={92},
+  number={8},
+  pages={083531},
+  year={2015},
+  publisher={APS}
+}
+
+%etc. can provide more void study papers
+
+--------------
+
+% in the VoidFinder section, the first VoidFinder implementation on which ours is heavily based:
+
+
+@article{hoyle2002voids,
+  title={Voids in the point source catalogue survey and the updated zwicky catalog},
+  author={Hoyle, Fiona and Vogeley, Michael S},
+  journal={The Astrophysical Journal},
+  volume={566},
+  number={2},
+  pages={641},
+  year={2002},
+  publisher={IOP Publishing}
+}
+
+
+%The JOSS submission criteria mentions that the paper should include: "A list of key references, including to other software addressing related needs." it could be 
+% helpful to add some of the following references:  
+
+% This is VIDE, current V^2 section cites ZOBOV only, was any pruning method or code used from VIDE? in which case:
+@article{sutter2015vide,
+  title={VIDE: the Void IDentification and Examination toolkit},
+  author={Sutter, PM and Lavaux, Guilhem and Hamaus, Nico and Pisani, Alice and Wandelt, Benjamin D and Warren, M and Villaescusa-Navarro, Francisco and Zivick, Paul and Mao, Qingqing and Thompson, Benjamin B},
+  journal={Astronomy and Computing},
+  volume={9},
+  pages={1--9},
+  year={2015},
+  publisher={Elsevier}
+}
+
+% if a sentence about the existence of other void-finding algorithms is added then the following papers could be referenced after that sentence
+%(not all of these have software available publically so thats another reason this joss paper is important)
+
+%VOIDSEARCH algorithm by Kauffmann & Fairall (1991):
+
+@article{kauffmann1991voids,
+  title={Voids in the distribution of galaxies: an assessment of their significance and derivation of a void spectrum},
+  author={Kauffmann, G and Fairall, AP},
+  journal={Monthly Notices of the Royal Astronomical Society},
+  volume={248},
+  number={2},
+  pages={313--324},
+  year={1991},
+  publisher={Oxford University Press Oxford, UK}
+}
+
+% Adaptive tree by Gottlober:
+
+@article{10.1046/j.1365-8711.2003.06850.x,
+    author = {Gottlöber, Stefan and Łokas, Ewa L. and Klypin, Anatoly and Hoffman, Yehuda},
+    title = "{The structure of voids}",
+    journal = {Monthly Notices of the Royal Astronomical Society},
+    volume = {344},
+    number = {3},
+    pages = {715-724},
+    year = {2003},
+    month = {09},
+    abstract = "{Using high-resolution N-body simulations, we address the problem of the emptiness of giant ∼20 h−1 Mpc diameter voids found in the distribution of bright galaxies. Are the voids filled by dwarf galaxies? Do cosmological models predict too many small dark matter haloes inside the voids? Can the problems of cosmological models on small scales be addressed by studying the abundance of dwarf galaxies inside voids? We find that voids in the distribution of 1012h−1 M⊙ haloes (expected galactic magnitudes ∼M*) are almost the same as the voids in 1011h−1 M⊙ haloes. Yet, much smaller haloes with masses 109h−1 M⊙ and circular velocities vcirc∼ 20 km s−1 readily fill the voids: there should be almost 1000 of these haloes in a 20 h−1 Mpc diameter void. A typical void of diameter 20 h−1 Mpc contains about 50 haloes with vcirc \\&gt; 50 km s−1. The haloes are arranged in a pattern, which looks like a miniature universe: it has the same structural elements as the large-scale structure of the galactic distribution of the Universe. There are filaments and voids; larger haloes are at the intersections of filaments. The only difference is that all masses are four orders of magnitude smaller. There is severe (anti)bias in the distribution of haloes, which depends on halo mass and on the distance from the centre of the void. Large haloes are more antibiased and have a tendency to form close to void boundaries. The mass function of haloes in voids is different from the ‘normal’ mass function. It is much steeper for high masses, resulting in very few M33-type galaxies (vcirc≈ 100 km s−1). We present an analytical approximation for the mass function of haloes in voids.}",
+    issn = {0035-8711},
+    doi = {10.1046/j.1365-8711.2003.06850.x},
+    url = {https://doi.org/10.1046/j.1365-8711.2003.06850.x},
+    eprint = {https://academic.oup.com/mnras/article-pdf/344/3/715/3296009/344-3-715.pdf},
+}
+
+% Delaunay based algorithm for void finding
+
+@article{Alonso2018,
+title = "Delaunay based algorithm for finding polygonal voids in planar point sets",
+journal = "Astronomy and Computing",
+volume = "22",
+pages = "48 - 62",
+year = "2018",
+issn = "2213-1337",
+doi = "https://doi.org/10.1016/j.ascom.2018.01.001",
+url = "http://www.sciencedirect.com/science/article/pii/S2213133716301342",
+author = "R. Alonso and J. Ojeda and N. Hitschfeld and C. Hervías and L.E. Campusano",
+keywords = "Mesh geometry models, Join algorithms, Data analysis, Large-scale structure of universe",
+abstract = "This paper presents a new algorithm to find under-dense regions called voids inside a 2D point set. The algorithm starts from terminal-edges (local longest-edges) in a Delaunay triangulation and builds the largest possible low density terminal-edge regions around them. A terminal-edge region can represent either an entire void or part of a void (subvoid). Using artificial data sets, the case of voids that are detected as several adjacent subvoids is analyzed and four subvoid joining criteria are proposed and evaluated. Since this work is inspired on searches of a more robust, effective and efficient algorithm to find 3D cosmological voids the evaluation of the joining criteria considers this context. However, the design of the algorithm permits its adaption to the requirements of any similar application."
+}
+
+
+% CELLS Void Finder and HB Void Finder by Patiri et al
+
+@article{Patirietal2006,
+    author = {Patiri, Santiago G. and Betancort-Rijo, Juan E. and Prada, Francisco and Klypin, Anatoly and Gottlöber, Stefan},
+    title = "{Statistics of voids in the two-degree Field Galaxy Redshift Survey}",
+    journal = {Monthly Notices of the Royal Astronomical Society},
+    volume = {369},
+    number = {1},
+    pages = {335-348},
+    year = {2006},
+    month = {05},
+    abstract = "{We present a statistical analysis of voids in the two-degree Field Galaxy Redshift Survey (2dFGRS). In order to detect the voids, we have developed two robust algorithms. We define voids as non-overlapping maximal spheres empty of haloes or galaxies with mass or luminosity above a given value. We search for voids in cosmological N-Body simulations to test the performance of our void finders. We obtain and analyse the void statistics for several volume-limited samples for the North Galactic Pole (NGP) and the South Galactic Pole (SGP) constructed from the 2dFGRS full data release. We find that the results obtained from the NGP and the SGP are statistically compatible. From the results of several statistical tests we conclude that voids are essentially uncorrelated, with at most a mild anticorrelation and that at the 99.5 per cent confidence level there is a dependence of the void number density on redshift. We develop a technique to correct the distortion caused by the fact that we use the redshift as the radial coordinate. We calibrate this technique with mock catalogues and find that the correction might be of some relevance to carry out accurate inferences from void statistics. We study the statistics of the galaxies inside nine nearby voids. We find that galaxies in voids are not randomly distributed: they form structures like filaments. We also obtain the galaxy number density profile in voids. This profile follow a similar but steeper trend to that followed by haloes in voids.}",
+    issn = {0035-8711},
+    doi = {10.1111/j.1365-2966.2006.10305.x},
+    url = {https://doi.org/10.1111/j.1365-2966.2006.10305.x},
+    eprint = {https://academic.oup.com/mnras/article-pdf/369/1/335/18671064/mnras0369-0335.pdf},
+}
+
+% Irregularly shaped underdense regions around local density minima:
+
+@article{colberg2005voids,
+  title={Voids in a $\Lambda$CDM universe},
+  author={Colberg, J{\"o}rg M and Sheth, Ravi K and Diaferio, Antonaldo and Gao, Liang and Yoshida, Naoki},
+  journal={Monthly Notices of the Royal Astronomical Society},
+  volume={360},
+  number={1},
+  pages={216--226},
+  year={2005},
+  publisher={Blackwell Science Ltd Oxford, UK}
+}
+
+% Equation of motion in smoothed density field:
+
+
+@article{Hahn2007,
+   title={Properties of dark matter haloes in clusters, filaments, sheets and voids},
+   volume={375},
+   ISSN={1365-2966},
+   url={http://dx.doi.org/10.1111/j.1365-2966.2006.11318.x},
+   DOI={10.1111/j.1365-2966.2006.11318.x},
+   number={2},
+   journal={Monthly Notices of the Royal Astronomical Society},
+   publisher={Oxford University Press (OUP)},
+   author={Hahn, O. and Porciani, C. and Carollo, C. M. and Dekel, A.},
+   year={2007},
+   month={Feb},
+   pages={489–499}
+}
+
+
+%  Connected underdense density grid cells
+
+@article{plionis2002size,
+  title={The size and shape of local voids},
+  author={Plionis, Manolis and Basilakos, Spyros},
+  journal={Monthly Notices of the Royal Astronomical Society},
+  volume={330},
+  number={2},
+  pages={399--404},
+  year={2002},
+  publisher={Blackwell Science, Ltd Oxford, UK}
+}
+
+% Empty convex regions in point set
+@article{muller2000voids,
+  title={Voids in the Las Campanas Redshift Survey versus cold dark matter models},
+  author={M{\"u}ller, V and Arbabi-Bidgoli, S and Einasto, J and Tucker, D},
+  journal={Monthly Notices of the Royal Astronomical Society},
+  volume={318},
+  number={1},
+  pages={280--288},
+  year={2000},
+  publisher={Blackwell Science Ltd Oxford, UK}
+}
+
+%same author as above but more recent algorithm:
+@inproceedings{Mller2018ARV,
+  title={A robust void-finding algorithm using computational geometry and parallelization techniques},
+  author={S. M{\"u}ller and Demian Aley},
+  year={2018}
+}
+
+% void finding algorithm based on VoidFinder from Vogeley
+
+@article{Foster_2009,
+   title={THE SIZE, SHAPE, AND ORIENTATION OF COSMOLOGICAL VOIDS IN THE SLOAN DIGITAL SKY SURVEY},
+   volume={699},
+   ISSN={1538-4357},
+   url={http://dx.doi.org/10.1088/0004-637X/699/2/1252},
+   DOI={10.1088/0004-637x/699/2/1252},
+   number={2},
+   journal={The Astrophysical Journal},
+   publisher={IOP Publishing},
+   author={Foster, Caroline and Nelson, Lorne A.},
+   year={2009},
+   month={Jun},
+   pages={1252–1260}
+}
+
+% HOP algorithm:
+
+@article{Way_2015,
+   title={STRUCTURE IN THE 3D GALAXY DISTRIBUTION. II. VOIDS AND WATERSHEDS OF LOCAL MAXIMA AND MINIMA},
+   volume={799},
+   ISSN={1538-4357},
+   url={http://dx.doi.org/10.1088/0004-637X/799/1/95},
+   DOI={10.1088/0004-637x/799/1/95},
+   number={1},
+   journal={The Astrophysical Journal},
+   publisher={IOP Publishing},
+   author={Way, M. J. and Gazis, P. R. and Scargle, Jeffrey D.},
+   year={2015},
+   month={Jan},
+   pages={95}
+}
+
+
+------------------------
+
+% The AspenAmsterdam Void-Finder Comparison Project  which combines the existing void-finding algorithms up to 2008 for comparison and discussion
+
+@article{Colberg2008,
+    author = {Colberg, Jörg M. and Pearce, Frazer and Foster, Caroline and Platen, Erwin and Brunino, Riccardo and Neyrinck, Mark and Basilakos, Spyros and Fairall, Anthony and Feldman, Hume and Gottlöber, Stefan and Hahn, Oliver and Hoyle, Fiona and Müller, Volker and Nelson, Lorne and Plionis, Manolis and Porciani, Cristiano and Shandarin, Sergei and Vogeley, Michael S. and Van De Weygaert, Rien},
+    title = "{The Aspen–Amsterdam void finder comparison project}",
+    journal = {Monthly Notices of the Royal Astronomical Society},
+    volume = {387},
+    number = {2},
+    pages = {933-944},
+    year = {2008},
+    month = {06},
+    abstract = "{Despite a history that dates back at least a quarter of a century, studies of voids in the large-scale structure of the Universe are bedevilled by a major problem: there exist a large number of quite different void-finding algorithms, a fact that has so far got in the way of groups comparing their results without worrying about whether such a comparison in fact makes sense. Because of the recent increased interest in voids, both in very large galaxy surveys and in detailed simulations of cosmic structure formation, this situation is very unfortunate. We here present the first systematic comparison study of 13 different void finders constructed using particles, haloes, and semi-analytical model galaxies extracted from a subvolume of the Millennium simulation. This study includes many groups that have studied voids over the past decade. We show their results and discuss their differences and agreements. As it turns out, the basic results of the various methods agree very well with each other in that they all locate a major void near the centre of our volume. Voids have very underdense centres, reaching below 10 per cent of the mean cosmic density. In addition, those void finders that allow for void galaxies show that those galaxies follow similar trends. For example, the overdensity of void galaxies brighter than mB=−20 is found to be smaller than about −0.8 by all our void finding algorithms.}",
+    issn = {0035-8711},
+    doi = {10.1111/j.1365-2966.2008.13307.x},
+    url = {https://doi.org/10.1111/j.1365-2966.2008.13307.x},
+    eprint = {https://academic.oup.com/mnras/article-pdf/387/2/933/3402467/mnras0387-0933.pdf},
+}
+
+% the following is the paper that introduces the Voronoi Tessellation Field Estimator which is what ZOBOV uses in one of the steps described in the V^2 section as  
+% "the volumes of the Voronoi cells are used to identify local density minima" so this citation could come after this sentence. (since the algorithm description is
+% brief for this paper, the articles that further explain certain steps might be useful to include):
+
+
+@article{Platen2007,
+    author = {Platen, Erwin and Van De Weygaert, Rien and Jones, Bernard J. T.},
+    title = "{A cosmic watershed: the WVF void detection technique}",
+    journal = {Monthly Notices of the Royal Astronomical Society},
+    volume = {380},
+    number = {2},
+    pages = {551-570},
+    year = {2007},
+    month = {08},
+    abstract = "{On megaparsec scales the Universe is permeated by an intricate filigree of clusters, filaments, sheets and voids, the cosmic web. For the understanding of its dynamical and hierarchical history it is crucial to identify objectively its complex morphological components. One of the most characteristic aspects is that of the dominant underdense voids, the product of a hierarchical process driven by the collapse of minor voids in addition to the merging of large ones.In this study we present an objective void finder technique which involves a minimum of assumptions about the scale, structure and shape of voids. Our void finding method, the watershed void finder (WVF), is based upon the watershed transform, a well-known technique for the segmentation of images. Importantly, the technique has the potential to trace the existing manifestations of a void hierarchy. The basic watershed transform is augmented by a variety of correction procedures to remove spurious structure resulting from sampling noise.This study contains a detailed description of the WVF. We demonstrate how it is able to trace and identify, relatively parameter free, voids and their surrounding (filamentary and planar) boundaries. We test the technique on a set of kinematic Voronoi models, heuristic spatial models for a cellular distribution of matter. Comparison of the WVF segmentations of low-noise and high-noise Voronoi models with the quantitatively known spatial characteristics of the intrinsic Voronoi tessellation shows that the size and shape of the voids are successfully retrieved. WVF manages to even reproduce the full void size distribution function.}",
+    issn = {0035-8711},
+    doi = {10.1111/j.1365-2966.2007.12125.x},
+    url = {https://doi.org/10.1111/j.1365-2966.2007.12125.x},
+    eprint = {https://academic.oup.com/mnras/article-pdf/380/2/551/18422647/mnras0380-0551.pdf},
+}
+
+
 
 @misc{REVOLVER:2018,
       author         = "Nadathur, Seshadri and others",
