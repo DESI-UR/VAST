@@ -49,8 +49,8 @@ setup_keywords['packages'] = ['voidfinder',
                               'voidfinder.volume']
 #setup_keywords['package_dir'] = {'': 'python'}
 #setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
-#setup_keywords['test_suite'] = 'nose.collector'
-#setup_keywords['tests_require'] = ['nose']
+setup_keywords['test_suite']='nose2.collector.collector'
+setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
 
 extensions = [
               Extension("voidfinder._voidfinder_cython_find_next", 
@@ -92,11 +92,6 @@ extensions = [
                         ["voidfinder/volume/void_volume.pyx"], 
                         include_dirs=[numpy.get_include()],
                         library_dirs=["m"])
-
-
-
-
-
               ]
 
 setup_keywords["ext_modules"] = cythonize(extensions)
