@@ -29,7 +29,11 @@ setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
 setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
 setup_keywords['license'] = 'BSD'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
-setup_keywords['version'] = '0.1.1'
+setup_keywords['version'] = get_version()
+setup_keywords['install_requires'] = ['cython',
+                                      'h5py',
+                                      'psutil',
+                                      'scikit-learn']
 #
 # Use README.md as a long_description.
 #
