@@ -14,7 +14,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 #
-#from python.voidfinder._git import get_version, SetVersion
+from voidfinder._git import get_version, SetVersion
 
 from Cython.Build import cythonize
 import numpy
