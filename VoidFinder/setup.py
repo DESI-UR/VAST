@@ -12,6 +12,7 @@
 #
 import os
 #
+from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 #
@@ -47,6 +48,7 @@ setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = ['vast.voidfinder',
                               'vast.voidfinder.viz',
                               'vast.voidfinder.volume']
+setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 setup_keywords['test_suite']='nose2.collector.collector'
 setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
 #
