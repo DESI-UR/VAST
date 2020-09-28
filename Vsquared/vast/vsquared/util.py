@@ -9,6 +9,26 @@ D2R  = np.pi/180.
 
 #changes to comoving coordinates
 def toCoord(z,ra,dec,H0,Om_m):
+    """Convert redshift, RA, and Dec to comoving coordinates.
+
+    Parameters
+    ----------
+    z : float
+        Object redshift.
+    ra : float
+        Object right ascension, in decimal degrees.
+    dec : float
+        Object declination, in decimal degrees.
+    H0 : float
+        Hubble's constant in km/s/Mpc.
+    Om_m : float
+        Value of matter density.
+
+    Returns
+    -------
+    cs : list
+        Comoving xyz-coordinates, assuming input cosmology.
+    """
     Kos = FlatLambdaCDM(H0,Om_m)
     r = Kos.comoving_distance(z)
     r = np.array([d.value for d in r])
@@ -20,6 +40,26 @@ def toCoord(z,ra,dec,H0,Om_m):
 
 #changes to sky coordinates
 def toSky(cs,H0,Om_m,zstep):
+    """Convert redshift, RA, and Dec to comoving coordinates.
+
+    Parameters
+    ----------
+    cs : list or ndarray
+        Comoving xyz-coordinates, assuming input cosmology.
+    H0 : float
+        Hubble's constant in km/s/Mpc.
+    Om_m : float
+        Value of matter density.
+
+    Returns
+    -------
+    z : float
+        Object redshift.
+    ra : float
+        Object right ascension, in decimal degrees.
+    dec : float
+        Object declination, in decimal degrees.
+    """
     Kos = FlatLambdaCDM(H0,Om_m)
     c1 = cs.T[0]
     c2 = cs.T[1]
@@ -39,14 +79,58 @@ def toSky(cs,H0,Om_m,zstep):
 
 #checks which points are within a sphere
 def inSphere(cs,r,coords):
+    """Checks if a set of comoving coordinates are within a sphere.
+
+    Parameters
+    ----------
+    cs : list or ndarray
+        Comoving xyz-coordinates.
+    r : float
+        Sphere volume.
+    coords : list or ndarray
+        Center of sphere.
+
+    Returns
+    -------
+    inSphere : bool
+        True if |coords - cs| < r.
+    """
     return np.sum((cs.reshape(3,1)-coords.T)**2.,axis=0)<r**2.
 
 #finds the weighted center of tracers' Voronoi cells
 def wCen(vols,coords):
+    """Find the weighted center of tracers' Voronoi cells.
+
+    Parameters
+    ----------
+    vols : ndarray
+        Array of Voronoi volumes.
+    coords : ndarray
+        Array of cells' positions.
+
+    Returns
+    -------
+    wCen : ndarray
+        Weighted center of tracers' Voronoi cells.
+    """
     return np.sum(vols.reshape(len(vols),1)*coords,axis=0)/np.sum(vols)
 
 #converts tracers and void effective radius to ellipsoid semi-major axes
 def getSMA(vrad,coords):
+    """Convert tracers and void effective radius to ellipsoid semi-major axes.
+
+    Parameters
+    ----------
+    vrad : ndarray
+        List of void radii.
+    coords : ndarray
+        Array of void coordinates.
+
+    Returns
+    -------
+    sma : ndarray
+        Ellipsoid semi-major axes for voids.
+    """
     iTen = np.zeros((3,3))
     for p in coords:
         iTen = iTen + np.array([[p[1]**2.+p[2]**2.,0,0],[0,p[0]**2.+p[2]**2.,0],[0,0,p[0]**2.+p[1]**2.]])
@@ -59,6 +143,18 @@ def getSMA(vrad,coords):
 
 #probability a void is fake
 def P(r):
+    """Calculate probability that void is fake.
+    
+    Parameters
+    ----------
+    r : float or ndarray
+        Void radius or radii.
+
+    Returns
+    -------
+    prob : float or ndarray
+        Probability that void is fake.
+    """
     return np.exp(-5.12*(r-1.) - 0.28*((r-1.)**2.8))
 
 
@@ -66,22 +162,16 @@ def P(r):
 # Flattens a list
 #-------------------------------------------------------------------------------
 def flatten(l):
-    '''
-    Recursivley flattens a list
+    """Recursivley flattens a list.
 
-
-    PARAMETERS
-    ==========
-
+    Parameters
+    ----------
     l : list
         List to be flattened
 
-
-    RETURNS
-    =======
-
-
-    '''
+    Returns
+    -------
+    """
     for el in l:
         if isinstance(el,collections.Iterable) and not isinstance(el,(str,bytes)):
             yield from flatten(el)
