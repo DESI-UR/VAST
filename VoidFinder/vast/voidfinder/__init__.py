@@ -10,10 +10,8 @@ based on the algorithm described by El-Ad and Piran (1997).
 from __future__ import absolute_import
 from ._version import __version__
 
-
-#This line allows you to do "from voidfinder import filter_galaxies" instead of
-#"from voidfinder.voidfinder import filter galaxies"
-
+# This line allows you to do "from vast.voidfinder import filter_galaxies" 
+# instead of "from vast.voidfinder.voidfinder import filter galaxies"
 from .voidfinder import filter_galaxies, \
                         ra_dec_to_xyz, \
                         calculate_grid, \
