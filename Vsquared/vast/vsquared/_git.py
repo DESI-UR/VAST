@@ -32,9 +32,11 @@
 """
 
 import re
+from os import devnull
 from os.path import abspath, exists, isdir, isfile, join
 from setuptools import Command
 from distutils.log import INFO, WARN, ERROR
+from subprocess import call, STDOUT
 
 
 def get_version():
@@ -119,7 +121,9 @@ def update_version(tag=None):
     if tag is not None:
         ver = tag
     else:
-        if isdir(".git"):
+        # Check that we're in a git repository.
+        ret = call(['git', 'branch'], stderr=STDOUT, stdout=open(devnull, 'w'))
+        if ret == 0:
             ver = get_git_version()
         else:
             raise IOError("Repository type is not git.")
@@ -134,8 +138,9 @@ def find_version_directory():
 
     Looks for files in the following places:
 
-    * python/voidfinder/_version.py
-    * voidfinder/_version.py
+    * vast/vsquared/_version.py
+    * python/vsquared/_version.py
+    * vsquared/_version.py
 
     Returns
     -------
@@ -147,10 +152,12 @@ def find_version_directory():
     IOError
         If no valid directory can be found.
     """
-    packagename='voidfinder'
+    packagename='vsquared'
     setup_dir = abspath('.')
     if isdir(join(setup_dir, 'python', packagename)):
         version_dir = join(setup_dir, 'python', packagename)
+    if isdir(join(setup_dir, 'vast', packagename)):
+        version_dir = join(setup_dir, 'vast', packagename)
     elif isdir(join(setup_dir, packagename)):
         version_dir = join(setup_dir, packagename)
     else:
