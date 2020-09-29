@@ -44,12 +44,14 @@ def toSky(cs,H0,Om_m,zstep):
 
     Parameters
     ----------
-    cs : list or ndarray
-        Comoving xyz-coordinates, assuming input cosmology.
+    cs : ndarray
+        Comoving xyz-coordinates table [x,y,z], assuming input cosmology.
     H0 : float
         Hubble's constant in km/s/Mpc.
     Om_m : float
         Value of matter density.
+    zstep : float
+        Redshift step size for converting distance to redshift.
 
     Returns
     -------
