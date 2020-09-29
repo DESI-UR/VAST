@@ -3,7 +3,7 @@
 from astropy.table import Table
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from voidfinder.distance import z_to_comoving_dist
+from vast.voidfinder.distance import z_to_comoving_dist
 
 '''
 z = [.7]

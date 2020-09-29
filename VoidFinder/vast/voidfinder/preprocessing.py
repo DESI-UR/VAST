@@ -3,13 +3,13 @@ import numpy as np
 
 from astropy.table import Table
 
-from voidfinder.distance import z_to_comoving_dist
+from vast.voidfinder.distance import z_to_comoving_dist
 
 import time
 
 import h5py
 
-from voidfinder.constants import c #speed of light
+from vast.voidfinder.constants import c #speed of light
 
 import os
 

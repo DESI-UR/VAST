@@ -54,7 +54,7 @@ if __name__ == "__main__":
     #print("WORKER STARTED WITH ARGS: ", sys.argv)
     #print(sys.path[0:10])
     
-    from voidfinder._voidfinder import _main_hole_finder_worker
+    from vast.voidfinder._voidfinder import _main_hole_finder_worker
     
     _main_hole_finder_worker(worker_idx, config_path)
     

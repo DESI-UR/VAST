@@ -7,7 +7,7 @@
 ################################################################################
 
 
-from voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
+from vast.voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
 
 import numpy as np
 

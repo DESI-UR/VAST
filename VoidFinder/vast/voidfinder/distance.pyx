@@ -27,7 +27,7 @@ from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 from scipy.integrate import _quadpack
 
-import voidfinder.constants as VF_CONSTANTS
+import constants as VF_CONSTANTS
 
 cdef DTYPE_F32_t c = <DTYPE_F32_t>(VF_CONSTANTS.c)
 

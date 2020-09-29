@@ -32,13 +32,13 @@
 #
 ################################################################################
 
-from voidfinder import find_voids, \
+from vast.voidfinder import find_voids, \
                        filter_galaxies_2
                        
-from voidfinder.preprocessing import file_preprocess
-from voidfinder.multizmask import generate_mask
-from voidfinder.distance import z_to_comoving_dist
-from voidfinder.table_functions import to_vector, to_array
+from vast.voidfinder.preprocessing import file_preprocess
+from vast.voidfinder.multizmask import generate_mask
+from vast.voidfinder.distance import z_to_comoving_dist
+from vast.voidfinder.table_functions import to_vector, to_array
 
 from astropy.table import Table
 import pickle

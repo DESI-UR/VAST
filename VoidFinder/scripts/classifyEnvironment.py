@@ -17,8 +17,8 @@ import pickle
 
 #import sys
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
-from voidfinder.vflag import determine_vflag
-from voidfinder.distance import z_to_comoving_dist
+from vast.voidfinder.vflag import determine_vflag
+from vast.voidfinder.distance import z_to_comoving_dist
 
 
 ################################################################################

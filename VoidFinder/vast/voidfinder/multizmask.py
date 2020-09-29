@@ -6,7 +6,7 @@ import time
 
 #from .absmag_comovingdist_functions import Distance
 
-from voidfinder.constants import c #speed of light
+from vast.voidfinder.constants import c #speed of light
 
 maskra = 360
 maskdec = 180

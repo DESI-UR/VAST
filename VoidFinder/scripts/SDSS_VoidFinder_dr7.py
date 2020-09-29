@@ -28,11 +28,11 @@
 #
 ################################################################################
 
-from voidfinder import find_voids, filter_galaxies
+from vast.voidfinder import find_voids, filter_galaxies
 
-from voidfinder.multizmask import generate_mask
-from voidfinder.preprocessing import file_preprocess
-from voidfinder.table_functions import to_vector, to_array
+from vast.voidfinder.multizmask import generate_mask
+from vast.voidfinder.preprocessing import file_preprocess
+from vast.voidfinder.table_functions import to_vector, to_array
 
 from astropy.table import Table
 import pickle

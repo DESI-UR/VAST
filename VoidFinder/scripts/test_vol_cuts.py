@@ -7,8 +7,8 @@ from astropy.table import Table
 import matplotlib.pyplot as plt
 
 
-from voidfinder._voidfinder_cython import check_mask_overlap
-from voidfinder.volume_cut import volume_cut, check_hole_bounds
+from vast.voidfinder._voidfinder_cython import check_mask_overlap
+from vast.voidfinder.volume_cut import volume_cut, check_hole_bounds
 
 
 ################################################################################

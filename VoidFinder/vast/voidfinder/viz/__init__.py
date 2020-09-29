@@ -9,7 +9,7 @@ optionally requires ffmpeg available on PATH for video recording
 Usage:
 ------
 
-from voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
+from vast.voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
 
 holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
 
