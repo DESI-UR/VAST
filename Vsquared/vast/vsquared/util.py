@@ -7,17 +7,17 @@ from scipy import interpolate
 c    = 3e5
 D2R  = np.pi/180.
 
-#changes to comoving coordinates
+
 def toCoord(z,ra,dec,H0,Om_m):
     """Convert redshift, RA, and Dec to comoving coordinates.
 
     Parameters
     ----------
-    z : float
+    z : list or ndarray
         Object redshift.
-    ra : float
+    ra : list or ndarray
         Object right ascension, in decimal degrees.
-    dec : float
+    dec : list or ndarray
         Object declination, in decimal degrees.
     H0 : float
         Hubble's constant in km/s/Mpc.
@@ -38,7 +38,7 @@ def toCoord(z,ra,dec,H0,Om_m):
     c3 = r*np.sin(dec*D2R)
     return c1,c2,c3
 
-#changes to sky coordinates
+
 def toSky(cs,H0,Om_m,zstep):
     """Convert redshift, RA, and Dec to comoving coordinates.
 
@@ -77,7 +77,7 @@ def toSky(cs,H0,Om_m,zstep):
     #z = H0*r/c
     return z,ra,dec
 
-#checks which points are within a sphere
+
 def inSphere(cs,r,coords):
     """Checks if a set of comoving coordinates are within a sphere.
 
@@ -97,7 +97,7 @@ def inSphere(cs,r,coords):
     """
     return np.sum((cs.reshape(3,1)-coords.T)**2.,axis=0)<r**2.
 
-#finds the weighted center of tracers' Voronoi cells
+
 def wCen(vols,coords):
     """Find the weighted center of tracers' Voronoi cells.
 
@@ -115,7 +115,7 @@ def wCen(vols,coords):
     """
     return np.sum(vols.reshape(len(vols),1)*coords,axis=0)/np.sum(vols)
 
-#converts tracers and void effective radius to ellipsoid semi-major axes
+
 def getSMA(vrad,coords):
     """Convert tracers and void effective radius to ellipsoid semi-major axes.
 
@@ -141,7 +141,7 @@ def getSMA(vrad,coords):
     eival = eival*rfac
     return eival.reshape(3,1)*eivec.T
 
-#probability a void is fake
+
 def P(r):
     """Calculate probability that void is fake.
     
@@ -158,11 +158,8 @@ def P(r):
     return np.exp(-5.12*(r-1.) - 0.28*((r-1.)**2.8))
 
 
-################################################################################
-# Flattens a list
-#-------------------------------------------------------------------------------
 def flatten(l):
-    """Recursivley flattens a list.
+    """Recursively flattens a list.
 
     Parameters
     ----------
