@@ -3,7 +3,7 @@ import healpy as hp
 from astropy.io import fits
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from util import toCoord, flatten
+from vast.vsquared.util import toCoord, flatten
 
 class Catalog:
     def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,maskfile=None):

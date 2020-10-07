@@ -4,8 +4,8 @@ import configparser
 from scipy import stats
 from astropy.table import Table
 
-from util import toSky, inSphere, wCen, getSMA, P, flatten
-from classes import Catalog, Tesselation, Zones, Voids
+from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten
+from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
     def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False):

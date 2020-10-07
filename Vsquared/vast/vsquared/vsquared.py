@@ -1,6 +1,6 @@
 import sys
 import getopt
-from zobov import Zobov
+from vast.vsquared.zobov import Zobov
 
 args = sys.argv[1:]
 opts, args = getopt.getopt(args,'c:m:wv',['config=','method=','save_intermediate','visualize'])
