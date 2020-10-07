@@ -1,9 +1,9 @@
-Cosmological paramaters, voidfinding parameters, and input/output files are set in a config file (an example is located in `data/`).  
+Cosmological paramaters, voidfinding parameters, and input/output files are set in a config file (an example is located in `Vsquared/data/`).  
 
-To find voids and save void and zone information, open a python shell in the `python/` directory and run:
+To find voids and save void and zone information, open a python shell in the `Vsquared/` directory and run:
 
 ```python
-from zobov import Zobov
+from vast.vsquared.zobov import Zobov
 
 newZobov = Zobov("/path/to/config.ini",0,3) # options: save_intermediate (default True), visualize (default False)
 # if intermediate steps 0-3 were saved (the default), use Zobov(4,4) instead; 
