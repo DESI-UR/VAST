@@ -55,13 +55,14 @@ RtoD = 180./np.pi
 def filter_galaxies(galaxy_table,
                     survey_name, 
                     mag_cut_flag=True, 
+                    dist_limits=None,
                     rm_isolated_flag=True,
                     write_table=True,
                     sep_neighbor=3,
                     distance_metric='comoving', 
                     h=1.0,
                     hole_grid_edge_length=5.0,
-                    magnitude_limit=-20.0,
+                    magnitude_limit=-20.09,
                     verbose=0):
     """
     Description
@@ -93,6 +94,9 @@ def filter_galaxies(galaxy_table,
     mag_cut_flag : bool
         whether or not to cut on magnitude, removing galaxies less than
         magnitude_limit
+
+    dist_limits : list of length 2
+        [Minimum distance, maximum distance] of galaxy sample (in units of Mpc/h)
         
     magnitude_limit : float
         value at which to perform magnitude cut
@@ -143,40 +147,63 @@ def filter_galaxies(galaxy_table,
     """
     
     
-    
-    ################################################################################
-    # PRE-PROCESS DATA
-    # Filter based on magnitude and convert from redshift to radius if necessary
-    #
-    ################################################################################
     if verbose > 0:
         print('Filter Galaxies Start', flush=True)
+
+    ############################################################################
+    # PRE-PROCESS DATA
+    # Filter based on magnitude and convert from redshift to radius if necessary
+    #---------------------------------------------------------------------------
+    print('------------------------------------------------------')
+    print('Original number of galaxies:', len(galaxy_table))
 
     # Remove faint galaxies
     if mag_cut_flag:
         
-        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < magnitude_limit]
+        galaxy_table = galaxy_table[galaxy_table['rabsmag'] <= magnitude_limit]
+        galaxy_table = galaxy_table[galaxy_table['mr'] <= 17.6]
 
+        print('Number of galaxies after applying magnitude cut:', len(galaxy_table))
+
+    # Remove galaxies outside redshift range
+    if dist_limits is not None:
+
+        if distance_metric == 'comoving':
+
+            distance_boolean = np.logical_and(galaxy_table['Rgal'] >= dist_limits[0], 
+                                              galaxy_table['Rgal'] <= dist_limits[1])
+        else:
+
+            H0 = 100*h
+
+            distance_boolean = np.logical_and(c*galaxy_table['redshift']/H0 >= dist_limits[0],
+                                              c*galaxy_table['redshift']/H0 <= dist_limits[1])
+
+        galaxy_table = galaxy_table[distance_boolean]
+
+        print('Number of galaxies after applying redshift cut:', len(galaxy_table))
+
+
+    # Convert galaxy coordinates to Cartesian
     coords_xyz = ra_dec_to_xyz(galaxy_table,
                                distance_metric,
                                h)
+    ############################################################################
+
     
     
-    ################################################################################
-    #
+    ############################################################################
     # Grid shape
-    #
-    ################################################################################
-    
+    #---------------------------------------------------------------------------
     hole_grid_shape, coords_min = calculate_grid(coords_xyz,
                                                  hole_grid_edge_length)
+    ############################################################################
+
+
     
-    ################################################################################
-    #
-    #   SEPARATION
-    #
-    ################################################################################
-    
+    ############################################################################
+    # Separation
+    #---------------------------------------------------------------------------
     if rm_isolated_flag:
         
         wall_gals_xyz, field_gals_xyz = wall_field_separation(coords_xyz,
@@ -188,13 +215,13 @@ def filter_galaxies(galaxy_table,
         wall_gals_xyz = coords_xyz
         
         field_gals_xyz = np.array([])
+    ############################################################################
 
-    ################################################################################
-    #
+
+
+    ############################################################################
     # Write results to disk if desired
-    #
-    ################################################################################
-    
+    #---------------------------------------------------------------------------
     if write_table:
     
     
@@ -223,6 +250,8 @@ def filter_galaxies(galaxy_table,
     if verbose > 0:
         
         print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
+    ############################################################################
+
 
     return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
 
@@ -279,7 +308,7 @@ def ra_dec_to_xyz(galaxy_table,
         
     else:
         
-        r_gal = c*galaxy_table['z'].data/(100*h)
+        r_gal = c*galaxy_table['redshift'].data/(100*h)
         
         
     ra = galaxy_table['ra'].data
