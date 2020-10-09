@@ -14,7 +14,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 #
-#from python.voidfinder._git import get_version, SetVersion
+from voidfinder._git import get_version, SetVersion
 
 from Cython.Build import cythonize
 import numpy
@@ -29,7 +29,11 @@ setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
 setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
 setup_keywords['license'] = 'BSD'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
-setup_keywords['version'] = '0.1.1'
+setup_keywords['version'] = get_version()
+setup_keywords['install_requires'] = ['cython',
+                                      'h5py',
+                                      'psutil',
+                                      'scikit-learn']
 #
 # Use README.md as a long_description.
 #
@@ -49,8 +53,8 @@ setup_keywords['packages'] = ['voidfinder',
                               'voidfinder.volume']
 #setup_keywords['package_dir'] = {'': 'python'}
 #setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
-#setup_keywords['test_suite'] = 'nose.collector'
-#setup_keywords['tests_require'] = ['nose']
+setup_keywords['test_suite']='nose2.collector.collector'
+setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
 
 extensions = [
               Extension("voidfinder._voidfinder_cython_find_next", 
@@ -92,11 +96,6 @@ extensions = [
                         ["voidfinder/volume/void_volume.pyx"], 
                         include_dirs=[numpy.get_include()],
                         library_dirs=["m"])
-
-
-
-
-
               ]
 
 setup_keywords["ext_modules"] = cythonize(extensions)
