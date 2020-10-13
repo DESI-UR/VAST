@@ -13,8 +13,6 @@ import sys
 #from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-#
-from voidfinder._git import get_version, SetVersion
 
 from Cython.Build import cythonize
 import numpy
