@@ -161,7 +161,6 @@ def filter_galaxies(galaxy_table,
     if mag_cut_flag:
         
         galaxy_table = galaxy_table[galaxy_table['rabsmag'] <= magnitude_limit]
-        galaxy_table = galaxy_table[galaxy_table['mr'] <= 17.6]
 
         print('Number of galaxies after applying magnitude cut:', len(galaxy_table))
 
