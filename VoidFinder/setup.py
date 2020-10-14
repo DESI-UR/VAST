@@ -15,8 +15,9 @@ import os
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-#
-from vast.voidfinder._git import get_version, SetVersion
+
+from Cython.Build import cythonize
+import numpy
 #
 setup_keywords = dict()
 setup_keywords['name'] = 'vast_voidfinder'
@@ -25,7 +26,7 @@ setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
 setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
-setup_keywords['version'] = get_version()
+setup_keywords['version'] = '0.1.1.dev3'
 setup_keywords['install_requires'] = ['cython',
                                       'h5py',
                                       'psutil',
@@ -48,15 +49,10 @@ setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = ['vast.voidfinder',
                               'vast.voidfinder.viz',
                               'vast.voidfinder.volume']
-setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
+#setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 setup_keywords['test_suite']='nose2.collector.collector'
 setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
-#
-# Set up cython-based code.
-#
-from Cython.Build import cythonize
-import numpy
-#
+
 extensions = [
               Extension("vast.voidfinder._voidfinder_cython_find_next",
                         ["vast/voidfinder/_voidfinder_cython_find_next.pyx"],
