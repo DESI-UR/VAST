@@ -8,7 +8,9 @@ Implementation of the galaxy VoidFinder algorithm by Hoyle and Vogeley (2002),
 based on the algorithm described by El-Ad and Piran (1997).
 """
 from __future__ import absolute_import
-from ._version import __version__
+
+name = 'voidfinder'
+__version__ = '0.1.1.dev3'
 
 # This line allows you to do "from vast.voidfinder import filter_galaxies" 
 # instead of "from vast.voidfinder.voidfinder import filter galaxies"
