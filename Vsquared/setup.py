@@ -16,8 +16,6 @@ from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 #
-from vast.vsquared._git import get_version, SetVersion
-#
 setup_keywords = dict()
 setup_keywords['name'] = 'vast_vsquared'
 setup_keywords['description'] = 'Vsquared package'
@@ -25,7 +23,7 @@ setup_keywords['author'] = 'Dylan Veyrat, University of Rochester'
 setup_keywords['author_email'] = 'dveyrat@ur.rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/Vsquared'
-setup_keywords['version'] = get_version()
+setup_keywords['version'] = '0.1.0.dev1'
 setup_keywords['install_requires'] = ['numpy',
                                       'scikit-learn']
 #
@@ -44,7 +42,7 @@ setup_keywords['zip_safe'] = False
 setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = ['vast.vsquared',
                               'vast.vsquared.viz']
-setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
+setup_keywords['cmdclass'] = {'sdist': DistutilsSdist}
 setup_keywords['test_suite']='nose2.collector.collector'
 setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
 #
