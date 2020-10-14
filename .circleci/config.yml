@@ -2,7 +2,6 @@ version: 2.0
 
 jobs:
   build:
-    working_directory: ~/VAST/VoidFinder
     docker:
       -image: circleci/python:stretch
     steps:
