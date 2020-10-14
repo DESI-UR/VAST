@@ -15,9 +15,6 @@ import os
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
-
-from Cython.Build import cythonize
-import numpy
 #
 setup_keywords = dict()
 setup_keywords['name'] = 'vast_voidfinder'
@@ -52,7 +49,11 @@ setup_keywords['packages'] = ['vast.voidfinder',
 #setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 setup_keywords['test_suite']='nose2.collector.collector'
 setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
-
+#
+# Set up cython build.
+#
+from Cython.Build import cythonize
+import numpy
 extensions = [
               Extension("vast.voidfinder._voidfinder_cython_find_next",
                         ["vast/voidfinder/_voidfinder_cython_find_next.pyx"],
