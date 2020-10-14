@@ -17,18 +17,18 @@ jobs:
       - image: circleci/python:stretch
     steps:
       - checkout
-      - restore_cache:
-        key: pip-v1-{{ arch }}-{{ checksum "VoidFinder/requirements.txt" }}
+#      - restore_cache:
+#        key: pip-v1-{{ arch }}-{{ checksum "VoidFinder/requirements.txt" }}
+#      - run:
+#        name: "Install VoidFinder dependencies"
+#        working_directory: VoidFinder
+#        command: |
+#          pip install -r requirements.txt --user --progress-bar off
+#      - save_cache:
+#        key: pip-v1-{{ arch }}-{{ checksum "VoidFinder/requirements.txt" }}
+#        paths:
+#          - /home/circleci/.local/lib/python3.8/site-packages
       - run:
-        name: "Install VoidFinder dependencies"
-        working_directory: VoidFinder
-        command: |
-          pip install -r requirements.txt --user --progress-bar off
-      - save_cache:
-        key: pip-v1-{{ arch }}-{{ checksum "VoidFinder/requirements.txt" }}
-        paths:
-          - /home/circleci/.local/lib/python3.8/site-packages
-      - run:
-        name: "Install VAST-VoidFinder"
+        name: Install VAST-VoidFinder
         working_directory: VoidFinder
         command: python setup.py install --user
