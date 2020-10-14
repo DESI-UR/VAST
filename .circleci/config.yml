@@ -1,21 +1,20 @@
 version: 2.0
 
 jobs:
-  "VoidFinder":
+  build:
+    working_directory: ~/VAST/VoidFinder
     docker:
       -image: circleci/python:stretch
-    working_directory: VoidFinder
     steps:
       - checkout
+      - restore_cache:
+        key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
       - run:
-        name: Install VF Dependencies
-        command: pip install -r requirements.txt --user --progress-bar off
-      - run:
-        name: Install VoidFinder
-        command: python setup.py install --user
-
-workflows:
-  version: 2
-  build:
-    jobs:
-      - "VoidFinder"
+        command: |
+          pip install -r requirements.txt --user --progress-bar off
+      - save_cache:
+        key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+        paths:
+          - ".venv"
+          - "/usr/local/bin"
+          - "/usr/local/lib/python3.6/site-packages"
