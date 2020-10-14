@@ -1,7 +1,7 @@
 version: 2
 
 jobs:
-  working_directory: ~/VAST/VoidFinder
+  working_directory: "~/VAST/VoidFinder"
   build:
     docker:
       - image: circleci/python:stretch
