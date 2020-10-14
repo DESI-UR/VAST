@@ -42,11 +42,12 @@ setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
 setup_keywords['version'] = get_version('vast/voidfinder/__init__.py')
-setup_keywords['install_requires'] = ['cython',
-                                      'h5py',
-                                      'psutil',
-                                      'numpy',
-                                      'scikit-learn']
+requires = []
+with open('requirements.txt', 'r') as f:
+    for line in f:
+        if line.strip():
+            requires.append(line.strip())
+setup_keywords['install_requires'] = requires
 #
 # Use README.md as a long_description.
 #

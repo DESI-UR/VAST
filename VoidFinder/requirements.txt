@@ -1,0 +1,5 @@
+cython
+h5py
+psutil
+numpy
+scikit-learn
