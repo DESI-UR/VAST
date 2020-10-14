@@ -1,8 +1,14 @@
 version: 2
 
 jobs:
-  build:
+  "VoidFinder"
     docker:
       - image: circleci/python:stretch
     steps:
       - checkout
+
+workflows:
+  version: 2
+    build:
+      jobs:
+        - "VoidFinder"
