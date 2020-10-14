@@ -11,10 +11,28 @@
 # Standard imports.
 #
 import os
+import codecs
 #
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
+#
+# Version reader
+#
+def read(rel_path):
+    here = os.path.abspath(os.path.dirname(__file__))
+    with codecs.open(os.path.join(here, rel_path), 'r') as fp:
+        return fp.read()
+
+def get_version(rel_path):
+    for line in read(rel_path).splitlines():
+        if line.startswith('__version__'):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    else:
+        raise RuntimeError('Unable to find version string.')
+#
+# Setup keywords
 #
 setup_keywords = dict()
 setup_keywords['name'] = 'vast_vsquared'
@@ -23,7 +41,7 @@ setup_keywords['author'] = 'Dylan Veyrat, University of Rochester'
 setup_keywords['author_email'] = 'dveyrat@ur.rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/Vsquared'
-setup_keywords['version'] = '0.1.0.dev1'
+setup_keywords['version'] = get_version('vast/vsquared/__init__.py')
 setup_keywords['install_requires'] = ['numpy',
                                       'scikit-learn']
 #
