@@ -47,16 +47,16 @@ jobs:
       - checkout:
           path: ~/VAST
 
-#      - restore_cache:
-#          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+      - restore_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
       - run:
           name: "Install Vsquared dependencies"
           command: |
             pip install -r requirements.txt --user --progress-bar off
-#      - save_cache:
-#          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
-#          paths:
-#            - ".venv"
+      - save_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - /home/circleci/.local/lib/python3.7/site-packages
 
       - run:
           name: "Install Vsquared"
