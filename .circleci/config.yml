@@ -1,13 +1,15 @@
 version: 2.0
 
 jobs:
+  # VoidFinder build, install, and test.
   "VF":
-#  build:
     docker:
       - image: circleci/python:stretch
 
+    # Work in the VoidFinder subfolder.
     working_directory: ~/VAST/VoidFinder
 
+    # Download dependencies, install, and test using setuptools.
     steps:
       - checkout:
           path: ~/VAST
@@ -36,13 +38,16 @@ jobs:
           path: ~/VAST/test-results/voidfinder
       - store_artifacts:
           path: ~/VAST/test-results/voidfinder
+
+  # V^2 build, install, and test.
   "V2":
-#  build:
     docker:
       - image: circleci/python:stretch
 
+    # Work in the Vsquared subfolder.
     working_directory: ~/VAST/Vsquared
 
+    # Download dependencies, install, and test using setuptools.
     steps:
       - checkout:
           path: ~/VAST
