@@ -1,11 +1,47 @@
-version: 2
+version: 2.0
 
 jobs:
+#  "VF":
+#    docker:
+#      - image: circleci/python:stretch
+#
+#    working_directory: ~/VAST/VoidFinder
+#
+#    steps:
+#      - checkout:
+#          path: ~/VAST
+#
+#      - restore_cache:
+#          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+#      - run:
+#          name: "Install VoidFinder dependencies"
+#          command: |
+#            pip install -r requirements.txt --user --progress-bar off
+#      - save_cache:
+#          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+#          paths:
+#            - ".venv"
+#            - "/usr/local/bin"
+#
+#      - run:
+#          name: "Install VoidFinder"
+#          command: python setup.py install --user
+#
+#      - run:
+#          name: "Test VoidFinder"
+#          command: |
+#            python setup.py test
+#            mkdir -p ~/VAST/test-results/voidfinder
+#      - store_test_results:
+#          path: ~/VAST/test-results/voidfinder
+#      - store_artifacts:
+#          path: ~/VAST/test-results/voidfinder
+#  "V2":
   build:
     docker:
       - image: circleci/python:stretch
 
-    working_directory: ~/VAST/VoidFinder
+    working_directory: ~/VAST/Vsquared
 
     steps:
       - checkout:
@@ -14,25 +50,31 @@ jobs:
       - restore_cache:
           key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
       - run:
-          name: "Install VoidFinder dependencies"
+          name: "Install Vsquared dependencies"
           command: |
             pip install -r requirements.txt --user --progress-bar off
       - save_cache:
           key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
           paths:
             - ".venv"
-            - "/usr/local/bin"
 
       - run:
-          name: "Install VoidFinder"
+          name: "Install Vsquared"
           command: python setup.py install --user
 
       - run:
-          name: "Test VoidFinder"
+          name: "Test Vsquared"
           command: |
             python setup.py test
-            mkdir -p ~/VAST/test-results/voidfinder
+            mkdir -p ~/VAST/test-results/vsquared
       - store_test_results:
-          path: ~/VAST/test-results/voidfinder
+          path: ~/VAST/test-results/vsquared
       - store_artifacts:
-          path: ~/VAST/test-results/void-finder
+          path: ~/VAST/test-results/vsquared
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - "VF"
+      - "V2"
