@@ -1,41 +1,41 @@
 version: 2.0
 
 jobs:
-#  "VF":
-#    docker:
-#      - image: circleci/python:stretch
-#
-#    working_directory: ~/VAST/VoidFinder
-#
-#    steps:
-#      - checkout:
-#          path: ~/VAST
-#
-#      - restore_cache:
-#          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
-#      - run:
-#          name: "Install VoidFinder dependencies"
-#          command: |
-#            pip install -r requirements.txt --user --progress-bar off
-#      - save_cache:
-#          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
-#          paths:
-#            - ".venv"
-#            - "/usr/local/bin"
-#
-#      - run:
-#          name: "Install VoidFinder"
-#          command: python setup.py install --user
-#
-#      - run:
-#          name: "Test VoidFinder"
-#          command: |
-#            python setup.py test
-#            mkdir -p ~/VAST/test-results/voidfinder
-#      - store_test_results:
-#          path: ~/VAST/test-results/voidfinder
-#      - store_artifacts:
-#          path: ~/VAST/test-results/voidfinder
+  "VF":
+#  build:
+    docker:
+      - image: circleci/python:stretch
+
+    working_directory: ~/VAST/VoidFinder
+
+    steps:
+      - checkout:
+          path: ~/VAST
+
+      - restore_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+      - run:
+          name: "Install VoidFinder dependencies"
+          command: |
+            pip install -r requirements.txt --user --progress-bar off
+      - save_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - /home/circleci/.local/lib/python3.7/site-packages
+
+      - run:
+          name: "Install VoidFinder"
+          command: python setup.py install --user
+
+      - run:
+          name: "Test VoidFinder"
+          command: |
+            python setup.py test
+            mkdir -p ~/VAST/test-results/voidfinder
+      - store_test_results:
+          path: ~/VAST/test-results/voidfinder
+      - store_artifacts:
+          path: ~/VAST/test-results/voidfinder
   "V2":
 #  build:
     docker:
@@ -76,5 +76,5 @@ workflows:
   version: 2
   build:
     jobs:
-#      - "VF"
+      - "VF"
       - "V2"
