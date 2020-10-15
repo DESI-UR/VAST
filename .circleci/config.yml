@@ -1,8 +1,38 @@
 version: 2
 
 jobs:
-  VoidFinder:
+  build:
     docker:
       - image: circleci/python:stretch
+
+    working_directory: ~/VAST/VoidFinder
+
     steps:
-      - checkout
+      - checkout:
+          path: ~/VAST
+
+      - restore_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+      - run:
+          name: "Install VoidFinder dependencies"
+          command: |
+            pip install -r requirements.txt --user --progress-bar off
+      - save_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - ".venv"
+            - "/usr/local/bin"
+
+      - run:
+          name: "Install VoidFinder"
+          command: python setup.py install --user
+
+      - run:
+          name: "Test VoidFinder"
+          command: |
+            python setup.py test
+            mkdir -p ~/VAST/test-results/voidfinder
+      - store_test_results:
+          path: ~/VAST/test-results/voidfinder
+      - store_artifacts:
+          path: ~/VAST/test-results/void-finder
