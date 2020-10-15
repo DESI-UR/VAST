@@ -72,9 +72,9 @@ jobs:
       - store_artifacts:
           path: ~/VAST/test-results/vsquared
 
-workflows:
-  version: 2
-  build:
-    jobs:
-      - "VF"
-      - "V2"
+#workflows:
+#  version: 2
+#  build:
+#    jobs:
+#      - "VF"
+#      - "V2"
