@@ -36,8 +36,8 @@ jobs:
 #          path: ~/VAST/test-results/voidfinder
 #      - store_artifacts:
 #          path: ~/VAST/test-results/voidfinder
-#  "V2":
-  build:
+  "V2":
+#  build:
     docker:
       - image: circleci/python:stretch
 
@@ -72,9 +72,9 @@ jobs:
       - store_artifacts:
           path: ~/VAST/test-results/vsquared
 
-#workflows:
-#  version: 2
-#  build:
-#    jobs:
+workflows:
+  version: 2
+  build:
+    jobs:
 #      - "VF"
-#      - "V2"
+      - "V2"
