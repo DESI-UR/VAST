@@ -2,6 +2,7 @@
 import numpy as np
 
 from astropy.table import Table
+from astropy.io import ascii
 
 from vast.voidfinder.distance import z_to_comoving_dist
 
@@ -204,8 +205,8 @@ def file_preprocess(galaxies_filename,
     if mag_cut and ('rabsmag' not in galaxy_data_table.columns):
         galaxy_data_table['magnitude'].name = 'rabsmag'
         
-    if 'z' not in galaxy_data_table.columns:
-        galaxy_data_table['redshift'].name = 'z'
+    if 'redshift' not in galaxy_data_table.columns:
+        galaxy_data_table['z'].name = 'redshift'
     ############################################################################
     
     

@@ -51,7 +51,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = None
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -70,7 +70,7 @@ galaxies_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshif
 # Note: These can be set to None, in which case VoidFinder will use the limits 
 # of the galaxy catalog.
 min_z = 0
-max_z = 0.1026
+max_z = 0.107
 
 # Cosmology (uncomment and change values to change cosmology)
 # Need to also uncomment relevent inputs in function calls below
@@ -79,17 +79,17 @@ max_z = 0.1026
 
 # Uncomment if you do NOT want to use comoving distances
 # Need to also uncomment relevent inputs in function calls below
-#dist_metric = 'redshift'
+dist_metric = 'redshift'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
-# Need to also uncomment relevent input in function call below
+# Need to also uncomment relevent input in function calls below
 #mag_cut = False
 
 
 # Uncomment if you do NOT want to remove isolated galaxies
-# Need to also uncomment relevent input in function call below
+# Need to also uncomment relevent input in function calls below
 #rm_isolated = False
 #-------------------------------------------------------------------------------
 
@@ -107,7 +107,7 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
                                                                                out_directory, 
                                                                                #mag_cut=mag_cut,
                                                                                #rm_isolated=rm_isolated,
-                                                                               #dist_metric=dist_metric,
+                                                                               dist_metric=dist_metric,
                                                                                min_z=min_z, 
                                                                                max_z=max_z,
                                                                                #Omega_M=Omega_M,
@@ -141,8 +141,11 @@ temp_infile.close()
 
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies(galaxy_data_table,
                                                                                  survey_name,
+                                                                                 dist_limits=dist_limits,
+                                                                                 #mag_cut_flag=mag_cut,
+                                                                                 #rm_isolated_flag=rm_isolated,
                                                                                  #hole_grid_edge_length=5.0,
-                                                                                 #distance_metric=dist_metric,
+                                                                                 distance_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=1)
 

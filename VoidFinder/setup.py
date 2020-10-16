@@ -11,12 +11,28 @@
 # Standard imports.
 #
 import os
+import codecs
 #
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 #
-from vast.voidfinder._git import get_version, SetVersion
+# Version reader
+#
+def read(rel_path):
+    here = os.path.abspath(os.path.dirname(__file__))
+    with codecs.open(os.path.join(here, rel_path), 'r') as fp:
+        return fp.read()
+
+def get_version(rel_path):
+    for line in read(rel_path).splitlines():
+        if line.startswith('__version__'):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    else:
+        raise RuntimeError('Unable to find version string.')
+#
+# Setup keywords
 #
 setup_keywords = dict()
 setup_keywords['name'] = 'vast_voidfinder'
@@ -25,12 +41,13 @@ setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
 setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
-setup_keywords['version'] = get_version()
-setup_keywords['install_requires'] = ['cython',
-                                      'h5py',
-                                      'psutil',
-                                      'numpy',
-                                      'scikit-learn']
+setup_keywords['version'] = get_version('vast/voidfinder/__init__.py')
+requires = []
+with open('requirements.txt', 'r') as f:
+    for line in f:
+        if line.strip():
+            requires.append(line.strip())
+setup_keywords['install_requires'] = requires
 #
 # Use README.md as a long_description.
 #
@@ -48,15 +65,14 @@ setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = ['vast.voidfinder',
                               'vast.voidfinder.viz',
                               'vast.voidfinder.volume']
-setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
+#setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 setup_keywords['test_suite']='nose2.collector.collector'
 setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
 #
-# Set up cython-based code.
+# Set up cython build.
 #
 from Cython.Build import cythonize
 import numpy
-#
 extensions = [
               Extension("vast.voidfinder._voidfinder_cython_find_next",
                         ["vast/voidfinder/_voidfinder_cython_find_next.pyx"],

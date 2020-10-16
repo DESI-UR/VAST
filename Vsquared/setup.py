@@ -11,12 +11,28 @@
 # Standard imports.
 #
 import os
+import codecs
 #
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 #
-from vast.vsquared._git import get_version, SetVersion
+# Version reader
+#
+def read(rel_path):
+    here = os.path.abspath(os.path.dirname(__file__))
+    with codecs.open(os.path.join(here, rel_path), 'r') as fp:
+        return fp.read()
+
+def get_version(rel_path):
+    for line in read(rel_path).splitlines():
+        if line.startswith('__version__'):
+            delim = '"' if '"' in line else "'"
+            return line.split(delim)[1]
+    else:
+        raise RuntimeError('Unable to find version string.')
+#
+# Setup keywords
 #
 setup_keywords = dict()
 setup_keywords['name'] = 'vast_vsquared'
@@ -25,9 +41,13 @@ setup_keywords['author'] = 'Dylan Veyrat, University of Rochester'
 setup_keywords['author_email'] = 'dveyrat@ur.rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/Vsquared'
-setup_keywords['version'] = get_version()
-setup_keywords['install_requires'] = ['numpy',
-                                      'scikit-learn']
+setup_keywords['version'] = get_version('vast/vsquared/__init__.py')
+requires = []
+with open('requirements.txt', 'r') as f:
+    for line in f:
+        if line.strip():
+            requires.append(line.strip())
+setup_keywords['install_requires'] = requires
 #
 # Use README.md as a long_description.
 #
@@ -44,7 +64,7 @@ setup_keywords['zip_safe'] = False
 setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = ['vast.vsquared',
                               'vast.vsquared.viz']
-setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
+setup_keywords['cmdclass'] = {'sdist': DistutilsSdist}
 setup_keywords['test_suite']='nose2.collector.collector'
 setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
 #

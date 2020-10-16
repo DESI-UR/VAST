@@ -1,3 +1,27 @@
+# V<sup>2</sup>
+
+## Description
+
+The V<sup>2</sup> package computes void regions using Voronoi tesselations of a
+galaxy catalog using the ZOnes Bordering on Voids (ZOBOV) algorithm developed
+by [Mark Neyrinck (2007)](https://doi.org/10.1111/j.1365-2966.2008.13180.x).
+
+## Installation
+
+The package can be installed using setuptools via the shell command
+```
+python setup.py install
+```
+from the same directory containing this README file (`VAST/Vsquared`). This
+will install V<sup>2</sup> into the `site-packages` folder of your current
+Python environment.
+
+If you are actively developing V<sup>2</sup> you can run `python setup.py
+develop` to create a symlink from the source tree in your `site-packages`
+directory.
+
+## Usage
+
 Cosmological paramaters, voidfinding parameters, and input/output files are set in a config file (an example is located in `Vsquared/data/`).  
 
 To find voids and save void and zone information, open a python shell in the `Vsquared/` directory and run:
