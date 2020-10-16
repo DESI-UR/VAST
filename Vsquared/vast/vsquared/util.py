@@ -86,11 +86,11 @@ def inSphere(cs,r,coords):
     Parameters
     ----------
     cs : list or ndarray
-        Comoving xyz-coordinates.
+        Center of sphere.
     r : float
         Sphere volume.
     coords : list or ndarray
-        Center of sphere.
+        Comoving xyz-coordinates.
 
     Returns
     -------
