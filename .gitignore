@@ -11,12 +11,10 @@
 *.png
 *.mp4
 *__pycache__*
-VoidFinder/python/voidfinder.egg-info/
-VoidFinder/python/voidfinder/__pycache__/
-VoidFinder/python/build/
-VoidFinder/doc/debug_dir
-VoidFinder/doc/profiling
-VoidFinder/data/
-VoidFinder/legacy/*
+VoidFinder/vast_voidfinder.egg-info/
+VoidFinder/vast/voidfinder/__pycache__/
+VoidFinder/build/
+VoidFinder/dist/
 WorkingDir/
 .settings/
+.ipynb_checkpoints/
