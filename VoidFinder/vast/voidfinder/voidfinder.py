@@ -38,14 +38,6 @@ from ._voidfinder_cython import check_mask_overlap
 
 
 ################################################################################
-# I made these constants into default parameters in filter_galaxies() and 
-# find_voids() because a user may wish to try different grid spacings and such.  
-# I left DtoR and RtoD because they will never ever change since they're based 
-# on pi.
-#-------------------------------------------------------------------------------
-#dl = 5           # Cell side length [Mpc/h]
-#dr = 1.          # Distance to shift the hole centers
-#c = 3e5
 DtoR = np.pi/180.
 RtoD = 180./np.pi
 ################################################################################
@@ -147,22 +139,16 @@ def filter_galaxies(galaxy_table,
     """
     
     
-    if verbose > 0:
-        print('Filter Galaxies Start', flush=True)
+    print('Filter Galaxies Start', flush=True)
 
     ############################################################################
     # PRE-PROCESS DATA
     # Filter based on magnitude and convert from redshift to radius if necessary
     #---------------------------------------------------------------------------
-    print('------------------------------------------------------')
-    print('Original number of galaxies:', len(galaxy_table))
-
     # Remove faint galaxies
     if mag_cut_flag:
         
         galaxy_table = galaxy_table[galaxy_table['rabsmag'] <= magnitude_limit]
-
-        print('Number of galaxies after applying magnitude cut:', len(galaxy_table))
 
     # Remove galaxies outside redshift range
     if dist_limits is not None:
@@ -179,8 +165,6 @@ def filter_galaxies(galaxy_table,
                                               c*galaxy_table['redshift']/H0 <= dist_limits[1])
 
         galaxy_table = galaxy_table[distance_boolean]
-
-        print('Number of galaxies after applying redshift cut:', len(galaxy_table))
 
 
     # Convert galaxy coordinates to Cartesian
@@ -223,32 +207,37 @@ def filter_galaxies(galaxy_table,
     #---------------------------------------------------------------------------
     if write_table:
     
-    
         write_start = time.time()
         
     
         wall_xyz_table = Table(data=wall_gals_xyz, names=["x", "y", "z"])
         
-        wall_xyz_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
+        wall_xyz_table.write(survey_name + 'wall_gal_file.txt', 
+                             format='ascii.commented_header', 
+                             overwrite=True)
     
         
         field_xyz_table = Table(data=field_gals_xyz, names=["x", "y", "z"])
     
-        field_xyz_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
+        field_xyz_table.write(survey_name + 'field_gal_file.txt', 
+                              format='ascii.commented_header', 
+                              overwrite=True)
         
         
         if verbose > 0:
             
-            print("Time to write field and wall tables: ", time.time() - write_start, flush=True)
+            print("Time to write field and wall tables:", 
+                  time.time() - write_start, 
+                  flush=True)
 
 
     nf =  len(field_gals_xyz)
     
     nwall = len(wall_gals_xyz)
     
-    if verbose > 0:
-        
-        print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
+    print('Number of field gals:', nf, 
+          'Number of wall gals:', nwall, 
+          flush=True)
     ############################################################################
 
 
@@ -314,10 +303,9 @@ def ra_dec_to_xyz(galaxy_table,
     
     dec = galaxy_table['dec'].data
     
-    ################################################################################
+    ############################################################################
     # Convert from ra-dec-radius space to xyz space
-    ################################################################################
-    
+    #---------------------------------------------------------------------------
     ra_radian = ra*DtoR
     
     dec_radian = dec*DtoR
@@ -333,6 +321,7 @@ def ra_dec_to_xyz(galaxy_table,
     coords_xyz = np.concatenate((x.reshape(num_gal,1),
                                  y.reshape(num_gal,1),
                                  z.reshape(num_gal,1)), axis=1)
+    ############################################################################
     
     return coords_xyz
 
@@ -400,6 +389,10 @@ def calculate_grid(galaxy_coords_xyz,
     
     
 
+
+
+    
+
 def wall_field_separation(galaxy_coords_xyz,
                           sep_neighbor=3,
                           verbose=0):
@@ -442,9 +435,10 @@ def wall_field_separation(galaxy_coords_xyz,
     """
     
     
-    if verbose > 0:
-            
-        print('Finding sep',flush=True)
+    ############################################################################
+    # Calculate the average distance to the 3rd nearest neighbor
+    #---------------------------------------------------------------------------
+    print('Finding isolated galaxy distance',flush=True)
         
     sep_start = time.time()
 
@@ -452,10 +446,14 @@ def wall_field_separation(galaxy_coords_xyz,
     
     sep_end = time.time()
 
-    if verbose > 0:
-        
-        print('Time to find sep =',sep_end-sep_start, flush=True)
+    print('Time to find isolated galaxy distance:', sep_end-sep_start, flush=True)
+    ############################################################################
     
+
+
+    ############################################################################
+    # Calculate the isolated galaxy criterion
+    #---------------------------------------------------------------------------
     avsep = np.mean(dists3)
     
     sd = np.std(dists3)
@@ -464,16 +462,19 @@ def wall_field_separation(galaxy_coords_xyz,
 
     if verbose > 0:
         
-        print('Average separation of n=3rd neighbor gal is', avsep, flush=True)
+        print('Average separation of 3rd neighbor gal is', avsep, flush=True)
     
         print('The standard deviation is', sd, flush=True)
     
-        print('Going to build wall with search value', l, flush=True)
+    print('Removing all galaxies with 3rd nearest neighbors further than', l, 
+          flush=True)
+    ############################################################################
 
-    # l = 5.81637  # s0 = 7.8, gamma = 1.2, void edge = -0.8
-    # l = 7.36181  # s0 = 3.5, gamma = 1.4
-    # or force l to have a fixed number by setting l = ****
 
+
+    ############################################################################
+    # Separate galaxies into field and wall
+    #---------------------------------------------------------------------------
     fw_start = time.time()
 
     #f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
@@ -488,7 +489,8 @@ def wall_field_separation(galaxy_coords_xyz,
     
     if verbose > 0:
         
-        print('Time to sort field and wall gals =', fw_end-fw_start, flush=True)
+        print('Time to sort field and wall gals:', fw_end-fw_start, flush=True)
+    ############################################################################
 
     return wall_gals_xyz, field_gals_xyz
     
@@ -727,15 +729,11 @@ def find_voids(galaxy_coords_xyz,
     
     """
     
-    if verbose > 0:
-        
-        print('Growing holes', flush=True)
+    print('Growing holes', flush=True)
     
     ############################################################################
-    #
-    #   GROW HOLES
-    #
-    ############################################################################
+    # GROW HOLES
+    #---------------------------------------------------------------------------
     if galaxy_map_grid_edge_length is None:
         
         galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
@@ -764,13 +762,14 @@ def find_voids(galaxy_coords_xyz,
 
     print('Found a total of', n_holes, 'potential voids.', flush=True)
 
-    print('Time to find all holes =', time.time() - tot_hole_start, flush=True)
+    print('Time to grow all holes:', time.time() - tot_hole_start, flush=True)
+    ############################################################################
+
+
     
     ############################################################################
-    # 
-    #   CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
-    #
-    ############################################################################
+    # CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
+    #---------------------------------------------------------------------------
     print("Starting volume cut", flush=True)
     
     vol_cut_start = time.time()
@@ -782,30 +781,32 @@ def find_voids(galaxy_coords_xyz,
                                               cut_pct=0.1,
                                               pts_per_unit_volume=.01,
                                               num_surf_pts=20,
-                                              num_cpus=num_cpus)
+                                              num_cpus=num_cpus,
+                                              verbose=verbose)
     
-    print("Found ", np.sum(np.logical_not(valid_idx)), " holes to cut", 
+    print("Found ", np.sum(np.logical_not(valid_idx)), "holes to cut", 
           time.time() - vol_cut_start, flush=True)
 
     x_y_z_r_array = x_y_z_r_array[valid_idx]
+    ############################################################################
+
+
     
     ############################################################################
-    #
-    #   SORT HOLES BY SIZE
-    #
-    ############################################################################
+    # SORT HOLES BY SIZE
+    #---------------------------------------------------------------------------
     print("Sorting holes based on radius", flush=True)
     
     sort_order = x_y_z_r_array[:,3].argsort()[::-1]
     
     x_y_z_r_array = x_y_z_r_array[sort_order]
+    ############################################################################
+
     
 
     ############################################################################
-    #
-    #   FILTER AND SORT HOLES INTO UNIQUE VOIDS
-    #
-    ############################################################################
+    # FILTER AND SORT HOLES INTO UNIQUE VOIDS
+    #---------------------------------------------------------------------------
     print("Combining holes into unique voids", flush=True)
     
     combine_start = time.time()
@@ -815,39 +816,45 @@ def find_voids(galaxy_coords_xyz,
     print("Combine time:", time.time() - combine_start, flush=True)
     
     print('Number of unique voids is', len(maximal_spheres_table), flush=True)
+    ############################################################################
+
     
     
     ############################################################################
-    #
     # Save list of all void holes
-    #
-    ############################################################################
-    myvoids_table.write(void_table_filename, format='ascii.commented_header', overwrite=True)
-
-    ############################################################################
-    #
-    #   COMPUTE VOLUME OF EACH VOID
-    #
-    ############################################################################
-    
-    ############################################################################
-    #
-    #   IDENTIFY VOID GALAXIES
-    #
-    ############################################################################
-    
-    ############################################################################
-    #
-    #   MAXIMAL HOLE FOR EACH VOID
-    #
+    #---------------------------------------------------------------------------
+    myvoids_table.write(void_table_filename, 
+                        format='ascii.commented_header', 
+                        overwrite=True)
     ############################################################################
 
+
+
+    ############################################################################
+    # Compute volume of each void
+    #---------------------------------------------------------------------------
+    ############################################################################
+
+
+    
+    ############################################################################
+    # Identify void galaxies
+    #---------------------------------------------------------------------------
+    ############################################################################
+
+
+    
+    ############################################################################
+    # Save list of maximal hole in each void
+    #---------------------------------------------------------------------------
     save_maximals(maximal_spheres_table, maximal_spheres_filename)
+    ############################################################################
+
+
 
     ############################################################################
-    #
-    #   VOID REGION SIZES
-    #
+    # Void region size
+    #---------------------------------------------------------------------------
     ############################################################################
     
 

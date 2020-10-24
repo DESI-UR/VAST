@@ -23,32 +23,41 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
     Sort galaxies onto a cubic grid
 
     Parameters:
-    ____________________
-      galaxy_coords: astropy table of galaxy Cartesian coordinates (columns x, y, and z)
+    ===========
 
-      coord_min: one-row astropy table of the minima in each of the three coordinates
+    galaxy_coords: astropy table
+        galaxy Cartesian coordinates (columns x, y, and z)
 
-      grid_side_length: length of a grid cell
+    coord_min: one-row astropy table
+        the minima in each of the three coordinates
 
-      N_boxes: number of cells in the grid
+    grid_side_length: float
+        length of a grid cell
+
+    N_boxes: integer
+        number of cells in the grid
 
 
     Output:
-    _____________________
-      mesh_indices: astropy table of the cell coordinates for each galaxy
+    =======
 
-      ngal: 3D numpy array of the number of galaxies in each cell
+    mesh_indices: astropy table
+        the cell coordinates for each galaxy
 
-      chainlist: 3D numpy array (same size as ngal) of the index value of the 
-                 last galaxy to be stored in that cell
+    ngal: 3D numpy array
+        the number of galaxies in each cell
 
-      linklist: 1D numpy array of length of the number of galaxies that stores 
-                the index value of the previous galaxy stored in the cell of 
-                the current galaxy.  If the galaxy is the first one to be put 
-                in the cell, then its value in linklist is -1.  Using both 
-                chainlist and linklist, one can discern all the galaxies that 
-                live in a given cell.
+    chainlist: 3D numpy array (same size as ngal)
+        the index value of the last galaxy to be stored in that cell
+
+    linklist: 1D numpy array
+        length of the number of galaxies that stores the index value of the 
+        previous galaxy stored in the cell of the current galaxy.  If the 
+        galaxy is the first one to be put in the cell, then its value in 
+        linklist is -1.  Using both chainlist and linklist, one can discern all 
+        the galaxies that live in a given cell.
     '''
+
     # Initialize the 3D bins that will contain the galaxy indices
 
     #ngal = np.zeros((N_boxes, N_boxes, N_boxes), dtype=int)
@@ -151,8 +160,6 @@ def in_mask(coordinates, survey_mask, n, r_limits):
     Determine whether the specified coordinates are within the masked area.
     
     coordinates : astropy Table of shape (N,3), or Row
-    
-    
     '''
 
     # Convert coordinates to table if not already
@@ -284,7 +291,7 @@ def save_maximals(sphere_table, out1_filename):
     Save the maximal spheres to a text file
     '''
     
-    print("Saving maximals to: ", out1_filename)
+    print("Saving maximals to", out1_filename, flush=True)
 
     sphere_table = xyz_to_radecz(sphere_table)
 

@@ -1334,7 +1334,7 @@ cdef class NeighborMemory:
     cdef void resize(self, size_t max_num_neighbors):
     
     
-        print("Neighbor mem resizing: "+str(max_num_neighbors), flush=True)
+        #print("Neighbor mem resizing: "+str(max_num_neighbors), flush=True)
     
         self.max_num_neighbors = max_num_neighbors
         
@@ -1555,7 +1555,7 @@ cdef class Cell_ID_Memory:
         re-use the original data location.
         """
         
-        print("Cell ID Mem resizing: ", self.max_level_mem, level, flush=True)
+        #print("Cell ID Mem resizing: ", self.max_level_mem, level, flush=True)
 
         
         if level > <size_t>self.max_level_mem:
@@ -1788,6 +1788,11 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
     
     return return_vals
                     
+
+
+
+
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -2169,7 +2174,11 @@ cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz,
         
     return running_min
     
-    
+
+
+
+
+
     
 @cython.boundscheck(False)
 @cython.wraparound(False)

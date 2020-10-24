@@ -19,8 +19,7 @@
 
 
 #import sys
-#sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
-#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
+#sys.path.insert(1, 'local/path/VAST/VoidFinder/vast/voidfinder/')
 
 ################################################################################
 #
@@ -51,14 +50,16 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 1
+num_cpus = None
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
 
 # File header
-in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/void_catalogs/SDSS/python_implementation/'
+# Change these directory paths to where your data is stored, and where you want 
+# the output to be saved.
+in_directory = '../'
+out_directory = '../'
 
 
 # Input file name
@@ -74,12 +75,12 @@ max_z = 0.107
 
 # Cosmology (uncomment and change values to change cosmology)
 # Need to also uncomment relevent inputs in function calls below
-#Omega_M = 0.3
+Omega_M = 0.26
 #h = 1
 
 # Uncomment if you do NOT want to use comoving distances
 # Need to also uncomment relevent inputs in function calls below
-dist_metric = 'redshift'
+dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -110,9 +111,9 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
                                                                                dist_metric=dist_metric,
                                                                                min_z=min_z, 
                                                                                max_z=max_z,
-                                                                               #Omega_M=Omega_M,
+                                                                               Omega_M=Omega_M,
                                                                                #h=h,
-                                                                               verbose=1)
+                                                                               verbose=0)
 
 print("Dist limits: ", dist_limits)
 
@@ -122,7 +123,7 @@ print("Dist limits: ", dist_limits)
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1, smooth_mask=True)
+mask, mask_resolution = generate_mask(galaxy_data_table, verbose=0, smooth_mask=True)
 
 
 temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
@@ -147,7 +148,7 @@ wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies
                                                                                  #hole_grid_edge_length=5.0,
                                                                                  distance_metric=dist_metric,
                                                                                  #h=h,
-                                                                                 verbose=1)
+                                                                                 verbose=0)
 
 del galaxy_data_table
 
@@ -188,7 +189,7 @@ find_voids(wall_coords_xyz,
            potential_voids_filename=survey_name+'potential_voids_list.txt',
            num_cpus=num_cpus,
            batch_size=10000,
-           verbose=1,
+           verbose=0,
            print_after=5.0)
 
 

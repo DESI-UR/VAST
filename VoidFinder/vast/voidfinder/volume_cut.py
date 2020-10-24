@@ -58,6 +58,9 @@ def max_range_check(spheres_table, direction, sign, survey_mask, mask_resolution
     return boolean
 
 
+
+
+
 def check_coordinates(coord, direction, sign, survey_mask, mask_resolution, r_limits):
 
     dr = 0
@@ -114,6 +117,8 @@ def check_coordinates(coord, direction, sign, survey_mask, mask_resolution, r_li
     sphere_volume = np.pi*(4/3)*(check_coord['radius']**3)
     
     return cap_volume_i, sphere_volume
+
+
 
 
 
@@ -219,6 +224,9 @@ def volume_cut(hole_table, survey_mask, mask_resolution, r_limits):
     return hole_table
 
 
+
+
+
 def check_hole_bounds(x_y_z_r_array, 
                       mask, 
                       mask_resolution, 
@@ -226,22 +234,23 @@ def check_hole_bounds(x_y_z_r_array,
                       cut_pct=0.1,
                       pts_per_unit_volume=3,
                       num_surf_pts=20,
-                      num_cpus=1):
+                      num_cpus=1,
+                      verbose=1):
     """
     Description
     ===========
     
-    Remove holes from the output of _hole_finder() whose volume falls outside of the mask
-    by X % or more.  
+    Remove holes from the output of _hole_finder() whose volume falls outside 
+    of the mask by X % or more.  
     
-    This is accomplished by a 2-phase approach, first, N points are
-    distributed on the surface of each sphere, and those N points are checked against
-    the mask.  If any of those N points fall outside the mask, the percentage of the
+    This is accomplished by a 2-phase approach, first, N points are distributed 
+    on the surface of each sphere, and those N points are checked against the 
+    mask.  If any of those N points fall outside the mask, the percentage of the
     volume of the sphere which falls outside the mask is calculated by using a
     monte-carlo-esque method whereby the hole in question is filled with points
     corresponding to some minimum density, and each of those points is checked.
-    The percentage of volume outside the mask is then approximated as the percentage
-    of those points which fall outside the mask.
+    The percentage of volume outside the mask is then approximated as the 
+    percentage of those points which fall outside the mask.
     
     Parameters
     ==========
@@ -250,24 +259,26 @@ def check_hole_bounds(x_y_z_r_array,
         x,y,z locations of the holes, and radius, in that order
         
     mask : numpy.ndarray of shape (K,L) dtype np.uint8
-        the mask used, mask[ra_integer,dec_integer] returns True if that ra,dec position is
-        within the survey, and false if it is not.  Note ra,dec must be converted into integer
-        values depending on the mask_resolution.  For mask_resolution of 1, ra is in [0,359]
-        and dec in [-90,90], for mask_resolution of 2, ra is in [0,719], dec in [-180,180] etc.
+        the mask used, mask[ra_integer,dec_integer] returns True if that ra,dec 
+        position is within the survey, and false if it is not.  Note ra,dec must 
+        be converted into integer values depending on the mask_resolution.  For 
+        mask_resolution of 1, ra is in [0,359] and dec in [-90,90], for 
+        mask_resolution of 2, ra is in [0,719], dec in [-180,180] etc.
         
     mask_resolution : int
-        value of 1 indicates each entry in the mask accounts for 1 degree, value of 2
-        means half-degree, 4 means quarter-degree increments, etc
+        value of 1 indicates each entry in the mask accounts for 1 degree, value 
+        of 2 means half-degree, 4 means quarter-degree increments, etc
         
     r_limits : 2-tuple (min_r, max_r)
         min and max radius limits of the survey
         
     cut_pct : float in [0,1)
-        if this fraction of a hole volume overlaps with the mask, discard that hole
+        if this fraction of a hole volume overlaps with the mask, discard that 
+        hole
         
     num_surf_pts : int
-        distribute this many points on the surface of each sphere and check them against
-        the mask before doing the monte-carlo volume calculation.
+        distribute this many points on the surface of each sphere and check them 
+        against the mask before doing the monte-carlo volume calculation.
         
     num_cpus : int
         number of processes to use
@@ -298,21 +309,27 @@ def check_hole_bounds(x_y_z_r_array,
                                                   r_limits,
                                                   cut_pct,
                                                   pts_per_unit_volume,
-                                                  num_surf_pts)
+                                                  num_surf_pts,
+                                                  verbose=verbose)
         
     else:
         
         valid_index, monte_index = oob_cut_multi(x_y_z_r_array, 
-                                                  mask, 
-                                                  mask_resolution, 
-                                                  r_limits,
-                                                  cut_pct,
-                                                  pts_per_unit_volume,
-                                                  num_surf_pts,
-                                                  num_cpus)
+                                                 mask, 
+                                                 mask_resolution, 
+                                                 r_limits,
+                                                 cut_pct,
+                                                 pts_per_unit_volume,
+                                                 num_surf_pts,
+                                                 num_cpus,
+                                                 verbose=verbose)
         
     return valid_index, monte_index
-        
+    
+
+
+
+
         
 def oob_cut_single(x_y_z_r_array, 
                    mask, 
@@ -329,13 +346,11 @@ def oob_cut_single(x_y_z_r_array,
     
     monte_index = np.zeros(x_y_z_r_array.shape[0], dtype=np.uint8)
     
-    ################################################################################
+    ############################################################################
     # Distrubute N points on a unit sphere
     # Reference algorithm "Golden Spiral" method:
     # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
-    ################################################################################
-    
-        
+    #---------------------------------------------------------------------------
     indices = np.arange(0, num_surf_pts, dtype=float) + 0.5
     
     phi = np.arccos(1 - 2*indices/num_surf_pts)
@@ -350,18 +365,19 @@ def oob_cut_single(x_y_z_r_array,
     unit_sphere_pts[:,0] = x
     unit_sphere_pts[:,1] = y
     unit_sphere_pts[:,2] = z
+    ############################################################################
+
     
     
-    ################################################################################
+    ############################################################################
     # Find the largest radius hole in the results, and generate a mesh of
     # constant density such that the largest hole will fit in this mesh
     #
     # Cut the extraneous points, and sort all the points in order of smallest
-    # radius to largest radius so when we iterate later for the smaller holes
-    # we can stop early at the largest necessary radius - the cythonized
-    # code critically depends on this sort
-    ################################################################################
-    
+    # radius to largest radius so when we iterate later for the smaller holes we 
+    # can stop early at the largest necessary radius - the cythonized code 
+    # critically depends on this sort
+    #---------------------------------------------------------------------------
     largest_radius = x_y_z_r_array[:,3].max()
     
     gen_radius = largest_radius*1.05 #add a bit of margin for the mesh
@@ -391,11 +407,13 @@ def oob_cut_single(x_y_z_r_array,
     mesh_points = mesh_points[sort_order]
     
     mesh_points_radii = mesh_point_radii[sort_order]
+    ############################################################################
+
+
     
-    ################################################################################
+    ############################################################################
     # Iterate through our holes
-    ################################################################################
-    
+    #---------------------------------------------------------------------------
     _check_holes_mask_overlap(x_y_z_r_array,
     #_check_holes_mask_overlap_2(x_y_z_r_array,
                               mask,
@@ -408,8 +426,7 @@ def oob_cut_single(x_y_z_r_array,
                               cut_pct,
                               valid_index,
                               monte_index)
-    
-    
+    ############################################################################
     
     
     '''
@@ -478,6 +495,7 @@ def oob_cut_single(x_y_z_r_array,
             #do nothing, the hole is valid
             pass
     '''
+
     return valid_index.astype(np.bool), monte_index.astype(np.bool)
 
 
@@ -506,11 +524,11 @@ def oob_cut_multi(x_y_z_r_array,
     
     monte_index = np.zeros(num_holes, dtype=np.uint8)
     
-    ################################################################################
+    ############################################################################
     # Distrubute N points on a unit sphere
     # Reference algorithm "Golden Spiral" method:
     # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
-    ################################################################################
+    ############################################################################
     
         
     indices = np.arange(0, num_surf_pts, dtype=float) + 0.5
@@ -529,14 +547,14 @@ def oob_cut_multi(x_y_z_r_array,
     unit_sphere_pts[:,2] = z
     
     
-    ################################################################################
+    ############################################################################
     # Find the largest radius hole in the results, and generate a mesh of
     # constant density such that the largest hole will fit in this mesh
     #
     # Cut the extraneous points, and sort all the points in order of smallest
     # radius to largest radius so when we iterate later for the smaller holes
     # we can stop early at the largest necessary radius
-    ################################################################################
+    ############################################################################
     
     largest_radius = x_y_z_r_array[:,3].max()
     
@@ -571,12 +589,12 @@ def oob_cut_multi(x_y_z_r_array,
     
     num_mesh_points = mesh_points.shape[0]
 
-    ################################################################################
+    ############################################################################
     # If /dev/shm is not available, use /tmp as the shared resource filesystem
     # location instead.  Since on Linux /dev/shm is guaranteed to be a mounted
     # RAMdisk, I don't know if /tmp will be as fast or not, probably depends on
     # kernel settings.
-    ################################################################################
+    ############################################################################
     if not os.path.isdir(RESOURCE_DIR):
         
         print("WARNING: RESOURCE DIR ", RESOURCE_DIR, "does not exist.  Falling back to /tmp but could be slow", flush=True)
@@ -584,14 +602,13 @@ def oob_cut_multi(x_y_z_r_array,
         RESOURCE_DIR = "/tmp"
         
     
-    ################################################################################
+    ############################################################################
     # Start by converting the num_cpus argument into the real value we will use
     # by making sure its reasonable, or if it was none use the max val available
     #
     # Maybe should use psutil.cpu_count(logical=False) instead of the
     # multiprocessing version?
-    #
-    ################################################################################
+    ############################################################################
     if (num_cpus is None):
           
         num_cpus = cpu_count(logical=False)
@@ -604,9 +621,9 @@ def oob_cut_multi(x_y_z_r_array,
     
     
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     xyzr_fd, XYZR_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -630,13 +647,13 @@ def oob_cut_multi(x_y_z_r_array,
     os.unlink(XYZR_BUFFER_PATH)
     
     
-    ################################################################################
+    ############################################################################
     #
     # Memmaps for valid_idx, monte_idx, unit_sphere_pts, mesh_points, mesh_points_radii
     #     and x_y_z_r_array
     #
     #
-    ################################################################################
+    ############################################################################
     valid_idx_fd, VALID_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -659,9 +676,9 @@ def oob_cut_multi(x_y_z_r_array,
     
     os.unlink(VALID_IDX_BUFFER_PATH)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     monte_idx_fd, MONTE_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -684,9 +701,9 @@ def oob_cut_multi(x_y_z_r_array,
     
     os.unlink(MONTE_IDX_BUFFER_PATH)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     unit_sphere_fd, UNIT_SHELL_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -709,9 +726,9 @@ def oob_cut_multi(x_y_z_r_array,
     
     os.unlink(UNIT_SHELL_BUFFER_PATH)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     mesh_pts_fd, MESH_PTS_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -734,9 +751,9 @@ def oob_cut_multi(x_y_z_r_array,
     
     os.unlink(MESH_PTS_BUFFER_PATH)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     mesh_radii_fd, MESH_RADII_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
     if verbose > 0:
@@ -749,8 +766,9 @@ def oob_cut_multi(x_y_z_r_array,
     
     mesh_radii_buffer = mmap.mmap(mesh_radii_fd, mesh_radii_buffer_length)
     
-    
-    print(mesh_radii_buffer_length, len(mesh_points_radii.tobytes()))
+    if verbose > 0:
+        
+        print(mesh_radii_buffer_length, len(mesh_points_radii.tobytes()), flush=True)
     
     mesh_radii_buffer.write(mesh_points_radii.tobytes())
     
@@ -763,16 +781,16 @@ def oob_cut_multi(x_y_z_r_array,
     os.unlink(MESH_RADII_BUFFER_PATH)
     
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     index_start = Value(c_int64, 0, lock=True)
     
     num_cells_processed = 0
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "batch_size" : batch_size,
@@ -800,15 +818,15 @@ def oob_cut_multi(x_y_z_r_array,
                      "mesh_radii_fd" : mesh_radii_fd,
                      }
     
-    ################################################################################
+    ############################################################################
     # Start the worker processes
     #
     # For whatever reason, OSX doesn't define the socket.SOCK_CLOEXEC constants
-    # so check for that attribute on the socket module before opening the listener 
-    # socket.  Not super critical, but the child processes don't need a file
-    # descriptor for the listener socket so I was trying to be clean and have it
-    # "close on exec"
-    ################################################################################
+    # so check for that attribute on the socket module before opening the 
+    # listener socket.  Not super critical, but the child processes don't need a 
+    # file descriptor for the listener socket so I was trying to be clean and 
+    # have it "close on exec"
+    ############################################################################
     
     if hasattr(socket, "SOCK_CLOEXEC"):
         
@@ -851,7 +869,7 @@ def oob_cut_multi(x_y_z_r_array,
     
     
     
-    ################################################################################
+    ############################################################################
     # Make sure each worker process connects to the main socket, so we block on
     # the accept() call below until we get a connection, and make sure we get 
     # exactly num_cpus connections.
@@ -866,10 +884,11 @@ def oob_cut_multi(x_y_z_r_array,
     # file descriptor integer value so we can refer to them by that value using
     # select() later, then shut down and close our listener/server socket since
     # we're done with it.
-    ################################################################################
+    ############################################################################
     if verbose > 0:
         
-        print("Attempting to connect workers for volume cut/out of bounds check", flush=True)
+        print("Attempting to connect workers for volume cut/out of bounds check", 
+              flush=True)
     
     num_active_processes = 0
     
@@ -908,10 +927,15 @@ def oob_cut_multi(x_y_z_r_array,
         
         if all_successful_connections:
             
-            print("Worker processes time to connect: ", time.time() - worker_start_time, flush=True)
+            print("Worker processes time to connect:", 
+                  time.time() - worker_start_time, 
+                  flush=True)
     
-    
-    listener_socket.shutdown(socket.SHUT_RDWR)
+    # This try-except clause was added for weird behavior on mac/OSX
+    try:
+        listener_socket.shutdown(socket.SHUT_RDWR)
+    except:
+        pass
     
     listener_socket.close()
     
@@ -931,13 +955,13 @@ def oob_cut_multi(x_y_z_r_array,
         
         
     
-    ################################################################################
+    ############################################################################
     # LOOP TO LISTEN FOR RESULTS WHILE WORKERS WORKING
     # This loop has 3 primary jobs 
     # 1). accumulate results from reading the worker sockets
     # 2). periodically print the status/results from the workers
     # 3). Save checkpoint files after every 'safe_after' results
-    ################################################################################
+    ############################################################################
     if verbose > 0:
         
         print_after_time = time.time()
@@ -954,24 +978,27 @@ def oob_cut_multi(x_y_z_r_array,
     
     while num_active_processes > 0:
         
-        ################################################################################
+        ########################################################################
         # Print status updates if verbose is on
-        ################################################################################
+        ########################################################################
         if verbose > 0:
             
             curr_time = time.time()
             
             if (curr_time - print_after_time) > print_after:
             
-                print('Processed', num_cells_processed, 'holes of', num_holes,"at", str(round(curr_time-main_task_start_time,2)), flush=True)
+                print('Processed', num_cells_processed, 
+                      'holes of', num_holes, 
+                      "at", str(round(curr_time-main_task_start_time,2)), 
+                      flush=True)
                 
                 print_after_time = curr_time
             
         
             
-        ################################################################################
+        ########################################################################
         # Accumulate status updates from the worker sockets
-        ################################################################################
+        ########################################################################
         read_socks, empty3, empty4 = select.select(worker_sockets, empty1, empty2, select_timeout)
         
         if read_socks:
@@ -1020,13 +1047,14 @@ def oob_cut_multi(x_y_z_r_array,
                         
         
 
-    ################################################################################
+    ############################################################################
     # We're done the main work! Clean up worker processes.  Block until we've
     # joined everybody so that we know everything completed correctly.
-    ################################################################################
+    ############################################################################
     if verbose > 0:
         
-        print("Vol cut finish time: ", time.time() - main_task_start_time, flush=True)
+        print("Vol cut finish time: ", time.time() - main_task_start_time, 
+              flush=True)
     
     if not sent_exit_commands:
         
@@ -1038,12 +1066,16 @@ def oob_cut_multi(x_y_z_r_array,
         
         p.join(None) #block till join
     
-    ################################################################################
+    ############################################################################
     # DONE
-    ################################################################################
+    ############################################################################
         
     return valid_index.astype(np.bool), monte_index.astype(np.bool)
-        
+
+
+
+
+
 
 def _oob_cut_worker(worker_idx, index_start, config):
     
@@ -1077,14 +1109,14 @@ def _oob_cut_worker(worker_idx, index_start, config):
     
     
     
-    ################################################################################
+    ############################################################################
     # Open a UNIX-domain socket for communication to the master process.  We set
-    # the timeout to be 10.0 seconds, so this worker will try notifying the master
-    # that it has results for up to 10.0 seconds, then it will loop again and check
-    # for input from the master, and if necessary wait and try to push results for
-    # 10 seconds again.  Right now the workers only exit after a b'exit' message
-    # has been received from the master.
-    ################################################################################
+    # the timeout to be 10.0 seconds, so this worker will try notifying the 
+    # master that it has results for up to 10.0 seconds, then it will loop again 
+    # and check for input from the master, and if necessary wait and try to push 
+    # results for 10 seconds again.  Right now the workers only exit after a 
+    # b'exit' message has been received from the master.
+    ############################################################################
     worker_socket = socket.socket(socket.AF_UNIX)
     
     worker_socket.settimeout(10.0)
@@ -1101,9 +1133,9 @@ def _oob_cut_worker(worker_idx, index_start, config):
         
         raise E
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     xyzr_buffer_length = num_holes*4*8 # 4 for xyzr and 8 for float64
     
     xyzr_mmap_buffer = mmap.mmap(xyzr_fd, xyzr_buffer_length)
@@ -1112,9 +1144,9 @@ def _oob_cut_worker(worker_idx, index_start, config):
     
     x_y_z_r_array.shape = (num_holes, 4)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     valid_idx_buffer_length = num_holes*1 # uint8
     
     valid_idx_mmap_buffer = mmap.mmap(valid_idx_fd, valid_idx_buffer_length)
@@ -1123,9 +1155,9 @@ def _oob_cut_worker(worker_idx, index_start, config):
     
     valid_index.shape = (num_holes,)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     monte_idx_buffer_length = num_holes*1 # uint8
     
     monte_idx_mmap_buffer = mmap.mmap(monte_idx_fd, monte_idx_buffer_length)
@@ -1134,9 +1166,9 @@ def _oob_cut_worker(worker_idx, index_start, config):
     
     monte_index.shape = (num_holes,)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     unit_shell_buffer_length = num_surf_pts*3*8 # n by 3 by float64
     
     unit_shell_mmap_buffer = mmap.mmap(unit_sphere_fd, unit_shell_buffer_length)
@@ -1145,9 +1177,9 @@ def _oob_cut_worker(worker_idx, index_start, config):
     
     unit_sphere_pts.shape = (num_surf_pts,3)
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     mesh_pts_buffer_length = num_mesh_points*3*8 # n by 3 by float64
     
     mesh_pts_mmap_buffer = mmap.mmap(mesh_pts_fd, mesh_pts_buffer_length)
@@ -1157,9 +1189,9 @@ def _oob_cut_worker(worker_idx, index_start, config):
     mesh_points.shape = (num_mesh_points,3)
     
     
-    ################################################################################
+    ############################################################################
     #
-    ################################################################################
+    ############################################################################
     mesh_radii_buffer_length = num_mesh_points*8 # n by float64
     
     mesh_radii_mmap_buffer = mmap.mmap(mesh_radii_fd, mesh_radii_buffer_length)
@@ -1168,20 +1200,19 @@ def _oob_cut_worker(worker_idx, index_start, config):
     
     mesh_points_radii.shape = (num_mesh_points,)
     
-    ################################################################################
-    #
+    ############################################################################
     # Main Loop for the worker process begins here.
     #
     #    exit_process - flag for reading an exit command off the queue
     #
     #    document the additional below variables here please
     #
-    # If this worker process has reached the end of the Cell ID generator, we want
-    # to tell the master process we're done working, and wait for an exit command,
-    # so increase the select_timeout from 0 (instant) to 2.0 seconds to allow the
-    # operating system to wake us up during that 2.0 second interval and avoid
-    # using unnecessary CPU
-    ################################################################################
+    # If this worker process has reached the end of the Cell ID generator, we 
+    # want to tell the master process we're done working, and wait for an exit 
+    # command, so increase the select_timeout from 0 (instant) to 2.0 seconds to 
+    # allow the operating system to wake us up during that 2.0 second interval 
+    # and avoid using unnecessary CPU
+    ############################################################################
     
     received_exit_command = False
     
@@ -1217,13 +1248,14 @@ def _oob_cut_worker(worker_idx, index_start, config):
         
         #total_loops += 1
         
-        ################################################################################
-        # As the first part of the main loop, use the select() method to check for
-        # any messages from the master process.  It may send us an "exit" command,
-        # to tell us to terminate, a "sync" command, to tell us to stop processing
-        # momentarily while it writes out a save checkpoint, or a "resume" command to
-        # tell us that we may continue processing after a "sync"
-        ################################################################################
+        ########################################################################
+        # As the first part of the main loop, use the select() method to check 
+        # for any messages from the master process.  It may send us an "exit" 
+        # command, to tell us to terminate, a "sync" command, to tell us to stop 
+        # processing momentarily while it writes out a save checkpoint, or a 
+        # "resume" command to tell us that we may continue processing after a 
+        # "sync"
+        ########################################################################
         
         #print("Worker "+str(worker_idx)+" "+str(message_buffer), flush=True)
         
@@ -1258,26 +1290,28 @@ def _oob_cut_worker(worker_idx, index_start, config):
                 message_buffer = message_buffer[6:]
         
         
-        ################################################################################
-        # Here we do the main work of VoidFinder.  We synchronize the work with the
-        # other worker processes using 2 lock-protected values, 'ijk_start' and
-        # 'write_start'.  ijk_start gives us the starting cell_ID index to generate
-        # the next batch of cell ID's at, and write_start gives us the index to write
-        # our batch of results at.  Note that we will process AT MOST 'batch_size'
-        # indexes per loop, because we use the Galaxy Map to filter out cell IDs which
-        # do not need to be checked (since they have galaxies in them they are non-empty
-        # and we won't find a hole there).  Since we may process LESS than batch_size
-        # locations, when we update 'write_start' we update it with the actual number
-        # of cells which we have worked in our current batch. 
+        ########################################################################
+        # Here we do the main work of VoidFinder.  We synchronize the work with 
+        # the other worker processes using 2 lock-protected values, 'ijk_start' 
+        # and 'write_start'.  ijk_start gives us the starting cell_ID index to 
+        # generate the next batch of cell ID's at, and write_start gives us the 
+        # index to write our batch of results at.  Note that we will process AT 
+        # MOST 'batch_size' indexes per loop, because we use the Galaxy Map to 
+        # filter out cell IDs which do not need to be checked (since they have 
+        # galaxies in them they are non-empty and we won't find a hole there).  
+        # Since we may process LESS than batch_size locations, when we update 
+        # 'write_start' we update it with the actual number of cells which we 
+        # have worked in our current batch. 
         #
-        # Note if we're in 'sync' mode, we don't want to do any work since the master
-        # process is making a checkpoint file.
-        ################################################################################
+        # Note if we're in 'sync' mode, we don't want to do any work since the 
+        # master process is making a checkpoint file.
+        ########################################################################
         if do_work and not sync:
         
-            ################################################################################
-            # Get the next index of the starting cell ID to process for our current batch
-            ################################################################################
+            ####################################################################
+            # Get the next index of the starting cell ID to process for our 
+            # current batch
+            ####################################################################
             index_start.acquire()
             
             start_idx = index_start.value
@@ -1287,9 +1321,9 @@ def _oob_cut_worker(worker_idx, index_start, config):
             index_start.release()
     
             
-            ################################################################################
+            ####################################################################
             # Setup the work
-            ################################################################################
+            ####################################################################
             
             if start_idx + batch_size <= num_holes:
                 num_cells_to_process = batch_size
@@ -1318,21 +1352,21 @@ def _oob_cut_worker(worker_idx, index_start, config):
                 
                 have_result_to_write = True
             
-            ################################################################################
-            # If the cell_ID_generator ever returns '0', that means we've reached the end
-            # of the whole search grid, so this worker can notify the master that it is
-            # done working
-            ################################################################################
+            ####################################################################
+            # If the cell_ID_generator ever returns '0', that means we've 
+            # reached the end of the whole search grid, so this worker can 
+            # notify the master that it is done working
+            ####################################################################
             else:
                 
                 no_cells_left_to_process = True
             
-        ################################################################################
-        # Update the master process that we have processed some number of cells, using
-        # our socket connection.  Note the actual results get written directly to the
-        # shared memmap, but the socket just updates the master with the number of new
-        # results (an integer)
-        ################################################################################  
+        ########################################################################
+        # Update the master process that we have processed some number of cells, 
+        # using our socket connection.  Note the actual results get written 
+        # directly to the shared memmap, but the socket just updates the master 
+        # with the number of new results (an integer)
+        ########################################################################  
         if have_result_to_write:   
             
             #n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), axis=None, dtype=np.int64)
@@ -1350,11 +1384,12 @@ def _oob_cut_worker(worker_idx, index_start, config):
                 do_work = True
                 have_result_to_write = False
             
-        ################################################################################
-        # If we're done working (cell ID generator reached the end/returned 0), notify
-        # the master process that this worker is going into a "wait for exit" state
-        # where we just sleep and check the input socket for the b'exit' message
-        ################################################################################
+        ########################################################################
+        # If we're done working (cell ID generator reached the end/returned 0), 
+        # notify the master process that this worker is going into a "wait for 
+        # exit" state where we just sleep and check the input socket for the 
+        # b'exit' message
+        #########################################################################
         if no_cells_left_to_process:
             
             if not sent_deactivation:
@@ -1369,13 +1404,13 @@ def _oob_cut_worker(worker_idx, index_start, config):
                 
                 select_timeout = 2.0
             
-        ################################################################################
-        # If the master process wants to save a checkpoint, it needs the workers to
-        # sync up.  It sends a b'sync' message, and then it waits for all the workers
-        # to acknowledge that they have received the 'sync', so here we send that
-        # acknowledgement.  After we've received the sync, we just want to sleep and 
-        # check the socket for a b'resume' message.
-        ################################################################################
+        ########################################################################
+        # If the master process wants to save a checkpoint, it needs the workers 
+        # to sync up.  It sends a b'sync' message, and then it waits for all the 
+        # workers to acknowledge that they have received the 'sync', so here we 
+        # send that acknowledgement.  After we've received the sync, we just 
+        # want to sleep and check the socket for a b'resume' message.
+        ########################################################################
         if sync:
             
             if not sent_sync_ack:
@@ -1394,9 +1429,10 @@ def _oob_cut_worker(worker_idx, index_start, config):
             
                 time.sleep(1.0)
                 
-    ################################################################################
-    # We're all done!  Close the socket and any other resources, and finally return.
-    ################################################################################
+    ############################################################################
+    # We're all done!  Close the socket and any other resources, and finally 
+    # return.
+    ############################################################################
     worker_socket.close()
     
     print("WORKER EXITING GRACEFULLY "+str(worker_idx), flush=True)

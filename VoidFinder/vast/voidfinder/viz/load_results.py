@@ -6,7 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 #from vast.voidfinder.absmag_comovingdist_functions import Distance
-from vast.voidfinder.dist_funcs_cython import z_to_comoving_dist
+from vast.voidfinder.distance import z_to_comoving_dist
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 

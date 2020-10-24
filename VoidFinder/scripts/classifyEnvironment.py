@@ -8,6 +8,8 @@
 ################################################################################
 
 
+import os
+
 import numpy as np
 
 from astropy.table import QTable, Table
@@ -16,7 +18,7 @@ import astropy.units as u
 import pickle
 
 #import sys
-#sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/VoidFinder/python')
+#sys.path.insert(1, '/local/path/VAST/VoidFinder/vast/voidfinder/')
 from vast.voidfinder.vflag import determine_vflag
 from vast.voidfinder.distance import z_to_comoving_dist
 
@@ -30,22 +32,19 @@ from vast.voidfinder.distance import z_to_comoving_dist
 
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
-void_filename = '../../data/SDSS/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_Voronoi_CMD_vflag_comoving_comoving_holes.txt'
+void_filename = '../vollim_dr7_cbp_102709_comoving_holes.txt'
 
 dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # SURVEY MASK FILE
-mask_filename = '../../data/SDSS/kias1033_5_mask.pickle'
+mask_filename = '../SDSS_dr7_mask.pickle'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # FILE OF OBJECTS TO BE CLASSIFIED
-
-#galaxy_file = input('Galaxy data file (with extension): ')
-#galaxy_filename = '/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag.txt'
-galaxy_filename = '/Users/kellydouglass/Documents/Drexel/Research/Data/kias1033_5_P-MJD-F_MPAJHU_ZdustOS_stellarMass_BPT_SFR_NSA_correctVflag_Voronoi_CMD.txt'
+galaxy_filename = '../vollim_dr7_cbp_102709.dat'
 
 galaxy_file_format = 'commented_header'
 #-------------------------------------------------------------------------------
@@ -63,7 +62,7 @@ c = 3e5 # km/s
 h = 1
 H = 100*h
 
-Omega_M = 0.3 # 0.26 for KIAS-VAGC
+Omega_M = 0.26
 
 DtoR = np.pi/180
 
@@ -152,7 +151,7 @@ print('Environments identified')
 
 
 # Output file name
-galaxy_file_name, extension = galaxy_filename.split('.')
+galaxy_file_name, _ = os.path.splitext(galaxy_filename)
 outfile = galaxy_file_name + '_vflag_' + dist_metric + '.txt'
 
 
