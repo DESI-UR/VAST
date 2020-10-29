@@ -1,3 +1,6 @@
+"""Implementation of the ZOnes Bordering on Voids (ZOBOV) algorithm.
+"""
+
 import numpy as np
 import pickle
 import configparser
@@ -8,7 +11,23 @@ from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten
 from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
+
     def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False):
+        """Initialization of the ZOnes Borderong on Voids (ZOBOV) algorithm.
+
+        Parameters
+        ----------
+        configfile : str
+            Configuration file, in INI format.
+        start : int
+            Analysis stages: 0=generate catalog, 1=load catalog, 2=load tesselation, 3=load zones.
+        end :  int
+            Ending point: 1=generate tesselation, 2=generate zones, 3=generate voids.
+        save_intermediate : bool
+            If true, pickle and save intermediate outputs.
+        visualize : bool
+            Create visualization.
+        """
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
             return
@@ -77,9 +96,24 @@ class Zobov:
             self.prevoids    = voids
 
 
-    ############################################################################
-    #---------------------------------------------------------------------------
     def sortVoids(self,method=0,minsig=2,dc=0.2):
+        """Sort voids according to one of several methods.
+
+        Parameters
+        ----------
+        method : int
+            0=VIDE method (arXiv:1406.1191); link zones with density <1/5
+              mean density, and remove voids with density >1/5 mean density.
+            1=ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
+            2=ZOBOV method; cut voids over a significance threshold.
+            3=ZOBOV method; cut on linking density.
+            4=REVOLVER method (arXiv:1904.01030); every zone below mean density
+              is a void.
+        minsig : float
+            Minimum significance threshold for selecting voids.
+        dc : float
+            Density cut for linking zones using VIDE method.
+        """
 
         if not hasattr(self,'prevoids'):
             if method != 4:
@@ -90,48 +124,31 @@ class Zobov:
                     print("Run all stages of Zobov first")
                     return
 
-        ########################################################################
         # Selecting void candidates
-        #-----------------------------------------------------------------------
         print("Selecting void candidates...")
 
-        #-----------------------------------------------------------------------
         if method==0:
             #print('Method 0')
-
             voids  = []
-
             minvol = np.mean(self.tesselation.volumes[self.tesselation.volumes>0])/dc
-
             for i in range(len(self.prevoids.ovols)):
-
                 vl = self.prevoids.ovols[i]
-
                 vbuff = []
 
                 for j in range(len(vl)-1):
-
                     if j > 0 and vl[j] < minvol:
                         break
-
                     vbuff.extend(self.prevoids.voids[i][j])
-
                 voids.append(vbuff)
 
-        #-----------------------------------------------------------------------
         elif method==1:
             #print('Method 1')
-
             voids = [[c for q in v for c in q] for v in self.prevoids.voids]
 
-        #-----------------------------------------------------------------------
         elif method==2:
             #print('Method 2')
-
             voids = []
-
             for i in range(len(self.prevoids.mvols)):
-
                 vh = self.prevoids.mvols[i]
                 vl = self.prevoids.ovols[i][-1]
 
@@ -141,27 +158,20 @@ class Zobov:
                 if stats.norm.isf(p/2.) >= minsig:
                     voids.append([c for q in self.prevoids.voids[i] for c in q])
 
-        #-----------------------------------------------------------------------
         elif method==3:
             print("Method 3 coming soon")
             return
 
-        #-----------------------------------------------------------------------
         elif method==4:
             #print('Method 4')
             voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
 
-        #-----------------------------------------------------------------------
         else:
             print("Choose a valid method")
             return
 
         print('Void candidates selected...')
-        ########################################################################
 
-
-        ########################################################################
-        #-----------------------------------------------------------------------
         vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
@@ -185,11 +195,8 @@ class Zobov:
         vvols = vvols[rcut]
         vrads = vrads[rcut]
         print('Removed voids smaller than', self.minrad, 'Mpc/h')
-        ########################################################################
 
-
-        ########################################################################
-        #-----------------------------------------------------------------------
+        # Identify void centers.
         print("Finding void centers...")
         vcens = np.array([wCen(self.tesselation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
         if method==0:
@@ -199,54 +206,34 @@ class Zobov:
             vrads = vrads[rcut]
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
-        ########################################################################
 
-
-        ########################################################################
-        #-----------------------------------------------------------------------
+        # Identify eigenvectors of best-fit ellipsoid for each void.
         print("Calculating ellipsoid axes...")
 
         vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
-        ########################################################################
 
-
-        ########################################################################
-        #-----------------------------------------------------------------------
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
 
-
         for i in range(len(voids)):
-
             for j in voids[i]:
-
                 if zvoid[j][0] > -0.5:
-
                     if len(voids[i]) < len(voids[zvoid[j][0]]):
                         zvoid[j][0] = i
-
                     elif len(voids[i]) > len(voids[zvoid[j][1]]):
                         zvoid[j][1] = i
-
                 else:
                     zvoid[j][0] = i
                     zvoid[j][1] = i
-        ########################################################################
 
-
-        ########################################################################
-        #-----------------------------------------------------------------------
         self.vrads = vrads
         self.vcens = vcens
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
-        ########################################################################
-    ############################################################################
 
 
-
-    ############################################################################
-    #---------------------------------------------------------------------------
     def saveVoids(self):
+        """Output calculated voids to an ASCII file [catalogname]_zonevoids.dat.
+        """
         if not hasattr(self,'vcens'):
             print("Sort voids first")
             return
@@ -267,9 +254,9 @@ class Zobov:
                  overwrite=True)
 
 
-    ############################################################################
-    #---------------------------------------------------------------------------
     def saveZones(self):
+        """Output calculated zones to an ASCII file [catalogname]_galzones.dat.
+        """
 
         if not hasattr(self,'zones'):
             print("Build zones first")
@@ -302,9 +289,10 @@ class Zobov:
         zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
 
 
-    ############################################################################
-    #---------------------------------------------------------------------------
     def preViz(self):
+        """Pre-computations needed for zone and void visualizations. Produces
+        an ASCII file [catalogname]_galviz.dat.
+        """
 
         if not self.visualize:
             print("Rerun with visualize=True")
