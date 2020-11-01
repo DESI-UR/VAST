@@ -1,15 +1,13 @@
-
+"""Void rendering program based on OpenGL and vispy.
+"""
 
 import os
-
 import subprocess
 
 import numpy as np
 
 from vispy import app, gloo
-
 import vispy.io as io
-
 from vispy.util.transforms import perspective, translate, rotate
 
 #from vispy.color import Color
@@ -21,10 +19,6 @@ from sklearn import neighbors
 import time
 
 #import gc
-
-
-
-
 
 #Vertex shader for the Galaxy Vispy Program
 vert = """
