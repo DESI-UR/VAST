@@ -47,30 +47,18 @@ def read_fits(namelist=('delta-100.fits')):
 
     for filename in namelist:
         data = fits.open(filename)
-        #i=i+1
-        #print(i)
         
         #print(len(data[1].data))
+        
 
         for hdu_num in range(1,len(data)-1):
-            if data[hdu_num].header['RA']*(180/np.pi) > 180:
-                data[hdu_num].header['RA']=data[hdu_num].header['RA']*(180/np.pi)-360
-            else:
-                data[hdu_num].header['RA']=data[hdu_num].header['RA']*(180/np.pi)
-            if data[hdu_num].header['DEC']*(180/np.pi) > 180:
-                data[hdu_num].header['DEC']=data[hdu_num].header['DEC']*(180/np.pi)-360
-            else:
-                data[hdu_num].header['DEC']=data[hdu_num].header['DEC']*(180/np.pi)
-            
-            if ra_min <= data[hdu_num].header['RA'] <= ra_max and dec_min <= data[hdu_num].header['DEC'] <= dec_max:
-
-                lambda_obs=10**(Table(data[hdu_num].data)['LOGLAM'])
-                #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                                                                                                     
-                z_add=(lambda_obs-lambda_ref)/lambda_ref
-                z.extend(z_add)
-                delta.extend(Table(data[hdu_num].data)['DELTA'])
-                ra.extend(data[hdu_num].header['RA']*np.ones(len(z_add)))
-                dec.extend(data[hdu_num].header['DEC']*np.ones(len(z_add)))
+            lambda_obs=10**(Table(data[hdu_num].data)['LOGLAM'])
+            #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                                                                                                     
+            z_add=(lambda_obs-lambda_ref)/lambda_ref
+            z.extend(z_add)
+            delta.extend(Table(data[hdu_num].data)['DELTA'])
+            ra.extend(data[hdu_num].header['RA']*np.ones(len(z_add)))
+            dec.extend(data[hdu_num].header['DEC']*np.ones(len(z_add)))
         
     RA=Table.Column(ra, name='ra')
     DEC=Table.Column(dec, name='dec')
@@ -150,7 +138,7 @@ onlyfiles = [f for f in listdir(in_directory) if isfile(join(in_directory, f))]
 
 print(len(onlyfiles))
 onlyfiles.remove('prepared.fits')
-onlyfiles.remove('alldeltas.fits')
+
 print(len(onlyfiles))
 
 
@@ -164,12 +152,12 @@ prepared=read_fits(onlyfiles)
  
 print('Necessary data calculated.')
 
-prepared.write('prepared.fits', format='fits', overwrite=True)
+prepared.write('alldeltas.fits', format='fits', overwrite=True)
 
 print('I have written the file.')
 
 
-filename='prepared.fits'
+filename='alldeltas.fits'
 
 data = fits.open(filename)
 print(data.info())
@@ -194,7 +182,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['ra'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'ra_distn_fixed.png')  
+plt.savefig(out_directory+'ra_distn_all.png')  
 
 
 plt.figure()
@@ -211,7 +199,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['dec'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'dec_distn_fixed.png')
+plt.savefig(out_directory+'dec_distn_all.png')
 
 
 plt.figure()
@@ -226,7 +214,7 @@ plt.ylabel(r'DEC',fontsize=18)
 plt.scatter(data[1].data['ra'],data[1].data['dec'], color='teal', s=5, label='Stripe 82')
 plt.show()
 
-plt.savefig(out_directory+'ravsdec_fixed.png')
+plt.savefig(out_directory+'ravsdec_all.png')
 
 
 

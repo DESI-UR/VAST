@@ -15,7 +15,7 @@ from voidfinder.constants import c #speed of light
 
 import os
 
-
+from astropy.io import fits
 
 def load_data_to_Table(input_filepath):
     """
@@ -41,39 +41,73 @@ def load_data_to_Table(input_filepath):
     
     astropy.table.Table
     """
+    if input_filepath.endswith(".fits"):
         
-    if input_filepath.endswith(".h5"):
-        
-        infile = h5py.File(input_filepath, 'r')
-        
+        data = fits.open(input_filepath)
+        data=data[1].data
         data_table = Table()
+        ''' 
+        print('Inside load table before columns')
+        RA=Table.Column(data['RA'][0:1000], name='ra')
+        DEC=Table.Column(data['DEC'][0:1000], name='dec')
+        Z=Table.Column(data['Z'][0:1000], name='redshift')
+        DELTA=Table.Column(data['deltas'][0:1000], name='deltas')
+        '''
+        print('Inside load table before columns')                                                     
+        RA=Table.Column(data['RA'], name='ra')                                                
+        DEC=Table.Column(data['DEC'], name='dec')                                             
+        Z=Table.Column(data['Z'], name='redshift')                                            
+        DELTA=Table.Column(data['deltas'], name='deltas') 
         
-        for col in list(infile.keys()):
-            
-            data_table[col] = infile[col][()]
-            
-        infile.close()
+        print('Inside load table before adding columns')
+        data_table.add_column(RA)
+        data_table.add_column(DEC)
+        data_table.add_column(Z)
+        data_table.add_column(DELTA)
         
-    else:
-        
-        if os.path.getsize(input_filepath) < 5e9:
-            
-            data_table = Table.read(input_filepath, format='ascii.commented_header')
+        print('Length of data before removing 0s:')
+        print(len(data_table))
+        data_table=data_table[data_table['deltas']!=0]
+        print('Length of data after removing 0s:')
+        print(len(data_table))
 
+        print('fits to table done:)')
+        
+
+    
+    else:    
+        if input_filepath.endswith(".h5"):
+        
+            infile = h5py.File(input_filepath, 'r')
+        
+            data_table = Table()
+        
+            for col in list(infile.keys()):
+            
+                data_table[col] = infile[col][()]
+            
+                infile.close()
+        
         else:
         
-            # Import header line
-            data_table_fobj = open(input_filepath, 'r')
+            if os.path.getsize(input_filepath) < 5e9:
+            
+                data_table = Table.read(input_filepath, format='ascii.commented_header')
 
-            header_line = data_table_fobj.readline()
+            else:
+        
+                # Import header line
+                data_table_fobj = open(input_filepath, 'r')
 
-            data_table_fobj.close()
+                header_line = data_table_fobj.readline()
 
-            # Parse header line
-            col_names = header_line.split(' ')
+                data_table_fobj.close()
 
-            # Read in the data in 100 Mb chunks
-            data_table = ascii.read(input_filepath, 
+                # Parse header line
+                col_names = header_line.split(' ')
+
+                # Read in the data in 100 Mb chunks
+                data_table = ascii.read(input_filepath, 
                                     format='no_header', 
                                     names=col_names[1:], 
                                     guess=False, 
@@ -90,6 +124,7 @@ def file_preprocess(galaxies_filename,
                     in_directory, 
                     out_directory, 
                     mag_cut=True,
+                    flux_cut=None,
                     rm_isolated=True,
                     dist_metric='comoving', 
                     min_z=None,
@@ -195,7 +230,6 @@ def file_preprocess(galaxies_filename,
     
     galaxy_data_table = load_data_to_Table(in_filename)
 
-        
     if verbose > 0:
         print("Galaxy data table load time: ", time.time() - load_start_time, flush=True)
     ############################################################################

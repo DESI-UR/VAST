@@ -5,7 +5,7 @@ Store that data in a new file to be read by the VoidFinder algorithm.
 
 '''
 
-print('Prepare the fits file for DR16 delta fields')
+print('Check the fits file for DR16 delta fields')
 
 from astropy.table import Table
 from astropy.io import fits
@@ -28,7 +28,7 @@ os.chdir(in_directory)
 #############################################################################
 #read_fits function reads the fits file, returns an astropy.Table with columns                                                                                                                             #ra, dec, z, deltas if the data is in the Stripe 82.
 #############################################################################
-
+'''
 def read_fits(namelist=('delta-100.fits')):
 
 
@@ -47,23 +47,19 @@ def read_fits(namelist=('delta-100.fits')):
 
     for filename in namelist:
         data = fits.open(filename)
-        #i=i+1
-        #print(i)
+        i=i+1
+        print(i)
         
         #print(len(data[1].data))
+        
 
         for hdu_num in range(1,len(data)-1):
-            if data[hdu_num].header['RA']*(180/np.pi) > 180:
-                data[hdu_num].header['RA']=data[hdu_num].header['RA']*(180/np.pi)-360
-            else:
-                data[hdu_num].header['RA']=data[hdu_num].header['RA']*(180/np.pi)
-            if data[hdu_num].header['DEC']*(180/np.pi) > 180:
-                data[hdu_num].header['DEC']=data[hdu_num].header['DEC']*(180/np.pi)-360
-            else:
-                data[hdu_num].header['DEC']=data[hdu_num].header['DEC']*(180/np.pi)
-            
-            if ra_min <= data[hdu_num].header['RA'] <= ra_max and dec_min <= data[hdu_num].header['DEC'] <= dec_max:
+            #print(np.max(data[hdu_num].header['RA'])*2*np.pi)
+            #print(np.min(data[hdu_num].header['RA'])*2*np.pi)
+            #print(np.max(data[hdu_num].header['DEC'])*2*np.pi)
+            #print(np.min(data[hdu_num].header['DEC'])*2*np.pi)
 
+            if ra_min+180 <= data[hdu_num].header['RA']*(360/(2*np.pi)) or data[hdu_num].header['RA']*(360/(2*np.pi)) <= ra_max and dec_min+180 <= data[hdu_num].header['DEC']*(360/(2*np.pi)) or data[hdu_num].header['DEC']*(360/(2*np.pi)) <= dec_max:
                 lambda_obs=10**(Table(data[hdu_num].data)['LOGLAM'])
                 #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                                                                                                     
                 z_add=(lambda_obs-lambda_ref)/lambda_ref
@@ -85,7 +81,7 @@ def read_fits(namelist=('delta-100.fits')):
     return calculated
 
 
-
+'''
 
 #if satisfies the condition write to the file
 #lambda_obs=list() #observed wavelength. This is what we measure.
@@ -145,33 +141,50 @@ prepared.add_column(DELTA)
 
 
 
-
 onlyfiles = [f for f in listdir(in_directory) if isfile(join(in_directory, f))]
 
 print(len(onlyfiles))
 onlyfiles.remove('prepared.fits')
-onlyfiles.remove('alldeltas.fits')
+
 print(len(onlyfiles))
 
 
 #print(onlyfiles[0:2])
 
-prepared=read_fits(onlyfiles)
+#prepared=read_fits(onlyfiles)
     
 #For vstack, I am worried about possible additional [ ]
 #I am trying with my method instead.
 
- 
+''' 
 print('Necessary data calculated.')
 
 prepared.write('prepared.fits', format='fits', overwrite=True)
 
 print('I have written the file.')
+'''
+plt.figure()
+
+for filename in onlyfiles:
+    data = fits.open(filename)
+    for hdu_num in range(1,len(data)-1):
+        #plt.figure()
+        plt.rc('text', usetex=False)
+        plt.rc('font', family='serif')
+
+        plt.grid(True,ls='-.',alpha=.4)
+        plt.title(r'RA vs DEC of Delta Fields for all the data',fontsize=16)
+        plt.xlabel(r'RA',fontsize=14)
+        plt.ylabel(r'DEC',fontsize=18)
+
+        plt.scatter(data[hdu_num].header['RA']*(180/(np.pi)),data[hdu_num].header['DEC']*(180/(np.pi)), color='teal', s=5, label='Stripe 82')
+        
+
+plt.savefig('ravsdec_degrees.png',overwrite=True)
 
 
-filename='prepared.fits'
+'''
 
-data = fits.open(filename)
 print(data.info())
 print(data[0].header)  
 print(data[1].data['ra'])
@@ -179,7 +192,7 @@ print('This is the length of the merged S82 file.')
 print(len(data[1].data['ra']))
 
 
-out_directory="/scratch/ierez/IGMCosmo/VoidFinder/outputs/"
+
 
 plt.figure()
 plt.rc('text', usetex=False)
@@ -191,10 +204,10 @@ plt.xlabel(r'RA',fontsize=14)
 plt.ylabel(r'Number',fontsize=18)
 
 #plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')                                                                         
-plt.hist(data[1].data['ra'], color='teal')
+plt.hist(2*np.pi*data[1].data['ra'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'ra_distn_fixed.png')  
+plt.savefig('ra2pi_distn.png')  
 
 
 plt.figure()
@@ -208,10 +221,10 @@ plt.ylabel(r'Number',fontsize=18)
 
 #plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')                                                                        \
                                                                                                                                                                                                             
-plt.hist(data[1].data['dec'], color='teal')
+plt.hist(2*np.pi*data[1].data['dec'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'dec_distn_fixed.png')
+plt.savefig('dec2pi_distn.png')
 
 
 plt.figure()
@@ -226,7 +239,7 @@ plt.ylabel(r'DEC',fontsize=18)
 plt.scatter(data[1].data['ra'],data[1].data['dec'], color='teal', s=5, label='Stripe 82')
 plt.show()
 
-plt.savefig(out_directory+'ravsdec_fixed.png')
+plt.savefig('ravsdec.png')
 
 
 
@@ -236,3 +249,4 @@ plt.savefig(out_directory+'ravsdec_fixed.png')
 #vstack to merge tables
 #stripe 82
 
+'''

@@ -60,11 +60,12 @@ survey_name = 'DR16_reconstructed'
 # File header
 #in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
-out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
+in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/'
+out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-galaxies_filename = 'mini_data_reconstructed.dat' 
+#galaxies_filename = 'mini_data_reconstructed_removed.dat' 
+galaxies_filename = 'prepared.fits'
 #deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
 #-------------------------------------------------------------------------------
 
@@ -89,7 +90,7 @@ max_z = 3.2
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
 # Need to also uncomment relevent input in function call below
 mag_cut = False
-flux_cut =-0.02 
+flux_cut =None
 
 # Uncomment if you do NOT want to remove isolated galaxies
 # Need to also uncomment relevent input in function call below
@@ -114,7 +115,7 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
                                                                                #dist_metric=dist_metric,
                                                                                min_z=min_z, 
                                                                                max_z=max_z,
-                                                                               Omega_M= 0.3147, #CHANGED THE NUMBER
+                                                                               Omega_M= 0.3147, #from the paper
                                                                                #h=h,
                                                                                verbose=1)
 
@@ -190,8 +191,8 @@ find_voids(wall_coords_xyz,
            coords_min,
            hole_grid_shape,
            survey_name,
-           #save_after=50000,
-           #use_start_checkpoint=True,
+           save_after=50000,
+           use_start_checkpoint=True,
            hole_grid_edge_length=5.0,
            galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,

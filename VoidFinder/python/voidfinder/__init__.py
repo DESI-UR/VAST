@@ -14,8 +14,7 @@ from ._version import __version__
 #This line allows you to do "from voidfinder import filter_galaxies" instead of
 #"from voidfinder.voidfinder import filter galaxies"
 
-from .voidfinder import filter_galaxies, \
-                        filter_flux, \
+from .voidfinder import filter_data, \
                         ra_dec_to_xyz, \
                         calculate_grid, \
                         wall_field_separation, \

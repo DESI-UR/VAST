@@ -60,11 +60,18 @@ survey_name = 'DR16_reconstructed'
 # File header
 #in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
-out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
+#in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
+#out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-galaxies_filename = 'mini_data_reconstructed.dat' 
+#galaxies_filename = 'mini_data_reconstructed.dat' 
+
+# File header                                                                                                                                                                                               
+in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/SDSS/'
+out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/SDSS/'
+
+# Input file name                                                                                                                                                                                           
+galaxies_filename = 'vollim_dr7_cbp_102709.dat' 
 #deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
 #-------------------------------------------------------------------------------
 
@@ -72,8 +79,8 @@ galaxies_filename = 'mini_data_reconstructed.dat'
 # Survey parameters
 # Note: These can be set to None, in which case VoidFinder will use the limits 
 # of the galaxy catalog.
-min_z = 2.1
-max_z = 3.2
+min_z = 0
+max_z = 0.1026
 
 # Cosmology (uncomment and change values to change cosmology)
 # Need to also uncomment relevent inputs in function calls below
@@ -88,8 +95,8 @@ max_z = 3.2
 #-------------------------------------------------------------------------------
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
 # Need to also uncomment relevent input in function call below
-mag_cut = False
-flux_cut =-0.02 
+mag_cut = True
+flux_cut = None 
 
 # Uncomment if you do NOT want to remove isolated galaxies
 # Need to also uncomment relevent input in function call below
@@ -157,10 +164,11 @@ wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_data(gal
                                                                                  #distance_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=1)
-#print("This is the length of data after filter:")
+print("This is the length of data after filter:")
+print(len(galaxy_data_table))
 
 
-#print('I did filter galaxies.')
+print('I did filter galaxies.')
 del galaxy_data_table
 
 

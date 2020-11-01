@@ -50,19 +50,24 @@ def read_fits(namelist=('delta-100.fits')):
         #i=i+1
         #print(i)
         
-        #print(len(data[1].data))
-
-        for hdu_num in range(1,len(data)-1):
-            if data[hdu_num].header['RA']*(180/np.pi) > 180:
-                data[hdu_num].header['RA']=data[hdu_num].header['RA']*(180/np.pi)-360
+        print(len(data[1].data))
+        print(len(data))
+        print(range(1,len(data)-1))
+        if i is 0:
+            hdu_num=0
+            print('HDUNUM:')
+            print(hdu_num)
+            '''
+            if data[hdu_num].header['ra']*(180/np.pi) > 180:
+                data[hdu_num].header['ra']=data[hdu_num].header['ra']*(180/np.pi)-360
             else:
-                data[hdu_num].header['RA']=data[hdu_num].header['RA']*(180/np.pi)
-            if data[hdu_num].header['DEC']*(180/np.pi) > 180:
-                data[hdu_num].header['DEC']=data[hdu_num].header['DEC']*(180/np.pi)-360
+                data[hdu_num].header['ra']=data[hdu_num].header['ra']*(180/np.pi)
+            if data[hdu_num].header['dec']*(180/np.pi) > 180:
+                data[hdu_num].header['dec']=data[hdu_num].header['dec']*(180/np.pi)-360
             else:
                 data[hdu_num].header['DEC']=data[hdu_num].header['DEC']*(180/np.pi)
-            
-            if ra_min <= data[hdu_num].header['RA'] <= ra_max and dec_min <= data[hdu_num].header['DEC'] <= dec_max:
+            '''
+            if ra_min <= data[hdu_num].header['ra'] <= ra_max and dec_min <= data[hdu_num].header['dec'] <= dec_max:
 
                 lambda_obs=10**(Table(data[hdu_num].data)['LOGLAM'])
                 #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                                                                                                     
@@ -76,6 +81,8 @@ def read_fits(namelist=('delta-100.fits')):
     DEC=Table.Column(dec, name='dec')
     Z=Table.Column(z, name='z')
     DELTA=Table.Column(delta, name='deltas')
+    
+    print(len(ra))
 
     calculated.add_column(RA)
     calculated.add_column(DEC)
@@ -154,9 +161,15 @@ onlyfiles.remove('alldeltas.fits')
 print(len(onlyfiles))
 
 
-#print(onlyfiles[0:2])
+print(onlyfiles)
 
-prepared=read_fits(onlyfiles)
+
+filelist=list()
+filelist=('alldeltas.fits',)
+print(filelist)
+
+
+prepared=read_fits(['alldeltas.fits'])
     
 #For vstack, I am worried about possible additional [ ]
 #I am trying with my method instead.
@@ -164,12 +177,12 @@ prepared=read_fits(onlyfiles)
  
 print('Necessary data calculated.')
 
-prepared.write('prepared.fits', format='fits', overwrite=True)
+prepared.write('prepared_fromall.fits', format='fits', overwrite=True)
 
 print('I have written the file.')
 
 
-filename='prepared.fits'
+filename='prepared_fromall.fits'
 
 data = fits.open(filename)
 print(data.info())
@@ -194,7 +207,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['ra'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'ra_distn_fixed.png')  
+plt.savefig(out_directory+'ra_distn_fixed_fromall.png')  
 
 
 plt.figure()
@@ -211,7 +224,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['dec'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'dec_distn_fixed.png')
+plt.savefig(out_directory+'dec_distn_fixed_fromall.png')
 
 
 plt.figure()
@@ -226,10 +239,7 @@ plt.ylabel(r'DEC',fontsize=18)
 plt.scatter(data[1].data['ra'],data[1].data['dec'], color='teal', s=5, label='Stripe 82')
 plt.show()
 
-plt.savefig(out_directory+'ravsdec_fixed.png')
-
-
-
+plt.savefig(out_directory+'ravsdec_fixed_fromall.png')
 
 
 

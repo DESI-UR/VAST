@@ -64,7 +64,7 @@ in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/
 out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
-galaxies_filename = 'mini_data_reconstructed.dat' 
+galaxies_filename = 'mini_data_reconstructed_removed.dat' 
 #deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
 #-------------------------------------------------------------------------------
 
@@ -89,7 +89,7 @@ max_z = 3.2
 # Uncomment if you do NOT want to remove galaxies with Mr > -20
 # Need to also uncomment relevent input in function call below
 mag_cut = False
-flux_cut =-0.02 
+flux_cut =None
 
 # Uncomment if you do NOT want to remove isolated galaxies
 # Need to also uncomment relevent input in function call below
@@ -190,7 +190,7 @@ find_voids(wall_coords_xyz,
            coords_min,
            hole_grid_shape,
            survey_name,
-           #save_after=50000,
+           save_after=50000,
            #use_start_checkpoint=True,
            hole_grid_edge_length=5.0,
            galaxy_map_grid_edge_length=None,

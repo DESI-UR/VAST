@@ -56,10 +56,10 @@ RtoD = 180./np.pi
 
 
 
-def filter_galaxies(galaxy_table,
+def filter_data(galaxy_table,
                     survey_name, 
-                    mag_cut_flag=True,
-                    filter_flux=None, 
+                    mag_cut=True,
+                    flux_cut=None, 
                     rm_isolated_flag=True,
                     write_table=True,
                     sep_neighbor=3,
@@ -160,11 +160,22 @@ def filter_galaxies(galaxy_table,
         print('Filter Galaxies Start', flush=True)
 
     # Remove faint galaxies
-
-    if mag_cut_flag:
+    
+    mag_cut_flag=True 
+    if mag_cut:
         
         galaxy_table = galaxy_table[galaxy_table['rabsmag'] < magnitude_limit]
+    
+    if flux_cut is None:
+        print('No filter is applied on transmission flux rate.')
+    else:
+        print('Filter is applied on transmission flux rate.')
+        print(flux_cut)
+        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < flux_cut]
+        print(len(galaxy_table))
+        
 
+ 
     coords_xyz = ra_dec_to_xyz(galaxy_table,
                                distance_metric,
                                h)
@@ -229,7 +240,7 @@ def filter_galaxies(galaxy_table,
     
     if verbose > 0:
         
-        print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
+        print('Number of field objects:', nf, 'Number of wall objects:', nwall, flush=True)
 
     return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
 

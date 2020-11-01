@@ -1,6 +1,5 @@
 #!/bin/bash
-#SBATCH -o $MY_SCRIPTS/prepare_deltas.log                                                                                                                                                             
-#SBATCH -e $MY_SCRIPTS/prepare_deltas.log  
+#SBATCH -o prepare_deltas.log                                                                                         #SBATCH -e prepare_deltas.err  
 
 
 echo 'Preparing deltas'
