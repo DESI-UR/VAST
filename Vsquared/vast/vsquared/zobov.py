@@ -106,9 +106,8 @@ class Zobov:
               mean density, and remove voids with density >1/5 mean density.
             1=ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
             2=ZOBOV method; cut voids over a significance threshold.
-            3=ZOBOV method; cut on linking density.
-            4=REVOLVER method (arXiv:1904.01030); every zone below mean density
-              is a void.
+            3=not available
+            4=REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
         minsig : float
             Minimum significance threshold for selecting voids.
         dc : float
