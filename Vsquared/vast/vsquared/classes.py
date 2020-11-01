@@ -1,3 +1,7 @@
+"""Utility classes for the ZOBOV algorithm using a voronoi tesselation of an
+input catalog.
+"""
+
 import numpy as np
 import healpy as hp
 from astropy.io import fits
@@ -6,7 +10,31 @@ from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 from vast.vsquared.util import toCoord, flatten
 
 class Catalog:
+    """Catalog data for void calculation.
+    """
+
     def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,maskfile=None):
+        """Initialize catalog.
+
+        Parameters
+        ----------
+        catfile: str
+            Object catalog file (FITS format).
+        nside : int
+            HEALPix map nside parameter (2,4,8,16,...,2^k).
+        zmin : float
+            Minimum redshift boundary.
+        zmax : float
+            Maximum redshift boundary.
+        maglim : float or None
+            Catalog object magnitude limit.
+        H0 : float
+            Hubble parameter, in units of km/s/Mpc.
+        Om_m : float
+            Matter density.
+        maskfile : str or None
+            Mask file giving HEALPixels with catalog objects.
+        """
         print("Extracting data...")
         hdulist = fits.open(catfile)
         z    = hdulist[1].data['z']
@@ -43,7 +71,19 @@ class Catalog:
         self.imsk = mask[pids]*zcut
 
 class Tesselation:
+    """Implementation of Voronoi tesselation of the catalog.
+    """
+
     def __init__(self,cat,viz=False):
+        """Initialize tesselation.
+
+        Parameters
+        ----------
+        cat : Catalog
+            Catalog of objects used to compute the Voronoi tesselation.
+        viz : bool
+            Compute visualization.
+        """
         coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))]
         print("Tesselating...")
         Vor = Voronoi(coords)
@@ -97,34 +137,34 @@ class Tesselation:
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
         self.neighbors = np.array(nei)
-################################################################################
 
 
-
-
-
-################################################################################
-#-------------------------------------------------------------------------------
 class Zones:
+    """Partitioning of particles into zones around density minima.
+    """
+
     def __init__(self,tess,viz=False):
+        """Implementation of zones: see arXiv:0712.3049 for details.
+
+        Parameters
+        ----------
+        tess : Tesselation
+            Voronoid tesselation of an object catalog.
+        viz : bool
+            Compute visualization.
+        """
         vol   = tess.volumes
         nei   = tess.neighbors
 
-        ########################################################################
         # Sort the Voronoi cells by their volume
-        #-----------------------------------------------------------------------
         print("Sorting cells...")
 
         srt   = np.argsort(-1.*vol)
 
         vol2  = vol[srt]
         nei2  = nei[srt]
-        ########################################################################
 
-
-        ########################################################################
         # Build zones from the cells
-        #-----------------------------------------------------------------------
         lut   = np.zeros(len(vol), dtype=int)
         depth = np.zeros(len(vol), dtype=int)
 
@@ -153,12 +193,8 @@ class Zones:
         self.zcell = np.array(zcell)
         self.zvols = np.array(zvols)
         self.depth = depth
-        ########################################################################
 
-
-        ########################################################################
         # Identify neighboring zones and the least-dense cells linking them
-        #-----------------------------------------------------------------------
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
 
         if viz:
@@ -200,22 +236,24 @@ class Zones:
         if viz:
             self.zverts = zverts
             self.znorms = znorms
-        ########################################################################
-################################################################################
 
 
-
-
-################################################################################
-#-------------------------------------------------------------------------------
 class Voids:
+    """Calculation of voids using a set of minimum-density zones.
+    """
+
     def __init__(self,zon):
+        """Implementation of void calculation: see arXiv:0712.3049.
+
+        Parameters
+        ----------
+        zon: Zones
+            A group of zones around density minima in an input catalog.
+        """
         zvols  = np.array(zon.zvols)
         zlinks = zon.zlinks
 
-        ########################################################################
         # Sort zone links by volume, identify zones linked at each volume
-        #-----------------------------------------------------------------------
         print("Sorting links...")
 
         zl0   = np.array(list(flatten(zlinks[0])))
@@ -231,12 +269,10 @@ class Voids:
         mvlut = np.array(zvols)
         ovlut = np.array(zvols)
 
-        ########################################################################
         # For each zone-linking by descending link volume, create void from     
         # all zones and groups of zones linked at this volume except for that   
         # with the highest maximum cell volume (the "shallower" voids flow into 
         # the "deepest" void with which they are linked)
-        #-----------------------------------------------------------------------
         print("Expanding voids...")
 
         for i in range(len(zlu)):

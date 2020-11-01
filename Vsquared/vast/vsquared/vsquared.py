@@ -1,31 +1,36 @@
-import sys
-import getopt
+#!/usr/bin/env python
+"""Driver program for Voronoi Voids (V^2) void finder module using the ZOBOV
+algorithm.
+"""
+
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from vast.vsquared.zobov import Zobov
 
-args = sys.argv[1:]
-opts, args = getopt.getopt(args,'c:m:wv',['config=','method=','save_intermediate','visualize'])
+p = ArgumentParser(description='Voronoi Voids (V^2) void finder.',
+                   formatter_class=ArgumentDefaultsHelpFormatter)
 
-method = 0
-save_intermediate = False
-visualize = False
+p.add_argument('-m', '--method', type=int, default=0,
+               help='Void-finding method (0,1,2,3,...)')
+p.add_argument('-v', '--visualize', action='store_true', default=False,
+               help='Enable void visualization.')
+p.add_argument('-w', '--save_intermediate', action='store_true', default=False,
+               help='Save intermediate files in void calculation.')
 
-for o, a in opts:
-    if o in ('-c','--config'):
-        config_file = a
-    if o in ('-m','--method'):
-        method = a
-    if o in ('-w','--save_intermediate'):
-        save_intermediate = True
-    if o in ('-v','--visualize'):
-        visualize = True
+req = p.add_argument_group('required named arguments')
+req.add_argument('-c', '--config', dest='config_file', required=True,
+                 help='V^2 config file (INI format).')
 
-newZobov = Zobov(config_file,0,3,save_intermediate=save_intermediate,visualize=visualize)
+args = p.parse_args()
 
-newZobov.sortVoids(method=method)
+newZobov = Zobov(args.config_file, args.method, 3,
+                 save_intermediate=args.save_intermediate,
+                 visualize=args.visualize)
+
+newZobov.sortVoids(method=args.method)
 
 newZobov.saveVoids()
 
 newZobov.saveZones()
 
-if visualize:
+if args.visualize:
     newZobov.preViz()
