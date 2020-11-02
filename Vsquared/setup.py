@@ -65,8 +65,8 @@ setup_keywords['use_2to3'] = False
 setup_keywords['packages'] = ['vast.vsquared',
                               'vast.vsquared.viz']
 setup_keywords['cmdclass'] = {'sdist': DistutilsSdist}
-setup_keywords['test_suite']='nose2.collector.collector'
-setup_keywords['tests_require']=['nose2', 'nose2[coverage_plugin]>=0.6.5']
+setup_keywords['test_suite']='tests'
+setup_keywords['tests_require']=['pytest']
 #
 # Run setup command.
 #

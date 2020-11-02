@@ -32,7 +32,7 @@ jobs:
       - run:
           name: "Test VoidFinder"
           command: |
-            python setup.py test
+            pytest
             mkdir -p ~/VAST/test-results/voidfinder
       - store_test_results:
           path: ~/VAST/test-results/voidfinder
@@ -70,7 +70,7 @@ jobs:
       - run:
           name: "Test Vsquared"
           command: |
-            python setup.py test
+            pytest
             mkdir -p ~/VAST/test-results/vsquared
       - store_test_results:
           path: ~/VAST/test-results/vsquared
