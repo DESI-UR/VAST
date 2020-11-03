@@ -2,6 +2,8 @@
 
 [![CircleCI](https://circleci.com/gh/DESI-UR/VAST.svg?style=svg)](https://circleci.com/gh/DESI-UR/VAST)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4135702.svg)](https://zenodo.org/record/4135702)
+
 The Void Analysis Software Toolkit, or VAST, provides pure Python 
 implementations of two popular classes of void-finding algorithms in galaxy 
 catalogs:
