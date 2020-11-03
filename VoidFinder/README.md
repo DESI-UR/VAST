@@ -1,7 +1,5 @@
 # VoidFinder
 
-[![CircleCI](https://circleci.com/gh/DESI-UR/VAST/tree/master/VoidFinder.svg?style=svg)](https://circleci.com/gh/DESI-UR/VAST/tree/master/VoidFinder)
-
 The VoidFinder algorithm by 
 [Hoyle & Vogeley (2002)](http://adsabs.harvard.edu/abs/2002ApJ...566..641H) is 
 based upon the algorithm described by 
