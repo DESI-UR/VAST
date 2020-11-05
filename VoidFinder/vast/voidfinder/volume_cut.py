@@ -309,7 +309,8 @@ def check_hole_bounds(x_y_z_r_array,
                                                   r_limits,
                                                   cut_pct,
                                                   pts_per_unit_volume,
-                                                  num_surf_pts)
+                                                  num_surf_pts,
+                                                  verbose=verbose)
         
     else:
         

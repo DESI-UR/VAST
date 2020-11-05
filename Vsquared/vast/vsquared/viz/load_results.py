@@ -1,3 +1,5 @@
+"""Load and print void and galaxy data.
+"""
 
 import numpy
 import h5py
@@ -23,40 +25,29 @@ if __name__ == "__main__":
     infilename1 = "../data/DR7_triangles.dat"
     infilename2 = "../data/vollim_dr7_cbp_102709.fits"
     
-    ######################################################################
     # load hole locations
     # keys are 'x' 'y' 'z' 'radius' 'flag'
-    ######################################################################
     
     voids_data = Table.read(infilename1, format='ascii.commented_header')
     
-    
-    ######################################################################
     # Load galaxy data and convert coordinates to xyz
-    ######################################################################
-    '''
-    galaxy_data = Table.read(infilename2, format='ascii.commented_header')
-    
-    if distance_metric == 'comoving':
-        
-        r_gal = galaxy_data['Rgal']
-        
-    else:
-        
-        r_gal = c*galaxy_data['redshift']/(100*h)
-    
-    xin = r_gal*numpy.cos(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
-    
-    yin = r_gal*numpy.sin(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
-    
-    zin = r_gal*numpy.sin(galaxy_data['dec']*DtoR)
-    
-    xyz_galaxy_data = Table([xin, yin, zin], names=('x','y','z'))
-    '''
-    
-    ######################################################################
-    #
-    ######################################################################
+#    galaxy_data = Table.read(infilename2, format='ascii.commented_header')
+#    
+#    if distance_metric == 'comoving':
+#        
+#        r_gal = galaxy_data['Rgal']
+#        
+#    else:
+#        
+#        r_gal = c*galaxy_data['redshift']/(100*h)
+#    
+#    xin = r_gal*numpy.cos(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
+#    
+#    yin = r_gal*numpy.sin(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
+#    
+#    zin = r_gal*numpy.sin(galaxy_data['dec']*DtoR)
+#    
+#    xyz_galaxy_data = Table([xin, yin, zin], names=('x','y','z'))
     
     #print(xyz_galaxy_data)
     
@@ -134,13 +125,3 @@ def load_galaxy_data(infilename):
     galaxy_data_xyz[:,2] = zin
     
     return galaxy_data_xyz
-    
-    
-    
-    
-    
-    
-    
-    
-
-
