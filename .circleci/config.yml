@@ -70,11 +70,7 @@ jobs:
       - run:
           name: "Test Vsquared"
           command: |
-<<<<<<< HEAD
-            python setup.py test
-=======
             pytest
->>>>>>> 6e4ce38c6313374d224428593a30d5c893f3bd74
             mkdir -p ~/VAST/test-results/vsquared
       - store_test_results:
           path: ~/VAST/test-results/vsquared
