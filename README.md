@@ -10,6 +10,7 @@ catalogs:
 1. Void identification by growing spherical voids.
 1. Void identification using watershed algorithms.
 
+
 ## VoidFinder
 
 **VoidFinder** is an algorithm which utilizes a sphere-growing method on a grid 
@@ -22,6 +23,7 @@ well as an OpenGL based visualization for the output of VoidFinder (the
 See 
 [here](https://www.youtube.com/playlist?list=PLCZohAzuOVRK4itOBDQNFMl3w2uvox16a) 
 for 3D OpenGL-based visualization of VoidFinder's voids in SDSS DR7!
+
 
 ## V<sup>2</sup>
 
