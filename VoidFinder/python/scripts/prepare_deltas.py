@@ -65,7 +65,10 @@ def read_fits(namelist=('delta-100.fits')):
             if ra_min <= data[hdu_num].header['RA'] <= ra_max and dec_min <= data[hdu_num].header['DEC'] <= dec_max:
 
                 lambda_obs=10**(Table(data[hdu_num].data)['LOGLAM'])
-                #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                                                                                                     
+                #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                        
+                data[hdu_num].header['RA']=data[hdu_num].header['RA']+90 #to make life easier for VF :)
+                data[hdu_num].header['DEC']=data[hdu_num].header['DEC']+90 #to make life happier for VF :)
+
                 z_add=(lambda_obs-lambda_ref)/lambda_ref
                 z.extend(z_add)
                 delta.extend(Table(data[hdu_num].data)['DELTA'])
@@ -164,12 +167,12 @@ prepared=read_fits(onlyfiles)
  
 print('Necessary data calculated.')
 
-prepared.write('prepared.fits', format='fits', overwrite=True)
+prepared.write('deltafields_added90.fits', format='fits', overwrite=True)
 
 print('I have written the file.')
 
 
-filename='prepared.fits'
+filename='deltafields_added90.fits'
 
 data = fits.open(filename)
 print(data.info())
@@ -194,7 +197,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['ra'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'ra_distn_fixed.png')  
+plt.savefig(out_directory+'ra_distn_giventoVF.png')  
 
 
 plt.figure()
@@ -211,7 +214,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['dec'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'dec_distn_fixed.png')
+plt.savefig(out_directory+'dec_distn_giventoVF.png')
 
 
 plt.figure()
@@ -226,7 +229,7 @@ plt.ylabel(r'DEC',fontsize=18)
 plt.scatter(data[1].data['ra'],data[1].data['dec'], color='teal', s=5, label='Stripe 82')
 plt.show()
 
-plt.savefig(out_directory+'ravsdec_fixed.png')
+plt.savefig(out_directory+'ravsdec_giventoVF.png')
 
 
 

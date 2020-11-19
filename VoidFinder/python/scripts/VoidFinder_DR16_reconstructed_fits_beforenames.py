@@ -42,6 +42,7 @@ import numpy as np
 
 
 
+
 ################################################################################
 #
 #   USER INPUTS
@@ -54,17 +55,17 @@ import numpy as np
 num_cpus = 1
 
 #-------------------------------------------------------------------------------
-survey_name = 'DR16_deltafields'
+survey_name = 'DR16_reconstructed_beforenames_'
 
 # File header
 #in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
-in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/'
-out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs'
+in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
+out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #galaxies_filename = 'mini_data_reconstructed_removed.dat' 
-galaxies_filename = 'deltafields_added90_fixed.fits'
+galaxies_filename ='data_reconstructed_random_without0s_shifted90.fits'
 #deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
 #-------------------------------------------------------------------------------
 
@@ -122,7 +123,7 @@ print("Dist limits: ", dist_limits)
 
 print("This is the length of data before mask:")
 print(len(galaxy_data_table))
-print(galaxy_data_table)
+print(galaxy_data_table[0:5])
 
 ################################################################################
 #

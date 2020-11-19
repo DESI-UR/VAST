@@ -54,23 +54,23 @@ def load_data_to_Table(input_filepath):
         DELTA=Table.Column(data['deltas'][0:1000], name='deltas')
         '''
         print('Inside load table before columns')                                                     
-        RA=Table.Column(data['RA'], name='ra')                                                
-        DEC=Table.Column(data['DEC'], name='dec')                                             
-        Z=Table.Column(data['Z'], name='redshift')                                            
-        DELTA=Table.Column(data['deltas'], name='deltas') 
+        RA=Table.Column(data['ra'], name='ra')                                                
+        DEC=Table.Column(data['dec'], name='dec')                                             
+        Z=Table.Column(data['z'], name='redshift')                                          
+        DELTA=Table.Column(data['delta'], name='delta') 
         
         print('Inside load table before adding columns')
         data_table.add_column(RA)
         data_table.add_column(DEC)
         data_table.add_column(Z)
         data_table.add_column(DELTA)
-        
+        ''' 
         print('Length of data before removing 0s:')
         print(len(data_table))
         data_table=data_table[data_table['deltas']!=0]
         print('Length of data after removing 0s:')
         print(len(data_table))
-
+        '''
         print('fits to table done:)')
         
 

@@ -133,7 +133,8 @@ def generate_mask(gal_data,
     scaled_converted_ang = (mask_resolution*ang).astype(int)
     
     pre_mask = np.unique(scaled_converted_ang, axis=0)
-
+    
+    print(pre_mask)
     ###########################################################################
     # Now we create the actual boolean mask by allocating an array of shape
     # (360*N, 180*N), and iterating through all the unique galaxy ra-dec
@@ -145,13 +146,14 @@ def generate_mask(gal_data,
     # [-90,90) space into [0,180} space.
     ###########################################################################
     mask = np.zeros((mask_resolution*maskra, mask_resolution*maskdec), dtype=bool)
+    print(len(mask))
 
     #for j in range(len(pre_mask[0])):
 
     #    mask[ maskfile[0,j], maskfile[1,j] - mask_resolution*dec_offset] = True
     
     for row in pre_mask:
-        
+        print(row[0], row[1] - mask_resolution*dec_offset) 
         mask[row[0], row[1] - mask_resolution*dec_offset] = True
         
         

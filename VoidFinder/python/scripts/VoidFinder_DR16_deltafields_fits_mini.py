@@ -1,3 +1,4 @@
+
 '''VoidFinder - Hoyle & Vogeley (2002)'''
 
 
@@ -64,7 +65,7 @@ out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #galaxies_filename = 'mini_data_reconstructed_removed.dat' 
-galaxies_filename = 'deltafields_added90_fixed.fits'
+galaxies_filename = 'deltafields_added90_mini.fits'
 #deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
 #-------------------------------------------------------------------------------
 
