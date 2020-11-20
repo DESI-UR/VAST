@@ -235,7 +235,7 @@ def check_hole_bounds(x_y_z_r_array,
                       pts_per_unit_volume=3,
                       num_surf_pts=20,
                       num_cpus=1,
-                      verbose=1):
+                      verbose=0):
     """
     Description
     ===========
@@ -309,8 +309,7 @@ def check_hole_bounds(x_y_z_r_array,
                                                   r_limits,
                                                   cut_pct,
                                                   pts_per_unit_volume,
-                                                  num_surf_pts,
-                                                  verbose=verbose)
+                                                  num_surf_pts)
         
     else:
         
@@ -510,7 +509,7 @@ def oob_cut_multi(x_y_z_r_array,
                    num_surf_pts,
                    num_cpus,
                    batch_size=1000,
-                   verbose=1,
+                   verbose=0,
                    print_after=5.0,
                    SOCKET_PATH="/tmp/voidfinder2.sock",
                    RESOURCE_DIR="/dev/shm"):

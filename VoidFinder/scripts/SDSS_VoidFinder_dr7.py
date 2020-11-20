@@ -50,7 +50,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = None
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -80,7 +80,7 @@ Omega_M = 0.26
 
 # Uncomment if you do NOT want to use comoving distances
 # Need to also uncomment relevent inputs in function calls below
-dist_metric = 'comoving'
+dist_metric = 'redshift'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
@@ -123,7 +123,11 @@ print("Dist limits: ", dist_limits)
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, verbose=0, smooth_mask=True)
+mask, mask_resolution = generate_mask(galaxy_data_table, 
+                                      dist_metric=dist_metric, 
+                                      smooth_mask=True,
+                                      #h=h,
+                                     )
 
 
 temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
