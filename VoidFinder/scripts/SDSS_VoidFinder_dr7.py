@@ -80,7 +80,7 @@ Omega_M = 0.26
 
 # Uncomment if you do NOT want to use comoving distances
 # Need to also uncomment relevent inputs in function calls below
-dist_metric = 'redshift'
+dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
