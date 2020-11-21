@@ -1,7 +1,7 @@
 #!/bin/bash                                                                                                                                                                                                
 #SBATCH --mem=350G                                                                                                                                                                                         
 #SBATCH --job-name=fix_recons                                                                                                                                                                              
-#SBATCH --time=02-00:00:00                                                                                                                                                                                 
+#SBATCH --time=03:00:00                                                                                                                                                                                 
 #SBATCH --mail-type=ALL                                                                                                                                                                                    
 #SBATCH -o fix_recons.log                                                                                                                                                                                  
 #SBATCH -e fix_recons.err                 

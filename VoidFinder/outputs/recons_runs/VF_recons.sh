@@ -1,14 +1,14 @@
 #!/bin/bash                                                                                                                   
 #SBATCH --mem=350G                                                                                                            
-#SBATCH --job-name=test                                                                                                       
-#SBATCH --time=01-00:00:00                                                                                                    
+#SBATCH --job-name=recons                                                                                                       
+#SBATCH --time=01:00:00                                                                                                    
 #SBATCH --mail-type=ALL                                                                                                       
 #SBATCH -o /scratch/ierez/IGMCosmo/VoidFinder/outputs/recons_runs/before_names.log                                
 #SBATCH -e /scratch/ierez/IGMCosmo/VoidFinder/outputs/recons_runs/before_names.err                                
                                                                                                                               
 
 echo 'Run VoidFinder on reconstructed maps with removed 0s  without filter and before name changes.'
-echo '350G 5d'
+echo '350G 1h'
 if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
 then
   echo "print =========================================="

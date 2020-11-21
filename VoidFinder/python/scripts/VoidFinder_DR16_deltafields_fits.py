@@ -60,7 +60,7 @@ survey_name = 'DR16_deltafields'
 #in_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 #out_directory = '/Users/kellydouglass/Documents/Research/Voids/VoidFinder/data/SDSS/'
 in_directory = '/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/'
-out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs'
+out_directory = '/scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #galaxies_filename = 'mini_data_reconstructed_removed.dat' 
@@ -78,6 +78,7 @@ max_z = 3.2
 # Cosmology (uncomment and change values to change cosmology)
 # Need to also uncomment relevent inputs in function calls below
 #Omega_M = 0.3
+Omega_M= 0.3147
 #h = 1
 
 # Uncomment if you do NOT want to use comoving distances
@@ -111,7 +112,7 @@ galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(g
                                                                                mag_cut=mag_cut,
                                                                                flux_cut=flux_cut,
                                                                                #rm_isolated=rm_isolated,
-                                                                               #dist_metric=dist_metric,
+                                                                               dist_metric=dist_metric,
                                                                                min_z=min_z, 
                                                                                max_z=max_z,
                                                                                Omega_M= 0.3147, #from the paper
@@ -130,7 +131,7 @@ print(galaxy_data_table)
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, verbose=1, smooth_mask=True)
+mask, mask_resolution = generate_mask(galaxy_data_table, dist_metric=dist_metric, verbose=1, smooth_mask=True)
 
 
 temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
@@ -156,7 +157,7 @@ wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_data(gal
                                                                                  survey_name,
                                                                                  mag_cut=mag_cut,
                                                                                  flux_cut=flux_cut,
-                                                                                 #distance_metric=dist_metric,
+                                                                                 distance_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=1)
 #print("This is the length of data after filter:")

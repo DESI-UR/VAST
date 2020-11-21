@@ -9,6 +9,13 @@ from astropy.table import Table
 from astropy.io import fits
 import os
 import numpy as np
+
+import matplotlib as mpl
+
+import matplotlib.pyplot as plt
+
+import matplotlib
+
 #in_directory='/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/'
 in_directory='/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/reconstructed/'
 os.chdir(in_directory)
@@ -17,9 +24,10 @@ out_directory="/scratch/ierez/IGMCosmo/VoidFinder/outputs/"
 filename='data_reconstructed_random_without0s_shifted90.fits'
 
 data = fits.open(filename)
-print(len(data[1].data['deltas']))
+print(data[1].data[0:5])
 
 prepared=Table(data[1].data)
+'''
 prepared['dec']=prepared['dec']-90
 
 prepared['deltas'].name = 'delta'
@@ -29,7 +37,7 @@ print(prepared[0:5])
 
 
 prepared.write('data_reconstructed_random_without0s_shifted90.fits', format='fits', overwrite=True)
-
+'''
 
 print(len(prepared))
 plt.figure()                                                                                       

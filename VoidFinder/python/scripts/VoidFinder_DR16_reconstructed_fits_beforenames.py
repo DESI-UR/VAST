@@ -79,6 +79,7 @@ max_z = 3.2
 # Cosmology (uncomment and change values to change cosmology)
 # Need to also uncomment relevent inputs in function calls below
 #Omega_M = 0.3
+Omega_M= 0.3147
 #h = 1
 
 # Uncomment if you do NOT want to use comoving distances

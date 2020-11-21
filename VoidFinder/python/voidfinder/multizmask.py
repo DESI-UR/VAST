@@ -14,7 +14,7 @@ dec_offset = -90
 
 
 def generate_mask(gal_data, 
-                  #dist_metric='comoving',
+                  dist_metric='comoving',
                   smooth_mask=True,
                   h=1.0, 
                   O_m=0.3,
@@ -89,8 +89,11 @@ def generate_mask(gal_data,
     
     dec = gal_data['dec'].data 
     
-    r = gal_data["Rgal"].data 
-    
+    #r = gal_data["Rgal"].data 
+    if dist_metric == 'comoving':
+        r = gal_data['Rgal'].data
+    else:
+        r = c*gal_data['z'].data/(100*h)
     num_galaxies = ra.shape[0]
 
     #ang = np.array(list(zip(ra,dec)))
@@ -153,7 +156,7 @@ def generate_mask(gal_data,
     #    mask[ maskfile[0,j], maskfile[1,j] - mask_resolution*dec_offset] = True
     
     for row in pre_mask:
-        print(row[0], row[1] - mask_resolution*dec_offset) 
+        #print(row[0], row[1] - mask_resolution*dec_offset) 
         mask[row[0], row[1] - mask_resolution*dec_offset] = True
         
         
