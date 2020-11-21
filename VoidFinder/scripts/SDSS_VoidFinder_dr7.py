@@ -50,7 +50,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = None
+num_cpus = 1
 
 #-------------------------------------------------------------------------------
 survey_name = 'SDSS_dr7_'
@@ -123,7 +123,11 @@ print("Dist limits: ", dist_limits)
 #
 ################################################################################
 
-mask, mask_resolution = generate_mask(galaxy_data_table, verbose=0, smooth_mask=True)
+mask, mask_resolution = generate_mask(galaxy_data_table, 
+                                      dist_metric=dist_metric, 
+                                      smooth_mask=True,
+                                      #h=h,
+                                     )
 
 
 temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')

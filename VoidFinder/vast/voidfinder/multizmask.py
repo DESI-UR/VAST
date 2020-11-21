@@ -4,21 +4,19 @@ from astropy.table import Table
 import numpy as np
 import time
 
-#from .absmag_comovingdist_functions import Distance
-
 from vast.voidfinder.constants import c #speed of light
 
 maskra = 360
 maskdec = 180
 dec_offset = -90
 
+D2R = np.pi/180.0
+
 
 def generate_mask(gal_data, 
-                  #dist_metric='comoving',
+                  dist_metric='comoving',
                   smooth_mask=True,
-                  h=1.0, 
-                  O_m=0.3,
-                  verbose=0):
+                  h=1.0):
     '''
     Description
     ===========
@@ -46,17 +44,19 @@ def generate_mask(gal_data,
         Dec must be in -90 to 90 format since the code below subtracts
         90 degrees to go to 0 to 180 format
 
-    UNUSED? dist_metric : string
+    dist_metric : string
         Distance metric to use in calculations.  Options are 'comoving' 
         (default; distance dependent on cosmology) and 'redshift' (distance 
         independent of cosmology).
 
+    smooth_mask : boolean
+        If smooth_mask is set to True (default), small holes in the mask (single 
+        cells without any galaxy in them that are surrounded by at least 3 cells 
+        which have galaxies in them) are unmasked.
+
     h : float
         Fractional value of Hubble's constant.  Default value is 1 (where 
         H0 = 100h).
-
-    O_m : float
-        Omega-matter.  Default value is 0.3.
 
 
     Returns:
@@ -72,8 +72,6 @@ def generate_mask(gal_data,
     '''
 
     print("Generating mask", flush=True)
-
-    D2R = np.pi/180.0
     
     ############################################################################
     # First, extract the ra (Right Ascension) and dec (Declination) coordinates
@@ -86,9 +84,12 @@ def generate_mask(gal_data,
     #---------------------------------------------------------------------------
     ra  = gal_data['ra'].data % 360.0
     
-    dec = gal_data['dec'].data 
-    
-    r = gal_data["Rgal"].data 
+    dec = gal_data['dec'].data
+
+    if dist_metric == 'comoving':
+        r = gal_data["Rgal"].data
+    else:
+        r = c*gal_data['redshift'].data/(100*h)
     
     num_galaxies = ra.shape[0]
 
@@ -119,7 +120,7 @@ def generate_mask(gal_data,
     # maximum distance).  The hardcoded value of 10.0 here represents the 
     # minimum radius for a maximal sphere
     #---------------------------------------------------------------------------
-    mask_resolution = 1 + int(D2R*np.amax(r)/10) #scalar value despite use of amax
+    mask_resolution = 1 + int(D2R*np.amax(r)/10) # scalar value despite use of amax
     ############################################################################
 
     
@@ -149,7 +150,7 @@ def generate_mask(gal_data,
     #
     # Since declination is actually measured from the equator, we need to 
     # subtract 90 degrees from the scaled value in order to convert from 
-    # [-90,90) space into [0,180} space.
+    # [-90,90) space into [0,180) space.
     #---------------------------------------------------------------------------
     mask = np.zeros((mask_resolution*maskra, mask_resolution*maskdec), 
                     dtype=bool)

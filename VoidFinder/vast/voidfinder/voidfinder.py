@@ -519,7 +519,7 @@ def find_voids(galaxy_coords_xyz,
                save_after=None,
                use_start_checkpoint=False,
                batch_size=10000,
-               verbose=1,
+               verbose=0,
                print_after=5.0,
                ):
     """
