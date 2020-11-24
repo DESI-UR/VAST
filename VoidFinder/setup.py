@@ -14,8 +14,12 @@ import os
 import codecs
 #
 from distutils.command.sdist import sdist as DistutilsSdist
-from setuptools import setup, find_packages
+from setuptools import setup, dist, find_packages
 from setuptools.extension import Extension
+#
+# Force installation of Cython and numpy.
+#
+dist.Distribution().fetch_build_eggs(['Cython', 'numpy'])
 #
 # Version reader
 #
