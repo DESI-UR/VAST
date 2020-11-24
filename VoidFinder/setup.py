@@ -16,10 +16,7 @@ import codecs
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, dist, find_packages
 from setuptools.extension import Extension
-#
-# Force installation of Cython and numpy.
-#
-dist.Distribution().fetch_build_eggs(['Cython', 'numpy'])
+from setuptools.command.build_ext import build_ext as _build_ext
 #
 # Version reader
 #
@@ -36,85 +33,74 @@ def get_version(rel_path):
     else:
         raise RuntimeError('Unable to find version string.')
 #
-# Setup keywords
+# Build extensions wrapper to handle numpy includes.
 #
-setup_keywords = dict()
-setup_keywords['name'] = 'vast_voidfinder'
-setup_keywords['description'] = 'VoidFinder package'
-setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
-setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
-setup_keywords['license'] = 'BSD 3-clause License'
-setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/VoidFinder'
-setup_keywords['version'] = get_version('vast/voidfinder/__init__.py')
-requires = []
-with open('requirements.txt', 'r') as f:
-    for line in f:
-        if line.strip():
-            requires.append(line.strip())
-setup_keywords['install_requires'] = requires
+class build_ext(_build_ext):
+    def finalize_options(self):
+        _build_ext.finalize_options(self)
+        __builtins__.__NUMPY_SETUP__ = False
+        import numpy
+        print(numpy.get_include())
+        self.include_dirs.append(numpy.get_include())
 #
-# Use README.md as a long_description.
+# Setup function.
 #
-setup_keywords['long_description'] = ''
-if os.path.exists('README.md'):
-    with open('README.md') as readme:
-        setup_keywords['long_description'] = readme.read()
-setup_keywords['long_description_content_type'] = 'text/markdown'
-#
-# Set other keywords for the setup function.
-#
-setup_keywords['provides'] = [setup_keywords['name']]
-setup_keywords['requires'] = ['Python (>3.7.0)']
-setup_keywords['zip_safe'] = False
-setup_keywords['use_2to3'] = False
-setup_keywords['packages'] = ['vast.voidfinder',
-                              'vast.voidfinder.viz',
-                              'vast.voidfinder.volume']
-#setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
-setup_keywords['test_suite']='tests'
-setup_keywords['tests_require']=['pytest']
-#
-# Set up cython build.
-#
-from Cython.Build import cythonize
-import numpy
-extensions = [
-              Extension("vast.voidfinder._voidfinder_cython_find_next",
-                        ["vast/voidfinder/_voidfinder_cython_find_next.pyx"],
-                        include_dirs=[".", numpy.get_include()],
-                        library_dirs=["m"]),
-              Extension("vast.voidfinder._voidfinder_cython",
-                        ["vast/voidfinder/_voidfinder_cython.pyx"],
-                        include_dirs=[".", numpy.get_include()],
-                        library_dirs=["m"]),
-              Extension("vast.voidfinder._vol_cut_cython",
-                        ["vast/voidfinder/_vol_cut_cython.pyx"],
-                        include_dirs=[".", numpy.get_include()],
-                        library_dirs=["m"]),
-              Extension("vast.voidfinder._hole_combine_cython",
-                        ["vast/voidfinder/_hole_combine_cython.pyx"],
-                        include_dirs=[".", numpy.get_include()],
-                        library_dirs=["m"]),
-              Extension("vast.voidfinder.distance",
-                        ["vast/voidfinder/distance.pyx"],
-                        include_dirs=[".", numpy.get_include()],
-                        library_dirs=["m"]),
-              Extension("vast.voidfinder.viz.unionize",
-                        ["vast/voidfinder/viz/unionize.pyx"],
-                        include_dirs=[numpy.get_include()],
-                        library_dirs=["m"]),
-              Extension("vast.voidfinder.viz.neighborize",
-                        ["vast/voidfinder/viz/neighborize.pyx"],
-                        include_dirs=[numpy.get_include()],
-                        library_dirs=["m"]),
-              Extension("vast.voidfinder.volume.void_volume",
-                        ["vast/voidfinder/volume/void_volume.pyx"],
-                        include_dirs=[numpy.get_include()],
-                        library_dirs=["m"])
-              ]
-#
-setup_keywords["ext_modules"] = cythonize(extensions)
-#
-# Run setup command.
-#
-setup(**setup_keywords)
+setup(
+    name='vast_voidfinder',
+    description='VoidFinder package',
+    long_description=open('README.md').read(),
+    author='Kelly Douglass, University of Rochester',
+    author_email='kellyadouglass@rochester.edu',
+    license='BSD 3-clause License',
+    url='https://github.com/DESI-UR/VAST/VoidFinder',
+    version=get_version('vast/voidfinder/__init__.py'),
+
+    packages=['vast.voidfinder',
+              'vast.voidfinder.viz',
+              'vast.voidfinder.volume'],
+
+    # Requirements.
+    requires=['Python (>3.7.0)'],
+    install_requires=open('requirements.txt', 'r').read().split('\n'),
+    zip_safe=False,
+    use_2to3=False,
+
+    # Unit tests.
+    test_suite='tests',
+    tests_require='pytest',
+
+    # Set up cython modules.
+    setup_requires=['Cython', 'numpy'],
+    ext_modules = [
+          Extension('vast.voidfinder._voidfinder_cython_find_next',
+                    ['vast/voidfinder/_voidfinder_cython_find_next.pyx'],
+                    library_dirs=['m']),
+          Extension('vast.voidfinder._voidfinder_cython',
+                    ['vast/voidfinder/_voidfinder_cython.pyx'],
+                    include_dirs=['.'],
+                    library_dirs=['m']),
+          Extension('vast.voidfinder._vol_cut_cython',
+                    ['vast/voidfinder/_vol_cut_cython.pyx'],
+                    include_dirs=['.'],
+                    library_dirs=['m']),
+          Extension('vast.voidfinder._hole_combine_cython',
+                    ['vast/voidfinder/_hole_combine_cython.pyx'],
+                    include_dirs=['.'],
+                    library_dirs=['m']),
+          Extension('vast.voidfinder.distance',
+                    ['vast/voidfinder/distance.pyx'],
+                    include_dirs=['.'],
+                    library_dirs=['m']),
+          Extension('vast.voidfinder.viz.unionize',
+                    ['vast/voidfinder/viz/unionize.pyx'],
+                    library_dirs=['m']),
+          Extension('vast.voidfinder.viz.neighborize',
+                    ['vast/voidfinder/viz/neighborize.pyx'],
+                    library_dirs=['m']),
+          Extension('vast.voidfinder.volume.void_volume',
+                    ['vast/voidfinder/volume/void_volume.pyx'],
+                    library_dirs=['m'])
+    ],
+
+    cmdclass={'build_ext':build_ext}
+)
