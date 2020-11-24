@@ -2,8 +2,9 @@ cython
 h5py
 psutil
 numpy
-threadpoolctl >= 2.1.0
-scikit-learn >= 0.23.2
+scikit-learn
+PyOpenGL
+PyOpenGL_accelerate
 vispy >= 0.6.3
 astropy
 matplotlib
