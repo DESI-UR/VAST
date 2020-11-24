@@ -10,7 +10,7 @@ based on the algorithm described by El-Ad and Piran (1997).
 from __future__ import absolute_import
 
 name = 'voidfinder'
-__version__ = '0.3.4'
+__version__ = '0.3.5'
 
 # This line allows you to do "from vast.voidfinder import filter_galaxies" 
 # instead of "from vast.voidfinder.voidfinder import filter galaxies"
