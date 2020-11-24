@@ -2,7 +2,9 @@ cython
 h5py
 psutil
 numpy
-scikit-learn
+threadpoolctl >= 2.1.0
+scikit-learn >= 0.23.2
+vispy >= 0.6.3
 astropy
 matplotlib
 pytest
