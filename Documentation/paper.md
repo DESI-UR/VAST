@@ -34,7 +34,7 @@ affiliations:
     index: 3
   - name: University of Washington
     index: 4
-date: September 2020
+date: December 2020
 bibliography: paper.bib
 ---
 
@@ -49,9 +49,12 @@ large-scale structure improve constraints on the expansion of the universe as
 compared to using tracers alone.  However, what constitutes a void is vague and 
 formulating a concrete definition to use in a void-finding algorithm is not 
 trivial.  As a result, several different algorithms exist to identify these 
-cosmic underdensities.  The Void Analysis Software Toolkit, or VAST, provides 
+cosmic underdensities.  Our Void Analysis Software Toolkit, or VAST, provides 
 Python 3 implementations of two such algorithms: **VoidFinder** and 
 **V<sup>2</sup>**.
+
+
+# Statement of Need
 
 Analyzing the next generation of cosmological surveys will require the ability 
 to process large volumes of data (for example, at least 30 million galaxies and 
