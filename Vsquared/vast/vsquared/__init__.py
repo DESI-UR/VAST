@@ -10,4 +10,4 @@ Implementation of the galaxy void finder algorithm ZOnes Bordering On Voidness
 from __future__ import absolute_import
 
 name = 'vsquared'
-__version__ = '0.2.0'
+__version__ = '0.2.3'

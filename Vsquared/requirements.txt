@@ -1,4 +1,4 @@
-numpy
-scikit-learn
-astropy
-pytest
+numpy==1.19.4
+scikit-learn==0.23.2
+astropy==4.1
+pytest==6.1.2
