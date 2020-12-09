@@ -87,8 +87,8 @@ def _hole_finder(hole_grid_shape,
 
     See help(voidfinder.find_voids)
 
-    This function is basically a glorified switch between single-threaded mode and
-    multi-processed mode of running VoidFinder.
+    This function is basically a glorified switch between single-threaded mode 
+    and multi-processed mode of running VoidFinder.
 
     
     Parameters
@@ -106,18 +106,20 @@ def _hole_finder(hole_grid_shape,
         
         
     galaxy_map_grid_edge_length : float or None
-        edge length in Mpc/h for the secondary grid for finding nearest neighbor
-        galaxies.  If None, will default to 3*void_grid_edge_length (which results
-        in a cell volume of 3^3 = 27 times larger cube volume).  This parameter
-        yields a tradeoff between number of galaxies in a cell, and number of
-        cells to search when growing a sphere.  Too large and many redundant galaxies
-        may be searched, too small and too many cells will need to be searched.
+        edge length in Mpc/h for the secondary grid for finding nearest neighbor 
+        galaxies.  If None, will default to 3*void_grid_edge_length (which 
+        results in a cell volume of 3^3 = 27 times larger cube volume).  This 
+        parameter yields a tradeoff between number of galaxies in a cell, and 
+        number of cells to search when growing a sphere.  Too large and many 
+        redundant galaxies may be searched, too small and too many cells will 
+        need to be searched.
         (xyz space)
         
     coord_min : numpy.ndarray of shape (1,3) 
         minimum coordinates of the survey in x,y,z in Mpc/h
-        Note that this coordinate is used for transforming values into the i,j,k search
-        grid space and also into the p,q,r galaxy map grid space
+
+        Note that this coordinate is used for transforming values into the i,j,k 
+        search grid space and also into the p,q,r galaxy map grid space
         
     mask : numpy.ndarray of shape (N,M) type bool
         represents the survey footprint in scaled ra/dec space.  Value of True 
@@ -137,44 +139,46 @@ def _hole_finder(hole_grid_shape,
         (xyz space)
         
     survey_name : str
-        identifier for the survey running, may be prepended or appended
-        to output filenames including the checkpoint filename
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
         
     DEPRECATED hole_radial_mask_check_dist : float in (0.0,1.0)
-        radial distance to check whether or not a hole overlaps with outside the mask
-        too much
+        radial distance to check whether or not a hole overlaps with outside the 
+        mask too much
         
     save_after : int or None
-        save a VoidFinderCheckpoint.h5 file after *approximately* every save_after
-        cells have been processed.  This will over-write this checkpoint file every
-        save_after cells, NOT append to it.  Also, saving the checkpoint file forces
-        the worker processes to pause and synchronize with the master process to ensure
-        the correct values get written, so choose a good balance between saving
-        too often and not often enough if using this parameter.  Note that it is
-        an approximate value because it depends on the number of worker processes and
-        the provided batch_size value, if you batch size is 10,000 and your save_after
-        is 1,000,000 you might actually get a checkpoint at say 1,030,000.
-        if None, disables saving the checkpoint file
+        save a VoidFinderCheckpoint.h5 file after *approximately* every 
+        save_after cells have been processed.  This will over-write this 
+        checkpoint file every save_after cells, NOT append to it.  Also, saving 
+        the checkpoint file forces the worker processes to pause and synchronize 
+        with the master process to ensure the correct values get written, so 
+        choose a good balance between saving too often and not often enough if 
+        using this parameter.  Note that it is an approximate value because it 
+        depends on the number of worker processes and the provided batch_size 
+        value, if you batch size is 10,000 and your save_after is 1,000,000 you 
+        might actually get a checkpoint at say 1,030,000.  If None, disables 
+        saving the checkpoint file
         
     
     use_start_checkpoint : bool
-        Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can be used to 
-        restart the VF run
-        if False, VoidFinder will start fresh from 0    
+        Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can 
+        be used to restart the VF run
+        If False, VoidFinder will start fresh from 0    
 
     batch_size : scalar float
         Number of empty cells to pass into each process.  Initialized to 1000.
 
     verbose : int
         value to determine whether or not to display status messages while 
-        running.  0 is off, 1 is print after N updates, 2 is full debugging prints.
+        running.  0 is off, 1 is print after N updates, 2 is full debugging 
+        prints.
 
     num_cpus : int or None
-        number of cpus to use while running the main algorithm.  None will result
-        in using number of physical cores on the machine.  Some speedup benefit
-        may be obtained from using additional logical cores via Intel Hyperthreading
-        but with diminishing returns.  This can safely be set above the number of 
-        physical cores without issue if desired.
+        number of cpus to use while running the main algorithm.  None will 
+        result in using number of physical cores on the machine.  Some speedup 
+        benefit may be obtained from using additional logical cores via Intel 
+        Hyperthreading but with diminishing returns.  This can safely be set 
+        above the number of physical cores without issue if desired.
     
     
     
@@ -182,12 +186,12 @@ def _hole_finder(hole_grid_shape,
     =======
     
     x_y_z_r_array : numpy.ndarray of shape (N,4)
-        x,y,z coordinates of the N hole centers found in units of Mpc/h (cols 0,1,2)
-        and Radii of the N holes found in units of Mpc/h
+        x,y,z coordinates of the N hole centers found in units of Mpc/h (cols 
+        0,1,2) and Radii of the N holes found in units of Mpc/h
 
     n_holes : scalar float
-        Number of potential holes found - note this number is prior to the void combining
-        stage so will not represent the final output of VoidFinder
+        Number of potential holes found - note this number is prior to the void 
+        combining stage so will not represent the final output of VoidFinder
     '''
 
 
@@ -233,9 +237,9 @@ def _hole_finder(hole_grid_shape,
 
 
 
-    ################################################################################
+    ############################################################################
     # Run single or multi-processed
-    ################################################################################
+    ############################################################################
     
     if isinstance(num_cpus, int) and num_cpus == 1:
         
