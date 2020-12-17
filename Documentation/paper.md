@@ -113,7 +113,7 @@ REVOLVER [@REVOLVER:2018].
 
 
 
-# 3D Visualization
+# VoidRender: a 3D Visualization of voids
 
 ![VoidRender visualization of the output from SDSS DR7 [@Abazajian:2009].\label{fig:vfviz}](voidfinder_viz.png)
 
@@ -128,22 +128,23 @@ forward/backward/left/right/up/down translation and pitch/yaw/roll rotation.
 Each void hole of the VoidFinder output is rendered to the screen using the 
 icosadehral sphere approximation, where the depth of the approximation is 
 configurable and higher approximation depths yield a finer and finer grained 
-triangularization of each sphere.  In addition, the visualization includes an 
-option to remove the interior walls of each void, which is approximated by 
-removing the triangles from the triangluarization where all three vertices of a 
-given triangle fall within the radius of an intersecting sphere.  This option 
-aids in visually inspecting the properties of joining spheres.  The galaxy 
-survey upon which the output voids are based may also be included within the 
-visualization, where each galaxy is represented by a small dot since the radius 
-of even the largest galaxy is negligibly small compared to the radius of the 
-smallest void.  For visual purposes, the mouse scroll wheel may be used to 
-enlarge or shrink the galaxy dot size.  By passing the appropriate portions of 
-the galaxy survey to different parts of the VoidRender keyword parameters, wall 
-galaxies may be displayed in black and void galaxies may be displayed in red.  
-Additionally, in order to help visualize the clustering of wall galaxies, 
+triangularization of each sphere.  In addition, VoidRender includes an option to 
+remove the interior walls of each void, which is approximated by removing the 
+triangles from the triangluarization where all three vertices of a given 
+triangle fall within the radius of an intersecting sphere.  This option aids in 
+visually inspecting the properties of joining spheres.
+
+The galaxy survey upon which the output voids are based may also be included 
+within the visualization, where each galaxy is represented by a small dot since 
+the radius of even the largest galaxy is negligibly small compared to the radius 
+of the smallest void.  For visual purposes, the mouse scroll wheel may be used 
+to enlarge or shrink the galaxy dot size.  By passing the appropriate portions 
+of the galaxy survey to different parts of the VoidRender keyword parameters, 
+wall galaxies may be displayed in black and void galaxies may be displayed in 
+red.  Additionally, in order to help visualize the clustering of wall galaxies, 
 another VoidRender option plots a thin black line between a galaxy and its K 
 nearest neighbors, yielding a denser spider-web look for those galaxies which 
-cluster together, as can be seen in Figure \autoref{fig:vfviz}.
+cluster together, as can be seen in \autoref{fig:vfviz}.
 
 ![`Vsquared` visualization of the output from SDSS DR7.\label{fig:v2viz}](vsquared_viz.png)
 
@@ -155,7 +156,7 @@ environment includes the `ffmpeg` library.  `Vsquared` also includes an
 found by the ZOBOV algorithm are made up of convex polygons, and are rendered 
 exactly in 3D.  Controls for movement and production of screenshots and videos 
 are identical to those of VoidRender.  An example of the `Vsquared` 
-visualization is shown in Figure \autoref{fig:v2viz}.
+visualization is shown in \autoref{fig:v2viz}.
 
 
 
