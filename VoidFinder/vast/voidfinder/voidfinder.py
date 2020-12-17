@@ -530,81 +530,88 @@ def find_voids(galaxy_coords_xyz,
     Main entry point for VoidFinder.  
     
     Using the VoidFinder algorithm, this function grows a sphere in each empty 
-    grid cell of a grid imposed over the target galaxy distribution.  It then combines 
-    these spheres into unique voids, identifying a maximal sphere for each void.
+    grid cell of a grid imposed over the target galaxy distribution.  It then 
+    combines these spheres into unique voids, identifying a maximal sphere for 
+    each void.
 
-    This algorithm at a high level uses 3 data to find voids
-    in the super-galactic structure of the universe:
+    This algorithm at a high level uses 3 data to find voids in the large-scale 
+    structure of the universe:
     
-    1).  The galaxy coordinates
-    2).  A survey-limiting mask
-    3).  A cubic-cell grid of potential void locations
+    1)  The galaxy coordinates
+    2)  A survey-limiting mask
+    3)  A cubic-cell grid of potential void locations
     
-    Before running VoidFinder, a preprocessing stage of removing isolated galaxies from
-    the target galaxy survey is performed.  Currently this is done by removing galaxies
-    whose distance to their 3rd nearest neighbor is greater than 1.5 times the standard
-    deviation of 3rd nearest neighbor distance for the survey.  This step should be 
-    performed prior to calling this function.
+    Before running VoidFinder, a preprocessing stage of removing isolated 
+    galaxies from the target galaxy survey is performed.  Currently this is done 
+    by removing galaxies whose distance to their 3rd nearest neighbor is greater 
+    than 1.5 times the standard deviation of 3rd nearest neighbor distance for 
+    the survey.  This step should be performed prior to calling this function.
     
-    Next, VoidFinder will impose a grid of cubic cells over the remaining non-isolated,
-    or "wall" galaxies.  The cell size of this grid should be small enough to allow
-    a thorough search, but is also the primary consumer of time in this algorithm.
+    Next, VoidFinder will impose a grid of cubic cells over the remaining 
+    non-isolated, or "wall" galaxies.  The cell size of this grid should be 
+    small enough to allow a thorough search, but is also the primary consumer of 
+    time in this algorithm.
     
-    At each grid cell, VoidFinder will evaluate whether that cubic cell is "empty"
-    or "nonempty."  Empty cells contain no galaxies, non-empty cells contain at least 1
-    galaxy.  This makes the removal of isolated galaxies in the preprocessing stage
-    important.
+    At each grid cell, VoidFinder will evaluate whether that cubic cell is 
+    "empty" or "nonempty."  Empty cells contain no galaxies, non-empty cells 
+    contain at least 1 galaxy.  This makes the removal of isolated galaxies in 
+    the preprocessing stage important.
     
-    VoidFinder will proceed to grow a sphere, called a hole, at every Empty grid cell.
-    These pre-void holes will be filtered such that the potential voids along the edge of
-    the survey will be removed, since any void on the edge of the survey could
-    potentially grow unbounded, and there may be galaxies not present which would
-    have bounded the void.  After the filtering, these pre-voids will be combined
-    into the actual voids based on an analysis of their overlap.
+    VoidFinder will proceed to grow a sphere, called a hole, at every Empty grid 
+    cell.  These pre-void holes will be filtered such that the potential voids 
+    along the edge of the survey will be removed, since any void on the edge of 
+    the survey could potentially grow unbounded, and there may be galaxies not 
+    present which would have bounded the void.  After the filtering, these 
+    pre-voids will be combined into the actual voids based on an analysis of 
+    their overlap.
     
-    This implementation uses a reference point, 'coords_min', from xyz space, and the 
-    'hole_grid_edge_length' to convert between the x,y,z coordinates of a galaxy,
-    and the i,j,k coordinates of a cell in the search grid such that:
+    This implementation uses a reference point, 'coords_min', from xyz space, 
+    and the 'hole_grid_edge_length' to convert between the x,y,z coordinates of 
+    a galaxy, and the i,j,k coordinates of a cell in the search grid such that:
     
     ijk = ((xyz - coords_min)/hole_grid_edge_length).astype(integer) 
     
-    During the sphere growth, VoidFinder also uses a secondary grid to help find
-    the bounding galaxies for a sphere.  This secondary grid facilitates nearest-neighbor
-    and radius queries, and uses a coordinate space referred to in the code
-    as pqr, which uses a similar transformation:
+    During the sphere growth, VoidFinder also uses a secondary grid to help find 
+    the bounding galaxies for a sphere.  This secondary grid facilitates 
+    nearest-neighbor and radius queries, and uses a coordinate space referred to 
+    in the code as pqr, which uses a similar transformation:
     
     pqr = ((xyz - coords_min)/neighbor_grid_edge_length).astype(integer)
     
-    In VoidFinder terminology, a Void is a union of spheres, and a single sphere
-    is just a hole.  The Voids are found by taking the set of holes, and ordering them
-    based on radius. Starting from the largest found hole, label it a maximal
-    sphere, and continue to the next hole.  If the next hole does not overlap with any of the
-    previous maximal spheres by some factor, it is also considered a maximal sphere.  This process
-    is repeated until there are no more maximal spheres, and all other spheres are joined to the
-    maximal spheres.
+    In VoidFinder terminology, a Void is a union of spheres, and a single sphere 
+    is just a hole.  The Voids are found by taking the set of holes, and 
+    ordering them based on radius. Starting from the largest found hole, label 
+    it a maximal sphere, and continue to the next hole.  If the next hole does 
+    not overlap with any of the previous maximal spheres by some factor, it is 
+    also considered a maximal sphere.  This process is repeated until there are 
+    no more maximal spheres, and all other spheres are joined to the maximal 
+    spheres.
     
     
-    A note on the purpose of VoidFinder - VoidFinder is intended to find distinct, discrete
-    void *locations* within the large scale structure of the universe.  This is in contrast
-    to finding the large scale void *structure*.  VoidFinder answers the question
-    "Where are the voids?" with a concrete "Here is a list of x,y,z coordinates", but it does not
-    answer the questions "What do the voids look like?  How are they shaped?  How much do
-    they overlap?"  These questions can be partially answered with additional analysis on the 
-    output of VoidFinder, but the main algorithm is intended to find discrete, disjoint x-y-z 
-    coordinates of the centers of void regions.  If you wanted a local density estimate for a
-    given galaxy, you could just use the distance to Nth nearest neighbor, for example.  This
-    is not what VoidFinder is for.
+    A note on the purpose of VoidFinder - VoidFinder is intended to find 
+    distinct, discrete void *locations* within the large scale structure of the 
+    universe.  This is in contrast to finding the large scale void *structure*.  
+    VoidFinder answers the question "Where are the voids?" with a concrete "Here 
+    is a list of x,y,z coordinates", but it does not answer the questions "What 
+    do the voids look like?  How are they shaped?  How much do they overlap?"  
+    These questions can be partially answered with additional analysis on the 
+    output of VoidFinder, but the main algorithm is intended to find discrete, 
+    disjoint x-y-z coordinates of the centers of void regions.  If you wanted a 
+    local density estimate for a given galaxy, you could just use the distance 
+    to Nth nearest neighbor, for example.  This is not what VoidFinder is for.
     
     
     To do this, VoidFinder makes the following assumptions:
     
     1.  A Void region can be approximated by a sphere.
     
-        1.a. the center of the maximal sphere in that void region will yield the x-y-z
+        1.a. the center of the maximal sphere in that void region will yield the 
+             x-y-z
         
-    2.  Void regions are distinct/discrete - we're not looking for huge tunneling structures
-        throughout space, if does happen to be the structure of space (it basically does happen
-        to be that way) we want the locations of the biggest rooms
+    2.  Void regions are distinct/discrete - we are not looking for huge 
+        tunneling structures throughout space, if does happen to be the 
+        structure of space (it basically does happen to be that way) we want the 
+        locations of the biggest rooms
     
     
     
@@ -615,11 +622,11 @@ def find_voids(galaxy_coords_xyz,
     ==========
     
     galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
-        coordinates of the galaxies in the survey, units of Mpc/h
+        coordinates of the galaxies in the survey, units of Mpc/h 
         (xyz space)
     
     dist_limits : numpy array of shape (2,)
-        minimum and maximum distance limit of the survey in units of Mpc/h
+        minimum and maximum distance limit of the survey in units of Mpc/h 
         (xyz space)
         
     mask : numpy.ndarray of shape (N,M) type bool
@@ -637,28 +644,28 @@ def find_voids(galaxy_coords_xyz,
         ijk dimensions of the 3 grid directions
         
     hole_grid_edge_length : float
-        size in Mpc/h of the edge of 1 cube in the search grid, or
-        distance between 2 grid cells
+        size in Mpc/h of the edge of 1 cube in the search grid, or distance 
+        between 2 grid cells
         (xyz space)
         
     max_hole_mask_overlap : float in range (0, 0.5)
-        when the volume of a hole overlaps the mask by this fraction,
-        discard that hole.  Maximum value of 0.5 because a value of 0.5
-        means that the hole center will be outside the mask, but more importantly
-        because the numpy.roots() function used below won't return a valid
-        polynomial root.
+        when the volume of a hole overlaps the mask by this fraction, discard 
+        that hole.  Maximum value of 0.5 because a value of 0.5 means that the 
+        hole center will be outside the mask, but more importantly because the 
+        numpy.roots() function used below won't return a valid polynomial root.
         
     survey_name : str
-        identifier for the survey running, may be prepended or appended
-        to output filenames including the checkpoint filename
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
         
     galaxy_map_grid_edge_length : float or None
-        edge length in Mpc/h for the secondary grid for finding nearest neighbor
-        galaxies.  If None, will default to 3*hole_grid_edge_length (which results
-        in a cell volume of 3^3 = 27 times larger cube volume).  This parameter
-        yields a tradeoff between number of galaxies in a cell, and number of
-        cells to search when growing a sphere.  Too large and many redundant galaxies
-        may be searched, too small and too many cells will need to be searched.
+        edge length in Mpc/h for the secondary grid for finding nearest neighbor 
+        galaxies.  If None, will default to 3*hole_grid_edge_length (which 
+        results in a cell volume of 3^3 = 27 times larger cube volume).  This 
+        parameter yields a tradeoff between number of galaxies in a cell, and 
+        number of cells to search when growing a sphere.  Too large and many 
+        redundant galaxies may be searched, too small and too many cells will 
+        need to be searched.
         (xyz space)
         
     hole_center_iter_dist : float
@@ -676,41 +683,42 @@ def find_voids(galaxy_coords_xyz,
         location to save potential voids file to
     
     num_cpus : int or None
-        number of cpus to use while running the main algorithm.  None will result
-        in using number of physical cores on the machine.  Some speedup benefit
-        may be obtained from using additional logical cores via Intel Hyperthreading
-        but with diminishing returns.  This can safely be set above the number of 
-        physical cores without issue if desired.
+        number of cpus to use while running the main algorithm.  None will 
+        result in using number of physical cores on the machine.  Some speedup 
+        benefit may be obtained from using additional logical cores via Intel 
+        Hyperthreading but with diminishing returns.  This can safely be set 
+        above the number of physical cores without issue if desired.
         
     save_after : int or None
-        save a VoidFinderCheckpoint.h5 file after *approximately* every save_after
-        cells have been processed.  This will over-write this checkpoint file every
-        save_after cells, NOT append to it.  Also, saving the checkpoint file forces
-        the worker processes to pause and synchronize with the master process to ensure
-        the correct values get written, so choose a good balance between saving
-        too often and not often enough if using this parameter.  Note that it is
-        an approximate value because it depends on the number of worker processes and
-        the provided batch_size value, if you batch size is 10,000 and your save_after
-        is 1,000,000 you might actually get a checkpoint at say 1,030,000.
-        if None, disables saving the checkpoint file
+        save a VoidFinderCheckpoint.h5 file after *approximately* every 
+        save_after cells have been processed.  This will over-write this 
+        checkpoint file every save_after cells, NOT append to it.  Also, saving 
+        the checkpoint file forces the worker processes to pause and synchronize 
+        with the master process to ensure the correct values get written, so 
+        choose a good balance between saving too often and not often enough if 
+        using this parameter.  Note that it is an approximate value because it 
+        depends on the number of worker processes and the provided batch_size 
+        value, if you batch size is 10,000 and your save_after is 1,000,000 you 
+        might actually get a checkpoint at say 1,030,000.  If None, disables 
+        saving the checkpoint file.
         
     
     use_start_checkpoint : bool
-        Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can be used to 
-        restart the VF run
-        if False, VoidFinder will start fresh from 0    
+        Whether to attempt looking for a VoidFinderCheckpoint.h5 file which can 
+        be used to restart the VF run.  If False, VoidFinder will start fresh 
+        from 0.
     
         
     batch_size : int
-        number of potential void cells to evaluate at a time.  Lower values may be a
-        bit slower as it involves some memory allocation overhead, and values which
-        are too high may cause the status update printing to take more than print_after
-        seconds.  Default value 10,000
+        number of potential void cells to evaluate at a time.  Lower values may 
+        be a bit slower as it involves some memory allocation overhead, and 
+        values which are too high may cause the status update printing to take 
+        more than print_after seconds.  Default value 10,000
         
     verbose : int
-        level of verbosity to print during running, 0 indicates off, 1 indicates
-        to print after every 'print_after' cells have been processed, and 2 indicates
-        to print all debugging statements
+        level of verbosity to print during running, 0 indicates off, 1 indicates 
+        to print after every 'print_after' cells have been processed, and 2 
+        indicates to print all debugging statements
         
     print_after : float
         number of seconds to wait before printing a status update
@@ -741,23 +749,23 @@ def find_voids(galaxy_coords_xyz,
     tot_hole_start = time.time()
 
     x_y_z_r_array, n_holes = _hole_finder(hole_grid_shape, 
-                                           hole_grid_edge_length, 
-                                           hole_center_iter_dist,
-                                           galaxy_map_grid_edge_length,
-                                           coords_min.reshape(1,3),
-                                           mask,
-                                           mask_resolution,
-                                           dist_limits[0],
-                                           dist_limits[1],
-                                           galaxy_coords_xyz,
-                                           survey_name,
-                                           #radial_mask_check,
-                                           save_after=save_after,
-                                           use_start_checkpoint=use_start_checkpoint,
-                                           batch_size=batch_size,
-                                           verbose=verbose,
-                                           print_after=print_after,
-                                           num_cpus=num_cpus)
+                                          hole_grid_edge_length, 
+                                          hole_center_iter_dist,
+                                          galaxy_map_grid_edge_length,
+                                          coords_min.reshape(1,3),
+                                          mask,
+                                          mask_resolution,
+                                          dist_limits[0],
+                                          dist_limits[1],
+                                          galaxy_coords_xyz,
+                                          survey_name,
+                                          #radial_mask_check,
+                                          save_after=save_after,
+                                          use_start_checkpoint=use_start_checkpoint,
+                                          batch_size=batch_size,
+                                          verbose=verbose,
+                                          print_after=print_after,
+                                          num_cpus=num_cpus)
 
 
     print('Found a total of', n_holes, 'potential voids.', flush=True)
