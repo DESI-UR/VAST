@@ -33,7 +33,7 @@ class Catalog:
         Om_m : float
             Matter density.
         maskfile : str or None
-            Mask file giving HEALPixels with catalog objects.
+            Mask file giving HEALPixels with catalog objects (FITS format).
         """
         print("Extracting data...")
         hdulist = fits.open(catfile)
@@ -66,9 +66,15 @@ class Catalog:
             mask = np.zeros(hp.nside2npix(nside),dtype=bool)
             pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True)
             mask[pids] = True
+        else:
+            mask = (hp.read_map(maskfile)).astype(bool)
         self.mask = mask
         pids = hp.ang2pix(nside,ra,dec,lonlat=True)
         self.imsk = mask[pids]*zcut
+        try:
+            self.galids = hdulist[1].data['ID']
+        except:
+            self.galids = np.arange(len(z))
 
 class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.

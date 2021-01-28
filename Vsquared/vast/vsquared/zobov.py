@@ -20,9 +20,9 @@ class Zobov:
         configfile : str
             Configuration file, in INI format.
         start : int
-            Analysis stages: 0=generate catalog, 1=load catalog, 2=load tesselation, 3=load zones.
+            Analysis stages: 0=generate catalog, 1=load catalog, 2=load tesselation, 3=load zones, 4=load voids.
         end :  int
-            Ending point: 1=generate tesselation, 2=generate zones, 3=generate voids.
+            Ending point: 0=generate catalog, 1=generate tesselation, 2=generate zones, 3=generate voids, 4=load voids.
         save_intermediate : bool
             If true, pickle and save intermediate outputs.
         visualize : bool
@@ -284,7 +284,7 @@ class Zobov:
                     elist[glut2[c]] = 1
         elist[np.array(olist,dtype=bool)] = 0
 
-        zT = Table([glist,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
+        zT = Table([self.catalog.galids,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
         zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
 
 
