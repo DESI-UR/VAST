@@ -22,7 +22,7 @@ req.add_argument('-c', '--config', dest='config_file', required=True,
 
 args = p.parse_args()
 
-newZobov = Zobov(args.config_file, args.method, 3,
+newZobov = Zobov(args.config_file, 0, 3,
                  save_intermediate=args.save_intermediate,
                  visualize=args.visualize)
 

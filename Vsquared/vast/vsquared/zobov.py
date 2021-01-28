@@ -40,7 +40,7 @@ class Zobov:
         self.infile  = config['Paths']['Input Catalog']
         self.catname = config['Paths']['Survey Name']
         self.outdir  = config['Paths']['Output Directory']
-        self.intloc  = "../intermediate/" + self.catname
+        self.intloc  = "../../intermediate/" + self.catname
         
         self.H0   = float(config['Cosmology']['H_0'])
         self.Om_m = float(config['Cosmology']['Omega_m'])
@@ -310,7 +310,8 @@ class Zobov:
         znorms = self.zones.znorms
         z2v = self.zvoid.T[1]
         z2v2 = np.array([np.where(z2v==z2)[0] for z2 in np.unique(z2v[z2v!=-1])])
-        zcut = [np.product([np.product(self.tesselation.volumes[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
+        z2v3 = np.unique(z2v[z2v!=-1])
+        zcut = [np.product([np.product(self.tesselation.vecut[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
 
         tri1 = []
         tri2 = []
@@ -331,13 +332,13 @@ class Zobov:
                         tri2.append(verc[t[1]])
                         tri3.append(verc[t[2]])
                         norm.append(n)
-                        vid.append(k)
-                    g2v[gids[p[0]]] = k
+                        vid.append(z2v3[k])
+                    g2v[gids[p[0]]] = z2v3[k]
         for k,v in enumerate(z2v2[zcut]):
             for z in v:
                 for i in range(len(znorms[z])):
                     if g2v[gids[p[1]]] != -1:
-                        g2v2[gids[p[1]]] = k
+                        g2v2[gids[p[1]]] = z2v3[k]
 
         if len(vid)==0:
             print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")
