@@ -102,7 +102,7 @@ cdef class HoleGridCustomDict:
                               CELL_ID_t k)
 
 
-cdef class GalaxyMapCustomDict:
+cdef class ParticleMapCustomDict:
          
     cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
     

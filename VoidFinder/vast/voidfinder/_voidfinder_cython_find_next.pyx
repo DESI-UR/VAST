@@ -911,7 +911,7 @@ cdef class HoleGridCustomDict:
 
 
 
-cdef class GalaxyMapCustomDict:
+cdef class ParticleMapCustomDict:
     """
     Description
     ===========
