@@ -158,8 +158,31 @@ class Zobov:
                     voids.append([c for q in self.prevoids.voids[i] for c in q])
 
         elif method==3:
-            print("Method 3 coming soon")
-            return
+            #print('Method 3')
+            voids = []
+            for i in range(len(self.prevoids.mvols)):
+                vh = self.prevoids.mvols[i]
+                vl = np.amax(self.zones.zlinks[1][self.prevoids.voids[i][0][0]])
+                r  = vh / vl
+                p1 = P(r)
+                for j in range(len(self.prevoids.voids[i])):
+                    if j == len(self.prevoids.voids[i])-1:
+                        voids.append([c for q in self.prevoids.voids[i] for c in q])
+                    else:
+                        vl = self.prevoids.ovols[i][j+2]
+                        r  = vh / vl
+                        p2 = P(r)
+                        p3 = 1.
+                        for zid in self.prevoids.voids[i][j+1]:
+                            vh = np.amax(self.zones.zvols[zid])
+                            vl = np.amax(self.zones.zlinks[1][zid])
+                            r  = vh / vl
+                            p3 = p3 * P(r)
+                        if p2 > p1*p3:
+                            voids.append([c for q in self.prevoids.voids[i][:j+1] for c in q])
+                            break
+                        else:
+                            p1 = p2
 
         elif method==4:
             #print('Method 4')
