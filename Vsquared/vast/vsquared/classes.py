@@ -321,6 +321,8 @@ class Voids:
         ovols.append([])
         for ov in -1.*np.sort(-1.*np.unique(ovlut)):
             ocomp = np.where(ovlut==ov)[0]
+            if len(zlinks[ocomp[0]]) == 0:
+                continue
             voids[-1].append(ocomp.tolist())
             ovols[-1].append(ov)
         ovols[-1].append(0.)

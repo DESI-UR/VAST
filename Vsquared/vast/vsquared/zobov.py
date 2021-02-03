@@ -174,10 +174,10 @@ class Zobov:
                         p2 = P(r)
                         p3 = 1.
                         for zid in self.prevoids.voids[i][j+1]:
-                            vh = np.amax(self.zones.zvols[zid])
-                            vl = np.amax(self.zones.zlinks[1][zid])
-                            r  = vh / vl
-                            p3 = p3 * P(r)
+                            vhz = np.amax(self.zones.zvols[zid])
+                            vlz = np.amax(self.zones.zlinks[1][zid])
+                            rz  = vhz / vlz
+                            p3  = p3 * P(rz)
                         if p2 > p1*p3:
                             voids.append([c for q in self.prevoids.voids[i][:j+1] for c in q])
                             break
