@@ -20,7 +20,7 @@ If you are actively developing V<sup>2</sup> you can run `python setup.py
 develop` to create a symlink from the source tree in your `site-packages`
 directory.
 
-## Usage
+## Usage (Python shell)
 
 Cosmological paramaters, voidfinding parameters, and input/output files are set in a config file (an example is located in `Vsquared/data/`).  
 
@@ -47,3 +47,17 @@ a `zobovoids` file with columns for void center positions (`x, y, z, redshift, r
 and a `zonevoids` file with columns for zone IDs (`zone`), zones' smallest containing void (`void0`), and zones' largest containing void (`void1`).
 
 `saveZones` produces one output file: a `galzones` file with columns for galaxy IDs (`gal`), galaxies' containing zone (`zone`), and galaxies' "depth" within their containing zone (`depth`).
+
+## Usage (autorun script)
+
+The `Vsquared/data` directory contains `vsquared.py`, a script for automatically running the algorithm with given parameters. Four requirements can be passed to this script, one of which (the config file) is required:
+
+`--config /path/to/config.ini` or `-c /path/to/config.ini`
+
+and three of which are optional:
+
+`--method 0` or `-m 0` (specify pruning method from 0 to 4, default 0)
+
+`--visualize` or `-v` (enable void visualization)
+
+`--save_intermediate` or `-w` (save intermediate files in void calculation)

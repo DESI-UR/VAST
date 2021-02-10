@@ -30,5 +30,7 @@ for 3D OpenGL-based visualization of VoidFinder's voids in SDSS DR7!
 **V<sup>2</sup>** is a voronoi-tesselation-based algorithm for finding the void 
 regions, based on the ZOBOV algorithm.  ZOBOV uses the gradient of the volume of 
 adjacent voronoi cells to flow multiple cells together into large void regions.  
-This code is still under development.
+The `Vsquared` directory contains the package, which includes five different     
+methods for building void regions from voronoi cells, as well as an OpenGL based 
+visualization for the output of V<sup>2</sup> (the `vast.vsquared.viz` package).
 
