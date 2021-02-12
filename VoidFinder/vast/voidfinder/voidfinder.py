@@ -57,9 +57,6 @@ def filter_galaxies(galaxy_table,
                     magnitude_limit=-20.09,
                     verbose=0):
     """
-    Description
-    ===========
-    
     A hodge podge of miscellaneous tasks which need to be done to format the data into
     something the main find_voids() function can use.
     
@@ -259,9 +256,6 @@ def ra_dec_to_xyz(galaxy_table,
                   h=1.0,
                   ):
     """
-    Description
-    ===========
-    
     Convert galaxy coordinates from ra-dec-redshift space into xyz space.
     
     
@@ -334,9 +328,6 @@ def ra_dec_to_xyz(galaxy_table,
 def calculate_grid(galaxy_coords_xyz,
                    hole_grid_edge_length):
     """
-    Description
-    ===========
-    
     Given a galaxy survey in xyz/Cartesian coordinates and the length
     of a cubical grid cell, calculate the cubical grid shape which will
     contain the survey.
@@ -397,9 +388,6 @@ def wall_field_separation(galaxy_coords_xyz,
                           sep_neighbor=3,
                           verbose=0):
     """
-    Description
-    ===========
-    
     Given a set of galaxy coordinates in xyz space, find all the galaxies whose
     distance to their Nth nearest neighbor is above or below some limit.  Galaxies
     whose Nth nearest neighbor is close (below), will become 'wall' galaxies, and
@@ -523,10 +511,6 @@ def find_voids(galaxy_coords_xyz,
                print_after=5.0,
                ):
     """
-    Description:
-    ============
-    
-    
     Main entry point for VoidFinder.  
     
     Using the VoidFinder algorithm, this function grows a sphere in each empty 
@@ -603,10 +587,9 @@ def find_voids(galaxy_coords_xyz,
     
     To do this, VoidFinder makes the following assumptions:
     
-    1.  A Void region can be approximated by a sphere.
-    
-        1.a. the center of the maximal sphere in that void region will yield the 
-             x-y-z
+    1.  A Void region can be approximated by a union of spheres.  Note: the 
+        center of the maximal sphere in that void region will yield the x-y-z 
+        coordinate of that void region.
         
     2.  Void regions are distinct/discrete - we are not looking for huge 
         tunneling structures throughout space, if does happen to be the 
