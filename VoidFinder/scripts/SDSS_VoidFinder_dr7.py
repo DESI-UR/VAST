@@ -33,9 +33,7 @@ from vast.voidfinder.multizmask import generate_mask
 from vast.voidfinder.preprocessing import file_preprocess
 from vast.voidfinder.table_functions import to_vector, to_array
 
-from astropy.table import Table
 import pickle
-import numpy as np
 
 
 

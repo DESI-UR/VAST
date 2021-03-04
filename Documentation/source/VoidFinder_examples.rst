@@ -389,11 +389,11 @@ after any redshift and/or magnitude cuts are applied.
 Adjustable parameters
 ---------------------
 
-.. list-table:: Adjustable parameters
+.. list-table::
    :widths: 25 25 10 10 30
    :header-rows: 1
    
-   * - Parameter name
+   * - Keyword
      - Function(s)
      - Data type
      - Default value
@@ -427,7 +427,7 @@ Adjustable parameters
    * - ``dist_metric``
      - ``file_preprocess``, ``filter_galaxies``, ``generate_mask``
      - string
-     - ``comoving``
+     - comoving
      - Determines which distance metric to use.  The options are ``comoving`` 
        (calculates the comoving distance to the galaxies based on the given 
        cosmology) or ``redshift`` (scales the distance to the galaxy by 
@@ -435,14 +435,14 @@ Adjustable parameters
    * - ``min_z``, ``max_z``
      - ``file_preprocess``
      - float
-     - ``None``
+     - None
      - The minimum and maximum redshift limits within which to find the voids.  
        If left to ``None``, the minimum and maximum redshift range of the 
        input galaxy catalog is used.
    * - ``dist_limits``
      - ``filter_galaxies``
      - list of floats
-     - ``None``
+     - None
      - The minimum and maximum distance limits within which to find the voids.  
        If none are given, then no distance cut is applied to the input galaxy 
        sample.
@@ -473,7 +473,7 @@ Adjustable parameters
    * - ``write_table``
      - ``filter_galaxies``
      - boolean
-     - ``True``
+     - True
      - Determines whether or not to save the 
        ``[survey_name]_field_gal_file.txt`` and 
        ``[survey_name]_wall_gal_file.txt`` files to disk.  If so, these files 
@@ -487,14 +487,14 @@ Adjustable parameters
    * - ``galaxy_map_grid_edge_length``
      - ``find_voids``
      - float
-     - ``None``
+     - None
      - The length of the edge of one cell in the grid used to find the nearest 
        galaxies while growing spheres.  If the value is ``None``, this length 
        will equal :math:`3\times` ``hole_grid_edge_length``.  Units are Mpc/h.
    * - ``smooth_mask``
      - ``generate_mask``
      - boolean
-     - ``True``
+     - True
      - If this value is True, small holes in the mask (single cells without any 
        galaxy in them that are surrounded by at least three cells which have 
        galaxies in them) are unmasked.
@@ -514,26 +514,26 @@ Adjustable parameters
    * - ``maximal_spheres_filename``
      - ``find_voids``
      - string
-     - ``maximal_spheres.txt``
+     - maximal_spheres.txt
      - Location to save the maximal spheres.  If ``file_preprocess`` was run, 
        this should be set to ``out1_filename``.
    * - ``void_table_filename``
      - ``find_voids``
      - string
-     - ``voids_table.txt``
+     - voids_table.txt
      - Location to save the list of void spheres.  If ``file_preprocess`` was 
        run, this should be set to ``out2_filename``.
    * - ``potential_voids_filename``
      - ``find_voids``
      - string
-     - ``potential_voids_list.txt``
+     - potential_voids_list.txt
      - Location to save the list of potential voids spheres (all spheres found, 
        no filtering yet implemented on the list).  An ideal name for this file 
-       would be ``out_directory + survey_name + potential_voids_list.txt``.
+       would be ``out_directory + survey_name + 'potential_voids_list.txt'``.
    * - ``num_cpus``
      - ``find_voids``
      - integer
-     - ``None``
+     - None
      - Number of CPUs to use in the multi-threaded implementation of 
        ``find_voids``.  The default value will use the number of physical cores 
        on the machine being used.  If you want to run ``find_voids`` in a 
@@ -541,7 +541,7 @@ Adjustable parameters
    * - ``save_after``
      - ``find_voids``
      - integer
-     - ``None``
+     - None
      - If this is not ``None``, then ``find_voids`` will save a 
        ``VoidFinderCheckpoint.h5`` file after *approximately* every 
        ``save_after`` cells have been processed.  Each new checkpoint file will 
@@ -549,7 +549,7 @@ Adjustable parameters
    * - ``use_start_checkpoint``
      - ``find_voids``
      - boolean
-     - ``False``
+     - False
      - Determines whether or not to start ``find_voids`` with a previously 
        generated ``VoidFinderCheckpoint.h5`` file.  If ``False``, ``find_voids`` 
        will start growing spheres fresh.

@@ -13,7 +13,6 @@ import os
 import numpy as np
 
 from astropy.table import QTable, Table
-import astropy.units as u
 
 import pickle
 
