@@ -1,5 +1,6 @@
-VoidRender
-==========
+############
+Introduction
+############
 
 .. image:: ../voidfinder_viz.png
 VoidRender visualization of the output from SDSS DR7 [@Abazajian:2009].\label{fig:vfviz}
@@ -44,3 +45,25 @@ found by the ZOBOV algorithm are made up of convex polygons, and are rendered
 exactly in 3D.  Controls for movement and production of screenshots and videos 
 are identical to those of VoidRender.  An example of the `Vsquared` 
 visualization is shown in \autoref{fig:v2viz}.
+
+
+
+
+
+Installation
+============
+
+`VoidRender` requires OpenGL :math:`\geq 1.2` and `vispy` (``pip install 
+vispy``).
+
+Also, on Ubuntu, you may need to install the following::
+
+    sudo apt-get install mesa-common-dev libgl1-mesa-dev libgl1-mesa-dev
+
+`VoidRender` will be built and installed when `VoidFinder` is built and 
+installed.  Please see :ref:`VF-install` for details.
+
+
+
+
+

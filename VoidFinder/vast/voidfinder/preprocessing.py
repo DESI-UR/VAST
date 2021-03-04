@@ -18,9 +18,6 @@ import os
 
 def load_data_to_Table(input_filepath):
     """
-    Description
-    ===========
-    
     Load a .dat or .h5 file representing a table of numerical values.  For HDF5 (.h5)
     files, assumes the "columns" are stored as individual datasets on the root h5py.File
     object.
@@ -99,7 +96,7 @@ def file_preprocess(galaxies_filename,
     Set up output file names, calculate distances, etc.
     
     
-    PARAMETERS:
+    PARAMETERS
     ==========
     
     galaxies_filename : string
@@ -140,7 +137,7 @@ def file_preprocess(galaxies_filename,
         units of h^-1).
     
     
-    RETURNS:
+    RETURNS
     =======
     
     galaxy_data_table : astropy table

@@ -6,6 +6,12 @@
 Welcome to VAST's documentation!
 ================================
 
+The **Void Analysis Software Toolkit**, or VAST, provides pure Python 
+implementations of two popular classes of void-finding algorithms in galaxy 
+catalogs:
+1. Void identification by growing spherical voids.
+2. Void identification using watershed algorithms.
+
 Voids are expansive regions in the universe containing significantly fewer 
 galaxies than surrounding galaxy clusters and filaments.  They are a fundamental 
 feature of the cosmic web and provide important information about galaxy physics 
@@ -20,11 +26,25 @@ Python 3 implementations of two such algorithms: **VoidFinder** and
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: VoidFinder
    
-   VoidFinder
-   V2
+   VoidFinder_intro
+   VoidFinder_examples
+   VoidFinder_functions
+
+.. toctree::
+   :maxdepth: 2
+   :caption: V\ :sup:`2`
+   
+   Vsquared_intro
+   Vsquared_examples
+
+.. toctree::
+   :maxdepth: 2
+   :caption: VoidRender
+   
    VoidRender
+   VoidRender_examples
 
 
 Indices and tables

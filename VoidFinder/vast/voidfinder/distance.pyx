@@ -55,9 +55,6 @@ cpdef np.ndarray z_to_comoving_dist(DTYPE_F32_t[:] z_input,
                                     DTYPE_F32_t omega_M, 
                                     DTYPE_F32_t h):
     """
-    Description
-    ===========
-    
     Convert redshift values into the comoving distance cosmology using the 
     integral of the Robertson-Walker metric.
     

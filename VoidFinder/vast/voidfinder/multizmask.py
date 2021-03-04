@@ -17,10 +17,7 @@ def generate_mask(gal_data,
                   dist_metric='comoving',
                   smooth_mask=True,
                   h=1.0):
-    '''
-    Description
-    ===========
-    
+    """
     This function creates a grid of shape (N,M) where the N dimension represents 
     increments of the ra space (0 to 360 degrees) and the M dimension represents 
     increments in the dec space (0 to 180 degrees).  The value of the mask is a 
@@ -34,10 +31,10 @@ def generate_mask(gal_data,
     separately.  
     
 
-    Parameters:
-    ===========
+    Parameters
+    ==========
 
-    galaxy_data : astropy table
+    gal_data : astropy table
         Table of all galaxies in sample
         Ra and Dec must be given in degrees
         Ra can be in either -180 to 180 or 0 to 360 format
@@ -59,8 +56,8 @@ def generate_mask(gal_data,
         H0 = 100h).
 
 
-    Returns:
-    ========
+    Returns
+    =======
 
     mask : numpy array of shape (N,M)
         Boolean array of the entire sky, with points within the survey limits 
@@ -69,7 +66,7 @@ def generate_mask(gal_data,
 
     mask_resolution : integer
         Scale factor of coordinates in maskfile
-    '''
+    """
 
     print("Generating mask", flush=True)
     
