@@ -53,6 +53,125 @@ a finite selection of example configuration files:
    main galaxy sample.  A volume-limited version of this galaxy catalog is 
    provided with the package 
    (``VAST/Vsquared/data/vollim_dr7_cbp_102709.fits``).
+
+See :ref:`V2-config` for details on the configuration file options.
+
+
+
+
+Finding voids
+=============
+
+
+Script
+------
+
+The easiest way to use `VAST.Vsquared` is to use the ``vsquared.py`` script, 
+located in ``VAST/Vsquared/scripts/``:
+
+.. argparse::
+   :filename: ../../Vsquared/scripts/vsquared.py
+   :func: p
+   :prog: python vsquared.py
+
+
+In a Python Shell
+-----------------
+
+Finding voids can also be done in a Python shell, using the 
+``vast.vsquared.zobov.Zobov`` class and its methods:
+
+1. Create a `Zobov` object using the desired configuration file and additional 
+   input parameters::
+
+       newZobov = Zobov("DR7_config.ini")
+   
+   See :ref:`V2-init` for details on the initialization method's arguments.
+2. Apply a void-pruning method to the voids found::
+
+       newZobov.sortVoids()
+   
+   See :ref:`V2-sort` for details on this method's arguments.
+3. Save the results to disk (these methods take no additional arguments)::
+
+       newZobov.saveVoids()
+       newZobov.saveZones()
+       newZobov.preViz() #if intending to visualize results
+
+
+.. _V2-config:
+
+Configuration File Options
+--------------------------
+
+Using `VAST.Vsquared` requires a configuration file with the following options:
+
+.. list-table:: Configuration file options
+   :width: 100%
+   :widths: 25 25 25 25 50
+   :header-rows: 1
+
+   * - Key
+     - Section
+     - Data type
+     - Unit
+     - Comment
+   * - Input Catalog
+     - Paths
+     - string
+     - 
+     - Path to the input data catalog
+   * - Survey Name
+     - Paths
+     - string
+     - 
+     - Survey identifier to use in output file names
+   * - Output Directory
+     - Paths
+     - string
+     - 
+     - Path to the directory where output files will be saved
+   * - H_0
+     - Cosmology
+     - float
+     - (km/s)/Mpc
+     - Hubble constant of the desired cosmology
+   * - Omega_m
+     - Cosmology
+     - float
+     - 
+     - Dimensionless matter density parameter of the desired cosmology
+   * - redshift_min
+     - Settings
+     - float
+     - 
+     - The redshift above which void-finding will be applied
+   * - redshift_max
+     - Settings
+     - float
+     - 
+     - The redshift below which void-finding will be applied
+   * - rabsmag_min
+     - Settings
+     - float
+     - 
+     - The minimum magnitude for a galaxy to be used for void-finding
+   * - radius_min
+     - Settings
+     - float
+     - Mpc/h
+     - The minimum radius for a void candidate to be considered a true void
+   * - nside
+     - Settings
+     - integer
+     - 
+     - The NSIDE parameter used in the HEALPix pixelization of the survey mask; 
+       must be a power of 2
+   * - redshift_step
+     - Settings
+     - float
+     - 
+     - The step size used to create a comoving-distance-to-redshift lookup table 
    
    
    
@@ -108,17 +227,10 @@ Data columns
      - Data type
      - Unit
      - Comment
-   * - Rgal
-     - float
-     - Mpc/h
-     - Comoving distance.  Only used if ``dist_metric`` is set to ``comoving``.  
-       If this column is not provided, and the distance metric is set to 
-       ``comoving``, then the comoving distances will be calculated based on the 
-       given cosmological parameters and the redshift column.
    * - rabsmag
      - float
      - 
-     - Absolute magnitude.  Only used if ``mag_cut == True``.
+     - Absolute magnitude.  Only used if ``rabsmag_min`` is not ``None``.
 
 
 
@@ -128,49 +240,145 @@ Data columns
 Output
 ======
 
-Each void found by `VAST.Vsquared` is a set of Voronoi tesselations.  The files 
+Each void found by `VAST.Vsquared` is a set of Voronoi cells.  The files 
 that list the identified voids are:
 
  * ``[survey_name]_galzones.dat`` -- Identifies the zone to which each galaxy 
    belongs.
- * ``[survey_name]_zonevoids.txt`` -- Identifies the void to which each zone 
+ * ``[survey_name]_zonevoids.dat`` -- Identifies the void to which each zone 
    belongs.
+ * ``[survey_name]_zobovoids.dat`` -- Identifies the coordinates, effective 
+   radius, and ellipticity of each void.
 
-Both of these files are described in more detail below.
+Each of these files is described in more detail below.
 
 Additional files that are produced during the process (which may or may not be 
 useful to the user post-void-finding) include
-
- * ``[survey_name]_galviz.dat`` -- 
+ 
  * ``[survey_name]_triangles.dat`` -- 
- * ``[survey_name]_zobovoids.dat`` -- 
+ * ``[survey_name]_galviz.dat`` --
 
 .. list-table:: ``_galzones`` output file
-   :widths: 25 25 25 50
+   :widths: 25 25 50
    :header-rows: 1
    
    * - Column name
      - Data type
-     - Unit
      - Comment
-   * - something
-     - something
-     - something
-     - something
+   * - gal
+     - integer
+     - Unique galaxy identifier
+   * - zone
+     - integer
+     - Unique identifier of the galaxy's containing zone
+   * - depth
+     - integer
+     - Number of adjacent voronoi cells between the galaxy's cell and the edge 
+       of its zone
+   * - edge
+     - integer
+     - 1 if the galaxy's voronoi cell extends outside the survey mask, 0 
+       otherwise
+   * - out
+     - integer
+     - 1 if the galaxy is located outside the survey mask, 0 otherwise
      
 .. list-table:: ``_zonevoids`` output file
-   :widths: 25 25 25 50
+   :widths: 25 25 50
    :header-rows: 1
    
    * - Column name
      - Data type
+     - Comment
+   * - zone
+     - integer
+     - Unique zone identifier
+   * - void0
+     - integer
+     - Unique identifier of the zone's smallest containing void; -1 if zone is 
+       not part of a void
+   * - void1
+     - integer
+     - Unique identifier of the zone's largest containing void; -1 if zone is 
+       not part of a void
+
+.. list-table:: ``_zobovoids`` output file
+   :widths: 25 25 25 50
+   :header-rows: 1
+
+   * - Column name
+     - Data type
      - Unit
      - Comment
-   * - something
-     - something
-     - something
-     - something
-   
-   
-   
-   
+   * - x
+     - float
+     - Mpc/h
+     - x-coordinate of the weighted center of the void
+   * - y
+     - float
+     - Mpc/h
+     - y-coordinate of the weighted center of the void
+   * - z
+     - float
+     - Mpc/h
+     - z-coordinate of the weighted center of the void
+   * - redshift
+     - float
+     - 
+     - redshift of the weighted center of the void
+   * - ra
+     - float
+     - degrees
+     - right ascension of the weighted center of the void
+   * - dec
+     - float
+     - degrees
+     - declination of the weighted center of the void
+   * - radius
+     - float
+     - Mpc/h
+     - effective radius of the void
+   * - x1
+     - float
+     - 
+     - normalized x-component of the void's first ellipsoid axis
+   * - y1
+     - float
+     - 
+     - normalized y-component of the void's first ellipsoid axis
+   * - z1
+     - float
+     - 
+     - normalized z-component of the void's first ellipsoid axis
+   * - x2
+     - float
+     - 
+     - normalized x-component of the void's second ellipsoid axis
+   * - y2
+     - float
+     - 
+     - normalized y-component of the void's second ellipsoid axis
+   * - z2
+     - float
+     - 
+     - normalized z-component of the void's second ellipsoid axis
+   * - x3
+     - float
+     - 
+     - normalized x-component of the void's third ellipsoid axis
+   * - y3
+     - float
+     - 
+     - normalized y-component of the void's third ellipsoid axis
+   * - z3
+     - float
+     - 
+     - normalized z-component of the void's third ellipsoid axis
+
+
+
+
+Using the output
+================
+
+

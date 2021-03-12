@@ -40,6 +40,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'numpydoc'
+    'sphinxarg.ext'
     #'pyquickhelper.sphinxext.sphinx_autosignature'
 ]
 

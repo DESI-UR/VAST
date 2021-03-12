@@ -38,6 +38,7 @@ Python 3 implementations of two such algorithms: **VoidFinder** and
    
    Vsquared_intro
    Vsquared_examples
+   Vsquared_functions
 
 .. toctree::
    :maxdepth: 2

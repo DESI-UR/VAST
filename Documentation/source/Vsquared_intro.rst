@@ -7,6 +7,11 @@ Introduction
 gradient of the volume of adjacent voronoi cells to flow multiple cells into 
 larger void regions.
 
+The `Vsquared` directory contains the package, as well as an example script for 
+automatically running all steps of the algorithm. To import the main void-
+finding class of V\ :sup:`2`::
+
+    from vast.vsquared import zobov
 
 **Voronoi tesselation**
 
@@ -41,7 +46,7 @@ Installation
 Operation system requirements
 -----------------------------
 
-`VAST.Vsquared` is currently Unix-only?
+`VAST.Vsquared` is currently Unix-only.
 
 
 Building V\ :sup:`2`
@@ -83,5 +88,13 @@ you do not have permissions to install it into the python environment that you
 are using, add ``--user`` to your choice of build from above.  For example:: 
 
     python setup.py develop --user
-    
-    
+
+
+
+
+
+
+Citation
+========
+
+Please cite [@Neyrinck:2007] when using this algorithm.
