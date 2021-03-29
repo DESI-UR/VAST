@@ -39,7 +39,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'numpydoc'
+    'numpydoc',
     'sphinxarg.ext'
     #'pyquickhelper.sphinxext.sphinx_autosignature'
 ]

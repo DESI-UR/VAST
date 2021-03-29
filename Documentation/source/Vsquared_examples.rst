@@ -67,12 +67,9 @@ Script
 ------
 
 The easiest way to use `VAST.Vsquared` is to use the ``vsquared.py`` script, 
-located in ``VAST/Vsquared/scripts/``:
+located in ``VAST/Vsquared/scripts/``. For usage information, run::
 
-.. argparse::
-   :filename: ../../Vsquared/scripts/vsquared.py
-   :func: p
-   :prog: python vsquared.py
+    python vsquared.py --help
 
 
 In a Python Shell
