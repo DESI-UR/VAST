@@ -171,7 +171,7 @@ def filter_data(galaxy_table,
     else:
         print('Filter is applied on transmission flux rate.')
         print(flux_cut)
-        galaxy_table = galaxy_table[galaxy_table['delta'] < flux_cut]
+        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < flux_cut]
         print(len(galaxy_table))
         
 
@@ -392,7 +392,7 @@ def filter_flux(galaxy_table,
     else:
         print('Filter is applied on transmission flux rate.')
         print(flux_cut)
-        galaxy_table = galaxy_table[galaxy_table['delta'] < flux_cut]
+        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < flux_cut]
         print(len(galaxy_table))
         print(galaxy_table[0:5])
     

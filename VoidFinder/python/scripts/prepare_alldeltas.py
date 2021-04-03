@@ -26,7 +26,8 @@ from os.path import isfile, join
 in_directory='/scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/'
 os.chdir(in_directory)
 #############################################################################
-#read_fits function reads the fits file, returns an astropy.Table with columns                                                                                                                             #ra, dec, z, deltas if the data is in the Stripe 82.
+#read_fits function reads the fits file, returns an astropy.Table with columns                                                                                                                             
+#ra, dec, z, deltas if the data is in the Stripe 82.
 #############################################################################
 
 def read_fits(namelist=('delta-100.fits')):
@@ -51,7 +52,7 @@ def read_fits(namelist=('delta-100.fits')):
         #print(len(data[1].data))
         
 
-        for hdu_num in range(1,len(data)-1):
+        for hdu_num in range(1,len(data)):
             lambda_obs=10**(Table(data[hdu_num].data)['LOGLAM'])
             #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                                                                                                     
             z_add=(lambda_obs-lambda_ref)/lambda_ref
@@ -137,7 +138,7 @@ prepared.add_column(DELTA)
 onlyfiles = [f for f in listdir(in_directory) if isfile(join(in_directory, f))]
 
 print(len(onlyfiles))
-onlyfiles.remove('prepared.fits')
+#onlyfiles.remove('prepared.fits')
 
 print(len(onlyfiles))
 
@@ -152,12 +153,12 @@ prepared=read_fits(onlyfiles)
  
 print('Necessary data calculated.')
 
-prepared.write('alldeltas.fits', format='fits', overwrite=True)
+prepared.write('alldeltas_fixed.fits', format='fits', overwrite=True)
 
 print('I have written the file.')
 
 
-filename='alldeltas.fits'
+filename='alldeltas_fixed.fits'
 
 data = fits.open(filename)
 print(data.info())
@@ -182,7 +183,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['ra'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'ra_distn_all.png')  
+plt.savefig(out_directory+'ra_distn_all_fixed.png')  
 
 
 plt.figure()
@@ -199,7 +200,7 @@ plt.ylabel(r'Number',fontsize=18)
 plt.hist(data[1].data['dec'], color='teal')
 plt.show()
 
-plt.savefig(out_directory+'dec_distn_all.png')
+plt.savefig(out_directory+'dec_distn_all_fixed.png')
 
 
 plt.figure()
@@ -214,7 +215,7 @@ plt.ylabel(r'DEC',fontsize=18)
 plt.scatter(data[1].data['ra'],data[1].data['dec'], color='teal', s=5, label='Stripe 82')
 plt.show()
 
-plt.savefig(out_directory+'ravsdec_all.png')
+plt.savefig(out_directory+'ravsdec_all_fixed.png')
 
 
 

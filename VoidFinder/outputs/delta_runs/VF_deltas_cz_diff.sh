@@ -3,12 +3,12 @@
 #SBATCH --job-name=deltafields_beforenames                                                                                                                                                                 
 #SBATCH --time=01:00:00                                                                                                                                                                                  
 #SBATCH --mail-type=ALL                                                                                                                                                                                    
-#SBATCH -o /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names.log                                                                                                                          
-#SBATCH -e /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names.err                                
+#SBATCH -o /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names_cz_diff.log                                                                                                                          
+#SBATCH -e /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names_cz_diff.err                                
                                                                                                                               
 
 echo 'Run VoidFinder on delta fields without filter and before name changes.'
-echo '200g 1d'
+echo '200g 1h'
 if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
 then
   echo "print =========================================="
@@ -20,7 +20,7 @@ hostname
 now=$(date)
 echo "Starting date: $now"
 module load anaconda3
-python /scratch/ierez/IGMCosmo/VoidFinder/python/scripts/VoidFinder_DR16_deltafields_fits.py
+python /scratch/ierez/IGMCosmo/VoidFinder/python/scripts/VoidFinder_DR16_deltafields_fits_diff.py
 echo 'Done :)'
 now=$(date)
 echo "Ending date: $now"

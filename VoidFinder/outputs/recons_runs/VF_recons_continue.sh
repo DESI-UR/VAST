@@ -1,10 +1,12 @@
 #!/bin/bash                                                                                                                   
 #SBATCH --mem=400G                                                                                                            
 #SBATCH --job-name=recons                                                                                                       
-#SBATCH --time=05-00:00:00                                                                                                    
+#SBATCH --time=05-00:00:00 
+
+#SBATCH -c 17                                                                                                   
 #SBATCH --mail-type=ALL                                                                                                       
-#SBATCH -o /scratch/ierez/IGMCosmo/VoidFinder/outputs/recons_runs/before_names.log                                
-#SBATCH -e /scratch/ierez/IGMCosmo/VoidFinder/outputs/recons_runs/before_names.err                                
+#SBATCH -o /scratch/ierez/IGMCosmo/VoidFinder/outputs/recons_runs/before_names_continue.log                                
+#SBATCH -e /scratch/ierez/IGMCosmo/VoidFinder/outputs/recons_runs/before_names_continue.err                                
                                                                                                                               
 
 echo 'Run VoidFinder on reconstructed maps with removed 0s  without filter and before name changes.'
@@ -20,7 +22,7 @@ hostname
 now=$(date)
 echo "Starting date: $now"
 module load anaconda3
-python /scratch/ierez/IGMCosmo/VoidFinder/python/scripts/VoidFinder_DR16_reconstructed_fits_beforenames.py
+python /scratch/ierez/IGMCosmo/VoidFinder/python/scripts/VF_DR16_continue.py
 echo 'Done :)'
 now=$(date)
 echo "Ending date: $now"

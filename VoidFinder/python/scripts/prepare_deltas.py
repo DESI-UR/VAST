@@ -42,7 +42,7 @@ def read_fits(namelist=('delta-100.fits')):
     ra_max=45
     dec_min=-1.25 # check that
     dec_max=1.25
-    lambda_ref= 1215.67 #angstrom, reference wavelength. This is the Lyman-alpha spectral line for H. 
+    lambda_ref= 1215.668 #angstrom, reference wavelength. This is the Lyman-alpha spectral line for H. 
     i=0
 
     for filename in namelist:
@@ -52,7 +52,7 @@ def read_fits(namelist=('delta-100.fits')):
         
         #print(len(data[1].data))
 
-        for hdu_num in range(1,len(data)-1):
+        for hdu_num in range(1,len(data)):
             if data[hdu_num].header['RA']*(180/np.pi) > 180:
                 data[hdu_num].header['RA']=data[hdu_num].header['RA']*(180/np.pi)-360
             else:
@@ -67,7 +67,7 @@ def read_fits(namelist=('delta-100.fits')):
                 lambda_obs=10**(Table(data[hdu_num].data)['LOGLAM'])
                 #lambda_rf=lambda_obs/((Table(data[0].data)['Z'][i]+1)                                                                        
                 data[hdu_num].header['RA']=data[hdu_num].header['RA']+90 #to make life easier for VF :)
-                data[hdu_num].header['DEC']=data[hdu_num].header['DEC']+90 #to make life happier for VF :)
+                #data[hdu_num].header['DEC']=data[hdu_num].header['DEC']+90 #not needed
 
                 z_add=(lambda_obs-lambda_ref)/lambda_ref
                 z.extend(z_add)
@@ -78,7 +78,7 @@ def read_fits(namelist=('delta-100.fits')):
     RA=Table.Column(ra, name='ra')
     DEC=Table.Column(dec, name='dec')
     Z=Table.Column(z, name='z')
-    DELTA=Table.Column(delta, name='deltas')
+    DELTA=Table.Column(delta, name='delta')
 
     calculated.add_column(RA)
     calculated.add_column(DEC)
@@ -88,9 +88,6 @@ def read_fits(namelist=('delta-100.fits')):
     return calculated
 
 
-
-
-#if satisfies the condition write to the file
 #lambda_obs=list() #observed wavelength. This is what we measure.
 #lambda_rf=list()  #wavelength in the rest frame, different from reference frame.
 #This is the wavelength in the rest frame of the observer so it depends on where the quasar is.
@@ -147,13 +144,11 @@ prepared.add_column(DELTA)
 '''
 
 
-
-
 onlyfiles = [f for f in listdir(in_directory) if isfile(join(in_directory, f))]
 
 print(len(onlyfiles))
-onlyfiles.remove('prepared.fits')
-onlyfiles.remove('alldeltas.fits')
+#onlyfiles.remove('prepared.fits')
+#onlyfiles.remove('alldeltas_fixed.fits')
 print(len(onlyfiles))
 
 
@@ -167,13 +162,13 @@ prepared=read_fits(onlyfiles)
  
 print('Necessary data calculated.')
 
-prepared.write('deltafields_added90.fits', format='fits', overwrite=True)
+prepared.write('deltafields_RAadded90.fits', format='fits', overwrite=True)
 
 print('I have written the file.')
+'''
 
-
-filename='deltafields_added90.fits'
-
+filename='deltafields_RAadded90.fits'
+out_directory="/scratch/ierez/IGMCosmo/VoidFinder/outputs/"
 data = fits.open(filename)
 print(data.info())
 print(data[0].header)  
@@ -182,41 +177,9 @@ print('This is the length of the merged S82 file.')
 print(len(data[1].data['ra']))
 
 
-out_directory="/scratch/ierez/IGMCosmo/VoidFinder/outputs/"
-
-plt.figure()
-plt.rc('text', usetex=False)
-plt.rc('font', family='serif')
-
-plt.grid(True,ls='-.',alpha=.4)
-plt.title(r'Histogram for RAs of Delta Fields',fontsize=16)
-plt.xlabel(r'RA',fontsize=14)
-plt.ylabel(r'Number',fontsize=18)
-
-#plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')                                                                         
-plt.hist(data[1].data['ra'], color='teal')
-plt.show()
-
-plt.savefig(out_directory+'ra_distn_giventoVF.png')  
-
-
-plt.figure()
-plt.rc('text', usetex=False)
-plt.rc('font', family='serif')
-
-plt.grid(True,ls='-.',alpha=.4)
-plt.title(r'Histogram for DECs of Delta Fields',fontsize=16)
-plt.xlabel(r'DEC',fontsize=14)
-plt.ylabel(r'Number',fontsize=18)
-
-#plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')                                                                        \
-                                                                                                                                                                                                            
-plt.hist(data[1].data['dec'], color='teal')
-plt.show()
-
-plt.savefig(out_directory+'dec_distn_giventoVF.png')
-
-
+#out_directory="/scratch/ierez/IGMCosmo/VoidFinder/outputs/"
+dpi=500
+mpl.rcParams['figure.dpi']= dpi
 plt.figure()
 plt.rc('text', usetex=False)
 plt.rc('font', family='serif')
@@ -226,12 +189,12 @@ plt.title(r'RA vs DEC of Delta Fields in S82',fontsize=16)
 plt.xlabel(r'RA',fontsize=14)
 plt.ylabel(r'DEC',fontsize=18)
 
-plt.scatter(data[1].data['ra'],data[1].data['dec'], color='teal', s=5, label='Stripe 82')
+plt.scatter(data[1].data['ra']-90,data[1].data['dec'], color='teal', s=5, label='Stripe 82')
 plt.show()
 
-plt.savefig(out_directory+'ravsdec_giventoVF.png')
+plt.savefig(out_directory+'footprint_S82deltaf.png')
 
-
+'''
 
 
 

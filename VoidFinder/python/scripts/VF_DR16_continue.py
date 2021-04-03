@@ -52,7 +52,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 1
+num_cpus = 16
 
 #-------------------------------------------------------------------------------
 survey_name = 'DR16_reconstructed_beforenames_'
@@ -65,7 +65,7 @@ out_directory = '/scratch/sbenzvi_lab/boss/dr16/reconstructed_maps/'
 # Input file name
 #galaxies_filename = 'data.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude
 #galaxies_filename = 'mini_data_reconstructed_removed.dat' 
-galaxies_filename ='map_reconstructed.fits'
+galaxies_filename ='data_reconstructed_random_without0s_shifted90.fits'
 #deltas_filename = 'vollim_dr7_cbp_102709.dat'  # File format: RA, dec, redshift, comoving distance, absolute magnitude  
 #-------------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ flux_cut =None
 #rm_isolated = False
 #-------------------------------------------------------------------------------
 
-
+'''
 
 
 ################################################################################
@@ -144,12 +144,12 @@ temp_outfile.close()
 #   FILTER GALAXIES
 #
 ################################################################################
-
+'''
 
 temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
-
+'''
 print("This is the length of data before filter:")
 print(len(galaxy_data_table))
 
@@ -180,12 +180,18 @@ temp_outfile.close()
 #
 ################################################################################
 
-
+'''
 temp_infile = open(survey_name + "filter_galaxies_output.pickle", 'rb')
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = pickle.load(temp_infile)
 temp_infile.close()
 
 
+dist_limits = [3677.9224, 4513.124]
+dist_metric = 'comoving'
+out1_suffix = '_' + dist_metric + '_maximal_noFiltering.txt'
+out2_suffix = '_' + dist_metric + 'holes_noFiltering.txt'
+out1_filename = out_directory + galaxies_filename[:-4] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec                                                 
+out2_filename = out_directory + galaxies_filename[:-4] + out2_suffix
 
 find_voids(wall_coords_xyz, 
            dist_limits,
@@ -194,8 +200,8 @@ find_voids(wall_coords_xyz,
            coords_min,
            hole_grid_shape,
            survey_name,
-           save_after=50000,
-           use_start_checkpoint=True,
+           save_after=100000,
+           #use_start_checkpoint=True,
            hole_grid_edge_length=5.0,
            galaxy_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,

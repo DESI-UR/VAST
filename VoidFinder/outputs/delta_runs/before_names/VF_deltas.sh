@@ -3,12 +3,12 @@
 #SBATCH --job-name=deltafields_beforenames                                                                                                                                                                 
 #SBATCH --time=01:00:00                                                                                                                                                                                  
 #SBATCH --mail-type=ALL                                                                                                                                                                                    
-#SBATCH -o /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names.log                                                                                                                          
-#SBATCH -e /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names.err                                
+#SBATCH -o /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names/before_names.log                                                                                                                          
+#SBATCH -e /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names/before_names.err                                
                                                                                                                               
 
 echo 'Run VoidFinder on delta fields without filter and before name changes.'
-echo '200g 1d'
+echo '200g 1h'
 if [ X"$SLURM_STEP_ID" = "X" -a X"$SLURM_PROCID" = "X"0 ]
 then
   echo "print =========================================="
