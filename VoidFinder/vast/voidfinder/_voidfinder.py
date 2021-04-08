@@ -35,7 +35,8 @@ from ._voidfinder_cython_find_next import GalaxyMap, \
                                           Cell_ID_Memory, \
                                           GalaxyMapCustomDict, \
                                           HoleGridCustomDict, \
-                                          NeighborMemory
+                                          NeighborMemory, \
+                                          MaskChecker
 
 
 
@@ -67,12 +68,14 @@ def _hole_finder(hole_grid_shape,
                  hole_center_iter_dist,
                  galaxy_map_grid_edge_length,
                  coord_min, 
-                 mask,
-                 mask_resolution,
-                 min_dist,
-                 max_dist,
                  galaxy_coords,
                  survey_name,
+                 mask_mode=0,
+                 mask=None,
+                 mask_resolution=None,
+                 min_dist=None,
+                 max_dist=None,
+                 xyz_limits=None,
                  #hole_radial_mask_check_dist,
                  save_after=None,
                  use_start_checkpoint=False,
@@ -177,8 +180,8 @@ def _hole_finder(hole_grid_shape,
         number of cpus to use while running the main algorithm.  None will 
         result in using number of physical cores on the machine.  Some speedup 
         benefit may be obtained from using additional logical cores via Intel 
-        Hyperthreading but with diminishing returns.  This can safely be set 
-        above the number of physical cores without issue if desired.
+        Hyperthreading but with diminishing returns based on some basic
+        spot testing
     
     
     
@@ -234,9 +237,6 @@ def _hole_finder(hole_grid_shape,
     exit()
     '''
 
-
-
-
     ############################################################################
     # Run single or multi-processed
     ############################################################################
@@ -275,12 +275,14 @@ def _hole_finder(hole_grid_shape,
                                                             hole_center_iter_dist,
                                                             galaxy_map_grid_edge_length,
                                                             coord_min, 
-                                                            mask,
-                                                            mask_resolution,
-                                                            min_dist,
-                                                            max_dist,
                                                             galaxy_coords,
                                                             survey_name,
+                                                            mask_mode=mask_mode,
+                                                            mask=mask,
+                                                            mask_resolution=mask_resolution,
+                                                            min_dist=min_dist,
+                                                            max_dist=max_dist,
+                                                            xyz_limits=xyz_limits,
                                                             #hole_radial_mask_check_dist,
                                                             save_after=save_after,
                                                             use_start_checkpoint=use_start_checkpoint,
@@ -865,12 +867,14 @@ def _hole_finder_multi_process(ngrid,
                                dr,
                                search_grid_edge_length,
                                coord_min, 
-                               mask,
-                               mask_resolution,
-                               min_dist,
-                               max_dist,
                                w_coord,
                                survey_name,
+                               mask_mode=0,
+                               mask=None,
+                               mask_resolution=None,
+                               min_dist=None,
+                               max_dist=None,
+                               xyz_limits=None,
                                #hole_radial_mask_check_dist,
                                batch_size=1000,
                                verbose=0,
@@ -938,6 +942,24 @@ def _hole_finder_multi_process(ngrid,
     
     
     """
+    
+    
+    #print("_hole_finder_mult mask_mode: ", mask_mode, xyz_limits)
+    
+    if mask_mode == 0:
+        if mask is None or \
+           mask_resolution is None or \
+           min_dist is None or \
+           max_dist is None:
+            raise ValueError("Mask mode is 0 (ra-dec-z) but a required mask parameter is None")
+    
+    if mask_mode == 1 and xyz_limits is None:
+        raise ValueError("Mask mode is 1 (xyz) but required mask parameter xyz_limits is None")
+       
+    
+    if mask_mode == 0:
+        
+        mask = mask.astype(np.uint8)
     
     
     ############################################################################
@@ -1502,7 +1524,9 @@ def _hole_finder_multi_process(ngrid,
                      "dl" : dl, 
                      "dr" : dr,
                      "coord_min" : coord_min, 
-                     "mask" : mask.astype(np.uint8),
+                     "mask_mode" : mask_mode,
+                     "xyz_limits" : xyz_limits,
+                     "mask" : mask,
                      "mask_resolution" : mask_resolution,
                      "min_dist" : min_dist,
                      "max_dist" : max_dist,
@@ -2267,10 +2291,12 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     dl = config["dl"]
     dr = config["dr"]
     coord_min = config["coord_min"]
+    mask_mode = config["mask_mode"]
     mask = config["mask"]
     mask_resolution = config["mask_resolution"]
     min_dist = config["min_dist"]
     max_dist = config["max_dist"]
+    xyz_limits = config["xyz_limits"]
     batch_size = config["batch_size"]
     verbose = config["verbose"]
     print_after = config["print_after"]
@@ -2463,6 +2489,27 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                   ngrid[1],
                                   ngrid[2],
                                   hole_cell_ID_dict)
+    ############################################################################
+
+
+
+
+    ############################################################################
+    # Build class to help process mask checks
+    #---------------------------------------------------------------------------
+    #mask_mode = 0
+    
+    if mask_mode == 0:
+        mask_checker = MaskChecker(mask_mode,
+                                   survey_mask_ra_dec=mask,
+                                   n=mask_resolution,
+                                   rmin=min_dist,
+                                   rmax=max_dist,
+                                   )
+        
+    elif mask_mode == 1:
+        mask_checker = MaskChecker(mask_mode,
+                                   xyz_limits=xyz_limits)
     ############################################################################
 
 
@@ -2659,10 +2706,11 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                dl, 
                                dr,
                                coord_min,
-                               mask,
-                               mask_resolution,
-                               min_dist,
-                               max_dist,
+                               mask_checker,
+                               #mask,
+                               #mask_resolution,
+                               #min_dist,
+                               #max_dist,
                                #hole_radial_mask_check_dist,
                                return_array,
                                cell_ID_mem,

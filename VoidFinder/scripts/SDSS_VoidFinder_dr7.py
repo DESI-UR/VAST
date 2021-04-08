@@ -176,12 +176,15 @@ temp_infile.close()
 
 
 find_voids(wall_coords_xyz, 
-           dist_limits,
-           mask, 
-           mask_resolution,
            coords_min,
            hole_grid_shape,
            survey_name,
+           mask_type='ra_dec_z',
+           mask=mask, 
+           mask_resolution=mask_resolution,
+           min_dist=dist_limits[0],
+           max_dist=dist_limits[1],
+           xyz_limits=None,
            #save_after=50000,
            #use_start_checkpoint=True,
            #hole_grid_edge_length=5.0,

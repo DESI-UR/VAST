@@ -36,6 +36,8 @@ from .constants import c
 
 from ._voidfinder_cython import check_mask_overlap
 
+from ._voidfinder_cython_find_next import MaskChecker
+
 
 ################################################################################
 DtoR = np.pi/180.
@@ -177,8 +179,8 @@ def filter_galaxies(galaxy_table,
     ############################################################################
     # Grid shape
     #---------------------------------------------------------------------------
-    hole_grid_shape, coords_min = calculate_grid(coords_xyz,
-                                                 hole_grid_edge_length)
+    hole_grid_shape, coords_min, coords_max = calculate_grid(coords_xyz,
+                                                             hole_grid_edge_length)
     ############################################################################
 
 
@@ -378,7 +380,7 @@ def calculate_grid(galaxy_coords_xyz,
     
     hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
     
-    return hole_grid_shape, coords_min
+    return hole_grid_shape, coords_min, coords_max
     
     
 
@@ -492,12 +494,15 @@ def wall_field_separation(galaxy_coords_xyz,
 
 
 def find_voids(galaxy_coords_xyz,
-               dist_limits,
-               mask, 
-               mask_resolution,
                coords_min,
                hole_grid_shape,
                survey_name,
+               mask_type='ra_dec_z',
+               mask=None, 
+               mask_resolution=None,
+               min_dist=None,
+               max_dist=None,
+               xyz_limits=None,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
                galaxy_map_grid_edge_length=None,
@@ -609,10 +614,26 @@ def find_voids(galaxy_coords_xyz,
     galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
         coordinates of the galaxies in the survey, units of Mpc/h 
         (xyz space)
+        
+    mask_type : string, 'ra_dec_z' or 'xyz'
+        Determines the mode of mask checking to use and what mask parameters
+        to use.  ra_dec_z means the mask, mask_resolution, and dist_limits parameters
+        will be provided representing an angular `mask` in Right Ascension and Declination
+        and a corresponding mask_resolution integer, as well as dist_limits representing
+        the min and max redshift values represented as radial distances in the xyz space
+        
+        'xyz' means that the xyz_limits parameter will be provided which directly encodes
+        a bounding box for the survey in xyz space
+        
     
     dist_limits : numpy array of shape (2,)
         minimum and maximum distance limit of the survey in units of Mpc/h 
         (xyz space)
+        
+    xyz_limits : numpy array of shape (2,3)
+        format [x_min, y_min, z_min]
+               [x_max, y_max, z_max]
+        to be used for checking against the mask when mask_type == 'xyz'
         
     mask : numpy.ndarray of shape (N,M) type bool
         represents the survey footprint in scaled ra/dec space.  Value of True 
@@ -720,8 +741,18 @@ def find_voids(galaxy_coords_xyz,
     
     """
     
-    print('Growing holes', flush=True)
     
+    if mask_type == "ra_dec_z":
+        mask_mode = 0
+    elif mask_type == "xyz":
+        mask_mode = 1
+    else:
+        raise ValueError("mask_type must be 'ra_dec_z' or 'xyz'")
+    
+    
+    
+    print('Growing holes', flush=True)
+        
     ############################################################################
     # GROW HOLES
     #---------------------------------------------------------------------------
@@ -736,12 +767,18 @@ def find_voids(galaxy_coords_xyz,
                                           hole_center_iter_dist,
                                           galaxy_map_grid_edge_length,
                                           coords_min.reshape(1,3),
-                                          mask,
-                                          mask_resolution,
-                                          dist_limits[0],
-                                          dist_limits[1],
+                                          #mask,
+                                          #mask_resolution,
+                                          #dist_limits[0],
+                                          #dist_limits[1],
                                           galaxy_coords_xyz,
                                           survey_name,
+                                          mask_mode=mask_mode,
+                                          mask=mask,
+                                          mask_resolution=mask_resolution,
+                                          min_dist=min_dist,
+                                          max_dist=max_dist,
+                                          xyz_limits=xyz_limits,
                                           #radial_mask_check,
                                           save_after=save_after,
                                           use_start_checkpoint=use_start_checkpoint,
@@ -757,6 +794,24 @@ def find_voids(galaxy_coords_xyz,
     ############################################################################
 
 
+
+
+    if mask_mode == 0:
+        mask_checker = MaskChecker(mask_mode,
+                                   survey_mask_ra_dec=mask.astype(np.uint8),
+                                   n=mask_resolution,
+                                   rmin=min_dist,
+                                   rmax=max_dist,
+                                   )
+        
+    elif mask_mode == 1:
+        mask_checker = MaskChecker(mask_mode,
+                                   xyz_limits=xyz_limits)
+
+
+
+
+
     
     ############################################################################
     # CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
@@ -766,14 +821,12 @@ def find_voids(galaxy_coords_xyz,
     vol_cut_start = time.time()
     
     valid_idx, monte_index = check_hole_bounds(x_y_z_r_array, 
-                                              mask.astype(np.uint8), 
-                                              mask_resolution, 
-                                              dist_limits,
-                                              cut_pct=0.1,
-                                              pts_per_unit_volume=.01,
-                                              num_surf_pts=20,
-                                              num_cpus=num_cpus,
-                                              verbose=verbose)
+                                               mask_checker,
+                                               cut_pct=0.1,
+                                               pts_per_unit_volume=.01,
+                                               num_surf_pts=20,
+                                               num_cpus=num_cpus,
+                                               verbose=verbose)
     
     print("Found ", np.sum(np.logical_not(valid_idx)), "holes to cut", 
           time.time() - vol_cut_start, flush=True)
