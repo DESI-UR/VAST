@@ -13,7 +13,7 @@ maskdec = 180
 dec_offset = -90
 
 
-def generate_mask(gal_data, 
+def generate_mask(data, 
                   dist_metric='comoving',
                   smooth_mask=True,
                   h=1.0, 
@@ -37,8 +37,8 @@ def generate_mask(gal_data,
     Parameters:
     ===========
 
-    galaxy_data : astropy table
-        Table of all galaxies in sample
+    data : astropy table
+        Table of all data in sample
         Ra and Dec must be given in degrees
         Ra can be in either -180 to 180 or 0 to 360 format
         Dec must be in -90 to 90 format since the code below subtracts
@@ -77,7 +77,7 @@ def generate_mask(gal_data,
     
     ###########################################################################
     # First, extract the ra (Right Ascension) and dec (Declination) coordinates
-    # of our galaxies from the astropy table.  Make a big (N,2) numpy array
+    # of our data from the astropy table.  Make a big (N,2) numpy array
     # where each row of the array is the (ra, dec) pair corresponding to
     # a galaxy in the survey.
     #
@@ -85,20 +85,20 @@ def generate_mask(gal_data,
     # [-180, 180)
     ###########################################################################
 
-    ra  = gal_data['ra'].data % 360.0
+    ra  = data['ra'].data % 360.0
     
-    dec = gal_data['dec'].data 
+    dec = data['dec'].data 
     
-    #r = gal_data["Rgal"].data 
+    #r = data["Rgal"].data 
     if dist_metric == 'comoving':
-        r = gal_data['Rgal'].data
+        r = data['Rgal'].data
     else:
-        r = c*gal_data['z'].data/(100*h)
-    num_galaxies = ra.shape[0]
+        r = c*data['z'].data/(100*h)
+    num_data = ra.shape[0]
 
     #ang = np.array(list(zip(ra,dec)))
     #this is almost 70x faster than list(zip())
-    ang = np.concatenate((ra.reshape(num_galaxies, 1), dec.reshape(num_galaxies,1)), axis=1)
+    ang = np.concatenate((ra.reshape(num_data, 1), dec.reshape(num_data,1)), axis=1)
 
 
 

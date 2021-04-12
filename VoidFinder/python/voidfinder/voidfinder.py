@@ -13,12 +13,12 @@ import matplotlib.pyplot as plt
 
 from .hole_combine import combine_holes, combine_holes_2
 
-from .voidfinder_functions import mesh_galaxies, \
+from .voidfinder_functions import mesh_data, \
                                   in_mask, \
                                   not_in_mask, \
                                   in_survey, \
                                   save_maximals, \
-                                  mesh_galaxies_dict
+                                  mesh_data_dict
                                   #build_mask, \
 
 from .table_functions import add_row, \
@@ -32,7 +32,7 @@ from .volume_cut import volume_cut, check_hole_bounds
 
 from .avsepcalc import av_sep_calc
 
-from .mag_cutoff_function import mag_cut, field_gal_cut
+from .mag_cutoff_function import mag_cut, field_data_cut
 
 from ._voidfinder import _hole_finder
 
@@ -42,7 +42,7 @@ from ._voidfinder_cython import check_mask_overlap
 
 
 ################################################################################
-# I made these constants into default parameters in filter_galaxies() and 
+# I made these constants into default parameters in filter_data() and 
 # find_voids() because a user may wish to try different grid spacings and such.  
 # I left DtoR and RtoD because they will never ever change since they're based 
 # on pi.
@@ -56,7 +56,7 @@ RtoD = 180./np.pi
 
 
 
-def filter_data(galaxy_table,
+def filter_data(data_table,
                     survey_name, 
                     mag_cut=True,
                     flux_cut=None, 
@@ -78,17 +78,17 @@ def filter_data(galaxy_table,
     1). Optional magnitude cut
     2). Convert from ra-dec-redshift space into xyz space
     3). Calculate the hole search grid shape
-    4). Optional remove isolated galaxies by partitioning them into wall (non-isolated)
+    4). Optional remove isolated data by partitioning them into wall (non-isolated)
             and field (isolated) groups
-    5). Optionally write out the wall and field galaxies to disk
+    5). Optionally write out the wall and field data to disk
     
     
     Parameters
     ==========
     
-    galaxy_table : astropy.table of shape (N,?)
+    data_table : astropy.table of shape (N,?)
         variable number of required columns.  If doing magnitude cut, must include
-        'rabsmag' column. If distance metric is 'comoving', must include 'Rgal'
+        'rabsmag' column. If distance metric is 'comoving', must include 'Rdist'
         column, otherwise must include 'redshift'.  Also must always include 'ra' 
         and 'dec'
         
@@ -106,14 +106,14 @@ def filter_data(galaxy_table,
         
     rm_isolated_flag : bool
         whether or not to perform Nth neighbor distance calculation, and use it
-        to partition the input galaxies into wall and field galaxies
+        to partition the input data into wall and field data
         
     write_table : bool
-        use astropy.table.Table.write to write out the wall and field galaxies
+        use astropy.table.Table.write to write out the wall and field data
         to file
         
     sep_neighbor : int, positive
-        if rm_isolated_flag is true, find the Nth galaxy neighbors based on this value
+        if rm_isolated_flag is true, find the Nth data neighbors based on this value
         
     distance_metric : str
         Distance metric to use in calculations.  Options are 'comoving' 
@@ -134,11 +134,11 @@ def filter_data(galaxy_table,
     Returns
     =======
     
-    wall_gals_xyz : numpy.ndarray of shape (K,3)
-        the galaxies which were designated not to be isolated
+    wall_data_xyz : numpy.ndarray of shape (K,3)
+        the data which were designated not to be isolated
     
-    field_gals_xyz : numpy.ndarray of shape (L,3)
-        the galaxies designated as isolated
+    field_data_xyz : numpy.ndarray of shape (L,3)
+        the data designated as isolated
     
     hole_grid_shape : tuple of 3 integers (i,j,k)
         shape of the hole search grid
@@ -157,26 +157,26 @@ def filter_data(galaxy_table,
     #
     ################################################################################
     if verbose > 0:
-        print('Filter Galaxies Start', flush=True)
+        print('Filter Data Start', flush=True)
 
     # Remove faint galaxies
     
     mag_cut_flag=True 
     if mag_cut:
         
-        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < magnitude_limit]
+        data_table = data_table[data_table['rabsmag'] < magnitude_limit]
     
     if flux_cut is None:
         print('No filter is applied on transmission flux rate.')
     else:
         print('Filter is applied on transmission flux rate.')
         print(flux_cut)
-        galaxy_table = galaxy_table[galaxy_table['delta'] < flux_cut]
-        print(len(galaxy_table))
+        data_table = data_table[data_table['delta'] < flux_cut]
+        print(len(data_table))
         
 
  
-    coords_xyz = ra_dec_to_xyz(galaxy_table,
+    coords_xyz = ra_dec_to_xyz(data_table,
                                distance_metric,
                                h)
     
@@ -197,15 +197,15 @@ def filter_data(galaxy_table,
     
     if rm_isolated_flag:
         
-        wall_gals_xyz, field_gals_xyz = wall_field_separation(coords_xyz,
+        wall_data_xyz, field_data_xyz = wall_field_separation(coords_xyz,
                                                               sep_neighbor=sep_neighbor,
                                                               verbose=verbose)
 
     else:
         
-        wall_gals_xyz = coords_xyz
+        wall_data_xyz = coords_xyz
         
-        field_gals_xyz = np.array([])
+        field_data_xyz = np.array([])
 
     ################################################################################
     #
@@ -219,14 +219,14 @@ def filter_data(galaxy_table,
         write_start = time.time()
         
     
-        wall_xyz_table = Table(data=wall_gals_xyz, names=["x", "y", "z"])
+        wall_xyz_table = Table(data=wall_data_xyz, names=["x", "y", "z"])
         
-        wall_xyz_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
+        wall_xyz_table.write(survey_name + 'wall_data_file.txt', format='ascii.commented_header', overwrite=True)
     
         
-        field_xyz_table = Table(data=field_gals_xyz, names=["x", "y", "z"])
+        field_xyz_table = Table(data=field_data_xyz, names=["x", "y", "z"])
     
-        field_xyz_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
+        field_xyz_table.write(survey_name + 'field_data_file.txt', format='ascii.commented_header', overwrite=True)
         
         
         if verbose > 0:
@@ -234,20 +234,20 @@ def filter_data(galaxy_table,
             print("Time to write field and wall tables: ", time.time() - write_start, flush=True)
 
 
-    nf =  len(field_gals_xyz)
+    nf =  len(field_data_xyz)
     
-    nwall = len(wall_gals_xyz)
+    nwall = len(wall_data_xyz)
     
     if verbose > 0:
         
         print('Number of field objects:', nf, 'Number of wall objects:', nwall, flush=True)
 
-    return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
+    return wall_data_xyz, field_data_xyz, hole_grid_shape, coords_min
 
 
 
 
-def filter_flux(galaxy_table,
+def filter_flux(data_table,
                     survey_name,
                     mag_cut_flag=True,
                     flux_cut=None,
@@ -269,15 +269,15 @@ def filter_flux(galaxy_table,
     1). Optional magnitude cut
     2). Convert from ra-dec-redshift space into xyz space
     3). Calculate the hole search grid shape
-    4). Optional remove isolated galaxies by partitioning them into wall (non-isolated)
+    4). Optional remove isolated data by partitioning them into wall (non-isolated)
             and field (isolated) groups
-    5). Optionally write out the wall and field galaxies to disk
+    5). Optionally write out the wall and field data to disk
     Parameters
     ==========
 
-    galaxy_table : astropy.table of shape (N,?)
+    data_table : astropy.table of shape (N,?)
         variable number of required columns.  If doing magnitude cut, must include
-        'rabsmag' column. If distance metric is 'comoving', must include 'Rgal'
+        'rabsmag' column. If distance metric is 'comoving', must include 'Rdist'
         column, otherwise must include 'redshift'.  Also must always include 'ra'
         and 'dec'
 
@@ -295,14 +295,14 @@ def filter_flux(galaxy_table,
 
     rm_isolated_flag : bool
         whether or not to perform Nth neighbor distance calculation, and use it
-        to partition the input galaxies into wall and field galaxies
+        to partition the input data into wall and field data
 
     write_table : bool
-        use astropy.table.Table.write to write out the wall and field galaxies
+        use astropy.table.Table.write to write out the wall and field data
         to file
 
     sep_neighbor : int, positive
-        if rm_isolated_flag is true, find the Nth galaxy neighbors based on this value
+        if rm_isolated_flag is true, find the Nth data neighbors based on this value
 
     distance_metric : str
         Distance metric to use in calculations.  Options are 'comoving'
@@ -322,11 +322,11 @@ def filter_flux(galaxy_table,
      Returns
     =======
 
-    wall_gals_xyz : numpy.ndarray of shape (K,3)
-        the galaxies which were designated not to be isolated
+    wall_data_xyz : numpy.ndarray of shape (K,3)
+        the data which were designated not to be isolated
 
-    field_gals_xyz : numpy.ndarray of shape (L,3)
-        the galaxies designated as isolated
+    field_data_xyz : numpy.ndarray of shape (L,3)
+        the data designated as isolated
 
     hole_grid_shape : tuple of 3 integers (i,j,k)
         shape of the hole search grid
@@ -346,17 +346,17 @@ def filter_flux(galaxy_table,
     ################################################################################
     # mag_cut_flag=False #I have added because seems like it doesn't see it.
     if verbose > 0:
-        print('Filter Galaxies Start', flush=True)
+        print('Filter data Start', flush=True)
 
     # Remove faint galaxies
-    print(len(galaxy_table))
+    print(len(data_table))
     print(mag_cut_flag) 
 
     if mag_cut_flag:
-        galaxy_table = galaxy_table[galaxy_table['rabsmag'] < magnitude_limit]
+        data_table = data_table[data_table['rabsmag'] < magnitude_limit]
     
-    print(galaxy_table)
-    coords_xyz = ra_dec_to_xyz(galaxy_table,
+    print(data_table)
+    coords_xyz = ra_dec_to_xyz(data_table,
                                distance_metric,
                                h)
 
@@ -368,8 +368,8 @@ def filter_flux(galaxy_table,
     if verbose > 0:
         print('Filter Transmitted Flux Density Start', flush=True)
     
-    print(galaxy_table[0:5])
-    print(galaxy_table['rabsmag'][0:5])
+    print(data_table[0:5])
+    print(data_table['rabsmag'][0:5])
     # Remove ?tomographic maps                                                                                                                                                                             
     #Plot the hoistogram for all of the data without cut
     plt.figure()
@@ -381,20 +381,20 @@ def filter_flux(galaxy_table,
     plt.xlabel(r'Flux Contrast $\delta$',fontsize=14)
     plt.ylabel(r'Number',fontsize=18)
 
-    # plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')
-    plt.hist(galaxy_table['rabsmag'])  #, color='teal') 
+    # plt.hist(data_table['rabsmag'] ,bins=range(min(data_table['rabsmag']), max(data_table['rabsmag']) + 0.1, 0.1), color='teal')
+    plt.hist(data_table['rabsmag'])  #, color='teal') 
     #plt.show()
-    plt.savefig('galaxy-original.png')
-    print(len(galaxy_table))
+    plt.savefig('data-original.png')
+    print(len(data_table))
     
     if flux_cut is None:
         print('No filter is applied on transmission flux rate.')
     else:
         print('Filter is applied on transmission flux rate.')
         print(flux_cut)
-        galaxy_table = galaxy_table[galaxy_table['delta'] < flux_cut]
-        print(len(galaxy_table))
-        print(galaxy_table[0:5])
+        data_table = data_table[data_table['delta'] < flux_cut]
+        print(len(data_table))
+        print(data_table[0:5])
     
     plt.figure()
     plt.rc('text', usetex=False)
@@ -405,12 +405,12 @@ def filter_flux(galaxy_table,
     plt.xlabel(r'Flux Contrast $\delta$',fontsize=14)
     plt.ylabel(r'Number',fontsize=18)
 
-    # plt.hist(galaxy_table['rabsmag'] ,bins=range(min(galaxy_table['rabsmag']), max(galaxy_table['rabsmag']) + 0.1, 0.1), color='teal')                                                                    
-    plt.hist(galaxy_table['rabsmag'])  #, color='teal')                                                                                                                                                     
+    # plt.hist(data_table['rabsmag'] ,bins=range(min(data_table['rabsmag']), max(data_table['rabsmag']) + 0.1, 0.1), color='teal')                                                                    
+    plt.hist(data_table['rabsmag'])  #, color='teal')                                                                                                                                                     
     #plt.show()                                                                                                                                                                                                
-    plt.savefig('galaxy-cut.png')
+    plt.savefig('data-cut.png')
 
-    coords_xyz = ra_dec_to_xyz(galaxy_table,
+    coords_xyz = ra_dec_to_xyz(data_table,
                                distance_metric,
                                h)
 
@@ -432,15 +432,15 @@ def filter_flux(galaxy_table,
 
     if rm_isolated_flag:
 
-        wall_gals_xyz, field_gals_xyz = wall_field_separation(coords_xyz,
+        wall_data_xyz, field_data_xyz = wall_field_separation(coords_xyz,
                                                               sep_neighbor=sep_neighbor,
                                                               verbose=verbose)
 
     else:
 
-        wall_gals_xyz = coords_xyz
+        wall_data_xyz = coords_xyz
 
-        field_gals_xyz = np.array([])
+        field_data_xyz = np.array([])
 
 
     ################################################################################
@@ -455,14 +455,14 @@ def filter_flux(galaxy_table,
         write_start = time.time()
 
 
-        wall_xyz_table = Table(data=wall_gals_xyz, names=["x", "y", "z"])
+        wall_xyz_table = Table(data=wall_data_xyz, names=["x", "y", "z"])
 
-        wall_xyz_table.write(survey_name + 'wall_gal_file.txt', format='ascii.commented_header', overwrite=True)
+        wall_xyz_table.write(survey_name + 'wall_data_file.txt', format='ascii.commented_header', overwrite=True)
 
 
-        field_xyz_table = Table(data=field_gals_xyz, names=["x", "y", "z"])
+        field_xyz_table = Table(data=field_data_xyz, names=["x", "y", "z"])
 
-        field_xyz_table.write(survey_name + 'field_gal_file.txt', format='ascii.commented_header', overwrite=True)
+        field_xyz_table.write(survey_name + 'field_data_file.txt', format='ascii.commented_header', overwrite=True)
 
 
         if verbose > 0:
@@ -470,17 +470,15 @@ def filter_flux(galaxy_table,
             print("Time to write field and wall tables: ", time.time() - write_start, flush=True)
 
 
-    nf =  len(field_gals_xyz)
+    nf =  len(field_data_xyz)
 
-    nwall = len(wall_gals_xyz)
+    nwall = len(wall_data_xyz)
 
     if verbose > 0:
 
-        print('Number of field gals:', nf, 'Number of wall gals:', nwall, flush=True)
+        print('Number of field data:', nf, 'Number of wall data:', nwall, flush=True)
 
-    return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
-
-
+    return wall_data_xyz, field_data_xyz, hole_grid_shape, coords_min
 
 
 
@@ -488,7 +486,9 @@ def filter_flux(galaxy_table,
 
 
 
-def ra_dec_to_xyz(galaxy_table,
+
+
+def ra_dec_to_xyz(data_table,
                   distance_metric='comoving',
                   h=1.0,
                   ):
@@ -496,14 +496,14 @@ def ra_dec_to_xyz(galaxy_table,
     Description
     ===========
     
-    Convert galaxy coordinates from ra-dec-redshift space into xyz space.
+    Convert data coordinates from ra-dec-redshift space into xyz space.
     
     
     Parameters
     ==========
     
-    galaxy_table : astropy.table of shape (N,?)
-        must contain columns 'ra' and 'dec' in degrees, and either 'Rgal' in who knows
+    data_table : astropy.table of shape (N,?)
+        must contain columns 'ra' and 'dec' in degrees, and either 'Rdist' in who knows
         what unit if distance_metric is 'comoving' or 'redshift' for everything else
         
     distance_metric : str
@@ -520,22 +520,22 @@ def ra_dec_to_xyz(galaxy_table,
     =======
     
     coords_xyz : numpy.ndarray of shape (N,3)
-        values of the galaxies in xyz space
+        values of the data in xyz space
     """
     
     
     if distance_metric == 'comoving':
         
-        r_gal = galaxy_table['Rgal'].data
+        r_data = data_table['Rdist'].data
         
     else:
         
-        r_gal = c*galaxy_table['z'].data/(100*h)
+        r_data = c*data_table['z'].data/(100*h)
         
         
-    ra = galaxy_table['ra'].data
+    ra = data_table['ra'].data
     
-    dec = galaxy_table['dec'].data
+    dec = data_table['dec'].data
     
     ################################################################################
     # Convert from ra-dec-radius space to xyz space
@@ -545,17 +545,17 @@ def ra_dec_to_xyz(galaxy_table,
     
     dec_radian = dec*DtoR
     
-    x = r_gal*np.cos(ra_radian)*np.cos(dec_radian)
+    x = r_data*np.cos(ra_radian)*np.cos(dec_radian)
     
-    y = r_gal*np.sin(ra_radian)*np.cos(dec_radian)
+    y = r_data*np.sin(ra_radian)*np.cos(dec_radian)
     
-    z = r_gal*np.sin(dec_radian)
+    z = r_data*np.sin(dec_radian)
     
-    num_gal = x.shape[0]
+    num_data = x.shape[0]
     
-    coords_xyz = np.concatenate((x.reshape(num_gal,1),
-                                 y.reshape(num_gal,1),
-                                 z.reshape(num_gal,1)), axis=1)
+    coords_xyz = np.concatenate((x.reshape(num_data,1),
+                                 y.reshape(num_data,1),
+                                 z.reshape(num_data,1)), axis=1)
     
     return coords_xyz
 
@@ -565,13 +565,13 @@ def ra_dec_to_xyz(galaxy_table,
 
 
 
-def calculate_grid(galaxy_coords_xyz,
+def calculate_grid(data_coords_xyz,
                    hole_grid_edge_length):
     """
     Description
     ===========
     
-    Given a galaxy survey in xyz/Cartesian coordinates and the length
+    Given a data survey in xyz/Cartesian coordinates and the length
     of a cubical grid cell, calculate the cubical grid shape which will
     contain the survey.
     
@@ -588,8 +588,8 @@ def calculate_grid(galaxy_coords_xyz,
     Parameters
     ==========
     
-    galaxy_coords_xyz : numpy.ndarray of shape (N,3)
-        coordinates of survey galaxies in xyz space
+    data_coords_xyz : numpy.ndarray of shape (N,3)
+        coordinates of survey data in xyz space
         
     hole_grid_edge_length : float
         length in xyz space of the edge of 1 cubical cell in the grid
@@ -607,9 +607,9 @@ def calculate_grid(galaxy_coords_xyz,
     """
     
     
-    coords_max = np.max(galaxy_coords_xyz, axis=0)
+    coords_max = np.max(data_coords_xyz, axis=0)
     
-    coords_min = np.min(galaxy_coords_xyz, axis=0)
+    coords_min = np.min(data_coords_xyz, axis=0)
     
     box = coords_max - coords_min
 
@@ -623,18 +623,18 @@ def calculate_grid(galaxy_coords_xyz,
     
     
 
-def wall_field_separation(galaxy_coords_xyz,
+def wall_field_separation(data_coords_xyz,
                           sep_neighbor=3,
                           verbose=0):
     """
     Description
     ===========
     
-    Given a set of galaxy coordinates in xyz space, find all the galaxies whose
-    distance to their Nth nearest neighbor is above or below some limit.  Galaxies
-    whose Nth nearest neighbor is close (below), will become 'wall' galaxies, and
-    galaxies whose Nth nearest neighbor is far (above) will become field/void/isolated
-    galaxies.
+    Given a set of data coordinates in xyz space, find all the data whose
+    distance to their Nth nearest neighbor is above or below some limit.  Data
+    whose Nth nearest neighbor is close (below), will become 'wall' data, and
+    data whose Nth nearest neighbor is far (above) will become field/void/isolated
+    data.
     
     The distance limit used below is the mean distance to Nth nearest neighbor plus
     1.5 times the standard deviation of the Nth nearest neighbor distance.
@@ -643,8 +643,8 @@ def wall_field_separation(galaxy_coords_xyz,
     Parameters
     ==========
     
-    galaxy_coords_xyz : numpy.ndarray of shape (N,3)
-        coordinates in xyz space of the galaxies
+    data_coords_xyz : numpy.ndarray of shape (N,3)
+        coordinates in xyz space of the data
         
     sep_neighbor : int
        Nth neighbor
@@ -656,11 +656,11 @@ def wall_field_separation(galaxy_coords_xyz,
     Returns
     =======
     
-    wall_gals_xyz : ndarray of shape (K, 3)
-        xyz coordinate subset of the input corresponding to tightly packed galaxies
+    wall_data_xyz : ndarray of shape (K, 3)
+        xyz coordinate subset of the input corresponding to tightly packed data
         
-    field_gals_xyz : ndarray of shape (L, 3)
-        xyz coordinate subset of the input corresponding to isolated galaxies
+    field_data_xyz : ndarray of shape (L, 3)
+        xyz coordinate subset of the input corresponding to isolated data
         
     """
     
@@ -671,7 +671,7 @@ def wall_field_separation(galaxy_coords_xyz,
         
     sep_start = time.time()
 
-    dists3 = av_sep_calc(galaxy_coords_xyz, sep_neighbor)
+    dists3 = av_sep_calc(data_coords_xyz, sep_neighbor)
     
     sep_end = time.time()
 
@@ -687,7 +687,7 @@ def wall_field_separation(galaxy_coords_xyz,
 
     if verbose > 0:
         
-        print('Average separation of n=3rd neighbor gal is', avsep, flush=True)
+        print('Average separation of n=3rd neighbor data is', avsep, flush=True)
     
         print('The standard deviation is', sd, flush=True)
     
@@ -699,21 +699,21 @@ def wall_field_separation(galaxy_coords_xyz,
 
     fw_start = time.time()
 
-    #f_coord_table, w_coord_table = field_gal_cut(coord_in_table, dists3, l)
+    #f_coord_table, w_coord_table = field_data_cut(coord_in_table, dists3, l)
     
-    gal_close_neighbor_index = dists3 < l
+    data_close_neighbor_index = dists3 < l
 
-    wall_gals_xyz = galaxy_coords_xyz[gal_close_neighbor_index]
+    wall_data_xyz = data_coords_xyz[data_close_neighbor_index]
 
-    field_gals_xyz = galaxy_coords_xyz[np.logical_not(gal_close_neighbor_index)]
+    field_data_xyz = data_coords_xyz[np.logical_not(data_close_neighbor_index)]
     
     fw_end = time.time()
     
     if verbose > 0:
         
-        print('Time to sort field and wall gals =', fw_end-fw_start, flush=True)
+        print('Time to sort field and wall data =', fw_end-fw_start, flush=True)
 
-    return wall_gals_xyz, field_gals_xyz
+    return wall_data_xyz, field_data_xyz
     
     
 
@@ -722,7 +722,7 @@ def wall_field_separation(galaxy_coords_xyz,
 
 
 
-def find_voids(galaxy_coords_xyz,
+def find_voids(data_coords_xyz,
                dist_limits,
                mask, 
                mask_resolution,
@@ -731,7 +731,7 @@ def find_voids(galaxy_coords_xyz,
                survey_name,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
-               galaxy_map_grid_edge_length=None,
+               data_map_grid_edge_length=None,
                hole_center_iter_dist=1.0,
                maximal_spheres_filename="maximal_spheres.txt",
                void_table_filename="voids_table.txt",
@@ -751,46 +751,46 @@ def find_voids(galaxy_coords_xyz,
     Main entry point for VoidFinder.  
     
     Using the VoidFinder algorithm, this function grows a sphere in each empty 
-    grid cell of a grid imposed over the target galaxy distribution.  It then combines 
+    grid cell of a grid imposed over the target data distribution.  It then combines 
     these spheres into unique voids, identifying a maximal sphere for each void.
 
     This algorithm at a high level uses 3 data to find voids
-    in the super-galactic structure of the universe:
+    in the super-dataactic structure of the universe:
     
-    1).  The galaxy coordinates
+    1).  The data coordinates
     2).  A survey-limiting mask
     3).  A cubic-cell grid of potential void locations
     
-    Before running VoidFinder, a preprocessing stage of removing isolated galaxies from
-    the target galaxy survey is performed.  Currently this is done by removing galaxies
+    Before running VoidFinder, a preprocessing stage of removing isolated data from
+    the target data survey is performed.  Currently this is done by removing data
     whose distance to their 3rd nearest neighbor is greater than 1.5 times the standard
     deviation of 3rd nearest neighbor distance for the survey.  This step should be 
     performed prior to calling this function.
     
     Next, VoidFinder will impose a grid of cubic cells over the remaining non-isolated,
-    or "wall" galaxies.  The cell size of this grid should be small enough to allow
+    or "wall" data.  The cell size of this grid should be small enough to allow
     a thorough search, but is also the primary consumer of time in this algorithm.
     
     At each grid cell, VoidFinder will evaluate whether that cubic cell is "empty"
-    or "nonempty."  Empty cells contain no galaxies, non-empty cells contain at least 1
-    galaxy.  This makes the removal of isolated galaxies in the preprocessing stage
+    or "nonempty."  Empty cells contain no data, non-empty cells contain at least 1
+    data.  This makes the removal of isolated data in the preprocessing stage
     important.
     
     VoidFinder will proceed to grow a sphere, called a hole, at every Empty grid cell.
     These pre-void holes will be filtered such that the potential voids along the edge of
     the survey will be removed, since any void on the edge of the survey could
-    potentially grow unbounded, and there may be galaxies not present which would
+    potentially grow unbounded, and there may be data not present which would
     have bounded the void.  After the filtering, these pre-voids will be combined
     into the actual voids based on an analysis of their overlap.
     
     This implementation uses a reference point, 'coords_min', from xyz space, and the 
-    'hole_grid_edge_length' to convert between the x,y,z coordinates of a galaxy,
+    'hole_grid_edge_length' to convert between the x,y,z coordinates of a data,
     and the i,j,k coordinates of a cell in the search grid such that:
     
     ijk = ((xyz - coords_min)/hole_grid_edge_length).astype(integer) 
     
     During the sphere growth, VoidFinder also uses a secondary grid to help find
-    the bounding galaxies for a sphere.  This secondary grid facilitates nearest-neighbor
+    the bounding data for a sphere.  This secondary grid facilitates nearest-neighbor
     and radius queries, and uses a coordinate space referred to in the code
     as pqr, which uses a similar transformation:
     
@@ -813,7 +813,7 @@ def find_voids(galaxy_coords_xyz,
     they overlap?"  These questions can be partially answered with additional analysis on the 
     output of VoidFinder, but the main algorithm is intended to find discrete, disjoint x-y-z 
     coordinates of the centers of void regions.  If you wanted a local density estimate for a
-    given galaxy, you could just use the distance to Nth nearest neighbor, for example.  This
+    given data, you could just use the distance to Nth nearest neighbor, for example.  This
     is not what VoidFinder is for.
     
     
@@ -835,8 +835,8 @@ def find_voids(galaxy_coords_xyz,
     Parameters
     ==========
     
-    galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
-        coordinates of the galaxies in the survey, units of Mpc/h
+    data_coords_xyz : numpy.ndarray of shape (num_data, 3)
+        coordinates of the data in the survey, units of Mpc/h
         (xyz space)
     
     dist_limits : numpy array of shape (2,)
@@ -873,12 +873,12 @@ def find_voids(galaxy_coords_xyz,
         identifier for the survey running, may be prepended or appended
         to output filenames including the checkpoint filename
         
-    galaxy_map_grid_edge_length : float or None
+    data_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor
-        galaxies.  If None, will default to 3*hole_grid_edge_length (which results
+        data.  If None, will default to 3*hole_grid_edge_length (which results
         in a cell volume of 3^3 = 27 times larger cube volume).  This parameter
-        yields a tradeoff between number of galaxies in a cell, and number of
-        cells to search when growing a sphere.  Too large and many redundant galaxies
+        yields a tradeoff between number of data in a cell, and number of
+        cells to search when growing a sphere.  Too large and many redundant data
         may be searched, too small and too many cells will need to be searched.
         (xyz space)
         
@@ -1016,9 +1016,9 @@ def find_voids(galaxy_coords_xyz,
     #
     ############################################################################
 
-    if galaxy_map_grid_edge_length is None:
+    if data_map_grid_edge_length is None:
         
-        galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+        data_map_grid_edge_length = 3.0*hole_grid_edge_length
 
     tot_hole_start = time.time()
 
@@ -1027,13 +1027,13 @@ def find_voids(galaxy_coords_xyz,
     x_y_z_r_array, n_holes = _hole_finder(hole_grid_shape, 
                                            hole_grid_edge_length, 
                                            hole_center_iter_dist,
-                                           galaxy_map_grid_edge_length,
+                                           data_map_grid_edge_length,
                                            coords_min.reshape(1,3),
                                            mask,
                                            mask_resolution,
                                            dist_limits[0],
                                            dist_limits[1],
-                                           galaxy_coords_xyz,
+                                           data_coords_xyz,
                                            survey_name,
                                            #radial_mask_check,
                                            save_after=save_after,
@@ -1233,22 +1233,22 @@ def find_voids(galaxy_coords_xyz,
     '''
     ############################################################################
     #
-    #   IDENTIFY VOID GALAXIES
+    #   IDENTIFY VOID data
     #
     ############################################################################
     '''
-    print('Assign field galaxies to voids')
+    print('Assign field data to voids')
 
-    # Count the number of galaxies in each void
+    # Count the number of data in each void
     nfield = np.zeros(void_count)
 
     # Add void field to f_coord
     f_coord['vID'] = -99
 
-    for i in range(nf): # Go through each void galaxy
+    for i in range(nf): # Go through each void data
         for j in range(len(myvoids_table)): # Go through each void
             if np.linalg.norm(to_vector(subtract_row(f_coord[i], myvoids_table['x','y','z'][j]))) < myvoids_table['radius'][j]:
-                # Galaxy lives in the void
+                # data lives in the void
                 nfield[myvoids_table['flag'][j]] += 1
 
                 # Set void ID in f_coord to match void ID
@@ -1256,7 +1256,7 @@ def find_voids(galaxy_coords_xyz,
 
                 break
 
-    f_coord.write(voidgals_filename, format='ascii.commented_header')
+    f_coord.write(voiddata_filename, format='ascii.commented_header')
     '''
 
     ############################################################################
@@ -1284,8 +1284,8 @@ def find_voids(galaxy_coords_xyz,
     void_regions['x'] = myvoids_table['x'][v_index]
     void_regions['y'] = myvoids_table['y'][v_index]
     void_regions['z'] = myvoids_table['z'][v_index]
-    void_regions['deltap'] = (nfield - N_gal*void_vol/vol)/(N_gal*void_vol/vol)
-    void_regions['n_gal'] = nfield
+    void_regions['deltap'] = (nfield - N_data*void_vol/vol)/(N_data*void_vol/vol)
+    void_regions['n_data'] = nfield
     void_regions['vol_maxHole'] = (4./3.)*np.pi*myvoids_table['radius'][v_index]**3/void_vol
 
     void_regions.write(out3_filename, format='ascii.commented_header')

@@ -46,32 +46,20 @@ def load_data_to_Table(input_filepath):
         data = fits.open(input_filepath)
         data=data[1].data
         data_table = Table()
-        ''' 
-        print('Inside load table before columns')
-        RA=Table.Column(data['RA'][0:1000], name='ra')
-        DEC=Table.Column(data['DEC'][0:1000], name='dec')
-        Z=Table.Column(data['Z'][0:1000], name='redshift')
-        DELTA=Table.Column(data['deltas'][0:1000], name='deltas')
-        '''
-        print('Inside load table before columns')                                                     
+        
+        print('Inside the data before setting the columns')                                                     
         RA=Table.Column(data['ra'], name='ra')                                                
         DEC=Table.Column(data['dec'], name='dec')                                             
         Z=Table.Column(data['z'], name='redshift')                                          
         DELTA=Table.Column(data['delta'], name='delta') 
         
-        print('Inside load table before adding columns')
+        print('Inside the data before adding the columns')
         data_table.add_column(RA)
         data_table.add_column(DEC)
         data_table.add_column(Z)
         data_table.add_column(DELTA)
-        ''' 
-        print('Length of data before removing 0s:')
-        print(len(data_table))
-        data_table=data_table[data_table['deltas']!=0]
-        print('Length of data after removing 0s:')
-        print(len(data_table))
-        '''
-        print('fits to table done:)')
+       
+        print('.fits to Table done')
         
 
     
@@ -120,10 +108,10 @@ def load_data_to_Table(input_filepath):
     
 
 
-def file_preprocess(galaxies_filename, 
+def file_preprocess(data_filename, 
                     in_directory, 
                     out_directory, 
-                    mag_cut=True,
+                    mag_cut=False,
                     flux_cut=None,
                     rm_isolated=True,
                     dist_metric='comoving', 
@@ -139,11 +127,12 @@ def file_preprocess(galaxies_filename,
     PARAMETERS:
     ==========
     
-    galaxies_filename : string
-        File name of galaxy catalog.  Should be readable by 
+    data_filename : string
+        File name of data catalog.  Should be readable by 
         astropy.table.Table.read as a ascii.commented_header file.  Required 
         columns include 'ra', 'dec', 'z', and absolute magnitude (either 
-        'rabsmag' or 'magnitude'.
+        'rabsmag' or 'magnitude' for galaxies, and transmission flux rate 'delta'
+        Values for delta fields or tomographic maps runs.
         
     in_directory : string
         Directory path for input files
@@ -153,7 +142,7 @@ def file_preprocess(galaxies_filename,
         
     mag_cut : boolean
         Determines whether or not to implement a magnitude cut on the galaxy 
-        survey.  Default is True (remove all galaxies fainter than Mr = -20).
+        survey.  Default is False (remove all galaxies fainter than Mr = -20).
 
     rm_isolated : boolean
         Determines whether or not to remove isolated galaxies (defined as those 
@@ -167,7 +156,7 @@ def file_preprocess(galaxies_filename,
         
     min_z, max_z : float
         Minimum and maximum redshift range for the survey mask.  Default values 
-        are None (determined from galaxy extent).
+        are None (determined from data extent).
         
     Omega_M : float
         Value of the matter density of the given cosmology.  Default is 0.3.
@@ -180,8 +169,8 @@ def file_preprocess(galaxies_filename,
     RETURNS:
     =======
     
-    galaxy_data_table : astropy table
-        Table of all galaxies in catalog.
+    data_table : astropy table
+        Table of all data in catalog.
         
     dist_limits : numpy array of shape (2,)
         Minimum and maximum distances to use for void search.  Units are Mpc/h, 
@@ -201,48 +190,54 @@ def file_preprocess(galaxies_filename,
     if mag_cut and rm_isolated:
         out1_suffix = '_' + dist_metric + '_maximal.txt'
         out2_suffix = '_' + dist_metric + '_holes.txt'
+    elif rm_isolated and bool(flux_cut):
+        out1_suffix = '_' + dist_metric + '_maximal_FluxCut_' + str(flux_cut)+'.txt'
+        out2_suffix = '_' + dist_metric + '_holes_FluxCut_' + str(flux_cut)+'.txt'
     elif rm_isolated:
         out1_suffix = '_' + dist_metric + '_maximal_noMagCut.txt'
         out2_suffix = '_' + dist_metric + '_holes_noMagCut.txt'
     elif mag_cut:
         out1_suffix = '_' + dist_metric + '_maximal_keepIsolated.txt'
         out2_suffix = '_' + dist_metric + '_holes_keepIsolated.txt'
+    elif bool(flux_cut):
+        out1_suffix = '_' + dist_metric + '_maximal_keepIsolated.txt'
+        out2_suffix = '_' + dist_metric + '_holes_keepIsolated.txt'
     else:
         out1_suffix = '_' + dist_metric + '_maximal_noFiltering.txt'
         out2_suffix = '_' + dist_metric + 'holes_noFiltering.txt'
     
-    out1_filename = out_directory + galaxies_filename[:-4] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-    out2_filename = out_directory + galaxies_filename[:-4] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
+    out1_filename = out_directory + data_filename[:-4] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
+    out2_filename = out_directory + data_filename[:-4] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
     #out3_filename = out_directory + 'out3_vollim_dr7.txt'                # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-    #voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'        # List of the void galaxies: x, y, z, void region
+    #voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'        # List of the void data: x, y, z, void region
     ############################################################################
     
     
     ############################################################################
-    # Open galaxy catalog
+    # Open data catalog
     #---------------------------------------------------------------------------
-    in_filename = in_directory + galaxies_filename
+    in_filename = in_directory + data_filename
     
     if verbose > 0:
-        print("Loading galaxy data table at: ", in_filename, flush=True)
+        print("Loading data table at: ", in_filename, flush=True)
         load_start_time = time.time()
     
     
-    galaxy_data_table = load_data_to_Table(in_filename)
+    data_table = load_data_to_Table(in_filename)
 
     if verbose > 0:
-        print("Galaxy data table load time: ", time.time() - load_start_time, flush=True)
+        print("Data table load time: ", time.time() - load_start_time, flush=True)
     ############################################################################
     
     
     ############################################################################
     # Rename columns
     #---------------------------------------------------------------------------
-    if mag_cut and 'rabsmag' not in galaxy_data_table.columns:
-        galaxy_data_table['magnitude'].name = 'rabsmag'
+    if mag_cut and 'rabsmag' not in data_table.columns:
+        data_table['magnitude'].name = 'rabsmag'
         
-    if 'z' not in galaxy_data_table.columns:
-        galaxy_data_table['redshift'].name = 'z'
+    if 'z' not in data_table.columns:
+        data_table['redshift'].name = 'z'
     ############################################################################
 
     
@@ -251,12 +246,12 @@ def file_preprocess(galaxies_filename,
     #---------------------------------------------------------------------------
     # Minimum distance
     if min_z is None:
-        min_z = min(galaxy_data_table['z'])
+        min_z = min(data_table['z'])
 
     
     # Maximum distance
     if max_z is None:
-        max_z = max(galaxy_data_table['z'])
+        max_z = max(data_table['z'])
     
     
     if dist_metric == 'comoving':
@@ -271,21 +266,21 @@ def file_preprocess(galaxies_filename,
     ############################################################################
     # Calculate comoving distance
     #---------------------------------------------------------------------------
-    if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
+    if dist_metric == 'comoving' and 'Rdist' not in data_table.columns:
         
         if verbose > 0:
-            print("Calculating Rgal data table column", flush=True)
+            print("Calculating Rdist data table column", flush=True)
             calc_start_time = time.time()
         
-        galaxy_data_table['Rgal'] = z_to_comoving_dist(galaxy_data_table['z'].data.astype(np.float32), Omega_M, h)
+        data_table['Rdist'] = z_to_comoving_dist(data_table['z'].data.astype(np.float32), Omega_M, h)
     
         if verbose > 0:
-            print("Finished Rgal calculation time: ", time.time() - calc_start_time, flush=True)
+            print("Finished Rdist calculation time: ", time.time() - calc_start_time, flush=True)
     ############################################################################
     
-    print(galaxy_data_table)
+    print(data_table)
 
-    return galaxy_data_table, dist_limits, out1_filename, out2_filename
+    return data_table, dist_limits, out1_filename, out2_filename
 
 
 
