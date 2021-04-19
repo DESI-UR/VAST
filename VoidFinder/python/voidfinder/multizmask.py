@@ -91,7 +91,7 @@ def generate_mask(data,
     
     #r = data["Rgal"].data 
     if dist_metric == 'comoving':
-        r = data['Rgal'].data
+        r = data['Rdist'].data
     else:
         r = c*data['z'].data/(100*h)
     num_data = ra.shape[0]

@@ -18,13 +18,13 @@ dec_offset = -90
 #
 ################################################################################
 
-def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
+def mesh_data(data_coords, coord_min, grid_side_length, N_boxes):
     '''
-    Sort galaxies onto a cubic grid
+    Sort data onto a cubic grid
 
     Parameters:
     ____________________
-      galaxy_coords: astropy table of galaxy Cartesian coordinates (columns x, y, and z)
+      data_coords: astropy table of data Cartesian coordinates (columns x, y, and z)
 
       coord_min: one-row astropy table of the minima in each of the three coordinates
 
@@ -37,7 +37,7 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
     _____________________
       mesh_indices: astropy table of the cell coordinates for each galaxy
 
-      ngal: 3D numpy array of the number of galaxies in each cell
+      ndata: 3D numpy array of the number of data in each cell
 
       chainlist: 3D numpy array (same size as ngal) of the index value of the 
                  last galaxy to be stored in that cell
@@ -52,7 +52,7 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
     # Initialize the 3D bins that will contain the galaxy indices
 
     #ngal = np.zeros((N_boxes, N_boxes, N_boxes), dtype=int)
-    ngal = np.zeros(N_boxes, dtype=int)
+    ndata = np.zeros(N_boxes, dtype=int)
 
     # Initialize the 3D bins that will contain the galaxy indices
 
@@ -65,10 +65,10 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
     # Convert the galaxy coordinates to grid indices
     mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
 
-    for igal in range(len(galaxy_coords)):
+    for igal in range(len(data_coords)):
         
         # Increase the number of galaxies in corresponding cell in ngal
-        ngal[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]] += 1
+        ndata[mesh_indices['x'][idata], mesh_indices['y'][idata], mesh_indices['z'][idata]] += 1
         
         # Store the index of the last galaxy that was saved in corresponding cell 
         #linklist[igal] = chainlist[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]]
@@ -77,19 +77,19 @@ def mesh_galaxies(galaxy_coords, coord_min, grid_side_length, N_boxes):
         #chainlist[mesh_indices['x'][igal], mesh_indices['y'][igal], mesh_indices['z'][igal]] = igal
     
     #return mesh_indices, ngal, chainlist, linklist
-    return ngal#, chainlist, linklist
+    return ndata#, chainlist, linklist
 
 
 ################################################################################
 ################################################################################
 
-def mesh_galaxies_dict(galaxy_coords, coord_min, grid_side_length):
+def mesh_data_dict(data_coords, coord_min, grid_side_length):
     '''
-    Build a dictionary of the galaxies' cell coordinates
+    Build a dictionary of the data's cell coordinates
     '''
 
     # Convert the galaxy coordinates to grid indices
-    mesh_indices = ((galaxy_coords - coord_min)/grid_side_length).astype(int)
+    mesh_indices = ((data_coords - coord_min)/grid_side_length).astype(int)
     #mesh_indices = table_dtype_cast(table_divide(subtract_row(galaxy_coords, coord_min), grid_side_length), int)
 
     # Initialize dictionary of cell IDs with at least one galaxy in them

@@ -14,20 +14,20 @@ def mag_cut(T,mag_limit):
 	
 	bool_mag = T['rabsmag'] < mag_limit #bool array which is true for bright galaxies
 	
-	bright_gal = T[bool_mag] #create new table which only has bright galaxies
+	bright_data = T[bool_data] #create new table which only has bright galaxies
 	
-	return bright_gal
+	return bright_data
 
 
-def field_gal_cut(T,dists,l):
+def field_data_cut(T,dists,l):
 	
-	bool_gal = dists < l
+	bool_data = dists < l
 	
-	wall_gals = T[bool_gal]
+	wall_data = T[bool_data]
 	
-	field_gals = T[np.logical_not(bool_gal)]
+	field_data = T[np.logical_not(bool_data)]
 	
 	
-	return field_gals, wall_gals
+	return field_data, wall_data
 
 	

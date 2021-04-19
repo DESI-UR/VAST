@@ -51,7 +51,7 @@ import numpy as np
 
 # Number of CPUs available for analysis.
 # A value of None will use one less than all available CPUs.
-num_cpus = 1
+num_cpus = 3
 
 #-------------------------------------------------------------------------------
 survey_name = 'DR16S82_deltafields'
@@ -200,7 +200,7 @@ find_voids(wall_coords_xyz,
            hole_grid_shape,
            survey_name,
            save_after=50000,
-           use_start_checkpoint=True,
+           #use_start_checkpoint=True,
            hole_grid_edge_length=5.0,
            data_map_grid_edge_length=None,
            hole_center_iter_dist=1.0,
