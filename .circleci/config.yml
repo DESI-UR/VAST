@@ -1,0 +1,85 @@
+version: 2.0
+
+jobs:
+  # VoidFinder build, install, and test.
+  "VF":
+    docker:
+      - image: circleci/python:stretch
+
+    # Work in the VoidFinder subfolder.
+    working_directory: ~/VAST/VoidFinder
+
+    # Download dependencies, install, and test using setuptools.
+    steps:
+      - checkout:
+          path: ~/VAST
+
+      - restore_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+      - run:
+          name: "Install VoidFinder dependencies"
+          command: |
+            pip install -r requirements.txt --user --progress-bar off
+      - save_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - /home/circleci/.local/lib/python3.7/site-packages
+
+      - run:
+          name: "Install VoidFinder"
+          command: python setup.py install --user
+
+      - run:
+          name: "Test VoidFinder"
+          command: |
+            pytest
+            mkdir -p ~/VAST/test-results/voidfinder
+      - store_test_results:
+          path: ~/VAST/test-results/voidfinder
+      - store_artifacts:
+          path: ~/VAST/test-results/voidfinder
+
+  # V^2 build, install, and test.
+  "V2":
+    docker:
+      - image: circleci/python:stretch
+
+    # Work in the Vsquared subfolder.
+    working_directory: ~/VAST/Vsquared
+
+    # Download dependencies, install, and test using setuptools.
+    steps:
+      - checkout:
+          path: ~/VAST
+
+      - restore_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+      - run:
+          name: "Install Vsquared dependencies"
+          command: |
+            pip install -r requirements.txt --user --progress-bar off
+      - save_cache:
+          key: pip-v1-{{ arch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - /home/circleci/.local/lib/python3.7/site-packages
+
+      - run:
+          name: "Install Vsquared"
+          command: python setup.py install --user
+
+      - run:
+          name: "Test Vsquared"
+          command: |
+            pytest
+            mkdir -p ~/VAST/test-results/vsquared
+      - store_test_results:
+          path: ~/VAST/test-results/vsquared
+      - store_artifacts:
+          path: ~/VAST/test-results/vsquared
+
+workflows:
+  version: 2
+  build:
+    jobs:
+      - "VF"
+      - "V2"
