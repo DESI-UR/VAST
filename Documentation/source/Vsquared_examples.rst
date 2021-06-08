@@ -7,7 +7,7 @@ Using V\ :sup:`2`
 Quick start
 ===========
 
-A summary to-do list for installing and running `VAST.Vsquared`.
+A summary checklist for installing and running `VAST.Vsquared`.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
  * Navigate to ``VAST/Vsquared`` and run::

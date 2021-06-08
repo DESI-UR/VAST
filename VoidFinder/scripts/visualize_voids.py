@@ -7,7 +7,7 @@
 ################################################################################
 
 
-from vast.voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
+from vast.voidfinder.viz import VoidRender, load_void_data, load_galaxy_data
 
 import numpy as np
 
@@ -21,12 +21,15 @@ from vispy.color import Colormap
 ################################################################################
 
 
-holes_xyz, holes_radii, holes_flags = load_hole_data("../vollim_dr7_cbp_102709_comoving_holes.txt")
+holes_xyz, holes_radii, holes_flags = load_void_data("../vollim_dr7_cbp_102709_comoving_holes.txt")
 
 galaxy_data = load_galaxy_data('../vollim_dr7_cbp_102709.dat')
 
 print("Galaxies: ", galaxy_data.shape)
 print("Holes: ", holes_xyz.shape, holes_radii.shape, holes_flags.shape)
+
+
+
 ################################################################################
 #
 # VOID COLORING

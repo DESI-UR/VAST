@@ -7,7 +7,7 @@ Using VoidFinder
 Quick start
 ===========
 
-A summary to-do list for installing and running `VAST.VoidFinder`.
+A summary checklist for installing and running `VAST.VoidFinder`.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
  * Navigate to ``VAST/VoidFinder`` and run::

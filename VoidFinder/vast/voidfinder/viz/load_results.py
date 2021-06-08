@@ -64,7 +64,7 @@ if __name__ == "__main__":
     print(holes_data)
     
 
-def load_hole_data(infilename):
+def load_void_data(infilename):
     
     holes_data = load_data_to_Table(infilename)
     

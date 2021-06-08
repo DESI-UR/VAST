@@ -60,8 +60,10 @@ Also, on Ubuntu, you may need to install the following::
 
     sudo apt-get install mesa-common-dev libgl1-mesa-dev libgl1-mesa-dev
 
-`VoidRender` will be built and installed when `VoidFinder` is built and 
-installed.  Please see :ref:`VF-install` for details.
+There is a version of `VoidRender` that corresponds to each void-finding 
+algorithm implemented in **VAST**.  As a result, `VoidRender` will be built and 
+installed when either `VoidFinder` or `Vsquared` is built and installed.  Please 
+see :ref:`VF-install` and/or :ref:`V2-install` for installation details.
 
 
 

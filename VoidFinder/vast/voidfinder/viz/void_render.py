@@ -412,9 +412,9 @@ class VoidRender(app.Canvas):
         Usage:
         ------
         
-        from vast.voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
+        from vast.voidfinder.viz import VoidRender, load_void_data, load_galaxy_data
         
-        holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
+        holes_xyz, holes_radii, holes_flags = load_void_data("vollim_dr7_cbp_102709_holes.txt")
     
         galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
     
@@ -2689,10 +2689,10 @@ if __name__ == "__main__":
 
     from vispy.color import Colormap
 
-    from vast.voidfinder.viz.load_results import load_hole_data, load_galaxy_data
+    from vast.voidfinder.viz.load_results import load_void_data, load_galaxy_data
 
     
-    holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
+    holes_xyz, holes_radii, holes_flags = load_void_data("vollim_dr7_cbp_102709_holes.txt")
     
     galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
     #galaxy_data = load_galaxy_data('kias1033_5.dat')
