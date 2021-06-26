@@ -2,7 +2,7 @@
 import numpy as np
 
 from astropy.table import Table
-from astropy.io import ascii
+from astropy.io import ascii, fits
 
 from vast.voidfinder.distance import z_to_comoving_dist
 
@@ -18,19 +18,19 @@ import os
 
 def load_data_to_Table(input_filepath):
     """
-    Load a .dat or .h5 file representing a table of numerical values.  For HDF5 (.h5)
-    files, assumes the "columns" are stored as individual datasets on the root h5py.File
-    object.
+    Load a .dat, .txt, .fits, or .h5 file representing a table of numerical 
+    values.  For HDF5 (.h5) files, assumes the "columns" are stored as 
+    individual datasets on the root h5py.File object.
     
-    If the input filepath ends with a .h5 extension, this will attempt to read it in 
-    as the HDF5 format, otherwise for all other extensions it will attempt the normal
-    Table.read()
+    If the input filepath ends with a .h5 extension, this will attempt to read 
+    it in as the HDF5 format, otherwise for all other extensions it will attempt 
+    the normal Table.read()
     
     Parameters
     ==========
     
     input_filepath : str
-        path to the input .dat or .h5 file
+        path to the input .dat, .txt, .fits, or .h5 file
         
     Returns
     =======
@@ -49,6 +49,14 @@ def load_data_to_Table(input_filepath):
             data_table[col] = infile[col][()]
             
         infile.close()
+
+    elif input_filepath.endswith('.fits') or input_filepath.endswith('.fit'):
+
+        hdu = fits.open(input_filepath)
+
+        data_table = hdu[1].data
+
+        hdu.close()
         
     else:
         
@@ -208,12 +216,12 @@ def file_preprocess(galaxies_filename,
     #---------------------------------------------------------------------------
     # Minimum distance
     if min_z is None:
-        min_z = min(galaxy_data_table['z'])
+        min_z = min(galaxy_data_table['redshift'])
 
     
     # Maximum distance
     if max_z is None:
-        max_z = max(galaxy_data_table['z'])
+        max_z = max(galaxy_data_table['redshift'])
     
     
     if dist_metric == 'comoving':
@@ -228,12 +236,12 @@ def file_preprocess(galaxies_filename,
     ############################################################################
     # Calculate comoving distance
     #---------------------------------------------------------------------------
-    if dist_metric == 'comoving' and 'Rgal' not in galaxy_data_table.columns:
+    if dist_metric == 'comoving': #and 'Rgal' not in galaxy_data_table.columns:
         
         print("Calculating Rgal data table column", flush=True)
         calc_start_time = time.time()
         
-        galaxy_data_table['Rgal'] = z_to_comoving_dist(galaxy_data_table['z'].data.astype(np.float32), Omega_M, h)
+        galaxy_data_table['Rgal'] = z_to_comoving_dist(galaxy_data_table['redshift'].data.astype(np.float32), Omega_M, h)
     
         print("Finished Rgal calculation time: ", time.time() - calc_start_time, flush=True)
     ############################################################################
