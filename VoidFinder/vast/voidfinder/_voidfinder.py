@@ -76,6 +76,7 @@ def _hole_finder(hole_grid_shape,
                  min_dist=None,
                  max_dist=None,
                  xyz_limits=None,
+                 check_only_empty_holes=True,
                  #hole_radial_mask_check_dist,
                  save_after=None,
                  use_start_checkpoint=False,
@@ -283,6 +284,7 @@ def _hole_finder(hole_grid_shape,
                                                             min_dist=min_dist,
                                                             max_dist=max_dist,
                                                             xyz_limits=xyz_limits,
+                                                            check_only_empty_holes=check_only_empty_holes,
                                                             #hole_radial_mask_check_dist,
                                                             save_after=save_after,
                                                             use_start_checkpoint=use_start_checkpoint,
@@ -875,6 +877,7 @@ def _hole_finder_multi_process(ngrid,
                                min_dist=None,
                                max_dist=None,
                                xyz_limits=None,
+                               check_only_empty_holes=True,
                                #hole_radial_mask_check_dist,
                                batch_size=1000,
                                verbose=0,
@@ -1056,9 +1059,11 @@ def _hole_finder_multi_process(ngrid,
     
     hole_cell_ID_dict = {}
     
-    for row in mesh_indices:
-        
-        hole_cell_ID_dict[tuple(row)] = 1
+    if check_only_empty_holes:
+    
+        for row in mesh_indices:
+            
+            hole_cell_ID_dict[tuple(row)] = 1
     
     num_nonempty_hole_cells = len(hole_cell_ID_dict)
     ############################################################################
@@ -1071,7 +1076,11 @@ def _hole_finder_multi_process(ngrid,
     # hash function it uses is faster than the built-in python one since we are
     # taking advantage of the sequential nature of grid cells
     #---------------------------------------------------------------------------
-    hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
+    
+    if num_nonempty_hole_cells == 0:
+        hole_next_prime = 1
+    else:
+        hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
     
     hole_lookup_memory = np.zeros(hole_next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
                                                           ("i", np.int16, ()),

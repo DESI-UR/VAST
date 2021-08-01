@@ -503,6 +503,7 @@ def find_voids(galaxy_coords_xyz,
                min_dist=None,
                max_dist=None,
                xyz_limits=None,
+               check_only_empty_holes=True,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
                galaxy_map_grid_edge_length=None,
@@ -707,6 +708,10 @@ def find_voids(galaxy_coords_xyz,
         value, if you batch size is 10,000 and your save_after is 1,000,000 you 
         might actually get a checkpoint at say 1,030,000.  If None, disables 
         saving the checkpoint file.
+        
+    check_only_empty_holes : bool
+        whether or not to start growing a hole in a cell which has galaxies in
+        it, aka "non-empty".  If True (default), don't grow holes in these cells.
     
     use_start_checkpoint : bool
         Whether to attempt looking for a VoidFinderCheckpoint.h5 file which can 
@@ -779,6 +784,7 @@ def find_voids(galaxy_coords_xyz,
                                           min_dist=min_dist,
                                           max_dist=max_dist,
                                           xyz_limits=xyz_limits,
+                                          check_only_empty_holes=check_only_empty_holes,
                                           #radial_mask_check,
                                           save_after=save_after,
                                           use_start_checkpoint=use_start_checkpoint,

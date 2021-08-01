@@ -61,7 +61,7 @@ setup(
 
     # Requirements.
     requires=['Python (>3.7.0)'],
-    install_requires=open('requirements.txt', 'r').read().split('\n'),
+    #install_requires=open('requirements.txt', 'r').read().split('\n'),
     zip_safe=False,
     use_2to3=False,
 
