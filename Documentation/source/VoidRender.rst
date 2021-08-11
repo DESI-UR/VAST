@@ -34,7 +34,8 @@ another VoidRender option plots a thin black line between a galaxy and its K
 nearest neighbors, yielding a denser spider-web look for those galaxies which 
 cluster together, as can be seen in \autoref{fig:vfviz}.
 
-![`Vsquared` visualization of the output from SDSS DR7.\label{fig:v2viz}](../vsquared_viz.png)
+.. image:: ../vsquared_viz.png
+`Vsquared` visualization of the output from SDSS DR7.\label{fig:v2viz}
 
 An animated example of the VoidRender visualization can be found on 
 [YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  VoidRender can be 

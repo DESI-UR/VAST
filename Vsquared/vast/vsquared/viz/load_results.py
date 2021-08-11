@@ -91,11 +91,17 @@ def load_void_data(infilename1, infilename2):
     gv_data = Table.read(infilename2, format='ascii.commented_header')
     
     num_rows = len(voids_data)
-    
+
+    # each element of voids_tri_x is the x-components of the three vertices of a triangle on a void surface;
+    # similarly for voids_tri_y and voids_tri_z
     voids_tri_x = numpy.empty((num_rows, 3), dtype=numpy.float32)
     voids_tri_y = numpy.empty((num_rows, 3), dtype=numpy.float32)
     voids_tri_z = numpy.empty((num_rows, 3), dtype=numpy.float32)
+
+    # each element of voids_norm is the unit vector normal to the surface of a triangle on a void surface
     voids_norm = numpy.empty((num_rows, 3), dtype=numpy.float32)
+
+    # each element of voids_id is the ID of the void whose surface a triangle belongs to
     voids_id = numpy.empty(num_rows, dtype=numpy.int32)
 
     voids_tri_x[:,0] = voids_data['p1_x']
@@ -112,7 +118,10 @@ def load_void_data(infilename1, infilename2):
     voids_norm[:,2] = voids_data['n_z']
     voids_id[:] = voids_data["void_id"]
 
+    # gal_viz contains the void ID of each galaxy
     gal_viz = gv_data['g2v']
+
+    # gal_opp contains the void IDs of each galaxy's neighbors
     gal_opp = gv_data['g2v2']
     
     return voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp
