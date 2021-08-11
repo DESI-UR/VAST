@@ -25,17 +25,18 @@ if __name__ == "__main__":
     infilename2 = "vollim_dr7_cbp_102709_maximal.txt"
     infilename3 = "vollim_dr7_cbp_102709.dat"
     
-    ######################################################################
+    ############################################################################
     # load hole locations
     # keys are 'x' 'y' 'z' 'radius' 'flag'
-    ######################################################################
-    
+    #---------------------------------------------------------------------------
     holes_data = Table.read(infilename1, format='ascii.commented_header')
+    ############################################################################
     
     
-    ######################################################################
+
+    ############################################################################
     # Load galaxy data and convert coordinates to xyz
-    ######################################################################
+    #---------------------------------------------------------------------------
     galaxy_data = Table.read(infilename3, format='ascii.commented_header')
     
     if distance_metric == 'comoving':
@@ -53,18 +54,43 @@ if __name__ == "__main__":
     zin = r_gal*numpy.sin(galaxy_data['dec']*DtoR)
     
     xyz_galaxy_data = Table([xin, yin, zin], names=('x','y','z'))
+    ############################################################################
+
     
-    
-    ######################################################################
-    #
-    ######################################################################
     
     print(xyz_galaxy_data)
     
     print(holes_data)
     
 
+
+
+
+
 def load_void_data(infilename):
+    '''
+    Load voids as formatted for VoidFinder
+
+    Parameters
+    ==========
+
+    infilename : string
+        path to desired data file
+
+    Returns
+    =======
+
+    holes_xyz : numpy.ndarray shape (N,3)
+        the xyz centers of the holes
+
+    holes_radii : numpy.ndarray shape (N,)
+        the radii of the holes
+
+    hole_flags : numpy.ndarray shape (N,)
+        the VoidFinder 'flag' output representing
+        which void group a hole belongs to
+
+    '''
     
     holes_data = load_data_to_Table(infilename)
     
@@ -84,6 +110,24 @@ def load_void_data(infilename):
 
 
 def load_galaxy_data(infilename):
+    """
+    Load a table of galaxies for use in VoidRender
+
+    Parameters
+    ==========
+
+    infilename : string
+        path to desired data file
+        intended to be an astropy table output from VoidFinder
+        with columns 'ra', 'dec', 'redshift', and possibly 'Rgal'
+
+    Returns
+    =======
+
+    galaxy_data_xyz : numpy.ndarray shape (N,3)
+        xyz coordinates of galaxies from the data table
+
+    """
     
     galaxy_data = load_data_to_Table(infilename)
     

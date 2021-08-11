@@ -54,7 +54,38 @@ if __name__ == "__main__":
     print(voids_data)
     
 
-def load_void_data(infilename1,infilename2):
+def load_void_data(infilename1, infilename2):
+    '''
+    Load voids as formatted for Vsquared
+
+    Parameters
+    ==========
+
+    infilename1 : string
+        ???
+
+    infilename2 : string
+        ???
+
+    Returns
+    =======
+
+    voids_tri_x, _y, _z : numpy.ndarrays shape (N,3)
+        the xyz coordinates of the ???
+
+    voids_norm : numpy.ndarray shape (N,3)
+        ???
+
+    voids_id : numpy.ndarray shape (N,)
+        ???
+
+    gal_viz : ???
+        ???
+
+    gal_opp : ???
+        ???
+
+    '''
     
     voids_data = Table.read(infilename1, format='ascii.commented_header')
     gv_data = Table.read(infilename2, format='ascii.commented_header')
@@ -88,6 +119,24 @@ def load_void_data(infilename1,infilename2):
 
 
 def load_galaxy_data(infilename):
+    """
+    Load a table of galaxies for use in VoidRender
+
+    Parameters
+    ==========
+
+    infilename : string
+        path to desired data file
+        intended to be a fits table
+        with columns 'ra', 'dec', and 'z'
+
+    Returns
+    =======
+
+    galaxy_data_xyz : numpy.ndarray shape (N,3)
+        xyz coordinates of galaxies from the data table
+
+    """
     
     galaxy_data = fits.open(infilename)[1].data
     '''

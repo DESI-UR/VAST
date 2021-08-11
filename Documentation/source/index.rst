@@ -46,6 +46,7 @@ Python 3 implementations of two such algorithms: **VoidFinder** and
    
    VoidRender
    VoidRender_examples
+   VoidRender_functions
 
 
 Indices and tables

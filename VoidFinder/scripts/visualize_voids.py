@@ -23,10 +23,13 @@ from vispy.color import Colormap
 
 holes_xyz, holes_radii, holes_flags = load_void_data("../vollim_dr7_cbp_102709_comoving_holes.txt")
 
-galaxy_data = load_galaxy_data('../vollim_dr7_cbp_102709.dat')
+field_galaxy_data = load_galaxy_data('../vollim_dr7_cbp_102709_field_gal_file.txt')
 
-print("Galaxies: ", galaxy_data.shape)
-print("Holes: ", holes_xyz.shape, holes_radii.shape, holes_flags.shape)
+wall_galaxy_data = load_galaxy_data('../vollim_dr7_cbp_102709_wall_gal_file.txt')
+
+print("Field galaxies:", field_galaxy_data.shape)
+print('Wall galaxies:', wall_galaxy_data.shape)
+print("Holes:", holes_xyz.shape, holes_radii.shape, holes_flags.shape)
 
 
 
@@ -73,7 +76,9 @@ for idx in range(void_hole_colors.shape[0]):
 viz = VoidRender(holes_xyz=holes_xyz, 
                  holes_radii=holes_radii,
                  holes_group_IDs=holes_flags,
-                 galaxy_xyz=galaxy_data,
+                 galaxy_xyz=field_galaxy_data,
+                 wall_galaxy_xyz=wall_galaxy_data,
+                 wall_distance=3.24,
                  galaxy_display_radius=10,
                  remove_void_intersects=2,
                  #void_hole_color=np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32),

@@ -429,6 +429,7 @@ class VoidRender(app.Canvas):
         -----
         
         Controls:
+
         w - translate forward
         s - translate backward
         a - translate left
@@ -465,13 +466,21 @@ class VoidRender(app.Canvas):
         holes_group_IDs : (N,) numpy.ndarray of integers
             Void group to which a given hole belongs according to VoidFinder
             
-        galaxy_xyz : (N,3) numpy.ndarray
+        galaxy_xyz : (M,3) numpy.ndarray
             xyz coordinates of the galaxy locations
             
         galaxy_display_radius : float
             using a constant radius to display galaxy points since they should
             all be small compared to the void holes, and they don't have
             corresponding radii
+
+        wall_galaxy_xyz : (K,3) numpy.ndarray
+            xyz coordinates of the wall galaxy locations
+
+        wall_distance : float
+            xyz distance at which to connect two wall galaxies with a web 
+            visualization.  This should be set to the isolated galaxy distance 
+            limit calculated in VoidFinder (and printed to the terminal).
             
         remove_void_intersects : int, default 1
             0 - turn off
@@ -517,19 +526,25 @@ class VoidRender(app.Canvas):
         galaxy_color : ndarray shape (4,) dtype float32
            values from 0.0-1.0 representing RGB and Alpha for the galaxy
            points
+
+        wall_galaxy_color : ndarray shape (4,) dtype float32
+            values from 0.0-1.0 representing RBG and Alpha for the wall galaxy 
+            points
            
         void_hole_color : ndarray shape (4,) or (num_void,4) dtype float32
            values from 0.0-1.0 representing RGB and Alpha for the voids
            
         void_highlight_color : ndarray shape (4,) dtype float32
-           values from 0.0-1.0 representing RGB and Alpha for the void highlight,
-           when the camera enters a void hole it turns the hole this color so you
-           know you're inside IF enable_void_interior_highlight == True
+           values from 0.0-1.0 representing RGB and Alpha for the void 
+           highlight, when the camera enters a void hole it turns the hole this 
+           color so you know you are inside IF 
+           enable_void_interior_highlight == True
            
         SPHERE_TRIANGULARIZATION_DEPTH : integer, default 3
-           number of subdivisions in the icosahedron sphere triangularization to make.
-           Total vertices will be num_voids * 20 * 3 * 4^SPHERE_TRIANGULARIZATION_DEPTH
-           so be careful increasing this value above 3.  Default of 3 results in 3840 vertices
+           number of subdivisions in the icosahedron sphere triangularization to 
+           make.  Total vertices will be 
+           num_voids * 20 * 3 * 4^SPHERE_TRIANGULARIZATION_DEPTH so be careful 
+           increasing this value above 3.  Default of 3 results in 3840 vertices
            (1280 triangles) per sphere
         '''
         
@@ -552,7 +567,7 @@ class VoidRender(app.Canvas):
         self.max_galaxy_display_radius = galaxy_display_radius
         
         ######################################################################
-        # Allow user to show just voids of just galaxies
+        # Allow user to show just voids or just galaxies
         ######################################################################
         
         self.holes_enabled = holes_xyz is not None
@@ -881,25 +896,24 @@ class VoidRender(app.Canvas):
         Set up the OpenGL program via vispy that will display each of the
         galaxy coordinates provided in xyz-space as a gl_PointCoord
         
-        # Set up some numpy arrays to work with the vispy/OpenGL vertex 
-        # shaders and fragment shaders.  The names (string variables) used
-        # in the below code match up to names used in the vertex and
-        # fragment shader code strings used above
+        Set up some numpy arrays to work with the vispy/OpenGL vertex shaders 
+        and fragment shaders.  The names (string variables) used in the below 
+        code match up to names used in the vertex and fragment shader code 
+        strings used above
         
-        # Create the color arrays in RGBA format for the holes and galaxies
-        # I believe bg color is 'background' and fg is 'foreground' color
+        Create the color arrays in RGBA format for the holes and galaxies
+        I believe bg color is 'background' and fg is 'foreground' color
         
-        # Since the data is currently being displayed as disks instead of
-        # Spheres, use a fixed radius of 2.0 for galaxies for now since they
-        # are small compared to void holes
-        #
+        Since the data is currently being displayed as disks instead of Spheres, 
+        use a fixed radius of 2.0 for galaxies for now since they are small 
+        compared to void holes
         """
         
         
         
-        ######################################################################
+        ########################################################################
         # Set up the vertex buffer backend
-        ######################################################################
+        #-----------------------------------------------------------------------
         self.wall_galaxy_vertex_data = np.zeros(self.num_wall_gal, [('a_position', np.float32, 4),
                                                           ('a_bg_color', np.float32, 4),
                                                           ('a_fg_color', np.float32, 4),
@@ -918,10 +932,12 @@ class VoidRender(app.Canvas):
         self.wall_galaxy_vertex_data['a_size'] = self.max_galaxy_display_radius #broadcast to whole array?
         
         self.wall_galaxy_point_VB = gloo.VertexBuffer(self.wall_galaxy_vertex_data)
+        ########################################################################
+
         
-        ######################################################################
+        ########################################################################
         # Set up the program to display galaxy points
-        ######################################################################
+        #-----------------------------------------------------------------------
         u_linewidth = 0.0
         
         u_antialias = 0.0 #0.0==turned this off it looks weird
@@ -939,12 +955,12 @@ class VoidRender(app.Canvas):
         self.wall_galaxy_point_program['u_size'] = 1.0
         
         self.enabled_programs.append((self.wall_galaxy_point_program, "points"))
+        ########################################################################
 
-        ######################################################################
+
+        ########################################################################
         # Set up the program to display wall lines
-        ######################################################################
-        
-        
+        #-----------------------------------------------------------------------
         #self.wall_distance
         
         wall_KDTree = neighbors.KDTree(self.wall_galaxy_xyz)
@@ -998,6 +1014,7 @@ class VoidRender(app.Canvas):
         self.enabled_programs.append((self.wall_line_data_program, "lines"))
         
         self.wall_line_data_program['u_color'] = self.wall_galaxy_color
+        ########################################################################
         
         
         

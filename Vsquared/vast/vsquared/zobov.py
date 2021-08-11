@@ -96,20 +96,25 @@ class Zobov:
             self.prevoids    = voids
 
 
-    def sortVoids(self,method=0,minsig=2,dc=0.2):
-        """Sort voids according to one of several methods.
+    def sortVoids(self, method=0, minsig=2, dc=0.2):
+        """
+        Sort voids according to one of several methods.
 
         Parameters
-        ----------
+        ==========
+
         method : int
-            0=VIDE method (arXiv:1406.1191); link zones with density <1/5
-              mean density, and remove voids with density >1/5 mean density.
-            1=ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
-            2=ZOBOV method; cut voids over a significance threshold.
-            3=not available
-            4=REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
+            0 = VIDE method (arXiv:1406.1191); link zones with density <1/5
+                mean density, and remove voids with density >1/5 mean density.
+            1 = ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
+            2 = ZOBOV method; cut voids over a significance threshold.
+            3 = not available
+            4 = REVOLVER method (arXiv:1904.01030); every zone below mean 
+                density is a void.
+        
         minsig : float
             Minimum significance threshold for selecting voids.
+
         dc : float
             Density cut for linking zones using VIDE method.
         """

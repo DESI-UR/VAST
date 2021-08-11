@@ -1,10 +1,20 @@
-'''Functions used in voids_sdss.py'''
+
 
 import numpy as np
 from astropy.table import Table, Row
 
-from .table_functions import add_row, subtract_row, table_divide, table_dtype_cast, row_cross, row_dot, to_vector, to_array
-
+from .table_functions import add_row, \
+                             subtract_row, \
+                             table_divide, \
+                             table_dtype_cast, \
+                             row_cross, \
+                             row_dot, \
+                             to_vector, \
+                             to_array
+'''
+import warnings
+warnings.filterwarnings('error')
+'''
 
 RtoD = 180./np.pi
 DtoR = np.pi/180.
@@ -202,7 +212,7 @@ def not_in_mask(coordinates, survey_mask_ra_dec, n, rmin, rmax):
     Parameters:
     ============
 
-    coordinates : numpy.ndarray of shape (3,), in x-y-z order and cartesian coordinates
+    coordinates : numpy.ndarray of shape (1,3), in x-y-z order and cartesian coordinates
         x,y, and z are measured in Mpc/h
 
     survey_mask_ra_dec : numpy.ndarray of shape (num_ra, num_dec) where 

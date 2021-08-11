@@ -33,8 +33,8 @@ The output files will be located in the directory specified by ``out_directory``
  * ``[survey_name]_[comoving/redshift]_holes.txt``
  * ``[survey_name]_[comoving/redshift]_maximal.txt``
  * ``[survey_name]_mask.pickle``
- * ``field_galaxies.txt``
- * ``wall_galaxies.txt``
+ * ``[survey_name]_field_gal_file.txt``
+ * ``[survey_name]_wall_gal_file.txt``
 
 See :ref:`VF-output` for a detailed description of each of these files.
 
