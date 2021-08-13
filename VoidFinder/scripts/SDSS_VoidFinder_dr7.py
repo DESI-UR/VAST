@@ -51,7 +51,7 @@ import pickle
 num_cpus = 1
 
 #-------------------------------------------------------------------------------
-survey_name = 'SDSS_dr7_'
+survey_name = 'vollim_dr7_cbp_102709_'
 
 # File header
 # Change these directory paths to where your data is stored, and where you want 

@@ -44,8 +44,17 @@ if __name__ == "__main__":
         r_gal = galaxy_data['Rgal']
         
     else:
+
+        if 'redshift' in galaxy_data.colnames:
+            z_column = 'redshift'
+        elif 'REDSHIFT' in galaxy_data.colnames:
+            z_column = 'REDSHIFT'
+        elif 'z' in galaxy_data.colnames:
+            z_column = 'z'
+        else:
+            print('Redshift column not known.  Please rename column to "redshift".')
         
-        r_gal = c*galaxy_data['redshift']/(100*h)
+        r_gal = c*galaxy_data[z_column]/(100*h)
     
     xin = r_gal*numpy.cos(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
     
@@ -109,6 +118,10 @@ def load_void_data(infilename):
     return holes_xyz, hole_radii, hole_flags
 
 
+
+
+
+
 def load_galaxy_data(infilename):
     """
     Load a table of galaxies for use in VoidRender
@@ -130,10 +143,27 @@ def load_galaxy_data(infilename):
     """
     
     galaxy_data = load_data_to_Table(infilename)
+
+    ############################################################################
+    # Identify the redshift column label
+    #---------------------------------------------------------------------------
+    if 'redshift' in galaxy_data.colnames:
+        z_column = 'redshift'
+    elif 'REDSHIFT' in galaxy_data.colnames:
+        z_column = 'REDSHIFT'
+    elif 'z' in galaxy_data.colnames:
+        z_column = 'z'
+    else:
+        print('Redshift column not known.  Please rename column to "redshift".')
+    ############################################################################
     
+
+    ############################################################################
+    # Calculate the distance to the galaxies
+    #---------------------------------------------------------------------------
     if distance_metric == 'comoving' and 'Rgal' not in galaxy_data.columns:
         
-        r_gal = z_to_comoving_dist(galaxy_data['redshift'].data.astype(numpy.float32), 
+        r_gal = z_to_comoving_dist(galaxy_data[z_column].data.astype(numpy.float32), 
                                    Omega_M, 
                                    h)
     
@@ -143,14 +173,24 @@ def load_galaxy_data(infilename):
         
     else:
         
-        r_gal = c*galaxy_data['redshift']/(100*h)
+        r_gal = c*galaxy_data[z_column]/(100*h)
+    ############################################################################
     
+
+    ############################################################################
+    # Convert sky coordinates to Cartesian coordinates
+    #---------------------------------------------------------------------------
     xin = r_gal*numpy.cos(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
     
     yin = r_gal*numpy.sin(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
     
     zin = r_gal*numpy.sin(galaxy_data['dec']*DtoR)
+    ############################################################################
     
+
+    ############################################################################
+    # Create output array
+    #---------------------------------------------------------------------------
     #xyz_galaxy_table = Table([xin, yin, zin], names=('x','y','z'))
     
     num_rows = len(galaxy_data)
@@ -160,6 +200,7 @@ def load_galaxy_data(infilename):
     galaxy_data_xyz[:,0] = xin
     galaxy_data_xyz[:,1] = yin
     galaxy_data_xyz[:,2] = zin
+    ############################################################################
     
     return galaxy_data_xyz
     

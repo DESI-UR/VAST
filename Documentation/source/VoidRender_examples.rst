@@ -24,7 +24,7 @@ A summary checklist for installing and running `VAST.VoidRender`.
    algorithm and modify ``visualize_voids.py`` if appropriate.  Parameters to 
    edit might include:
    
-   * Void file name(s) sent into ``viz.load_hole_data``
+   * Void file name(s) sent into ``viz.load_void_data``
    * Galaxy catalog file name sent into ``viz.load_galaxy_data``
    * etc.
 
