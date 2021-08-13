@@ -252,8 +252,10 @@ Each of these files is described in more detail below.
 Additional files that are produced during the process (which may or may not be 
 useful to the user post-void-finding) include
  
- * ``[survey_name]_triangles.dat`` -- 
- * ``[survey_name]_galviz.dat`` --
+ * ``[survey_name]_triangles.dat`` -- Identifies the vertices, normal vector,
+   and void membership of each triangle making up a void boundary
+ * ``[survey_name]_galviz.dat`` -- Identifies the voids to which each galaxy and
+   its nearest neighbor belong
 
 .. list-table:: ``_galzones`` output file
    :widths: 25 25 50
@@ -372,10 +374,107 @@ useful to the user post-void-finding) include
      - 
      - normalized z-component of the void's third ellipsoid axis
 
+.. list-table:: ``_triangles`` output file
+   :widths: 25 25 25 50
+   :header-rows: 1
+
+   * - Column name
+     - Data type
+     - Unit
+     - Comment
+   * - void_id
+     - integer
+     - 
+     - Unique identifier of the triangle's containing void
+   * - n_x
+     - float
+     - 
+     - normalized x-component of the triangle's normal vector
+   * - n_y
+     - float
+     - 
+     - normalized y-component of the triangle's normal vector
+   * - n_z
+     - float
+     - 
+     - normalized z-component of the triangle's normal vector
+   * - p1_x
+     - float
+     - Mpc/h
+     - x-coordinate of the triangle's first vertex
+   * - p1_y
+     - float
+     - Mpc/h
+     - y-coordinate of the triangle's first vertex
+   * - p1_z
+     - float
+     - Mpc/h
+     - z-coordinate of the triangle's first vertex
+   * - p2_x
+     - float
+     - Mpc/h
+     - x-coordinate of the triangle's second vertex
+   * - p2_y
+     - float
+     - Mpc/h
+     - y-coordinate of the triangle's second vertex
+   * - p2_z
+     - float
+     - Mpc/h
+     - z-coordinate of the triangle's second vertex
+   * - p3_x
+     - float
+     - Mpc/h
+     - x-coordinate of the triangle's third vertex
+   * - p3_y
+     - float
+     - Mpc/h
+     - y-coordinate of the triangle's third vertex
+   * - p3_z
+     - float
+     - Mpc/h
+     - z-coordinate of the triangle's third vertex
+
+.. list-table:: ``_galviz`` output file
+   :widths: 25 25 50
+   :header-rows: 1
+   
+   * - Column name
+     - Data type
+     - Comment
+   * - gid
+     - integer
+     - Unique galaxy identifier
+   * - g2v
+     - integer
+     - Unique identifier of the galaxy's containing void
+   * - g2v2
+     - integer
+     - Unique identifier of the containing void of the galaxy's nearest
+       neighbor
+
 
 
 
 Using the output
 ================
 
+Is my object in a void?
+-----------------------
 
+Because `VAST.VoidFinder` defines voids as a union of spheres, it is relatively 
+simple to determine whether or not an object is located within a void: if its 
+location falls within one of the spheres listed in the ``_holes.txt`` output 
+file (see :ref:`VF-output`), then it is within a void!
+
+Because voids found by `VAST.Vsquared` are formed from zones, which are unions 
+of objects' voronoi cells, each object's void membership is easily determined
+from the output. The ``_galzones.dat`` output file (see :ref:`V2-output`)
+contains each object's zone membership, and the ``_zonevoids.dat`` output file
+contains each zone's void membership. If the values in the ``void0`` and
+``void1`` columns of a zone are ``-1``, the zone does not belong to any void, 
+and any objects contained within that zone are not in a void.
+ 
+ 
+ 
+ 
