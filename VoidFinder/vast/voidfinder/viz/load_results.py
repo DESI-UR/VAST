@@ -142,66 +142,84 @@ def load_galaxy_data(infilename):
 
     """
     
+    
+    
+    
+    
     galaxy_data = load_data_to_Table(infilename)
 
-    ############################################################################
-    # Identify the redshift column label
-    #---------------------------------------------------------------------------
-    if 'redshift' in galaxy_data.colnames:
-        z_column = 'redshift'
-    elif 'REDSHIFT' in galaxy_data.colnames:
-        z_column = 'REDSHIFT'
-    elif 'z' in galaxy_data.colnames:
-        z_column = 'z'
-    else:
-        print('Redshift column not known.  Please rename column to "redshift".')
-    ############################################################################
-    
 
-    ############################################################################
-    # Calculate the distance to the galaxies
-    #---------------------------------------------------------------------------
-    if distance_metric == 'comoving' and 'Rgal' not in galaxy_data.columns:
+
+    if all([name in galaxy_data.colnames for name in ['x', 'y', 'z']]):
         
-        r_gal = z_to_comoving_dist(galaxy_data[z_column].data.astype(numpy.float32), 
-                                   Omega_M, 
-                                   h)
+        num_rows = len(galaxy_data)
     
-    elif distance_metric == 'comoving':
+        galaxy_data_xyz = numpy.empty((num_rows, 3), dtype=numpy.float64)
         
-        r_gal = galaxy_data['Rgal']
+        galaxy_data_xyz[:,0] = galaxy_data['x']
+        galaxy_data_xyz[:,1] = galaxy_data['y']
+        galaxy_data_xyz[:,2] = galaxy_data['z']
         
     else:
+    
+        ############################################################################
+        # Identify the redshift column label
+        #---------------------------------------------------------------------------
+        if 'redshift' in galaxy_data.colnames:
+            z_column = 'redshift'
+        elif 'REDSHIFT' in galaxy_data.colnames:
+            z_column = 'REDSHIFT'
+        elif 'z' in galaxy_data.colnames:
+            z_column = 'z'
+        else:
+            print('Redshift column not known.  Please rename column to "redshift".')
+        ############################################################################
         
-        r_gal = c*galaxy_data[z_column]/(100*h)
-    ############################################################################
     
-
-    ############################################################################
-    # Convert sky coordinates to Cartesian coordinates
-    #---------------------------------------------------------------------------
-    xin = r_gal*numpy.cos(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
+        ############################################################################
+        # Calculate the distance to the galaxies
+        #---------------------------------------------------------------------------
+        if distance_metric == 'comoving' and 'Rgal' not in galaxy_data.columns:
+            
+            r_gal = z_to_comoving_dist(galaxy_data[z_column].data.astype(numpy.float32), 
+                                       Omega_M, 
+                                       h)
+        
+        elif distance_metric == 'comoving':
+            
+            r_gal = galaxy_data['Rgal']
+            
+        else:
+            
+            r_gal = c*galaxy_data[z_column]/(100*h)
+        ############################################################################
+        
     
-    yin = r_gal*numpy.sin(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
+        ############################################################################
+        # Convert sky coordinates to Cartesian coordinates
+        #---------------------------------------------------------------------------
+        xin = r_gal*numpy.cos(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
+        
+        yin = r_gal*numpy.sin(galaxy_data['ra']*DtoR)*numpy.cos(galaxy_data['dec']*DtoR)
+        
+        zin = r_gal*numpy.sin(galaxy_data['dec']*DtoR)
+        ############################################################################
+        
     
-    zin = r_gal*numpy.sin(galaxy_data['dec']*DtoR)
-    ############################################################################
-    
-
-    ############################################################################
-    # Create output array
-    #---------------------------------------------------------------------------
-    #xyz_galaxy_table = Table([xin, yin, zin], names=('x','y','z'))
-    
-    num_rows = len(galaxy_data)
-    
-    galaxy_data_xyz = numpy.empty((num_rows, 3), dtype=numpy.float64)
-    
-    galaxy_data_xyz[:,0] = xin
-    galaxy_data_xyz[:,1] = yin
-    galaxy_data_xyz[:,2] = zin
-    ############################################################################
-    
+        ############################################################################
+        # Create output array
+        #---------------------------------------------------------------------------
+        #xyz_galaxy_table = Table([xin, yin, zin], names=('x','y','z'))
+        
+        num_rows = len(galaxy_data)
+        
+        galaxy_data_xyz = numpy.empty((num_rows, 3), dtype=numpy.float64)
+        
+        galaxy_data_xyz[:,0] = xin
+        galaxy_data_xyz[:,1] = yin
+        galaxy_data_xyz[:,2] = zin
+        ############################################################################
+        
     return galaxy_data_xyz
     
     
