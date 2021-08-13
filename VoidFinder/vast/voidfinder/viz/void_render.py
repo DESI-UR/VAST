@@ -402,7 +402,7 @@ class VoidRender(app.Canvas):
                  start_translation_sensitivity=1.0,
                  start_rotation_sensitivity=1.0,
                  galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
-                 wall_galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
+                 wall_galaxy_color=np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32),
                  void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
                  SPHERE_TRIANGULARIZATION_DEPTH=3
                  ):
