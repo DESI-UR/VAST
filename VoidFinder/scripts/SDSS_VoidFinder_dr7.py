@@ -122,6 +122,7 @@ print("Dist limits: ", dist_limits)
 ################################################################################
 
 mask, mask_resolution = generate_mask(galaxy_data_table, 
+                                      max_z, 
                                       dist_metric=dist_metric, 
                                       smooth_mask=True,
                                       #h=h,
@@ -149,7 +150,7 @@ wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies
                                                                                  #mag_cut_flag=mag_cut,
                                                                                  #rm_isolated_flag=rm_isolated,
                                                                                  #hole_grid_edge_length=5.0,
-                                                                                 distance_metric=dist_metric,
+                                                                                 dist_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=0)
 
