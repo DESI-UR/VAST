@@ -28,7 +28,7 @@ A summary checklist for installing and running `VAST.Vsquared`.
  * Run ``vsquared.py`` from the ``VAST/Vsquared/scripts`` directory on your 
    machine or using a cluster::
    
-   python vsquared.py -c DR7_config.ini
+    python vsquared.py -c DR7_config.ini
 
 The output files will be located in the directory specified by the Output 
 directory.
