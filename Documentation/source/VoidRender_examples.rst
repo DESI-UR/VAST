@@ -43,7 +43,9 @@ visualize the voids found with `VoidFinder` in a given catalog.
 
 Included in the `VAST/Vsquared` repository (`VAST/Vsquared/scripts/`) is 
 ``visualize_voids.py``, a working example script for how to run `VoidRender` to 
-visualize the voids found with `Vsquared` in a given catalog.
+visualize the voids found with `Vsquared` in a given catalog.  Note: `Vsquared` 
+must be run with the ``-v`` option to produce output needed for the 
+visualization.
 
 
 
@@ -114,7 +116,7 @@ The default behavior of `VoidRender` is to color all voids the same color
 different colors.
 
 To change the colors of the voids, set the ``void_hole_color`` keyword in 
-``VoidRender``.  To set all voids to a single color, provide a single 
+`VoidRender`.  To set all voids to a single color, provide a single 
 RGB:math:`\alpha` array.  To set different colors for the voids, provide an 
 array of shape (:math:`N_{voids}`,4), where :math:`N_{voids}` corresponds to the 
 number of unique void IDs in the ``holes_group_IDs`` keyword.  The number of 
@@ -129,16 +131,16 @@ The default behavior of `VoidRender` is to color all galaxies the same color
 differently (in `VAST/VoidFinder`).
 
 To change the color of the galaxies (or the field galaxies), set the 
-``galaxy_color`` keyword of ``VoidRender`` to a single RGB:math:`\alpha` array.  
-If a separate list of wall galaxy coordinates is provided, their display color 
-can be set in a similar manner using the ``wall_galaxy_color`` keyword in 
-``VoidRender``.  The lines connecting the wall galaxies will also be drawn in 
-this same color.
+``galaxy_color`` keyword of `VoidRender` to a single RGB:math:`{\alpha}` 
+array.  If a separate list of wall galaxy coordinates is provided 
+(`VAST/VoidFinder` only), their display color can be set in a similar manner 
+using the ``wall_galaxy_color`` keyword in `VoidRender`.  The lines connecting 
+the wall galaxies will also be drawn in this same color.
 
 The largest size of the galaxy points can be set using the 
-``galaxy_display_radius`` keyword in ``VoidRender``; the default is 2.  The size 
+``galaxy_display_radius`` keyword in `VoidRender`; the default is 2.  The size 
 of the galaxies can be dynamically changed with the mouse scroll wheel while 
-in ``VoidRender``.
+in `VoidRender`.
 
 
 Sphere surface resolution
@@ -146,9 +148,9 @@ Sphere surface resolution
 
 (`VAST/VoidFinder` only)
 
-``VoidRender`` renders the surfaces of the spheres as a set of triangles.  The 
+`VoidRender` renders the surfaces of the spheres as a set of triangles.  The 
 depth of triangularization can be altered using the 
-``SPHERE_TRIANGULARIZATION_DEPTH`` keyword in ``VoidRender``.  An increased 
+``SPHERE_TRIANGULARIZATION_DEPTH`` keyword in `VoidRender`.  An increased 
 depth will result in a smoother surface, but rendering higher resolutions will 
 take longer because the number of triangles increases exponentially with this 
 value.  A value of 3 (default) generates 1280 triangles for each sphere; a 
@@ -162,11 +164,11 @@ value of 4 would generate 15,360 triangles for each sphere.
 --------------------
 
 To generate the interactive window within which the voids and galaxies are 
-displayed, import the ``VoidRender`` class::
+displayed, import the `VoidRender` class::
 
     from vast.voidfinder.viz import VoidRender
     
-Then, initialize the ``VoidRender`` object with the galaxy array(s), void 
+Then, initialize the `VoidRender` object with the galaxy array(s), void 
 array, and additional parameters (see Section :ref:`VR-params` for details)::
 
     viz = VoidRender(...)
