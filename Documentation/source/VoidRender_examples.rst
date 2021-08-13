@@ -88,9 +88,12 @@ the Cartesian coordinates of the objects in the input catalog.
 The outputs from ``load_void_data`` are:
  
  * The Cartesian coordinates of the centers of the void holes 
-   (`VAST/VoidFinder`) or ??? (`VAST/Vsquared`) as a ``numpy.ndarray`` object
- * The radii of the void holes (`VAST/VoidFinder`) or ??? (`VAST/Vsquared`)
- * ID values for the void holes (`VAST/VoidFinder`) or ??? (`VAST/Vsquared`)
+   (`VAST/VoidFinder`) or the vertices of triangles making up void edges 
+   (`VAST/Vsquared`) as a ``numpy.ndarray`` object
+ * The radii of the void holes (`VAST/VoidFinder`) or the Cartesian components 
+   of each void edge triangle's unit normal vector (`VAST/Vsquared`)
+ * ID values for the void holes (`VAST/VoidFinder`) or void ID values for the 
+   triangles (`VAST/Vsquared`)
    
 **Note:** If you want to draw lines connecting the wall galaxies to each other 
 (as shown in Figure \autoref{fig:vfviz}), the field and wall galaxies must be 

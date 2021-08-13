@@ -462,11 +462,6 @@ Using the output
 Is my object in a void?
 -----------------------
 
-Because `VAST.VoidFinder` defines voids as a union of spheres, it is relatively 
-simple to determine whether or not an object is located within a void: if its 
-location falls within one of the spheres listed in the ``_holes.txt`` output 
-file (see :ref:`VF-output`), then it is within a void!
-
 Because voids found by `VAST.Vsquared` are formed from zones, which are unions 
 of objects' voronoi cells, each object's void membership is easily determined
 from the output. The ``_galzones.dat`` output file (see :ref:`V2-output`)

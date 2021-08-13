@@ -62,28 +62,28 @@ def load_void_data(infilename1, infilename2):
     ==========
 
     infilename1 : string
-        ???
+        path to desired _triangles.dat data file
 
     infilename2 : string
-        ???
+        path to desired _galviz.dat data file
 
     Returns
     =======
 
     voids_tri_x, _y, _z : numpy.ndarrays shape (N,3)
-        the xyz coordinates of the ???
+        the xyz coordinates of the the vertices of triangles making up void edges
 
     voids_norm : numpy.ndarray shape (N,3)
-        ???
+        the xyz coordinates of each triangle's unit normal vector
 
     voids_id : numpy.ndarray shape (N,)
-        ???
+        the void ID of each triangle
 
-    gal_viz : ???
-        ???
+    gal_viz : numpy.ndarray shape (N,)
+        the void ID of each galaxy
 
-    gal_opp : ???
-        ???
+    gal_opp : numpy.ndarray shape (N,)
+        the void ID of each galaxy's nearest neighbor
 
     '''
     
