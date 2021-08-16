@@ -12,9 +12,9 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../VoidFinder/'))
-sys.path.insert(1, os.path.abspath('../../Vsquared/'))
-
+#sys.path.insert(0, os.path.abspath('../../VoidFinder/'))
+#sys.path.insert(1, os.path.abspath('../../Vsquared/'))
+sys.path.insert(0, os.path.abspath('../../VoidFinder/vast/voidfinder/'))
 
 # -- Project information -----------------------------------------------------
 
