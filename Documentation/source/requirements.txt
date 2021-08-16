@@ -1,2 +1,14 @@
 numpydoc
 sphinx-argparse
+numpy
+astropy
+Cython
+h5py
+matplotlib
+psutil
+PyOpenGL
+PyOpenGL-accelerate
+pytest
+scikit-learn
+vispy
+healpy
