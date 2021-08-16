@@ -2,7 +2,7 @@ numpydoc
 sphinx-argparse
 numpy
 astropy
-Cython
+cython
 h5py
 matplotlib
 psutil
