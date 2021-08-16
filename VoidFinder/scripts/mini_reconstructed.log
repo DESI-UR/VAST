@@ -1,0 +1,14 @@
+map_reconstructed.fitsn ---> map_reconstructed_mini.fits
+200g 1d
+print ==========================================
+print SLURM_JOB_ID = 6132269
+print SLURM_JOB_NODELIST = bhc0111
+print ==========================================
+bhc0111
+Starting date: Mon Aug 16 12:23:48 EDT 2021
+Can read the file
+9048.2264
+2689.2264
+1461248
+Done :)
+Ending date: Mon Aug 16 12:57:46 EDT 2021

@@ -4,13 +4,17 @@
 
 
 import numpy as np
+import sys
+#sys.path.insert(1, '/scratch/ierez/IGMCosmo/VoidFinder/')
+
 from vast.voidfinder import find_voids, calculate_grid
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 
 
-wall_coords_xyz = load_data_to_Table("SDSS_dr7_wall_gal_file.txt")
+#wall_coords_xyz = load_data_to_Table("/scratch/ierez/IGMCosmo/VoidFinder/vollim_dr7_cbp_102709.dat")
 
+wall_coords_xyz = load_data_to_Table("data.txt") 
 x = wall_coords_xyz['x']
 y = wall_coords_xyz['y']
 z = wall_coords_xyz['z']

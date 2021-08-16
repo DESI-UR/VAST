@@ -21,7 +21,7 @@
 import sys
 #sys.path.insert(1, '/home/oneills2/VoidFinder/python/')
 #sys.path.insert(1, '/Users/kellydouglass/Documents/Research/VoidFinder/python/')
-sys.path.insert(1, '/scratch/ierez/IGMCosmo/VoidFinder/python/')
+#sys.path.insert(1, '/scratch/ierez/IGMCosmo/VoidFinder/python/')
 
 ################################################################################
 #
