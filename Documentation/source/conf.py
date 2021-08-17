@@ -15,7 +15,10 @@ import sys
 sys.path.insert(0, os.path.abspath('../../VoidFinder/'))
 sys.path.insert(1, os.path.abspath('../../Vsquared/'))
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/vast/voidfinder/'))
-print(sys.path)
+#print(sys.path)
+
+import vast.voidfinder as VF
+print(VF.__file__)
 
 # -- Project information -----------------------------------------------------
 
