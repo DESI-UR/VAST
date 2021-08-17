@@ -19,7 +19,7 @@ sys.path.insert(1, os.path.abspath('../../Vsquared/'))
 
 import vast
 #print(vast.__file__)
-parent_directory = os.pardir(vast.__file__)
+parent_directory = os.path.dirname(vast.__file__)
 print(os.listdir(parent_directory + '/voidfinder/'))
 
 # -- Project information -----------------------------------------------------
