@@ -74,7 +74,7 @@ setup(
     #packages=['vast.voidfinder',
     #          'vast.voidfinder.viz',
     #          'vast.voidfinder.volume'],
-    packages=find_packages()
+    packages=find_packages(),
 
     # Requirements.
     requires=['Python (>3.7.0)'],
