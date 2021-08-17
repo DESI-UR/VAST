@@ -128,52 +128,52 @@ with the following options:
      - Unit
      - Comment
    * - ``Input Catalog``
-     - ``Paths``
+     - Paths
      - string
      - 
      - Path to the input data catalog
    * - ``Survey Name``
-     - ``Paths``
+     - Paths
      - string
      - 
      - Survey identifier to use in output file names
    * - ``Output Directory``
-     - ``Paths``
+     - Paths
      - string
      - 
      - Path to the directory where output files will be saved
    * - ``H_0``
-     - ``Cosmology``
+     - Cosmology
      - float
      - (km/s)/Mpc
      - Hubble constant of the desired cosmology
-   * - ``\Omega_m``
-     - ``Cosmology``
+   * - ``Omega_m``
+     - Cosmology
      - float
      - 
      - Dimensionless matter density parameter of the desired cosmology
    * - ``redshift_min``
-     - ``Settings``
+     - Settings
      - float
      - 
      - The redshift above which void-finding will be applied
    * - ``redshift_max``
-     - ``Settings``
+     - Settings
      - float
      - 
      - The redshift below which void-finding will be applied
    * - ``rabsmag_min``
-     - ``Settings``
+     - Settings
      - float
      - 
      - The minimum magnitude for a galaxy to be used for void-finding
    * - ``radius_min``
-     - ``Settings``
+     - Settings
      - float
      - Mpc/h
      - The minimum radius for a void candidate to be considered a true void
    * - ``nside``
-     - ``Settings``
+     - Settings
      - integer
      - 
      - The NSIDE parameter used in the HEALPix pixelization of the survey mask; 
