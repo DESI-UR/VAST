@@ -71,10 +71,13 @@ setup(
     url='https://github.com/DESI-UR/VAST/VoidFinder',
     version=get_version('vast/voidfinder/__init__.py'),
 
+    '''
     packages=['vast.voidfinder',
               'vast.voidfinder.viz',
               'vast.voidfinder.volume'],
-
+    '''
+    packages=find_packages()
+    
     # Requirements.
     requires=['Python (>3.7.0)'],
     install_requires=open(requirements_filepath, 'r').read().split('\n'),
