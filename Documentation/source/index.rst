@@ -38,7 +38,7 @@ algorithms: **VoidFinder** and :raw-html:`<strong>V<sup>2</sup></strong>`.
 
 .. toctree::
    :maxdepth: 2
-   :caption: V 0xC2 0xB2
+   :caption: V²
    
    Vsquared_intro
    Vsquared_examples
