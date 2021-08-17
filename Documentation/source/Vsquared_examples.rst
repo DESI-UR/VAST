@@ -35,8 +35,7 @@ A summary checklist for installing and running
    
     python vsquared.py -c DR7_config.ini
     
-   Note: Include the ``-v`` option to produce the output required for 
-   **VoidRender**.
+   .. note:: Include the ``-v`` option to produce the output required for **VoidRender**.
 
 The output files will be located in the directory specified by the Output 
 directory.

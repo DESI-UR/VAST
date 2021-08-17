@@ -71,9 +71,7 @@ Examples of this script are the ``visualize_voids.py`` files, located in the
 **VAST**.  What follows is a breakdown of this script, explaining the various 
 options and functions called.
 
-.. note:: Due to differences in the void structures found by each of the 
-different void-finding algorithms implemented in **VAST**, there is an 
-implementation of **VoidRender** that corresponds to each algorithm.
+.. note:: Due to differences in the void structures found by each of the different void-finding algorithms implemented in **VAST**, there is an implementation of **VoidRender** that corresponds to each algorithm.
 
 
 
@@ -108,9 +106,7 @@ The outputs from ``load_void_data`` are:
  * ID values for the void holes (**VoidFinder**) or void ID values for the 
    triangles (:raw-html:`<strong>V<sup>2</sup></strong>`)
    
-.. note:: If you want to draw lines connecting the wall galaxies to each other 
-(as shown in Figure \autoref{fig:vfviz}), the field and wall galaxies must be 
-loaded into memory as separate objects.
+.. note:: If you want to draw lines connecting the wall galaxies to each other (as shown in Figure \autoref{fig:vfviz}), the field and wall galaxies must be loaded into memory as separate objects.
 
 
 
