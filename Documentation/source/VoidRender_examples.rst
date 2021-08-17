@@ -1,3 +1,7 @@
+.. role:: raw-html(raw)
+    :format: html
+
+
 ################
 Using VoidRender
 ################
@@ -6,19 +10,19 @@ Using VoidRender
 Quick start
 ===========
 
-A summary checklist for installing and running `VAST.VoidRender`.
+A summary checklist for installing and running **VoidRender**.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
- * Navigate to ``VAST/VoidFender`` (for running `VoidRender` on output from 
-   `VoidFinder`) and/or ``VAST/Vsquared`` (for running `VoidRender` on output 
-   from `Vsquared`) and run::
+ * Navigate to ``VAST/VoidFender`` (for running **VoidRender** on output from 
+   **VoidFinder**) and/or ``VAST/Vsquared`` (for running **VoidRender** on 
+   output from :raw-html:`<strong>V<sup>2</sup></strong>`) and run::
     
     python setup.py install
     
    See :ref:`VF-install` or :ref:`V2-install` for installation options.  NOTE: 
-   The version of `VoidRender` that corresponds to the void-finding algorithm of 
-   choice will be built and installed when that algorithm (`VoidFinder`, for 
-   example) is built and installed.
+   The version of **VoidRender** that corresponds to the void-finding algorithm 
+   of choice will be built and installed when that algorithm (**VoidFinder**, 
+   for example) is built and installed.
    
  * Navigate to the ``scripts`` directory within your chosen void-finding 
    algorithm and modify ``visualize_voids.py`` if appropriate.  Parameters to 
@@ -37,15 +41,16 @@ A summary checklist for installing and running `VAST.VoidRender`.
 Example scripts
 ===============
 
-Included in the `VAST/VoidFinder` repository (`VAST/VoidFinder/scripts/`) is 
-``visualize_voids.py``, a working example script for how to run `VoidRender` to 
-visualize the voids found with `VoidFinder` in a given catalog.
+Included in the **VoidFinder** repository (``VAST/VoidFinder/scripts/``) is 
+``visualize_voids.py``, a working example script for how to run **VoidRender** 
+to visualize the voids found with **VoidFinder** in a given catalog.
 
-Included in the `VAST/Vsquared` repository (`VAST/Vsquared/scripts/`) is 
-``visualize_voids.py``, a working example script for how to run `VoidRender` to 
-visualize the voids found with `Vsquared` in a given catalog.  Note: `Vsquared` 
-must be run with the ``-v`` option to produce output needed for the 
-visualization.
+Included in the :raw-html:`<strong>V<sup>2</sup></strong>` repository 
+(``VAST/Vsquared/scripts/``) is ``visualize_voids.py``, a working example script 
+for how to run **VoidRender** to visualize the voids found with 
+:raw-html:`<strong>V<sup>2</sup></strong>` in a given catalog.  Note: 
+:raw-html:`<strong>V<sup>2</sup></strong>` must be run with the ``-v`` option to 
+produce output needed for the visualization.
 
 
 
@@ -54,7 +59,7 @@ visualization.
 Visualize voids
 ===============
 
-The easiest way to use `VoidRender` is to create a script that
+The easiest way to use **VoidRender** is to create a script that
 
 1. Reads in the output from a **VAST** void-finding algorithm and the 
    corresponding galaxy catalog within which the voids were located.
@@ -68,7 +73,7 @@ options and functions called.
 
 **NOTE:** Due to differences in the void structures found by each of the 
 different void-finding algorithms implemented in **VAST**, there is an 
-implementation of `VoidRender` that corresponds to each algorithm.
+implementation of **VoidRender** that corresponds to each algorithm.
 
 
 
@@ -76,13 +81,18 @@ implementation of `VoidRender` that corresponds to each algorithm.
 ----------------------
 
 Generally, the first functions that should be called in a script running 
-``VoidRender`` are ``load_galaxy_data`` and ``load_void_data``::
+**VoidRender** are ``load_galaxy_data`` and ``load_void_data``::
 
     from vast.voidfinder.viz import load_galaxy_data, load_void_data
     
-These functions read a galaxy catalog and a void catalog into memory (as 
-``numpy.ndarray`` objects), respectively.  These load functions are provided as 
-convenient utilities to access the **VAST** outputs.
+for **VoidFinder**, or::
+
+    from vast.vsquared.viz import load_galaxy_data, load_void_data
+    
+for :raw-html:`<strong>V<sup>2</sup></strong>`.  These functions read a galaxy 
+catalog and a void catalog into memory (as ``numpy.ndarray`` objects), 
+respectively.  These load functions are provided as convenient utilities to 
+access the **VAST** outputs.
 
 The output from ``load_galaxy_data`` is a ``numpy.ndarray`` object containing 
 the Cartesian coordinates of the objects in the input catalog.
@@ -90,12 +100,13 @@ the Cartesian coordinates of the objects in the input catalog.
 The outputs from ``load_void_data`` are:
  
  * The Cartesian coordinates of the centers of the void holes 
-   (`VAST/VoidFinder`) or the vertices of triangles making up void edges 
-   (`VAST/Vsquared`) as a ``numpy.ndarray`` object
- * The radii of the void holes (`VAST/VoidFinder`) or the Cartesian components 
-   of each void edge triangle's unit normal vector (`VAST/Vsquared`)
- * ID values for the void holes (`VAST/VoidFinder`) or void ID values for the 
-   triangles (`VAST/Vsquared`)
+   (**VoidFinder**) or the vertices of triangles making up void edges 
+   (:raw-html:`<strong>V<sup>2</sup></strong>`) as a ``numpy.ndarray`` object
+ * The radii of the void holes (**VoidFinder**) or the Cartesian components of 
+   each void edge triangle's unit normal vector 
+   (:raw-html:`<strong>V<sup>2</sup></strong>`)
+ * ID values for the void holes (**VoidFinder**) or void ID values for the 
+   triangles (:raw-html:`<strong>V<sup>2</sup></strong>`)
    
 **Note:** If you want to draw lines connecting the wall galaxies to each other 
 (as shown in Figure \autoref{fig:vfviz}), the field and wall galaxies must be 
@@ -111,12 +122,12 @@ loaded into memory as separate objects.
 Void color
 ^^^^^^^^^^
 
-The default behavior of `VoidRender` is to color all voids the same color 
+The default behavior of **VoidRender** is to color all voids the same color 
 (blue).  It is possible to change this color and/or assign different voids 
 different colors.
 
 To change the colors of the voids, set the ``void_hole_color`` keyword in 
-`VoidRender`.  To set all voids to a single color, provide a single 
+**VoidRender**.  To set all voids to a single color, provide a single 
 RGB:math:`\alpha` array.  To set different colors for the voids, provide an 
 array of shape (:math:`N_{voids}`,4), where :math:`N_{voids}` corresponds to the 
 number of unique void IDs in the ``holes_group_IDs`` keyword.  The number of 
@@ -126,31 +137,31 @@ holes may be different than the number of voids.
 Galaxy color and size
 ^^^^^^^^^^^^^^^^^^^^^
 
-The default behavior of `VoidRender` is to color all galaxies the same color 
+The default behavior of **VoidRender** is to color all galaxies the same color 
 (red).  It is possible to change this color, or to color field and wall galaxies 
-differently (in `VAST/VoidFinder`).
+differently (in **VoidFinder**).
 
 To change the color of the galaxies (or the field galaxies), set the 
-``galaxy_color`` keyword of `VoidRender` to a single RGB:math:`{\alpha}` 
+``galaxy_color`` keyword of **VoidRender** to a single RGB:math:`{\alpha}` 
 array.  If a separate list of wall galaxy coordinates is provided 
-(`VAST/VoidFinder` only), their display color can be set in a similar manner 
-using the ``wall_galaxy_color`` keyword in `VoidRender`.  The lines connecting 
-the wall galaxies will also be drawn in this same color.
+(**VoidFinder** only), their display color can be set in a similar manner using 
+the ``wall_galaxy_color`` keyword in **VoidRender**.  The lines connecting the 
+wall galaxies will also be drawn in this same color.
 
 The largest size of the galaxy points can be set using the 
-``galaxy_display_radius`` keyword in `VoidRender`; the default is 2.  The size 
+``galaxy_display_radius`` keyword in **VoidRender**; the default is 2.  The size 
 of the galaxies can be dynamically changed with the mouse scroll wheel while 
-in `VoidRender`.
+in **VoidRender**.
 
 
 Sphere surface resolution
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-(`VAST/VoidFinder` only)
+(**VoidFinder** only)
 
-`VoidRender` renders the surfaces of the spheres as a set of triangles.  The 
+**VoidRender** renders the surfaces of the spheres as a set of triangles.  The 
 depth of triangularization can be altered using the 
-``SPHERE_TRIANGULARIZATION_DEPTH`` keyword in `VoidRender`.  An increased 
+``SPHERE_TRIANGULARIZATION_DEPTH`` keyword in **VoidRender**.  An increased 
 depth will result in a smoother surface, but rendering higher resolutions will 
 take longer because the number of triangles increases exponentially with this 
 value.  A value of 3 (default) generates 1280 triangles for each sphere; a 
@@ -164,12 +175,12 @@ value of 4 would generate 15,360 triangles for each sphere.
 --------------------
 
 To generate the interactive window within which the voids and galaxies are 
-displayed, import the `VoidRender` class::
+displayed, import the ``VoidRender`` class::
 
     from vast.voidfinder.viz import VoidRender
     
-Then, initialize the `VoidRender` object with the galaxy array(s), void 
-array, and additional parameters (see Section :ref:`VR-params` for details)::
+Then, initialize the ``VoidRender`` object with the galaxy array(s), void array, 
+and additional parameters (see Section :ref:`VR-params` for details)::
 
     viz = VoidRender(...)
     
