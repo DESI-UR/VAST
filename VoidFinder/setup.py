@@ -17,6 +17,22 @@ from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, dist, find_packages
 from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext as _build_ext
+
+#
+# Build requirements file path
+# 
+# This is to make the ReadTheDocs work
+#
+cwd = os.getcwd()
+requirements_filepath = 'requirements.txt'
+working_contents = os.listdir(cwd)
+
+if requirements_filepath in working_contents:
+    pass
+else:
+    # Assumes we are one level up
+    requirements_filepath = 'VoidFinder/' + requirements_filepath
+
 #
 # Version reader
 #
@@ -61,7 +77,7 @@ setup(
 
     # Requirements.
     requires=['Python (>3.7.0)'],
-    install_requires=open('requirements.txt', 'r').read().split('\n'),
+    install_requires=open(requirements_filepath, 'r').read().split('\n'),
     zip_safe=False,
     use_2to3=False,
 
