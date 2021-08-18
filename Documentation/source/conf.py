@@ -21,9 +21,9 @@ for entry in sys.path:
         print(entry)
 
 #from vast.voidfinder import filter_galaxies
-import vispy
-print('vispy:', vispy)
-#print('vf.__file__:', vf.__file__)
+import vast.voidfinder as vf
+print('dir(vf):', dir(vf))
+print('vars(vf):', vars(vf))
 #parent_directory = os.path.dirname(vast.__file__)
 #print(os.listdir(parent_directory + '/voidfinder/'))
 
