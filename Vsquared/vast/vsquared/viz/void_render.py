@@ -357,24 +357,28 @@ class VoidRender(app.Canvas):
         '''
         Main class for initializing the visualization.
         
-        Usage:
-        ------
+        Examples
+        ========
         
-        from voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
+        from vast.vsquared.viz import VoidRender, load_void_data, load_galaxy_data
         
-        holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
+        voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data("DR7_triangles.dat", "DR7_galviz.dat")
     
-        galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
+        galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.fits")
     
-        viz = VoidFinderCanvas(holes_xyz, 
-                               holes_radii, 
+        viz = VoidFinderCanvas(voids_tri_x, voids_tri_y, voids_tri_z, 
+                               voids_norm, 
+                               voids_id, 
                                galaxy_data,
+                               gal_viz, 
+                               gal_opp, 
                                canvas_size=(1600,1200))
     
         viz.run()
         
+
         Notes
-        -----
+        =====
         
         Controls:
         w - translate forward
@@ -401,8 +405,9 @@ class VoidRender(app.Canvas):
         Right mouse click - translate forward & backward
         Mouse Wheel - increase & decrease galaxy size
         
+
         Parameters
-        ----------
+        ==========
         
         holes_xyz : (N,3) numpy.ndarray
             xyz coordinates of the hole centers

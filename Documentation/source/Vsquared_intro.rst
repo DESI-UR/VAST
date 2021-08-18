@@ -9,8 +9,8 @@ Introduction
 
 :raw-html:`<strong>V<sup>2</sup></strong>` is a software package for finding 
 voids based on the ZOBOV (ZOnes Bordering On Voidness) algorithm by 
-[Neyrinck (2007)]_, which uses the gradient of the volume of adjacent voronoi 
-cells to flow multiple cells into larger void regions.
+[Neyrinck07]_, which uses the gradient of the volume of adjacent voronoi cells 
+to flow multiple cells into larger void regions.
 
 The ``VAST/Vsquared`` directory contains the package, as well as an example 
 script for automatically running all steps of the algorithm. To import the main 
@@ -108,7 +108,7 @@ your choice of build from above.  For example::
 Citation
 ========
 
-Please cite [Neyrinck (2007)]_ when using this algorithm.
+Please cite [Neyrinck07]_ when using this algorithm.
 
 
 

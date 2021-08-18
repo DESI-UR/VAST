@@ -9,8 +9,7 @@ Introduction
 .. figure:: ../voidfinder_viz.png
    :alt: VoidFinder visualization of the output from SDSS DR7 with VoidRender
    
-   **VoidRender** visualization of the output from SDSS DR7 
-   [Abazajian et al. (2009)]_.\label{fig:vfviz}
+   **VoidRender** visualization of the output from SDSS DR7 [SDSSdr7]_.\label{fig:vfviz}
 
 In order to aid in assessing the quality of the VoidFinder algorithm, the 
 ``vast.voidfinder.viz`` package includes a **VoidRender** class 
@@ -82,4 +81,4 @@ and installed when either **VoidFinder** or
 
 
 
-.. [Abazajian et al. (2009)] Abazajian, K. et al. 2009, ApJS, 182, 543
+.. [SDSSdr7] Abazajian, K. et al. 2009, ApJS, 182, 543

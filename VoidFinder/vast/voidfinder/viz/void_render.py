@@ -409,8 +409,8 @@ class VoidRender(app.Canvas):
         '''
         Main class for initializing the visualization.
         
-        Usage:
-        ------
+        Examples
+        ========
         
         from vast.voidfinder.viz import VoidRender, load_void_data, load_galaxy_data
         
@@ -426,7 +426,7 @@ class VoidRender(app.Canvas):
         viz.run()
         
         Notes
-        -----
+        =====
         
         Controls:
 
@@ -454,8 +454,9 @@ class VoidRender(app.Canvas):
         Right mouse click - translate forward & backward
         Mouse Wheel - increase & decrease galaxy size
         
+
         Parameters
-        ----------
+        ==========
         
         holes_xyz : (N,3) numpy.ndarray
             xyz coordinates of the hole centers
