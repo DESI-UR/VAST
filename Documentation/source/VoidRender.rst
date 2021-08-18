@@ -6,10 +6,13 @@
 Introduction
 ############
 
+.. _fig-vfviz:
+
 .. figure:: ../voidfinder_viz.png
    :alt: VoidFinder visualization of the output from SDSS DR7 with VoidRender
    
-   **VoidRender** visualization of the output from SDSS DR7 [SDSSdr7]_.\label{fig:vfviz}
+   **VoidRender** visualization of the output from 
+   `SDSS DR7 <https://arxiv.org/abs/0812.0649>`_.
 
 In order to aid in assessing the quality of the VoidFinder algorithm, the 
 ``vast.voidfinder.viz`` package includes a **VoidRender** class 
@@ -38,13 +41,15 @@ wall galaxies may be displayed in black and void galaxies may be displayed in
 red.  Additionally, in order to help visualize the clustering of wall galaxies, 
 another **VoidRender** option plots a thin black line between a galaxy and its K 
 nearest neighbors, yielding a denser spider-web look for those galaxies which 
-cluster together, as can be seen in \autoref{fig:vfviz}.
+cluster together, as can be seen in :ref:`fig-vfviz`.
+
+.. _fig-v2viz:
 
 .. figure:: ../vsquared_viz.png
    :alt: V\ :sup:`2` visualization of the output from SDSS DR7 with VoidRender
 
    :raw-html:`<strong>V<sup>2</sup></strong>` visualization of the output from 
-   SDSS DR7.\label{fig:v2viz}
+   `SDSS DR7 <https://arxiv.org/abs/0812.0649>`_.
 
 An animated example of the **VoidRender** visualization can be found on 
 [YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  **VoidRender** can be 
@@ -56,7 +61,7 @@ the ZOBOV algorithm are made up of convex polygons, and are rendered exactly in
 3D.  Controls for movement and production of screenshots and videos are 
 identical to those of **VoidRender**.  An example of the 
 :raw-html:`<strong>V<sup>2</sup></strong>` visualization is shown in 
-\autoref{fig:v2viz}.
+:ref:`fig-v2viz`.
 
 
 
@@ -81,4 +86,4 @@ and installed when either **VoidFinder** or
 
 
 
-.. [SDSSdr7] Abazajian, K. et al. 2009, ApJS, 182, 543
+
