@@ -17,8 +17,8 @@ import sys
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/vast/voidfinder/'))
 #print(sys.path)
 
-#import vast
-#print(vast.__file__)
+import vast
+print(vast.__file__)
 #parent_directory = os.path.dirname(vast.__file__)
 #print(os.listdir(parent_directory + '/voidfinder/'))
 
