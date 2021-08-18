@@ -64,12 +64,12 @@ class build_ext(_build_ext):
 setup(
     name='vast_voidfinder',
     description='VoidFinder package',
-    long_description=open('README.md').read(),
+    long_description=open(path_prefix + 'README.md').read(),
     author='Kelly Douglass, University of Rochester',
     author_email='kellyadouglass@rochester.edu',
     license='BSD 3-clause License',
     url='https://github.com/DESI-UR/VAST/VoidFinder',
-    version=get_version(path_prefix + 'vast/voidfinder/__init__.py'),
+    version=get_version('vast/voidfinder/__init__.py'),
 
     #packages=['vast.voidfinder',
     #          'vast.voidfinder.viz',

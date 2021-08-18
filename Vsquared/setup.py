@@ -56,7 +56,7 @@ setup_keywords['author'] = 'Dylan Veyrat, University of Rochester'
 setup_keywords['author_email'] = 'dveyrat@ur.rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/Vsquared'
-setup_keywords['version'] = get_version(path_prefix + 'vast/vsquared/__init__.py')
+setup_keywords['version'] = get_version('vast/vsquared/__init__.py')
 
 requires = []
 with open(path_prefix + 'requirements.txt', 'r') as f:
