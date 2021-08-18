@@ -11,7 +11,7 @@ Introduction
 .. figure:: ../voidfinder_viz.png
    :alt: VoidFinder visualization of the output from SDSS DR7 with VoidRender
    
-   **VoidRender** visualization of the output from 
+   **Figure 1:** **VoidRender** visualization of the output from 
    `SDSS DR7 <https://arxiv.org/abs/0812.0649>`_.
 
 In order to aid in assessing the quality of the VoidFinder algorithm, the 
@@ -48,11 +48,11 @@ cluster together, as can be seen in :ref:`fig-vfviz`.
 .. figure:: ../vsquared_viz.png
    :alt: V\ :sup:`2` visualization of the output from SDSS DR7 with VoidRender
 
-   :raw-html:`<strong>V<sup>2</sup></strong>` visualization of the output from 
-   `SDSS DR7 <https://arxiv.org/abs/0812.0649>`_.
+   **Figure 2:** :raw-html:`<strong>V<sup>2</sup></strong>` visualization of the 
+   output from `SDSS DR7 <https://arxiv.org/abs/0812.0649>`_.
 
 An animated example of the **VoidRender** visualization can be found on 
-[YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  **VoidRender** can be 
+`YouTube <https://www.youtube.com/watch?v=PmyoUAt4Qa8>`_.  **VoidRender** can be 
 utilized to produce screenshots or videos such as this example if a user's 
 environment includes the ``ffmpeg`` library.  
 :raw-html:`<strong>V<sup>2</sup></strong>` also includes an ``OpenGL`` and 
@@ -70,7 +70,7 @@ identical to those of **VoidRender**.  An example of the
 Installation
 ============
 
-**VoidRender** requires OpenGL :math:`\geq 1.2` and ``vispy`` (``pip install 
+**VoidRender** requires OpenGL :math:`\geq` 1.2 and ``vispy`` (``pip install 
 vispy``).
 
 Also, on Ubuntu, you may need to install the following::

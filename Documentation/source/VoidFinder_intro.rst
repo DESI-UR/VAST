@@ -4,7 +4,7 @@ Introduction
 
 **VAST.VoidFinder** is a software package containing a Python 3 implementation 
 of the VoidFinder algorithm 
-(`El-Ad & Piran (1997) <https://arxiv.org/abs/astro-ph/9702135>`_) that is based 
+(`El-Ad & Piran, 1997 <https://arxiv.org/abs/astro-ph/9702135>`_) that is based 
 on the algorithm's Fortran implementation by 
 `Hoyle & Vogeley (2002) <https://arxiv.org/abs/astro-ph/0109357>`_.  Motivated 
 by the expectation that voids are spherical to first order, this algorithm 
