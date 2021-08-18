@@ -6,9 +6,11 @@
 Introduction
 ############
 
-.. image:: ../voidfinder_viz.png
-**VoidRender** visualization of the output from SDSS DR7 
-[Abazajian et al. (2009)]_.\label{fig:vfviz}
+.. figure:: ../voidfinder_viz.png
+   :alt: VoidFinder visualization of the output from SDSS DR7 with VoidRender
+   
+   **VoidRender** visualization of the output from SDSS DR7 
+   [Abazajian et al. (2009)]_.\label{fig:vfviz}
 
 In order to aid in assessing the quality of the VoidFinder algorithm, the 
 ``vast.voidfinder.viz`` package includes a **VoidRender** class 
@@ -39,8 +41,11 @@ another **VoidRender** option plots a thin black line between a galaxy and its K
 nearest neighbors, yielding a denser spider-web look for those galaxies which 
 cluster together, as can be seen in \autoref{fig:vfviz}.
 
-.. image:: ../vsquared_viz.png
-:raw-html:`<strong>V<sup>2</sup></strong>` visualization of the output from SDSS DR7.\label{fig:v2viz}
+.. figure:: ../vsquared_viz.png
+   :alt: V\ :sup:`2` visualization of the output from SDSS DR7 with VoidRender
+
+   :raw-html:`<strong>V<sup>2</sup></strong>` visualization of the output from 
+   SDSS DR7.\label{fig:v2viz}
 
 An animated example of the **VoidRender** visualization can be found on 
 [YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  **VoidRender** can be 

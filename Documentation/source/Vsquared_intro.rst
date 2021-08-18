@@ -37,8 +37,8 @@ between adjacent zones and using them to grow unions of weakly divided zones.
 This list of voids is then typically pruned to remove void candidates unlikely 
 to be true voids.  :raw-html:`<strong>V<sup>2</sup></strong>` includes several 
 of the different void-pruning methods that exist, including methods from other 
-ZOBOV implementations such as [VIDE](http://www.cosmicvoids.net/) and 
-[REVOLVER](https://github.com/seshnadathur/Revolver/).
+ZOBOV implementations such as `VIDE <http://www.cosmicvoids.net/>`_ and 
+`REVOLVER <https://github.com/seshnadathur/Revolver/>`_.
 
 
 
