@@ -13,14 +13,14 @@
 import os
 import sys
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/'))
-sys.path.insert(1, os.path.abspath('../../Vsquared/'))
+#sys.path.insert(1, os.path.abspath('../../Vsquared/'))
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/vast/voidfinder/'))
 #print(sys.path)
 
-import vast
+#import vast
 #print(vast.__file__)
-parent_directory = os.path.dirname(vast.__file__)
-print(os.listdir(parent_directory + '/voidfinder/'))
+#parent_directory = os.path.dirname(vast.__file__)
+#print(os.listdir(parent_directory + '/voidfinder/'))
 
 # -- Project information -----------------------------------------------------
 

@@ -15,3 +15,5 @@ python:
     - requirements: Documentation/source/requirements.txt
     - method: setuptools
       path: VoidFinder
+    - method: setuptools
+      path: Vsquared

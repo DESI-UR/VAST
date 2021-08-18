@@ -69,7 +69,7 @@ setup(
     author_email='kellyadouglass@rochester.edu',
     license='BSD 3-clause License',
     url='https://github.com/DESI-UR/VAST/VoidFinder',
-    version=get_version('vast/voidfinder/__init__.py'),
+    version=get_version(path_prefix + 'vast/voidfinder/__init__.py'),
 
     #packages=['vast.voidfinder',
     #          'vast.voidfinder.viz',
