@@ -14,13 +14,13 @@ VoidFinder API
 ``filter_galaxies``
 ===================
 
-.. autofunction:: vast.voidfinder.filter_galaxies
+.. autofunction:: vast.voidfinder.voidfinder.filter_galaxies
 
 
 ``ra_dec_to_xyz``
 =================
 
-.. autofunction:: vast.voidfinder.ra_dec_to_xyz
+.. autofunction:: vast.voidfinder.voidfinder.ra_dec_to_xyz
 
 
 ``z_to_comoving_dist``
@@ -42,4 +42,4 @@ VoidFinder API
 ``find_voids``
 ==============
 
-.. autofunction:: vast.voidfinder.find_voids
+.. autofunction:: vast.voidfinder.voidfinder.find_voids
