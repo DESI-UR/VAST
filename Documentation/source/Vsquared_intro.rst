@@ -8,8 +8,8 @@ Introduction
 ############
 
 :raw-html:`<strong>V<sup>2</sup></strong>` is a software package for finding 
-voids based on the ZOBOV (ZOnes Bordering On Voidness) algorithm 
-[@Neyrinck:2007], which uses the gradient of the volume of adjacent voronoi 
+voids based on the ZOBOV (ZOnes Bordering On Voidness) algorithm by 
+[Neyrinck (2007)]_, which uses the gradient of the volume of adjacent voronoi 
 cells to flow multiple cells into larger void regions.
 
 The ``VAST/Vsquared`` directory contains the package, as well as an example 
@@ -37,7 +37,8 @@ between adjacent zones and using them to grow unions of weakly divided zones.
 This list of voids is then typically pruned to remove void candidates unlikely 
 to be true voids.  :raw-html:`<strong>V<sup>2</sup></strong>` includes several 
 of the different void-pruning methods that exist, including methods from other 
-ZOBOV implementations such as VIDE [@VIDE:2012] and REVOLVER [@REVOLVER:2018].
+ZOBOV implementations such as [VIDE](http://www.cosmicvoids.net/) and 
+[REVOLVER](https://github.com/seshnadathur/Revolver/).
 
 
 
@@ -107,4 +108,8 @@ your choice of build from above.  For example::
 Citation
 ========
 
-Please cite [@Neyrinck:2007] when using this algorithm.
+Please cite [Neyrinck (2007)]_ when using this algorithm.
+
+
+
+.. [Neyrinck (2007)] Neyrinck, M. 2007, MNRAS, 386, 2101

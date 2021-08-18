@@ -3,10 +3,11 @@ Introduction
 ############
 
 **VAST.VoidFinder** is a software package containing a Python 3 implementation 
-of the VoidFinder algorithm [@El-Ad:1997] that is based on the algorithm's 
-Fortran implementation by @Hoyle:2002.  Motivated by the expectation that voids 
-are spherical to first order, this algorithm defines voids as the unions of sets 
-of spheres grown in the underdense regions of the large-scale structure.
+of the VoidFinder algorithm of [El-Ad & Piran (1997)]_ that is based on the 
+algorithm's Fortran implementation by [Hoyle & Vogeley (2002)]_.  Motivated by 
+the expectation that voids are spherical to first order, this algorithm defines 
+voids as the unions of sets of spheres grown in the underdense regions of the 
+large-scale structure.
 
 The **VoidFinder** directory contains the package, which includes an efficient 
 Multi-Process Cythonized version of VoidFinder.  To import the main 
@@ -119,8 +120,10 @@ are using, add ``--user`` to your choice of build from above.  For example::
 Citation
 ========
 
-Please cite [@Hoyle:2002] and [@El-Ad:1997] when using this algorithm.
+Please cite [Hoyle & Vogeley (2002)]_ and [El-Ad & Piran (1997)]_ when using 
+this algorithm.
 
 
 
-
+.. [El-Ad & Piran (1997)] El-Ad, H. & Piran, T. 1997, ApJ, 491, 421
+.. [Hoyle & Vogeley (2002)] Hoyle, F. & Vogeley, M. 2002, ApJ, 566, 641
