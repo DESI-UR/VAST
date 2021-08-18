@@ -15,15 +15,15 @@ import sys
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/'))
 #sys.path.insert(1, os.path.abspath('../../Vsquared/'))
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/vast/voidfinder/'))
-print('sys.path:', sys.path)
+#print('sys.path:', sys.path)
 for entry in sys.path:
-    if 'site-packages' in entry:
-        print(entry)
+    if 'site-packages' in entry and 'vast_voidfinder' in entry:
+        print(os.listdir(entry))
 
 #from vast.voidfinder import filter_galaxies
-import vast.voidfinder as vf
-print('dir(vf):', dir(vf))
-print('vars(vf):', vars(vf))
+#import vast.voidfinder as vf
+#print('dir(vf):', dir(vf))
+#print('vars(vf):', vars(vf))
 #parent_directory = os.path.dirname(vast.__file__)
 #print(os.listdir(parent_directory + '/voidfinder/'))
 
