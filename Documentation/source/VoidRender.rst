@@ -53,7 +53,7 @@ environment includes the ``ffmpeg`` library.
 .. figure:: ../vsquared_viz.png
    :alt: V\ :sup:`2` visualization of the output from SDSS DR7 with VoidRender
 
-   **Figure 2:** V\ :sup:`2` visualization of the 
+   **Figure 2:** V2 visualization of the 
    output from `SDSS DR7 <https://arxiv.org/abs/0812.0649>`_.
 
 :raw-html:`<strong>V<sup>2</sup></strong>` also includes an ``OpenGL`` and 
