@@ -124,7 +124,7 @@ different colors.
 
 To change the colors of the voids, set the ``void_hole_color`` keyword in 
 **VoidRender**.  To set all voids to a single color, provide a single 
-RGB:math:`\alpha` array.  To set different colors for the voids, provide an 
+RGB\ :math:`\alpha` array.  To set different colors for the voids, provide an 
 array of shape (:math:`N_{voids}`,4), where :math:`N_{voids}` corresponds to the 
 number of unique void IDs in the ``holes_group_IDs`` keyword.  The number of 
 holes may be different than the number of voids.
@@ -138,7 +138,7 @@ The default behavior of **VoidRender** is to color all galaxies the same color
 differently (in **VoidFinder**).
 
 To change the color of the galaxies (or the field galaxies), set the 
-``galaxy_color`` keyword of **VoidRender** to a single RGB:math:`{\alpha}` 
+``galaxy_color`` keyword of **VoidRender** to a single RGB\ :math:`\alpha` 
 array.  If a separate list of wall galaxy coordinates is provided 
 (**VoidFinder** only), their display color can be set in a similar manner using 
 the ``wall_galaxy_color`` keyword in **VoidRender**.  The lines connecting the 

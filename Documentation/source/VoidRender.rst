@@ -41,20 +41,21 @@ wall galaxies may be displayed in black and void galaxies may be displayed in
 red.  Additionally, in order to help visualize the clustering of wall galaxies, 
 another **VoidRender** option plots a thin black line between a galaxy and its K 
 nearest neighbors, yielding a denser spider-web look for those galaxies which 
-cluster together, as can be seen in :ref:`fig-vfviz`.
+cluster together, as can be seen in :ref:`fig-vfviz`
+
+An animated example of the **VoidRender** visualization can be found on 
+`YouTube <https://www.youtube.com/watch?v=PmyoUAt4Qa8>`_.  **VoidRender** can be 
+utilized to produce screenshots or videos such as this example if a user's 
+environment includes the ``ffmpeg`` library.
 
 .. _fig-v2viz:
 
 .. figure:: ../vsquared_viz.png
    :alt: V\ :sup:`2` visualization of the output from SDSS DR7 with VoidRender
 
-   **Figure 2:** :raw-html:`<strong>V<sup>2</sup></strong>` visualization of the 
+   **Figure 2:** V\ :sup:`2` visualization of the 
    output from `SDSS DR7 <https://arxiv.org/abs/0812.0649>`_.
 
-An animated example of the **VoidRender** visualization can be found on 
-`YouTube <https://www.youtube.com/watch?v=PmyoUAt4Qa8>`_.  **VoidRender** can be 
-utilized to produce screenshots or videos such as this example if a user's 
-environment includes the ``ffmpeg`` library.  
 :raw-html:`<strong>V<sup>2</sup></strong>` also includes an ``OpenGL`` and 
 ``vispy`` based visualization for its output.  The surfaces of voids found by 
 the ZOBOV algorithm are made up of convex polygons, and are rendered exactly in 
