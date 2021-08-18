@@ -15,10 +15,13 @@ import sys
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/'))
 #sys.path.insert(1, os.path.abspath('../../Vsquared/'))
 #sys.path.insert(0, os.path.abspath('../../VoidFinder/vast/voidfinder/'))
-#print(sys.path)
+print('sys.path:', sys.path)
+for entry in sys.path:
+    if 'site-packages' in entry:
+        print(entry)
 
-import vast
-print(vast.__file__)
+import vast.voidfinder as vf
+print('vast.__file__:', vf.__file__)
 #parent_directory = os.path.dirname(vast.__file__)
 #print(os.listdir(parent_directory + '/voidfinder/'))
 
