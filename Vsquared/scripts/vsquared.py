@@ -17,7 +17,7 @@ p.add_argument('-w', '--save_intermediate', action='store_true', default=False,
                help='Save intermediate files in void calculation.')
 
 req = p.add_argument_group('required named arguments')
-req.add_argument('-c', '--config', dest='config_file', required=True,
+req.add_argument('-c', '--config', dest='config_file', required=True, default="DR7_config.ini",
                  help='V^2 config file (INI format).')
 
 args = p.parse_args()

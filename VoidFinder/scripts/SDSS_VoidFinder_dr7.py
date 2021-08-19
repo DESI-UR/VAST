@@ -33,9 +33,7 @@ from vast.voidfinder.multizmask import generate_mask
 from vast.voidfinder.preprocessing import file_preprocess
 from vast.voidfinder.table_functions import to_vector, to_array
 
-from astropy.table import Table
 import pickle
-import numpy as np
 
 
 
@@ -53,7 +51,7 @@ import numpy as np
 num_cpus = 1
 
 #-------------------------------------------------------------------------------
-survey_name = 'SDSS_dr7_'
+survey_name = 'vollim_dr7_cbp_102709_'
 
 # File header
 # Change these directory paths to where your data is stored, and where you want 
@@ -124,6 +122,7 @@ print("Dist limits: ", dist_limits)
 ################################################################################
 
 mask, mask_resolution = generate_mask(galaxy_data_table, 
+                                      max_z, 
                                       dist_metric=dist_metric, 
                                       smooth_mask=True,
                                       #h=h,
@@ -146,11 +145,12 @@ temp_infile.close()
 
 wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies(galaxy_data_table,
                                                                                  survey_name,
+                                                                                 out_directory,
                                                                                  dist_limits=dist_limits,
                                                                                  #mag_cut_flag=mag_cut,
                                                                                  #rm_isolated_flag=rm_isolated,
                                                                                  #hole_grid_edge_length=5.0,
-                                                                                 distance_metric=dist_metric,
+                                                                                 dist_metric=dist_metric,
                                                                                  #h=h,
                                                                                  verbose=0)
 
@@ -190,7 +190,7 @@ find_voids(wall_coords_xyz,
            #hole_center_iter_dist=1.0,
            maximal_spheres_filename=out1_filename,
            void_table_filename=out2_filename,
-           potential_voids_filename=survey_name+'potential_voids_list.txt',
+           potential_voids_filename=out_directory + survey_name + 'potential_voids_list.txt',
            num_cpus=num_cpus,
            batch_size=10000,
            verbose=0,

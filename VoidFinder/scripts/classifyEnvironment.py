@@ -13,7 +13,6 @@ import os
 import numpy as np
 
 from astropy.table import QTable, Table
-import astropy.units as u
 
 import pickle
 
@@ -39,7 +38,7 @@ dist_metric = 'comoving'
 
 #-------------------------------------------------------------------------------
 # SURVEY MASK FILE
-mask_filename = '../SDSS_dr7_mask.pickle'
+mask_filename = '../vollim_dr7_cbp_102709_mask.pickle'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------

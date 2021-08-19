@@ -39,8 +39,7 @@ cdef DTYPE_F32_t c = <DTYPE_F32_t>(VF_CONSTANTS.c)
 cdef DTYPE_F32_t R_W_interval(DTYPE_F32_t a, 
                               DTYPE_F32_t omega_M):
     """
-    Function for the Robins-Waykowski Interval (I don't think that's
-    the right name but the R and W stand for names)
+    Function for the Robertson-Walker Interval
     """
 
     return 1.0/(sqrt(a*omega_M*(1.0+((1.0-omega_M)*a*a*a/omega_M))))
@@ -55,9 +54,6 @@ cpdef np.ndarray z_to_comoving_dist(DTYPE_F32_t[:] z_input,
                                     DTYPE_F32_t omega_M, 
                                     DTYPE_F32_t h):
     """
-    Description
-    ===========
-    
     Convert redshift values into the comoving distance cosmology using the 
     integral of the Robertson-Walker metric.
     
