@@ -231,6 +231,7 @@ File format
 Currently supported formats for the input data file include:
 
  * ascii commented header (readable by ``astropy.table.Table.read``)
+ * .fits or .fit
  * .h5
 
 
