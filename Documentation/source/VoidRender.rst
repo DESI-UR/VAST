@@ -60,8 +60,10 @@ environment includes the ``ffmpeg`` library.
 the ZOBOV algorithm are made up of convex polygons, and are rendered exactly in 
 3D.  Controls for movement and production of screenshots and videos are 
 identical to those of **VoidRender**.  An example of the 
-:raw-html:`<strong>V<sup>2</sup></strong>` visualization is shown in 
-:ref:`fig-v2viz`.
+:raw-html:`<strong>V<sup>2</sup></strong>` visualization is shown in the figure 
+above.
+
+.. :ref:`fig-v2viz`.
 
 
 
