@@ -195,8 +195,7 @@ To run ``find_voids`` in a single thread, set ``num_cpus = 1``.
 Checkpoint files
 ^^^^^^^^^^^^^^^^
 
-**Note** This capability is currently only available in the multi-process 
-implementation of ``find_voids``.
+.. note:: This capability is currently only available in the multi-process implementation of ``find_voids``.
 
 In addition, the current list of void spheres found can be saved to disk 
 periodically, and ``find_voids`` can be restarted from one of these files if the 

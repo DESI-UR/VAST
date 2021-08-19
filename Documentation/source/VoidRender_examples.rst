@@ -106,7 +106,7 @@ The outputs from ``load_void_data`` are:
  * ID values for the void holes (**VoidFinder**) or void ID values for the 
    triangles (:raw-html:`<strong>V<sup>2</sup></strong>`)
    
-.. note:: If you want to draw lines connecting the wall galaxies to each other (as shown in Figure \autoref{fig:vfviz}), the field and wall galaxies must be loaded into memory as separate objects.
+.. note:: If you want to draw lines connecting the wall galaxies to each other (as shown in :ref:`fig-vfviz`), the field and wall galaxies must be loaded into memory as separate objects.
 
 
 
