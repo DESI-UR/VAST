@@ -13,7 +13,7 @@ class Catalog:
     """Catalog data for void calculation.
     """
 
-    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,maskfile=None,test=False):
+    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,maskfile=None):
         """Initialize catalog.
 
         Parameters
@@ -36,15 +36,10 @@ class Catalog:
             Mask file giving HEALPixels with catalog objects.
         """
         print("Extracting data...")
-        if test:
-            z = np.array([0.68180602,0.67004364,0.69155898,0.26172356,0.41542739,0.95479545,0.6162306,0.39254261,0.12758228,0.7203627])
-            ra = np.array([59.08525685,40.5244689,149.96450273,9.51784875,-6.07978378,109.23384559,-12.14497576,169.84860595,144.5099341,50.85999709])
-            dec = np.array([27.27168209,78.72335853,50.66631908,25.76239257,65.31929749,46.79134358,10.52924671,27.1567071,86.87466615,-5.50924185])
-        else:
-            hdulist = fits.open(catfile)
-            z    = hdulist[1].data['z']
-            ra   = hdulist[1].data['ra']
-            dec  = hdulist[1].data['dec']
+        hdulist = fits.open(catfile)
+        z    = hdulist[1].data['z']
+        ra   = hdulist[1].data['ra']
+        dec  = hdulist[1].data['dec']
         zcut = np.logical_and(z>zmin,z<zmax)
         if not zcut.any():
             print("Choose valid redshift limits")
@@ -55,10 +50,6 @@ class Catalog:
         nnls = np.arange(len(z))
         nnls[zcut<1] = -1
         if maglim is not None:
-            if test:
-                mag = np.array([-23.47249694,-23.29923585,-22.23139041,-21.64422565,-19.65340839,-24.36766712,-23.94118579,-22.4184526,-23.06968214,-22.53974153])
-            else:
-                mag  = hdulist[1].data['rabsmag']
             print("Applying magnitude cut...")
             mcut = np.logical_and(mag<maglim,zcut)
             if not mcut.any():
@@ -84,7 +75,7 @@ class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.
     """
 
-    def __init__(self,cat,viz=False,test=False):
+    def __init__(self,cat,viz=False):
         """Initialize tesselation.
 
         Parameters
@@ -153,7 +144,7 @@ class Zones:
     """Partitioning of particles into zones around density minima.
     """
 
-    def __init__(self,tess,viz=False,test=False):
+    def __init__(self,tess,viz=False):
         """Implementation of zones: see arXiv:0712.3049 for details.
 
         Parameters
@@ -252,7 +243,7 @@ class Voids:
     """Calculation of voids using a set of minimum-density zones.
     """
 
-    def __init__(self,zon,test=False):
+    def __init__(self,zon):
         """Implementation of void calculation: see arXiv:0712.3049.
 
         Parameters

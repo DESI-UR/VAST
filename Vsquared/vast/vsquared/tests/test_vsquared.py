@@ -65,33 +65,70 @@ class testUtil():
 class testCatalog():
 
     def __init__(self):
-        self.cat = classes.Catalog(None,1,0.2,0.9,-20.,test=True)
+        self.cat = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
 
     def test_coord(self):
-        tcoord = np.array([[ 783.9834049 , 1309.17621023,  786.65493169], \
-                           [ 251.57906769,  215.05470304, 1659.8600681 ], \
-                           [-953.01273258,  551.00968422, 1343.34965151], \
-                           [ 654.24618327,  109.69279205,  320.15252084], \
-                           [ 466.44534345,  -49.68217317, 1020.76670875], \
-                           [-504.01798857, 1444.59430258, 1628.78672599], \
-                           [1517.98012095, -326.67329107,  288.60190882], \
-                           [-935.32678971,  167.47281955,  487.43010419], \
-                           [ -16.48003108,   11.75078132,  370.69222288], \
-                           [1127.89393595, 1385.89505997, -172.34543953]])
-        assert(np.isclose(self.cat.coord,tcoord).all())
-
-    def test_mcut(self):
-        tmcut = np.array([True, True, True, True, False, False, True, True, False, True])
-        assert((self.cat.mcut==tmcut).all())
+        mcoord = np.array([-158.0472400951847,-19.01100010666949,94.40978960900837])
+        assert(np.isclose(np.mean(self.cat.coord.T[0]),mcoord[0]))
+        assert(np.isclose(np.mean(self.cat.coord.T[1]),mcoord[1]))
+        assert(np.isclose(np.mean(self.cat.coord.T[2]),mcoord[2]))
 
     def test_nnls(self):
-        tnnls = np.array([0, 1, 2, 3, 1, -1, 6, 7, -1, 9])
-        assert((self.cat.nnls==tnnls).all())
+        assert(len(self.cat.nnls[self.cat.nnls==-1])==1800)
+        assert(len(self.cat.nnls[self.cat.nnls==np.arange(10000)])==8200)
 
     def test_mask(self):
-        tmask = np.array([True, True, False, False, True, False, True, False, True, False, False, False])
-        assert((self.cat.mask==tmask).all())
+        assert(len(self.cat.mask[self.cat.mask])==576)
 
     def test_imsk(self):
-        timsk = np.array([True, True, True, True, False, False, True, True, False, True])
-        assert((self.cat.imsk==timsk).all())
+        assert(len(self.cat.imsk[self.cat.imsk])==8200)
+
+
+class testTesselation():
+
+    def __init__(self):
+        cat = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
+        self.tess = classes.Tesselation(cat)
+
+    def test_volumes(self):
+        assert(np.isclose(np.mean(self.tess.volumes),1600.190056988941))
+
+    def test_neighbors(self):
+        assert(np.isclose(np.mean([len(nn) for nn in self.tess.neighbors]),16.06))
+
+
+class testZones():
+
+    def __init__(self):
+        cat  = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
+        tess = classes.Tesselation(cat)
+        self.zones = classes.Zones(tess)
+
+    def test_zcell(self):
+        assert(np.isclose(np.mean([len(zc) for zc in self.zones.zcell]),82.82828282828282))
+
+    def test_zvols(self):
+        assert(np.isclose(np.mean(self.zones.zvols),6549.395680389604))
+
+    def test_zlinks(self):
+        assert(np.isclose(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]),12.626262626262626))
+        assert(np.isclose(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1]]),2345.915247204872))
+
+
+class testVoids():
+
+    def __init__(self):
+        cat   = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
+        tess  = classes.Tesselation(cat)
+        zones = classes.Zones(tess)
+        self.voids = classes.Voids(zone)
+
+    def test_voids(self):
+        assert(np.isclose(np.mean([len(v) for v in self.voids.voids]),1.9191919191919191))
+        assert(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]),1.0578692450350204))
+
+    def test_mvols(self):
+        assert(np.isclose(np.mean(self.voids.mvols),6549.3956803896035))
+
+    def test_ovols(self):
+        assert(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]),5519.078018084154))

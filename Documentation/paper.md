@@ -10,7 +10,7 @@ authors:
   - name: Kelly A. Douglass
     orcid: 0000-0002-9540-546X
     affiliation: 1
-  - name: Dylan Veyrat
+  - name: D. Veyrat
     orcid: 0000-0001-8101-2836
     affiliation: 1
   - name: Stephen W. O'Neill, Jr.
