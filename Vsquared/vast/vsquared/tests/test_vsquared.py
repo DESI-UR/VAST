@@ -1,5 +1,8 @@
 import numpy as np
+import os
+import copy
 from vast.vsquared import util, classes, zobov
+v2path = zobov.__file__[:-22]
 
 
 class testUtil():
@@ -65,7 +68,7 @@ class testUtil():
 class testCatalog():
 
     def __init__(self):
-        self.cat = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
+        self.cat = classes.Catalog(v2path+"data/test_data.fits",16,0.03,0.1)
 
     def test_coord(self):
         mcoord = np.array([-158.0472400951847,-19.01100010666949,94.40978960900837])
@@ -87,7 +90,7 @@ class testCatalog():
 class testTesselation():
 
     def __init__(self):
-        cat = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
+        cat = classes.Catalog(v2path+"data/test_data.fits",16,0.03,0.1)
         self.tess = classes.Tesselation(cat)
 
     def test_volumes(self):
@@ -100,7 +103,7 @@ class testTesselation():
 class testZones():
 
     def __init__(self):
-        cat  = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
+        cat  = classes.Catalog(v2path+"data/test_data.fits",16,0.03,0.1)
         tess = classes.Tesselation(cat)
         self.zones = classes.Zones(tess)
 
@@ -118,7 +121,7 @@ class testZones():
 class testVoids():
 
     def __init__(self):
-        cat   = classes.Catalog("../../../data/test_data.fits",16,0.03,0.1)
+        cat   = classes.Catalog(v2path+"data/test_data.fits",16,0.03,0.1)
         tess  = classes.Tesselation(cat)
         zones = classes.Zones(tess)
         self.voids = classes.Voids(zone)
@@ -132,3 +135,36 @@ class testVoids():
 
     def test_ovols(self):
         assert(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]),5519.078018084154))
+
+
+class testZobov():
+
+    def __init__(self):
+        self.zobov = zobov.Zobov(v2path+"data/test_config.ini",save_intermediate=False)
+
+    def test_sortVoids(self):
+        zobov1 = copy.deepcopy(self.zobov)
+        zobov2 = copy.deepcopy(self.zobov)
+        zobov4 = copy.deepcopy(self.zobov)
+        self.zobov.sortVoids()
+        zobov1.sortVoids(1)
+        zobov2.sortVoids(2)
+        zobov4.sortVoids(4)
+        assert(len(self.zobov.vrads) == 62)
+        assert(len(zobov1.vrads) == 87)
+        assert(len(zobov2.vrads) == 14)
+        assert(len(zobov4.vrads) == 47)
+
+    def test_saveVoids(self):
+        if not hasattr(self.zobov,'vrads'):
+            print("Run test_sortVoids first")
+        self.zobov.saveVoids()
+        assert(os.path.exists(v2path+"data/TEST_zobovoids.dat"))
+        os.remove(v2path+"data/TEST_zobovoids.dat")
+        assert(os.path.exists(v2path+"data/TEST_zonevoids.dat"))
+        os.remove(v2path+"data/TEST_zonevoids.dat")
+
+    def test_saveZones(self):
+        self.zobov.saveZones()
+        assert(os.path.exists(v2path+"data/TEST_galzones.dat"))
+        os.remove(v2path+"data/TEST_galzones.dat")
