@@ -1,0 +1,358 @@
+Run VoidFinder on delta fields without filter and before name changes.
+200g 1h
+print ==========================================
+print SLURM_JOB_ID = 3812283
+print SLURM_JOB_NODELIST = bhc0080
+print ==========================================
+bhc0080
+Starting date: Fri Mar 26 04:13:30 EDT 2021
+Loading galaxy data table at:  /scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/deltafields_RAadded90.fits
+Inside load table before columns
+Inside load table before adding columns
+fits to table done:)
+Galaxy data table load time:  0.20493578910827637
+Calculating Rgal data table column
+Finished Rgal calculation time:  5.525047779083252
+        ra                 dec         ...        delta           Rgal  
+------------------ ------------------- ... ------------------- ---------
+111.65201097115994 -1.0040558414971168 ... -0.7501514290604856 3550.8628
+111.65201097115994 -1.0040558414971168 ... -2.9951701434370044  3552.921
+111.65201097115994 -1.0040558414971168 ...   -8.42713942396928 3554.9783
+111.65201097115994 -1.0040558414971168 ...   1.443690511787549 3557.0352
+111.65201097115994 -1.0040558414971168 ... -4.4328915242131295 3559.0918
+111.65201097115994 -1.0040558414971168 ... -0.7920112475562439 3561.1475
+111.65201097115994 -1.0040558414971168 ...   3.139563038718462 3563.2026
+111.65201097115994 -1.0040558414971168 ... -3.3280128864671483 3565.2576
+111.65201097115994 -1.0040558414971168 ... -0.5576560308926432 3567.3118
+111.65201097115994 -1.0040558414971168 ...  -3.229661362697265 3569.3655
+               ...                 ... ...                 ...       ...
+113.56455186524676  0.9355200936826016 ...  1.6299339823301433 3640.8982
+113.56455186524676  0.9355200936826016 ...  0.4705629989743516 3642.9316
+113.56455186524676  0.9355200936826016 ...  2.1746745817632362 3644.9648
+113.56455186524676  0.9355200936826016 ... 0.11865457494989351  3646.998
+113.56455186524676  0.9355200936826016 ... -0.8582383569939689 3649.0295
+113.56455186524676  0.9355200936826016 ... 0.25646792872668245 3651.0618
+113.56455186524676  0.9355200936826016 ... -0.3297157784640531 3653.0928
+113.56455186524676  0.9355200936826016 ...  1.0218531435406804 3655.1233
+113.56455186524676  0.9355200936826016 ... -0.2691119755875596 3657.1533
+113.56455186524676  0.9355200936826016 ... -0.6478983760170653 3659.1824
+113.56455186524676  0.9355200936826016 ... -1.0773641482068776 3661.2117
+Length = 1271156 rows
+Dist limits:  [3677.9224 4513.124 ]
+This is the length of data before mask:
+1271156
+        ra                 dec         ...        delta           Rgal  
+------------------ ------------------- ... ------------------- ---------
+111.65201097115994 -1.0040558414971168 ... -0.7501514290604856 3550.8628
+111.65201097115994 -1.0040558414971168 ... -2.9951701434370044  3552.921
+111.65201097115994 -1.0040558414971168 ...   -8.42713942396928 3554.9783
+111.65201097115994 -1.0040558414971168 ...   1.443690511787549 3557.0352
+111.65201097115994 -1.0040558414971168 ... -4.4328915242131295 3559.0918
+111.65201097115994 -1.0040558414971168 ... -0.7920112475562439 3561.1475
+111.65201097115994 -1.0040558414971168 ...   3.139563038718462 3563.2026
+111.65201097115994 -1.0040558414971168 ... -3.3280128864671483 3565.2576
+111.65201097115994 -1.0040558414971168 ... -0.5576560308926432 3567.3118
+111.65201097115994 -1.0040558414971168 ...  -3.229661362697265 3569.3655
+               ...                 ... ...                 ...       ...
+113.56455186524676  0.9355200936826016 ...  1.6299339823301433 3640.8982
+113.56455186524676  0.9355200936826016 ...  0.4705629989743516 3642.9316
+113.56455186524676  0.9355200936826016 ...  2.1746745817632362 3644.9648
+113.56455186524676  0.9355200936826016 ... 0.11865457494989351  3646.998
+113.56455186524676  0.9355200936826016 ... -0.8582383569939689 3649.0295
+113.56455186524676  0.9355200936826016 ... 0.25646792872668245 3651.0618
+113.56455186524676  0.9355200936826016 ... -0.3297157784640531 3653.0928
+113.56455186524676  0.9355200936826016 ...  1.0218531435406804 3655.1233
+113.56455186524676  0.9355200936826016 ... -0.2691119755875596 3657.1533
+113.56455186524676  0.9355200936826016 ... -0.6478983760170653 3659.1824
+113.56455186524676  0.9355200936826016 ... -1.0773641482068776 3661.2117
+Length = 1271156 rows
+Generate mask start
+[[ 376   -7]
+ [ 376   -5]
+ [ 376   -3]
+ ...
+ [1079   -1]
+ [1079    0]
+ [1079    7]]
+2880
+This is the length of data before filter:
+1271156
+Filter Galaxies Start
+No filter is applied on transmission flux rate.
+Calculated grid
+Finding sep
+Time to find sep = 9.118576526641846
+Average separation of n=3rd neighbor gal is 3.748664280620203
+The standard deviation is 0.643842347018285
+Going to build wall with search value 4.714427801147631
+Time to sort field and wall gals = 0.03551793098449707
+Time to write field and wall tables:  5.166236400604248
+Number of field objects: 28341 Number of wall objects: 1242815
+Growing holes
+Running single-process mode
+Grid:  (1235, 395, 39)
+Num nonempty hole cells:  539833
+Total slots in hole_cell_ID_dict:  1079669
+Num collisions hole_cell_ID_dict:  165148
+Rebuilt galaxy map (size 135084 total slots  270191 )
+Num collisions in rebuild:  43937
+Cell ID Mem resizing:  2 3
+Cell ID Mem resizing:  3 4
+Cell ID Mem resizing:  4 5
+Cell ID Mem resizing:  5 6
+Cell ID Mem resizing:  6 7
+Cell ID Mem resizing:  7 8
+Cell ID Mem resizing:  8 9
+Cell ID Mem resizing:  9 10
+Cell ID Mem resizing:  10 11
+Cell ID Mem resizing:  11 12
+Cell ID Mem resizing:  12 13
+Cell ID Mem resizing:  13 14
+Cell ID Mem resizing:  14 15
+Cell ID Mem resizing:  15 16
+Cell ID Mem resizing:  16 17
+Cell ID Mem resizing:  17 18
+Cell ID Mem resizing:  18 19
+Cell ID Mem resizing:  19 20
+Cell ID Mem resizing:  20 21
+Cell ID Mem resizing:  21 22
+Cell ID Mem resizing:  22 23
+Cell ID Mem resizing:  23 24
+Cell ID Mem resizing:  24 25
+Neighbor mem resizing: 100
+Processed cell 379777 of 18485342 5.08
+Processed cell 628960 of 18485342 10.16
+Processed cell 797689 of 18485342 15.48
+Processed cell 965813 of 18485342 20.56
+Cell ID Mem resizing:  25 26
+Cell ID Mem resizing:  26 27
+Cell ID Mem resizing:  27 28
+Cell ID Mem resizing:  28 29
+Cell ID Mem resizing:  29 30
+Cell ID Mem resizing:  30 31
+Cell ID Mem resizing:  31 32
+Cell ID Mem resizing:  32 33
+Cell ID Mem resizing:  33 34
+Cell ID Mem resizing:  34 35
+Cell ID Mem resizing:  35 36
+Cell ID Mem resizing:  36 37
+Cell ID Mem resizing:  37 38
+Cell ID Mem resizing:  38 39
+Cell ID Mem resizing:  39 40
+Cell ID Mem resizing:  40 41
+Cell ID Mem resizing:  41 42
+Cell ID Mem resizing:  42 43
+Cell ID Mem resizing:  43 44
+Processed cell 1083928 of 18485342 26.03
+Processed cell 1201632 of 18485342 31.53
+Processed cell 1328959 of 18485342 37.03
+Processed cell 1416761 of 18485342 42.56
+Neighbor mem resizing: 150
+Processed cell 1504303 of 18485342 48.49
+Processed cell 1601528 of 18485342 53.53
+Processed cell 1698305 of 18485342 58.75
+Processed cell 1794085 of 18485342 63.91
+Processed cell 1889700 of 18485342 69.22
+Processed cell 1995320 of 18485342 74.29
+Processed cell 2090293 of 18485342 79.31
+Processed cell 2214007 of 18485342 84.97
+Processed cell 2356359 of 18485342 90.11
+Processed cell 2490137 of 18485342 95.23
+Processed cell 2604816 of 18485342 100.42
+Processed cell 2719453 of 18485342 105.58
+Processed cell 2853526 of 18485342 110.62
+Processed cell 2997681 of 18485342 115.93
+Processed cell 3113536 of 18485342 121.03
+Processed cell 3258371 of 18485342 126.21
+Processed cell 3412219 of 18485342 131.23
+Cell ID Mem resizing:  44 45
+Cell ID Mem resizing:  45 46
+Cell ID Mem resizing:  46 47
+Cell ID Mem resizing:  47 48
+Cell ID Mem resizing:  48 49
+Cell ID Mem resizing:  49 50
+Cell ID Mem resizing:  50 51
+Cell ID Mem resizing:  51 52
+Cell ID Mem resizing:  52 53
+Cell ID Mem resizing:  53 54
+Cell ID Mem resizing:  54 55
+Cell ID Mem resizing:  55 56
+Cell ID Mem resizing:  56 57
+Cell ID Mem resizing:  57 58
+Cell ID Mem resizing:  58 59
+Cell ID Mem resizing:  59 60
+Cell ID Mem resizing:  60 61
+Cell ID Mem resizing:  61 62
+Cell ID Mem resizing:  62 63
+Cell ID Mem resizing:  63 64
+Cell ID Mem resizing:  64 65
+Cell ID Mem resizing:  65 66
+Cell ID Mem resizing:  66 67
+Cell ID Mem resizing:  67 68
+Cell ID Mem resizing:  68 69
+Cell ID Mem resizing:  69 70
+Processed cell 3499030 of 18485342 136.76
+Processed cell 3633858 of 18485342 141.76
+Processed cell 3759798 of 18485342 146.77
+Processed cell 3875951 of 18485342 151.83
+Processed cell 3992041 of 18485342 157.1
+Processed cell 4108025 of 18485342 162.19
+Processed cell 4213975 of 18485342 167.34
+Processed cell 4319812 of 18485342 172.57
+Processed cell 4416285 of 18485342 178.03
+Processed cell 4531449 of 18485342 183.28
+Processed cell 4627194 of 18485342 188.87
+Processed cell 4713848 of 18485342 194.31
+Processed cell 4800561 of 18485342 199.39
+Processed cell 4906126 of 18485342 204.43
+Processed cell 5011532 of 18485342 210.04
+Processed cell 5127253 of 18485342 215.48
+Processed cell 5213885 of 18485342 220.53
+Processed cell 5338744 of 18485342 225.8
+Processed cell 5454556 of 18485342 231.49
+Processed cell 5580063 of 18485342 236.75
+Processed cell 5695932 of 18485342 242.2
+Processed cell 5802218 of 18485342 247.45
+Processed cell 5869916 of 18485342 253.95
+Processed cell 5956975 of 18485342 259.91
+Processed cell 6053257 of 18485342 265.36
+Processed cell 6140106 of 18485342 271.86
+Processed cell 6227180 of 18485342 278.71
+Processed cell 6314254 of 18485342 284.95
+Processed cell 6401567 of 18485342 290.87
+Processed cell 6469305 of 18485342 296.08
+Processed cell 6527422 of 18485342 301.37
+Processed cell 6614713 of 18485342 308.08
+Processed cell 6672886 of 18485342 313.78
+Processed cell 6731173 of 18485342 319.47
+Processed cell 6798988 of 18485342 325.18
+Processed cell 6857257 of 18485342 331.33
+Processed cell 6915410 of 18485342 337.1
+Processed cell 6973685 of 18485342 342.92
+Processed cell 7031899 of 18485342 349.31
+Processed cell 7119230 of 18485342 355.23
+Processed cell 7216075 of 18485342 360.85
+Processed cell 7303742 of 18485342 368.61
+Processed cell 7362313 of 18485342 374.25
+Processed cell 7420823 of 18485342 380.11
+Processed cell 7479174 of 18485342 385.82
+Processed cell 7566402 of 18485342 391.59
+Processed cell 7633705 of 18485342 397.01
+Processed cell 7720590 of 18485342 402.06
+Processed cell 7808026 of 18485342 407.98
+Processed cell 7866142 of 18485342 413.95
+Processed cell 7933700 of 18485342 420.19
+Processed cell 8021181 of 18485342 426.52
+Processed cell 8108911 of 18485342 433.62
+Processed cell 8167148 of 18485342 441.07
+Processed cell 8196228 of 18485342 446.47
+Processed cell 8225186 of 18485342 452.46
+Processed cell 8254295 of 18485342 458.58
+Processed cell 8293119 of 18485342 464.73
+Processed cell 8322350 of 18485342 470.63
+Processed cell 8380726 of 18485342 479.27
+Processed cell 8439151 of 18485342 486.11
+Processed cell 8527229 of 18485342 491.92
+Processed cell 8585478 of 18485342 497.47
+Processed cell 8683055 of 18485342 502.98
+Processed cell 8829654 of 18485342 508.54
+Processed cell 9004506 of 18485342 513.69
+Processed cell 9121327 of 18485342 518.88
+Processed cell 9247405 of 18485342 525.23
+Processed cell 9364302 of 18485342 531.9
+Processed cell 9460992 of 18485342 537.26
+Processed cell 9577288 of 18485342 543.24
+Processed cell 9694604 of 18485342 548.57
+Processed cell 9879902 of 18485342 553.66
+Processed cell 9996837 of 18485342 560.11
+Processed cell 10084661 of 18485342 565.9
+Processed cell 10298997 of 18485342 571.23
+Processed cell 10445330 of 18485342 576.68
+Processed cell 10590496 of 18485342 581.76
+Processed cell 10716961 of 18485342 587.35
+Processed cell 10833870 of 18485342 593.26
+Processed cell 10979126 of 18485342 598.27
+Processed cell 11105769 of 18485342 603.34
+Processed cell 11291817 of 18485342 608.44
+Processed cell 11506194 of 18485342 613.47
+Processed cell 11710390 of 18485342 619.12
+Processed cell 11836999 of 18485342 624.16
+Processed cell 11982791 of 18485342 629.33
+Processed cell 12176752 of 18485342 634.37
+Processed cell 12341415 of 18485342 639.53
+Processed cell 12506396 of 18485342 644.63
+Processed cell 12632670 of 18485342 649.84
+Processed cell 12836558 of 18485342 655.08
+Processed cell 13001713 of 18485342 660.1
+Processed cell 13196145 of 18485342 665.18
+Processed cell 13390467 of 18485342 670.3
+Processed cell 13565353 of 18485342 675.61
+Processed cell 13711338 of 18485342 680.62
+Processed cell 13895698 of 18485342 686.04
+Processed cell 14041434 of 18485342 691.74
+Processed cell 14215912 of 18485342 697.14
+Processed cell 14400356 of 18485342 702.36
+Processed cell 14555426 of 18485342 707.9
+Processed cell 14690915 of 18485342 712.97
+Processed cell 14825927 of 18485342 718.01
+Processed cell 14960700 of 18485342 723.39
+Processed cell 15066848 of 18485342 728.48
+Processed cell 15182782 of 18485342 733.7
+Processed cell 15289323 of 18485342 739.29
+Processed cell 15376260 of 18485342 744.35
+Processed cell 15462996 of 18485342 750.12
+Processed cell 15540337 of 18485342 756.14
+Processed cell 15598189 of 18485342 761.94
+Processed cell 15656149 of 18485342 768.4
+Processed cell 15713972 of 18485342 774.64
+Processed cell 15771733 of 18485342 779.89
+Processed cell 15848313 of 18485342 785.35
+Processed cell 15925325 of 18485342 791.23
+Processed cell 16002450 of 18485342 797.45
+Processed cell 16089064 of 18485342 803.06
+Processed cell 16175589 of 18485342 811.5
+Processed cell 16262123 of 18485342 816.79
+Processed cell 16387867 of 18485342 822.05
+Processed cell 16503747 of 18485342 827.19
+Processed cell 16610214 of 18485342 832.75
+Processed cell 16707002 of 18485342 837.87
+Processed cell 16775265 of 18485342 843.0
+Processed cell 16833606 of 18485342 848.48
+Processed cell 16902017 of 18485342 854.11
+Processed cell 16999645 of 18485342 859.39
+Cell ID Mem resizing:  70 71
+Processed cell 17107657 of 18485342 867.11
+Processed cell 17225749 of 18485342 872.82
+Processed cell 17314568 of 18485342 878.18
+Processed cell 17433279 of 18485342 883.22
+Cell ID Mem resizing:  71 72
+Cell ID Mem resizing:  72 73
+Cell ID Mem resizing:  73 74
+Cell ID Mem resizing:  74 75
+Cell ID Mem resizing:  75 76
+Cell ID Mem resizing:  76 77
+Cell ID Mem resizing:  77 78
+Cell ID Mem resizing:  78 79
+Cell ID Mem resizing:  79 80
+Cell ID Mem resizing:  80 81
+Cell ID Mem resizing:  81 82
+Cell ID Mem resizing:  82 83
+Cell ID Mem resizing:  83 84
+Cell ID Mem resizing:  84 85
+Cell ID Mem resizing:  85 86
+Cell ID Mem resizing:  86 87
+Processed cell 17552372 of 18485342 888.6
+Processed cell 17731310 of 18485342 893.73
+Processed cell 18080361 of 18485342 898.91
+Main task finish time:  901.9694590568542
+Found a total of 1946236 potential voids.
+Time to find all holes = 909.8607473373413
+Starting volume cut
+Found  1312814  holes to cut 241.2874743938446
+Sorting holes based on radius
+Combining holes into unique voids
+Combine time: 67.17698407173157
+Number of unique voids is 8513
+Saving maximals to:  /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_names/deltafields_RAadded90._comoving_maximal_noMagCut.txt
+Done :)
+Ending date: Fri Mar 26 04:35:13 EDT 2021

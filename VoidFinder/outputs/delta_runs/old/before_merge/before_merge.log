@@ -1,0 +1,841 @@
+Run VoidFinder on delta fields without filter and before merge.
+200g 1h
+print ==========================================
+print SLURM_JOB_ID = 4178849
+print SLURM_JOB_NODELIST = bhc0137
+print ==========================================
+bhc0137
+Starting date: Mon Apr 19 11:27:38 EDT 2021
+Loading data table at:  /scratch/ierez/IGMCosmo/VoidFinder/data/DR16S82_H/delta_fields/deltafields_RAadded90.fits
+Inside the data before setting the columns
+Inside the data before adding the columns
+.fits to Table done
+Data table load time:  0.06648421287536621
+Calculating Rdist data table column
+Finished Rdist calculation time:  4.740153789520264
+        ra                 dec         ...        delta          Rdist  
+------------------ ------------------- ... ------------------- ---------
+111.65201097115994 -1.0040558414971168 ... -0.7501514290604856 3550.8628
+111.65201097115994 -1.0040558414971168 ... -2.9951701434370044  3552.921
+111.65201097115994 -1.0040558414971168 ...   -8.42713942396928 3554.9783
+111.65201097115994 -1.0040558414971168 ...   1.443690511787549 3557.0352
+111.65201097115994 -1.0040558414971168 ... -4.4328915242131295 3559.0918
+111.65201097115994 -1.0040558414971168 ... -0.7920112475562439 3561.1475
+111.65201097115994 -1.0040558414971168 ...   3.139563038718462 3563.2026
+111.65201097115994 -1.0040558414971168 ... -3.3280128864671483 3565.2576
+111.65201097115994 -1.0040558414971168 ... -0.5576560308926432 3567.3118
+111.65201097115994 -1.0040558414971168 ...  -3.229661362697265 3569.3655
+               ...                 ... ...                 ...       ...
+113.56455186524676  0.9355200936826016 ...  1.6299339823301433 3640.8982
+113.56455186524676  0.9355200936826016 ...  0.4705629989743516 3642.9316
+113.56455186524676  0.9355200936826016 ...  2.1746745817632362 3644.9648
+113.56455186524676  0.9355200936826016 ... 0.11865457494989351  3646.998
+113.56455186524676  0.9355200936826016 ... -0.8582383569939689 3649.0295
+113.56455186524676  0.9355200936826016 ... 0.25646792872668245 3651.0618
+113.56455186524676  0.9355200936826016 ... -0.3297157784640531 3653.0928
+113.56455186524676  0.9355200936826016 ...  1.0218531435406804 3655.1233
+113.56455186524676  0.9355200936826016 ... -0.2691119755875596 3657.1533
+113.56455186524676  0.9355200936826016 ... -0.6478983760170653 3659.1824
+113.56455186524676  0.9355200936826016 ... -1.0773641482068776 3661.2117
+Length = 1271156 rows
+Dist limits:  [3677.9224 4513.124 ]
+This is the length of data before mask:
+1271156
+        ra                 dec         ...        delta          Rdist  
+------------------ ------------------- ... ------------------- ---------
+111.65201097115994 -1.0040558414971168 ... -0.7501514290604856 3550.8628
+111.65201097115994 -1.0040558414971168 ... -2.9951701434370044  3552.921
+111.65201097115994 -1.0040558414971168 ...   -8.42713942396928 3554.9783
+111.65201097115994 -1.0040558414971168 ...   1.443690511787549 3557.0352
+111.65201097115994 -1.0040558414971168 ... -4.4328915242131295 3559.0918
+111.65201097115994 -1.0040558414971168 ... -0.7920112475562439 3561.1475
+111.65201097115994 -1.0040558414971168 ...   3.139563038718462 3563.2026
+111.65201097115994 -1.0040558414971168 ... -3.3280128864671483 3565.2576
+111.65201097115994 -1.0040558414971168 ... -0.5576560308926432 3567.3118
+111.65201097115994 -1.0040558414971168 ...  -3.229661362697265 3569.3655
+               ...                 ... ...                 ...       ...
+113.56455186524676  0.9355200936826016 ...  1.6299339823301433 3640.8982
+113.56455186524676  0.9355200936826016 ...  0.4705629989743516 3642.9316
+113.56455186524676  0.9355200936826016 ...  2.1746745817632362 3644.9648
+113.56455186524676  0.9355200936826016 ... 0.11865457494989351  3646.998
+113.56455186524676  0.9355200936826016 ... -0.8582383569939689 3649.0295
+113.56455186524676  0.9355200936826016 ... 0.25646792872668245 3651.0618
+113.56455186524676  0.9355200936826016 ... -0.3297157784640531 3653.0928
+113.56455186524676  0.9355200936826016 ...  1.0218531435406804 3655.1233
+113.56455186524676  0.9355200936826016 ... -0.2691119755875596 3657.1533
+113.56455186524676  0.9355200936826016 ... -0.6478983760170653 3659.1824
+113.56455186524676  0.9355200936826016 ... -1.0773641482068776 3661.2117
+Length = 1271156 rows
+Generate mask start
+[[ 376   -7]
+ [ 376   -5]
+ [ 376   -3]
+ ...
+ [1079   -1]
+ [1079    0]
+ [1079    7]]
+2880
+This is the length of data before filter:
+1271156
+Filter Data Start
+No filter is applied on transmission flux rate.
+Calculated grid
+Finding sep
+Time to find sep = 8.653432130813599
+Average separation of n=3rd neighbor data is 3.748664280620203
+The standard deviation is 0.643842347018285
+Going to build wall with search value 4.714427801147631
+Time to sort field and wall data = 0.03534865379333496
+Time to write field and wall tables:  4.699261665344238
+Number of field objects: 28341 Number of wall objects: 1242815
+Growing holes
+Running multi-process mode, 3 cpus
+Grid:  (1235, 395, 39)
+ENABLED SAVE MODE
+Num nonempty hole cells:  539833
+Total slots in hole_cell_ID_dict:  1079669
+Num collisions hole_cell_ID_dict:  165148
+Building galaxy map
+Galaxy Map build time:  4.311018466949463
+Num items in Galaxy Map:  135084
+Total slots in galaxy map hash table:  270191
+Num collisions in rebuild:  43937
+Mem-mapping galaxy coordinates
+WCOORD MEMMAP PATH:  /dev/shm/voidfinderdg1el3b6 4
+Galaxy map lookup memmap:  /dev/shm/voidfindernykl37wr 6
+Hole cell lookup memmap:  /dev/shm/voidfinderqjnmdzn_ 8
+Galaxy map array memmap:  /dev/shm/voidfinderq851m6d3 10
+Result array memmap:  /dev/shm/voidfinder8w2osipj 12
+RESULT BUFFER LENGTH (bytes):  591530944
+Attempting to connect workers
+Worker processes time to connect:  0.0027115345001220703
+Cell ID Mem resizing:  10 11
+Saving checkpoint:  89991 90000 89991
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  10 11
+Cell ID Mem resizing:  11 12
+Cell ID Mem resizing:  12 13
+Cell ID Mem resizing:  13 14
+Cell ID Mem resizing:  14 15
+Cell ID Mem resizing:  15 16
+Cell ID Mem resizing:  16 17
+Cell ID Mem resizing:  10 11
+Cell ID Mem resizing:  11 12
+Cell ID Mem resizing:  17 18
+Cell ID Mem resizing:  18 19
+Cell ID Mem resizing:  12 13
+Cell ID Mem resizing:  13 14
+Cell ID Mem resizing:  14 15
+Cell ID Mem resizing:  19 20
+Cell ID Mem resizing:  15 16
+Cell ID Mem resizing:  20 21
+Cell ID Mem resizing:  16 17
+Cell ID Mem resizing:  17 18
+Cell ID Mem resizing:  21 22
+Cell ID Mem resizing:  22 23
+Cell ID Mem resizing:  18 19
+Cell ID Mem resizing:  19 20
+Cell ID Mem resizing:  20 21
+Cell ID Mem resizing:  23 24
+Cell ID Mem resizing:  21 22
+Cell ID Mem resizing:  24 25
+Cell ID Mem resizing:  22 23
+Cell ID Mem resizing:  23 24
+Saving checkpoint:  179965 180000 179965
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  11 12
+Cell ID Mem resizing:  12 13
+Cell ID Mem resizing:  13 14
+Cell ID Mem resizing:  14 15
+Cell ID Mem resizing:  15 16
+Cell ID Mem resizing:  16 17
+Cell ID Mem resizing:  17 18
+Cell ID Mem resizing:  18 19
+Saving checkpoint:  269914 270000 269914
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Neighbor mem resizing: 100
+Neighbor mem resizing: 100
+Saving checkpoint:  359826 360000 359826
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 369826 cells of 18485342 empty cells 5.59
+Neighbor mem resizing: 100
+Saving checkpoint:  449654 450000 449654
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  539378 540000 539378
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  628960 630000 628960
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 658874 cells of 18485342 empty cells 10.66
+Saving checkpoint:  718355 720000 718355
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  807543 810000 807543
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  896576 900000 896576
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 906567 cells of 18485342 empty cells 16.0
+Cell ID Mem resizing:  19 20
+Cell ID Mem resizing:  20 21
+Cell ID Mem resizing:  25 26
+Cell ID Mem resizing:  26 27
+Cell ID Mem resizing:  27 28
+Cell ID Mem resizing:  28 29
+Cell ID Mem resizing:  29 30
+Cell ID Mem resizing:  30 31
+Cell ID Mem resizing:  31 32
+Cell ID Mem resizing:  32 33
+Cell ID Mem resizing:  33 34
+Cell ID Mem resizing:  34 35
+Cell ID Mem resizing:  35 36
+Cell ID Mem resizing:  36 37
+Cell ID Mem resizing:  37 38
+Cell ID Mem resizing:  38 39
+Cell ID Mem resizing:  39 40
+Cell ID Mem resizing:  40 41
+Cell ID Mem resizing:  41 42
+Cell ID Mem resizing:  42 43
+Cell ID Mem resizing:  43 44
+Saving checkpoint:  985506 990000 985506
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  21 22
+Cell ID Mem resizing:  22 23
+Cell ID Mem resizing:  23 24
+Cell ID Mem resizing:  24 25
+Cell ID Mem resizing:  25 26
+Cell ID Mem resizing:  26 27
+Cell ID Mem resizing:  27 28
+Cell ID Mem resizing:  28 29
+Cell ID Mem resizing:  29 30
+Cell ID Mem resizing:  30 31
+Cell ID Mem resizing:  31 32
+Cell ID Mem resizing:  32 33
+Cell ID Mem resizing:  33 34
+Cell ID Mem resizing:  34 35
+Saving checkpoint:  1074189 1080000 1074189
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  24 25
+Cell ID Mem resizing:  25 26
+Cell ID Mem resizing:  26 27
+Cell ID Mem resizing:  35 36
+Cell ID Mem resizing:  36 37
+Cell ID Mem resizing:  27 28
+Cell ID Mem resizing:  28 29
+Cell ID Mem resizing:  29 30
+Cell ID Mem resizing:  30 31
+Cell ID Mem resizing:  31 32
+Cell ID Mem resizing:  32 33
+Cell ID Mem resizing:  33 34
+Cell ID Mem resizing:  34 35
+Cell ID Mem resizing:  35 36
+Processed 1123400 cells of 18485342 empty cells 21.27
+Saving checkpoint:  1162526 1170000 1162526
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  1250805 1260000 1250805
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  1338920 1350000 1338920
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 1338920 cells of 18485342 empty cells 26.6
+Saving checkpoint:  1426761 1440000 1426761
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Neighbor mem resizing: 150
+Processed 1504744 cells of 18485342 empty cells 31.72
+Saving checkpoint:  1514303 1530000 1514303
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Neighbor mem resizing: 150
+Saving checkpoint:  1601528 1620000 1601528
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 1669348 cells of 18485342 empty cells 36.82
+Saving checkpoint:  1688389 1710000 1688389
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  1774910 1800000 1774910
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 1851658 cells of 18485342 empty cells 42.06
+Saving checkpoint:  1861032 1890000 1861032
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  1947053 1980000 1947053
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Neighbor mem resizing: 150
+Saving checkpoint:  2033012 2070000 2033012
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 2033012 cells of 18485342 empty cells 47.19
+Saving checkpoint:  2118916 2160000 2118916
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  2204792 2250000 2204792
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 2214792 cells of 18485342 empty cells 52.36
+Saving checkpoint:  2290228 2340000 2290228
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  2375860 2430000 2375860
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 2432937 cells of 18485342 empty cells 57.42
+Saving checkpoint:  2461529 2520000 2461529
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  2547473 2610000 2547473
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  2633525 2700000 2633525
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 2643520 cells of 18485342 empty cells 63.42
+Saving checkpoint:  2719453 2790000 2719453
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  2805511 2880000 2805511
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  2891746 2970000 2891746
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 2891746 cells of 18485342 empty cells 68.79
+Saving checkpoint:  2978239 3060000 2978239
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  3065132 3150000 3065132
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 3075015 cells of 18485342 empty cells 73.94
+Saving checkpoint:  3152154 3240000 3152154
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  3239022 3330000 3239022
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  3325610 3420000 3325610
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 3325610 cells of 18485342 empty cells 78.98
+Saving checkpoint:  3412219 3510000 3412219
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  37 38
+Cell ID Mem resizing:  38 39
+Cell ID Mem resizing:  39 40
+Cell ID Mem resizing:  40 41
+Cell ID Mem resizing:  41 42
+Cell ID Mem resizing:  42 43
+Cell ID Mem resizing:  43 44
+Cell ID Mem resizing:  44 45
+Cell ID Mem resizing:  45 46
+Cell ID Mem resizing:  46 47
+Cell ID Mem resizing:  47 48
+Cell ID Mem resizing:  48 49
+Cell ID Mem resizing:  49 50
+Cell ID Mem resizing:  50 51
+Cell ID Mem resizing:  51 52
+Cell ID Mem resizing:  52 53
+Cell ID Mem resizing:  53 54
+Cell ID Mem resizing:  54 55
+Cell ID Mem resizing:  55 56
+Cell ID Mem resizing:  56 57
+Cell ID Mem resizing:  57 58
+Cell ID Mem resizing:  58 59
+Cell ID Mem resizing:  59 60
+Cell ID Mem resizing:  60 61
+Cell ID Mem resizing:  61 62
+Cell ID Mem resizing:  62 63
+Cell ID Mem resizing:  63 64
+Cell ID Mem resizing:  64 65
+Cell ID Mem resizing:  65 66
+Cell ID Mem resizing:  66 67
+Cell ID Mem resizing:  67 68
+Cell ID Mem resizing:  68 69
+Cell ID Mem resizing:  69 70
+Saving checkpoint:  3499030 3600000 3499030
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 3499030 cells of 18485342 empty cells 84.47
+Saving checkpoint:  3585837 3690000 3585837
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  3672724 3780000 3672724
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 3691779 cells of 18485342 empty cells 89.65
+Saving checkpoint:  3759798 3870000 3759798
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  3846912 3960000 3846912
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 3914799 cells of 18485342 empty cells 94.76
+Saving checkpoint:  3934011 4050000 3934011
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  4021039 4140000 4021039
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  4108025 4230000 4108025
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 4117694 cells of 18485342 empty cells 100.77
+Saving checkpoint:  4194922 4320000 4194922
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  4281650 4410000 4281650
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 4320150 cells of 18485342 empty cells 105.87
+Saving checkpoint:  4368053 4500000 4368053
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  4454526 4590000 4454526
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 4502532 cells of 18485342 empty cells 110.97
+Saving checkpoint:  4540850 4680000 4540850
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  4627194 4770000 4627194
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 4665895 cells of 18485342 empty cells 116.03
+Saving checkpoint:  4713848 4860000 4713848
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  4800561 4950000 4800561
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 4819578 cells of 18485342 empty cells 121.07
+Saving checkpoint:  4886960 5040000 4886960
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  4973276 5130000 4973276
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 4992674 cells of 18485342 empty cells 126.08
+Saving checkpoint:  5059697 5220000 5059697
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  5146359 5310000 5146359
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 5194355 cells of 18485342 empty cells 131.12
+Saving checkpoint:  5233027 5400000 5233027
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  5319896 5490000 5319896
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 5377592 cells of 18485342 empty cells 136.15
+Saving checkpoint:  5396514 5570000 5396514
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  5483532 5660000 5483532
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  5570514 5750000 5570514
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 5570514 cells of 18485342 empty cells 141.35
+Saving checkpoint:  5657483 5840000 5657483
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  5744322 5930000 5744322
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 5754322 cells of 18485342 empty cells 146.65
+Saving checkpoint:  5831196 6020000 5831196
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 5908532 cells of 18485342 empty cells 151.89
+Saving checkpoint:  5918251 6110000 5918251
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  6005362 6200000 6005362
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6082720 cells of 18485342 empty cells 157.56
+Saving checkpoint:  6092188 6290000 6092188
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  6179050 6380000 6179050
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6207898 cells of 18485342 empty cells 162.69
+Saving checkpoint:  6265818 6470000 6265818
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  6352934 6560000 6352934
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6352934 cells of 18485342 empty cells 168.0
+Saving checkpoint:  6440200 6650000 6440200
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6508384 cells of 18485342 empty cells 173.89
+Saving checkpoint:  6527422 6740000 6527422
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  6614713 6830000 6614713
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6663004 cells of 18485342 empty cells 179.04
+Saving checkpoint:  6702026 6920000 6702026
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6770229 cells of 18485342 empty cells 184.44
+Saving checkpoint:  6789417 7010000 6789417
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  6876795 7100000 6876795
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6876795 cells of 18485342 empty cells 189.53
+Saving checkpoint:  6963984 7190000 6963984
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 6973729 cells of 18485342 empty cells 194.67
+Saving checkpoint:  7051395 7280000 7051395
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 7100098 cells of 18485342 empty cells 200.19
+Saving checkpoint:  7138784 7370000 7138784
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  7226075 7460000 7226075
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 7255282 cells of 18485342 empty cells 205.26
+Saving checkpoint:  7313651 7550000 7313651
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 7362542 cells of 18485342 empty cells 211.64
+Saving checkpoint:  7401313 7640000 7401313
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  7488749 7730000 7488749
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 7498749 cells of 18485342 empty cells 217.04
+Saving checkpoint:  7575898 7820000 7575898
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 7643855 cells of 18485342 empty cells 222.16
+Saving checkpoint:  7662625 7910000 7662625
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  7749729 8000000 7749729
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 7798637 cells of 18485342 empty cells 227.31
+Saving checkpoint:  7837133 8090000 7837133
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 7905143 cells of 18485342 empty cells 233.07
+Saving checkpoint:  7924194 8180000 7924194
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  8011570 8270000 8011570
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8060482 cells of 18485342 empty cells 238.35
+Saving checkpoint:  8099341 8360000 8099341
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8148080 cells of 18485342 empty cells 243.57
+Saving checkpoint:  8186751 8450000 8186751
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8225794 cells of 18485342 empty cells 249.28
+Saving checkpoint:  8273900 8540000 8273900
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8293486 cells of 18485342 empty cells 254.39
+Saving checkpoint:  8361607 8630000 8361607
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8361607 cells of 18485342 empty cells 259.73
+Saving checkpoint:  8449010 8720000 8449010
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8458772 cells of 18485342 empty cells 265.18
+Saving checkpoint:  8536927 8810000 8536927
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8605279 cells of 18485342 empty cells 270.32
+Saving checkpoint:  8624386 8900000 8624386
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  8712123 8990000 8712123
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  8800182 9080000 8800182
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 8800182 cells of 18485342 empty cells 275.6
+Saving checkpoint:  8888042 9170000 8888042
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  8975287 9260000 8975287
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 9053563 cells of 18485342 empty cells 280.7
+Saving checkpoint:  9063291 9350000 9063291
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  9150445 9440000 9150445
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  9237979 9530000 9237979
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 9237979 cells of 18485342 empty cells 286.36
+Saving checkpoint:  9325595 9620000 9325595
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  9412900 9710000 9412900
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 9422900 cells of 18485342 empty cells 292.15
+Saving checkpoint:  9500147 9800000 9500147
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  9587216 9890000 9587216
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 9606894 cells of 18485342 empty cells 297.21
+Saving checkpoint:  9675011 9980000 9675011
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  9762710 10070000 9762710
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  9850618 10160000 9850618
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 9850618 cells of 18485342 empty cells 302.6
+Saving checkpoint:  9938612 10250000 9938612
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  10025896 10340000 10025896
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 10025896 cells of 18485342 empty cells 307.98
+Saving checkpoint:  10114036 10430000 10114036
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  10201718 10520000 10201718
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 10270125 cells of 18485342 empty cells 313.01
+Saving checkpoint:  10289206 10610000 10289206
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  10377465 10700000 10377465
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  10464867 10790000 10464867
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 10474867 cells of 18485342 empty cells 318.38
+Saving checkpoint:  10551889 10880000 10551889
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  10639079 10970000 10639079
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 10717040 cells of 18485342 empty cells 323.73
+Saving checkpoint:  10726709 11060000 10726709
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  10814329 11150000 10814329
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  10901392 11240000 10901392
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 10901392 cells of 18485342 empty cells 329.0
+Saving checkpoint:  10988704 11330000 10988704
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  11076461 11420000 11076461
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 11125476 cells of 18485342 empty cells 334.02
+Saving checkpoint:  11164530 11510000 11164530
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  11252858 11600000 11252858
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  11340629 11690000 11340629
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 11379739 cells of 18485342 empty cells 339.04
+Saving checkpoint:  11428184 11780000 11428184
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  11516139 11870000 11516139
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  11603920 11960000 11603920
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 11623523 cells of 18485342 empty cells 344.15
+Saving checkpoint:  11691308 12050000 11691308
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  11778578 12140000 11778578
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  11866265 12230000 11866265
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 11866265 cells of 18485342 empty cells 349.5
+Saving checkpoint:  11953686 12320000 11953686
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12041006 12410000 12041006
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 12118630 cells of 18485342 empty cells 354.63
+Saving checkpoint:  12128232 12500000 12128232
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12215407 12590000 12215407
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12302763 12680000 12302763
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 12341867 cells of 18485342 empty cells 359.69
+Saving checkpoint:  12390055 12770000 12390055
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12477314 12860000 12477314
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12564754 12950000 12564754
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 12574400 cells of 18485342 empty cells 365.27
+Saving checkpoint:  12652151 13040000 12652151
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12729430 13120000 12729430
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12817059 13210000 12817059
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 12817059 cells of 18485342 empty cells 370.3
+Saving checkpoint:  12904586 13300000 12904586
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  12992127 13390000 12992127
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  13079616 13480000 13079616
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 13089616 cells of 18485342 empty cells 376.06
+Saving checkpoint:  13167027 13570000 13167027
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  13254451 13660000 13254451
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  13341955 13750000 13341955
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 13351531 cells of 18485342 empty cells 381.39
+Saving checkpoint:  13429575 13840000 13429575
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  13516955 13930000 13516955
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  13604370 14020000 13604370
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 13613970 cells of 18485342 empty cells 386.81
+Saving checkpoint:  13691790 14110000 13691790
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  13779218 14200000 13779218
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  13866527 14290000 13866527
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 13876490 cells of 18485342 empty cells 392.44
+Saving checkpoint:  13954029 14380000 13954029
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14041434 14470000 14041434
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 14118977 cells of 18485342 empty cells 397.52
+Saving checkpoint:  14128770 14560000 14128770
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14215912 14650000 14215912
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14303132 14740000 14303132
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 14322671 cells of 18485342 empty cells 402.54
+Saving checkpoint:  14390418 14830000 14390418
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14477790 14920000 14477790
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14565325 15010000 14565325
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 14575212 cells of 18485342 empty cells 408.16
+Saving checkpoint:  14652419 15100000 14652419
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14739329 15190000 14739329
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 14816528 cells of 18485342 empty cells 413.31
+Saving checkpoint:  14825927 15280000 14825927
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14912420 15370000 14912420
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  14999282 15460000 14999282
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 15009016 cells of 18485342 empty cells 418.59
+Saving checkpoint:  15086273 15550000 15086273
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  15173286 15640000 15173286
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 15202098 cells of 18485342 empty cells 423.75
+Saving checkpoint:  15260318 15730000 15260318
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  15347295 15820000 15347295
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 15376364 cells of 18485342 empty cells 428.88
+Saving checkpoint:  15434086 15910000 15434086
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  15520886 16000000 15520886
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 15530418 cells of 18485342 empty cells 434.41
+Saving checkpoint:  15607779 16090000 15607779
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 15636692 cells of 18485342 empty cells 439.48
+Saving checkpoint:  15694495 16180000 15694495
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 15761868 cells of 18485342 empty cells 444.53
+Saving checkpoint:  15781257 16270000 15781257
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  15867711 16360000 15867711
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 15887105 cells of 18485342 empty cells 449.61
+Saving checkpoint:  15954215 16450000 15954215
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  44 45
+Cell ID Mem resizing:  45 46
+Cell ID Mem resizing:  46 47
+Cell ID Mem resizing:  47 48
+Saving checkpoint:  16041073 16540000 16041073
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 16041073 cells of 18485342 empty cells 454.99
+Saving checkpoint:  16127860 16630000 16127860
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  48 49
+Cell ID Mem resizing:  49 50
+Cell ID Mem resizing:  50 51
+Cell ID Mem resizing:  51 52
+Processed 16195570 cells of 18485342 empty cells 460.36
+Cell ID Mem resizing:  52 53
+Cell ID Mem resizing:  53 54
+Cell ID Mem resizing:  54 55
+Cell ID Mem resizing:  55 56
+Cell ID Mem resizing:  56 57
+Cell ID Mem resizing:  57 58
+Cell ID Mem resizing:  58 59
+Cell ID Mem resizing:  59 60
+Cell ID Mem resizing:  60 61
+Cell ID Mem resizing:  61 62
+Cell ID Mem resizing:  62 63
+Cell ID Mem resizing:  63 64
+Cell ID Mem resizing:  64 65
+Cell ID Mem resizing:  65 66
+Cell ID Mem resizing:  66 67
+Cell ID Mem resizing:  67 68
+Cell ID Mem resizing:  68 69
+Cell ID Mem resizing:  69 70
+Saving checkpoint:  16214414 16720000 16214414
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  16300996 16810000 16300996
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 16310423 cells of 18485342 empty cells 465.66
+Saving checkpoint:  16387867 16900000 16387867
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  16474775 16990000 16474775
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 16504092 cells of 18485342 empty cells 470.87
+Saving checkpoint:  16561701 17080000 16561701
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  16648787 17170000 16648787
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 16687852 cells of 18485342 empty cells 476.02
+Saving checkpoint:  16736159 17260000 16736159
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  16823816 17350000 16823816
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 16833315 cells of 18485342 empty cells 481.82
+Saving checkpoint:  16911651 17440000 16911651
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  16999645 17530000 16999645
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 17009645 cells of 18485342 empty cells 487.18
+Saving checkpoint:  17087999 17620000 17087999
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Cell ID Mem resizing:  70 71
+Saving checkpoint:  17176611 17710000 17176611
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 17176611 cells of 18485342 empty cells 492.5
+Saving checkpoint:  17265337 17800000 17265337
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 17344378 cells of 18485342 empty cells 497.61
+Saving checkpoint:  17354191 17890000 17354191
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  17443275 17980000 17443275
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  17532525 18070000 17532525
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 17542487 cells of 18485342 empty cells 502.74
+Cell ID Mem resizing:  70 71
+Cell ID Mem resizing:  71 72
+Cell ID Mem resizing:  72 73
+Cell ID Mem resizing:  73 74
+Cell ID Mem resizing:  74 75
+Cell ID Mem resizing:  75 76
+Cell ID Mem resizing:  76 77
+Cell ID Mem resizing:  77 78
+Cell ID Mem resizing:  78 79
+Cell ID Mem resizing:  79 80
+Cell ID Mem resizing:  80 81
+Cell ID Mem resizing:  81 82
+Cell ID Mem resizing:  71 72
+Cell ID Mem resizing:  82 83
+Cell ID Mem resizing:  72 73
+Cell ID Mem resizing:  83 84
+Cell ID Mem resizing:  73 74
+Cell ID Mem resizing:  84 85
+Cell ID Mem resizing:  74 75
+Cell ID Mem resizing:  85 86
+Cell ID Mem resizing:  75 76
+Cell ID Mem resizing:  86 87
+Cell ID Mem resizing:  76 77
+Cell ID Mem resizing:  77 78
+Saving checkpoint:  17621908 18160000 17621908
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  17711389 18250000 17711389
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  17800973 18340000 17800973
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 17800973 cells of 18485342 empty cells 507.82
+Saving checkpoint:  17890689 18430000 17890689
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  17980499 18520000 17980499
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  18070380 18610000 18070380
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Processed 18120327 cells of 18485342 empty cells 512.84
+Saving checkpoint:  18160284 18700000 18160284
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  18250210 18790000 18250210
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  18340186 18880000 18340186
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Saving checkpoint:  18430174 18970000 18430174
+Saved checkpoint DR16S82_deltafieldsVoidFinderCheckpoint.h5
+Main task finish time:  517.6818573474884
+WORKER EXITING GRACEFULLY 1
+WORKER EXITING GRACEFULLY 0
+WORKER EXITING GRACEFULLY 2
+Found a total of 1946236 potential voids.
+Time to find all holes = 527.3716576099396
+Starting volume cut
+Running hole cut in multi-process mode, 3 cpus
+XYZR MEMMAP PATH:  /dev/shm/voidfinderr45_tsc5 5
+VALID_IDX MEMMAP PATH:  /dev/shm/voidfindernlhxrf3m 9
+MONTE_IDX MEMMAP PATH:  /dev/shm/voidfinder1zetrq9v 13
+UNIT SHELL MEMMAP PATH:  /dev/shm/voidfinder205ufcyf 17
+MESH PTS MEMMAP PATH:  /dev/shm/voidfinderwiz5s6dk 19
+MESH RADII MEMMAP PATH:  /dev/shm/voidfinderdapzntk7 22
+2841931464 2841931464
+Attempting to connect workers for volume cut/out of bounds check
+Worker processes time to connect:  0.010987997055053711
+Processed 398000 holes of 1946236 at 5.05
+Processed 816000 holes of 1946236 at 10.05
+Processed 1129000 holes of 1946236 at 15.1
+Processed 1533000 holes of 1946236 at 20.1
+Processed 1907000 holes of 1946236 at 25.1
+Vol cut finish time:  26.27150797843933
+WORKER EXITING GRACEFULLY 2
+WORKER EXITING GRACEFULLY 0
+WORKER EXITING GRACEFULLY 1
+Found  1312814  holes to cut 213.55889582633972
+Sorting holes based on radius
+Combining holes into unique voids
+Combine time: 58.4557831287384
+Number of unique voids is 8513
+Saving maximals to:  /scratch/ierez/IGMCosmo/VoidFinder/outputs/delta_runs/before_merge/deltafields_RAadded90._comoving_maximal_noMagCut.txt
+Done :)
+Ending date: Mon Apr 19 11:41:42 EDT 2021

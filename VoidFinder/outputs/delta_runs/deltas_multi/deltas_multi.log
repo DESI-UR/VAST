@@ -1,0 +1,10 @@
+Run VoidFinder on delta fields without filter for merge check.
+200g 1h
+print ==========================================
+print SLURM_JOB_ID = 5089938
+print SLURM_JOB_NODELIST = bhc0076
+print ==========================================
+bhc0076
+Starting date: Mon May 31 18:11:34 EDT 2021
+Done :)
+Ending date: Mon May 31 18:11:51 EDT 2021

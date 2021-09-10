@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/scratch/ierez/IGMCosmo/VoidFinder/scripts/VoidFinder_DR16S82_deltafields.py", line 181, in <module>
+    find_voids(wall_coords_xyz, 
+  File "/home/ierez/.local/lib/python3.8/site-packages/vast_voidfinder-0.3.9-py3.8-linux-x86_64.egg/vast/voidfinder/voidfinder.py", line 1009, in find_voids
+    x_y_z_r_array, n_holes = _hole_finder(hole_grid_shape, 
+  File "/home/ierez/.local/lib/python3.8/site-packages/vast_voidfinder-0.3.9-py3.8-linux-x86_64.egg/vast/voidfinder/_voidfinder.py", line 251, in _hole_finder
+    x_y_z_r_array, n_holes = _hole_finder_single_process(hole_grid_shape, 
+  File "/home/ierez/.local/lib/python3.8/site-packages/vast_voidfinder-0.3.9-py3.8-linux-x86_64.egg/vast/voidfinder/_voidfinder.py", line 771, in _hole_finder_single_process
+    main_algorithm(i_j_k_array[0:num_write],
+  File "vast/voidfinder/_voidfinder_cython.pyx", line 310, in vast.voidfinder._voidfinder_cython.main_algorithm
+TypeError: main_algorithm() takes exactly 11 positional arguments (14 given)
