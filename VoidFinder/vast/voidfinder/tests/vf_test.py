@@ -204,14 +204,14 @@ find_voids(wall[~remove_boolean],
 # Check maximal spheres
 f_maximals = Table.read('test_galaxies_redshift_maximal.txt', 
                         format='ascii.commented_header')
-maximals_truth = Table.read('test_galaxies_redshift_maximal_truth.txt', 
+maximals_truth = Table.read('vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
                             format='ascii.commented_header')
 assert(len(setdiff(f_maximals, maximals_truth)) == 0)
 
 # Check holes
 f_holes = Table.read('test_galaxies_redshift_holes.txt', 
                      format='ascii.commented_header')
-holes_truth = Table.read('test_galaxies_redshift_holes_truth.txt', 
+holes_truth = Table.read('vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                          format='ascii.commented_header')
 assert(len(setdiff(holes_truth, f_holes)) == 0)
 ################################################################################
