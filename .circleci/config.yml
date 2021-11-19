@@ -31,9 +31,9 @@ jobs:
 
       - run:
           name: "Test VoidFinder"
-          command: python vast/voidfinder/tests/vf_test.py # |
-            # pytest
+          command: |
             mkdir -p ~/VAST/test-results/voidfinder
+            python vast/voidfinder/tests/vf_test.py
       - store_test_results:
           path: ~/VAST/test-results/voidfinder
       - store_artifacts:
