@@ -214,6 +214,7 @@ f_holes = Table.read('test_galaxies_redshift_holes.txt',
 holes_truth = Table.read('test_galaxies_redshift_holes_truth.txt', 
                          format='ascii.commented_header')
 assert(len(setdiff(holes_truth, f_holes)) == 0)
+################################################################################
 
 
 
