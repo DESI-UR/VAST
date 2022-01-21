@@ -31,19 +31,19 @@ from vast.voidfinder.distance import z_to_comoving_dist
 
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
-void_filename = '../vollim_dr7_cbp_102709_comoving_holes.txt'
+void_filename = '/global/homes/s/schampat/Voidfinder_Output/vollim_dr7_cbp_102709_comoving_holes.txt'
 
 dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # SURVEY MASK FILE
-mask_filename = '../vollim_dr7_cbp_102709_mask.pickle'
+mask_filename = '/global/homes/s/schampat/Voidfinder_Output/vollim_dr7_cbp_102709_mask.pickle'
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # FILE OF OBJECTS TO BE CLASSIFIED
-galaxy_filename = '../vollim_dr7_cbp_102709.dat'
+galaxy_filename = '/global/homes/s/schampat/Voids/VAST/VoidFinder/vollim_dr7_cbp_102709.dat'
 
 galaxy_file_format = 'commented_header'
 #-------------------------------------------------------------------------------

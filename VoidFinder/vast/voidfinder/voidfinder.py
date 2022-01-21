@@ -47,7 +47,8 @@ RtoD = 180./np.pi
 def filter_galaxies(galaxy_table,
                     survey_name, 
                     out_directory,
-                    mag_cut=True, 
+                    mag_cut=False, 
+                    delta_cut=True,
                     dist_limits=None,
                     rm_isolated=True,
                     write_table=True,
@@ -56,6 +57,7 @@ def filter_galaxies(galaxy_table,
                     h=1.0,
                     hole_grid_edge_length=5.0,
                     magnitude_limit=-20.09,
+                    delta_limit=0,
                     verbose=0):
     """
     A hodge podge of miscellaneous tasks which need to be done to format the data into
@@ -150,6 +152,8 @@ def filter_galaxies(galaxy_table,
     if mag_cut:
         
         galaxy_table = galaxy_table[galaxy_table['rabsmag'] <= magnitude_limit]
+    if delta_cut:
+        galaxy_table = galaxy_table[galaxy_table['Delta'] >= delta_limit]
 
     # Remove galaxies outside redshift range
     if dist_limits is not None:

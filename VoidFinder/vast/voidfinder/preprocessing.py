@@ -1,4 +1,6 @@
 
+  
+
 import numpy as np
 
 from astropy.table import Table
@@ -54,7 +56,7 @@ def load_data_to_Table(input_filepath):
 
         hdu = fits.open(input_filepath)
 
-        data_table = hdu[1].data
+        data_table = Table(hdu[1].data)
 
         hdu.close()
         
@@ -92,7 +94,8 @@ def load_data_to_Table(input_filepath):
 def file_preprocess(galaxies_filename, 
                     in_directory, 
                     out_directory, 
-                    mag_cut=True,
+                    mag_cut=False,
+                    delta_cut=True,
                     rm_isolated=True,
                     dist_metric='comoving', 
                     min_z=None,
@@ -255,4 +258,3 @@ def file_preprocess(galaxies_filename,
         
         
         
-
