@@ -483,6 +483,12 @@ Adjustable parameters
      - 5.0
      - The length of the edge of one cell in the grid used to identify where to 
        start growing potential void spheres from.  Units are Mpc/h.
+   * - ``min_maximal_radius``
+     - ``find_voids``
+     - float
+     - 10.0
+     - The minimum radius of a maximal sphere (so the minimum radius of a void).  
+       Units are Mpc/h.
    * - ``galaxy_map_grid_edge_length``
      - ``find_voids``
      - float

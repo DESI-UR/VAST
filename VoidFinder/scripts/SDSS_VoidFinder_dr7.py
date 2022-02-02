@@ -31,7 +31,6 @@ from vast.voidfinder import find_voids, filter_galaxies
 
 from vast.voidfinder.multizmask import generate_mask
 from vast.voidfinder.preprocessing import file_preprocess
-from vast.voidfinder.table_functions import to_vector, to_array
 
 import pickle
 
@@ -186,6 +185,7 @@ find_voids(wall_coords_xyz,
            #save_after=50000,
            #use_start_checkpoint=True,
            #hole_grid_edge_length=5.0,
+           #min_maximal_radius=10.0,
            #galaxy_map_grid_edge_length=None,
            #hole_center_iter_dist=1.0,
            maximal_spheres_filename=out1_filename,
