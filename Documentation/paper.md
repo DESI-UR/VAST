@@ -52,7 +52,9 @@ void is vague and formulating a concrete definition to use in a void-finding
 algorithm is not trivial.  As a result, several different algorithms exist to 
 identify these cosmic underdensities.  Our Void Analysis Software Toolkit, or 
 VAST, provides Python 3 implementations of two such algorithms: **VoidFinder** 
-and **V<sup>2</sup>**.
+and **V<sup>2</sup>**.  This consolidation of two popular void-finding 
+algorithms allows the user to, for example, easily compare the results of their 
+analysis using different void definitions.
 
 
 # Statement of Need
@@ -66,9 +68,12 @@ also allows for multi-process void-finding.  When run on the 7th Data Release of
 the main galaxy sample of the Sloan Digital Sky Survey (SDSS DR7, 
 [@Abazajian:2009]) on a single thread, `vast.voidfinder` requires only one 
 minute to run, compared to the ~36 hours needed to run the original Fortran 
-version of **VoidFinder**.  The void-finding algorithm in the `Vsquared` package 
+version of **VoidFinder**.  The void-finding algorithm in **V<sup>2</sup>** 
 uses the `scipy.spatial` [@SciPy] submodule for fast computation of the Voronoi 
-tessellation and convex hulls involved in the algorithm.
+tessellation and convex hulls involved in the algorithm.  In addition, 
+`vast.Vsquared` consolidates a large number of void-pruning methods (many 
+currently available in separate programming packages and different languages) 
+into a single package.
 
 
 
