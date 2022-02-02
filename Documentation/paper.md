@@ -34,7 +34,7 @@ affiliations:
     index: 3
   - name: University of Washington
     index: 4
-date: December 2020
+date: February 2022
 bibliography: paper.bib
 ---
 
@@ -46,12 +46,13 @@ galaxies than surrounding galaxy clusters and filaments.  They are a fundamental
 feature of the cosmic web and provide important information about galaxy physics 
 and cosmology.  For example, correlations between voids and luminous tracers of 
 large-scale structure improve constraints on the expansion of the universe as 
-compared to using tracers alone.  However, what constitutes a void is vague and 
-formulating a concrete definition to use in a void-finding algorithm is not 
-trivial.  As a result, several different algorithms exist to identify these 
-cosmic underdensities.  Our Void Analysis Software Toolkit, or VAST, provides 
-Python 3 implementations of two such algorithms: **VoidFinder** and 
-**V<sup>2</sup>**.
+compared to using tracers alone, and numerous studies have shown that the void 
+environment influences the evolution of galaxies.  However, what constitutes a 
+void is vague and formulating a concrete definition to use in a void-finding 
+algorithm is not trivial.  As a result, several different algorithms exist to 
+identify these cosmic underdensities.  Our Void Analysis Software Toolkit, or 
+VAST, provides Python 3 implementations of two such algorithms: **VoidFinder** 
+and **V<sup>2</sup>**.
 
 
 # Statement of Need
@@ -61,10 +62,13 @@ to process large volumes of data (for example, at least 30 million galaxies and
 quasars from the Dark Energy Spectroscopic Instrument [@DESI]).  To more 
 efficiently process such large datasets, this Python 3 implementation of 
 **VoidFinder** includes a Cythonized [@Cython] version of the algorithm which 
-also allows for multi-process void-finding.  The void-finding algorithm in the 
-`Vsquared` package uses the `scipy.spatial` [@SciPy] submodule for fast 
-computation of the Voronoi tessellation and convex hulls involved in the 
-algorithm.
+also allows for multi-process void-finding.  When run on the 7th Data Release of 
+the main galaxy sample of the Sloan Digital Sky Survey (SDSS DR7, 
+[@Abazajian:2009]) on a single thread, `vast.voidfinder` requires only one 
+minute to run, compared to the ~36 hours needed to run the original Fortran 
+version of **VoidFinder**.  The void-finding algorithm in the `Vsquared` package 
+uses the `scipy.spatial` [@SciPy] submodule for fast computation of the Voronoi 
+tessellation and convex hulls involved in the algorithm.
 
 
 
@@ -78,18 +82,18 @@ spherical to first order, this algorithm defines voids as the unions of sets of
 spheres grown in the underdense regions of the large-scale structure.  It begins 
 by removing all isolated tracers from the catalog of objects, defined as having 
 significantly ($1.5\sigma$) larger than average third-nearest neighbor 
-distances.  The remaining tracers are then placed on a grid, and spheres are 
-grown from the centers of the empty cells until they are bounded by four tracers 
-on their surfaces.  All spheres larger than a specified radius (typically 
+distances.  The remaining tracers are then placed on a grid, and a sphere is 
+grown from the center of any empty grid cells until it is bounded by four 
+tracers on its surface.  All spheres larger than a specified radius (typically 
 around 10 Mpc/h) are considered possible maximal spheres -- the largest sphere 
 that can fit in a given void region.  Filtering through these candidate maximal 
 spheres by order of decreasing radius, no maximal sphere can overlap by more 
 than 10% of its volume with any other previously identified (larger) maximal 
-sphere.  After the maximal spheres are identified, the remaining holes are 
-combined with these maximal spheres to enhance the void structure if they 
-overlap exactly one maximal sphere by at least 50% of its volume.  The union of 
-a set of spheres (one maximal and the remaining smaller holes) defines a void 
-region.
+sphere.  After the maximal spheres are identified, all non-maximal spheres 
+(holes) are combined with these maximal spheres to enhance the void structure if 
+they overlap exactly one maximal sphere by at least 50% of its volume.  The 
+union of a set of spheres (one maximal and the remaining smaller holes) defines 
+a void region.
 
 
 
@@ -115,7 +119,12 @@ REVOLVER [@REVOLVER:2018].
 
 # VoidRender: a 3D Visualization of voids
 
-![VoidRender visualization of the output from SDSS DR7 [@Abazajian:2009].\label{fig:vfviz}](voidfinder_viz.png)
+![VoidRender visualization of the output from SDSS DR7 [@Abazajian:2009].  Void 
+regions are shown as the shaded colorful regions; each different color 
+corresponds to a different void.  Black points are the non-isolated (wall) 
+galaxies used to define the void regions, and red points show the field 
+galaxies.  Any two wall galaxies that are closer than the maximum distance used 
+to separate wall and field galaxies are connected by a black line.\label{fig:vfviz}](voidfinder_viz.png)
 
 In order to aid in assessing the quality of the VoidFinder algorithm, the 
 `vast.voidfinder.viz` package includes a `VoidRender` class 
@@ -146,7 +155,8 @@ another VoidRender option plots a thin black line between a galaxy and its K
 nearest neighbors, yielding a denser spider-web look for those galaxies which 
 cluster together, as can be seen in \autoref{fig:vfviz}.
 
-![`Vsquared` visualization of the output from SDSS DR7.\label{fig:v2viz}](vsquared_viz.png)
+![`Vsquared` visualization of the output from SDSS DR7.  Void regions are the 
+large shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
 
 An animated example of the VoidRender visualization can be found on 
 [YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  VoidRender can be 
