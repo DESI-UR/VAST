@@ -117,7 +117,9 @@ and using them to grow unions of weakly divided zones.  This list of voids is
 then typically pruned to remove void candidates unlikely to be true voids.  
 `Vsquared` includes several of the different void-pruning methods that exist, 
 including methods from other ZOBOV implementations such as VIDE [@VIDE:2012] and 
-REVOLVER [@REVOLVER:2018].
+REVOLVER [@REVOLVER:2018]. The VIDE method, for example, sets a maximum density 
+for the boundaries by which zones can be grown into voids. Any voids formed from 
+unions of zones with denser boundaries are removed from the catalog.
 
 
 
