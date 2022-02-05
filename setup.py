@@ -41,7 +41,6 @@ setup_keywords['zip_safe'] = False
 setup_keywords['packages'] = find_packages('python')
 setup_keywords['package_dir'] = {'': 'python'}
 #setup_keywords['package_data'] = {'':['templates/*.glb']}
-#setup_keywords['cmdclass'] = {'version': SetVersion, 'sdist': DistutilsSdist}
 setup_keywords['test_suite']='vast.test.vast_test_suite.vast_test_suite'
 #
 # Setup requirements
