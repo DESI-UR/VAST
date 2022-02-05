@@ -182,3 +182,12 @@ class TestVoidFinder(unittest.TestCase):
         if os.path.exists(self.galaxies_filename):
             os.remove(self.galaxies_filename)
 
+        files = [ 'test_field_gal_file.txt',
+                  'test_galaxies_redshift_maximal.txt', 
+                  'test_galaxies_redshift_holes.txt',
+                  'test_wall_gal_file.txt' ]
+
+        for f in files:
+            if os.path.exists(f):
+                os.remove(f)
+
