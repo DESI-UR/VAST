@@ -1,3 +1,8 @@
+
+.. role:: raw-html(raw)
+    :format: html
+
+
 #################
 Using V\ :sup:`2`
 #################
@@ -7,7 +12,8 @@ Using V\ :sup:`2`
 Quick start
 ===========
 
-A summary to-do list for installing and running `VAST.Vsquared`.
+A summary checklist for installing and running 
+:raw-html:`<strong>V<sup>2</sup></strong>`.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
  * Navigate to ``VAST/Vsquared`` and run::
@@ -26,7 +32,12 @@ A summary to-do list for installing and running `VAST.Vsquared`.
    * etc.
 
  * Run ``vsquared.py`` from the ``VAST/Vsquared/scripts`` directory on your 
-   machine or using a cluster.
+
+   machine or using a cluster::
+   
+    python vsquared.py -c DR7_config.ini
+    
+   .. note:: Include the ``-v`` option to produce the output required for **VoidRender**.
 
 The output files will be located in the directory specified by the Output 
 directory.
@@ -46,12 +57,14 @@ See :ref:`V2-output` for a detailed description of each of these files.
 Example configuration file
 ==========================
 
-Included in the `VAST.Vsquared` repository (``VAST/Vsquared/scripts/``) are 
-a finite selection of example configuration files:
+Included in the :raw-html:`<strong>V<sup>2</sup></strong>` repository 
+(``VAST/Vsquared/scripts/``) are a finite selection of example configuration 
+files:
 
- * ``DR7_config.ini`` contains the settings to run `Vsquared` on the SDSS DR7 
-   main galaxy sample.  A volume-limited version of this galaxy catalog is 
-   provided with the package 
+ * ``DR7_config.ini`` contains the settings to run 
+   :raw-html:`<strong>V<sup>2</sup></strong>` on the SDSS DR7 main galaxy 
+   sample.  A volume-limited version of this galaxy catalog is provided with the 
+   package 
    (``VAST/Vsquared/data/vollim_dr7_cbp_102709.fits``).
 
 See :ref:`V2-config` for details on the configuration file options.
@@ -66,8 +79,9 @@ Finding voids
 Script
 ------
 
-The easiest way to use `VAST.Vsquared` is to use the ``vsquared.py`` script, 
-located in ``VAST/Vsquared/scripts/``. For usage information, run::
+The easiest way to use :raw-html:`<strong>V<sup>2</sup></strong>` is to use the 
+``vsquared.py`` script, located in ``VAST/Vsquared/scripts/``. For usage 
+information, run::
 
     python vsquared.py --help
 
@@ -78,7 +92,7 @@ In a Python Shell
 Finding voids can also be done in a Python shell, using the 
 ``vast.vsquared.zobov.Zobov`` class and its methods:
 
-1. Create a `Zobov` object using the desired configuration file and additional 
+1. Create a ``Zobov`` object using the desired configuration file and additional 
    input parameters::
 
        newZobov = Zobov("DR7_config.ini")
@@ -101,7 +115,8 @@ Finding voids can also be done in a Python shell, using the
 Configuration File Options
 --------------------------
 
-Using `VAST.Vsquared` requires a configuration file with the following options:
+Using :raw-html:`<strong>V<sup>2</sup></strong>` requires a configuration file 
+with the following options:
 
 .. list-table:: Configuration file options
    :width: 100%
@@ -113,58 +128,58 @@ Using `VAST.Vsquared` requires a configuration file with the following options:
      - Data type
      - Unit
      - Comment
-   * - Input Catalog
+   * - ``Input Catalog``
      - Paths
      - string
      - 
      - Path to the input data catalog
-   * - Survey Name
+   * - ``Survey Name``
      - Paths
      - string
      - 
      - Survey identifier to use in output file names
-   * - Output Directory
+   * - ``Output Directory``
      - Paths
      - string
      - 
      - Path to the directory where output files will be saved
-   * - H_0
+   * - ``H_0``
      - Cosmology
      - float
      - (km/s)/Mpc
      - Hubble constant of the desired cosmology
-   * - Omega_m
+   * - ``Omega_m``
      - Cosmology
      - float
      - 
      - Dimensionless matter density parameter of the desired cosmology
-   * - redshift_min
+   * - ``redshift_min``
      - Settings
      - float
      - 
      - The redshift above which void-finding will be applied
-   * - redshift_max
+   * - ``redshift_max``
      - Settings
      - float
      - 
      - The redshift below which void-finding will be applied
-   * - rabsmag_min
+   * - ``rabsmag_min``
      - Settings
      - float
      - 
      - The minimum magnitude for a galaxy to be used for void-finding
-   * - radius_min
+   * - ``radius_min``
      - Settings
      - float
      - Mpc/h
      - The minimum radius for a void candidate to be considered a true void
-   * - nside
+   * - ``nside``
      - Settings
      - integer
      - 
      - The NSIDE parameter used in the HEALPix pixelization of the survey mask; 
        must be a power of 2
-   * - redshift_step
+   * - ``redshift_step``
      - Settings
      - float
      - 
@@ -176,8 +191,8 @@ Using `VAST.Vsquared` requires a configuration file with the following options:
 Input
 =====
 
-As `VAST.Vsquared` is designed to identify voids in a galaxy distribution, it 
-requires a galaxy catalog (or similar) on which to run.
+As :raw-html:`<strong>V<sup>2</sup></strong>` is designed to identify voids in a 
+galaxy distribution, it requires a galaxy catalog (or similar) on which to run.
 
 This input data file is specified by the ``Input Catalog`` field in the sample 
 ``DR7_config.ini`` configuration file.
@@ -237,8 +252,8 @@ Data columns
 Output
 ======
 
-Each void found by `VAST.Vsquared` is a set of Voronoi cells.  The files 
-that list the identified voids are:
+Each void found by :raw-html:`<strong>V<sup>2</sup></strong>` is a set of 
+Voronoi cells.  The files that list the identified voids are:
 
  * ``[survey_name]_galzones.dat`` -- Identifies the zone to which each galaxy 
    belongs.
@@ -252,8 +267,10 @@ Each of these files is described in more detail below.
 Additional files that are produced during the process (which may or may not be 
 useful to the user post-void-finding) include
  
- * ``[survey_name]_triangles.dat`` -- 
- * ``[survey_name]_galviz.dat`` --
+ * ``[survey_name]_triangles.dat`` -- Identifies the vertices, normal vector,
+   and void membership of each triangle making up a void boundary
+ * ``[survey_name]_galviz.dat`` -- Identifies the voids to which each galaxy and
+   its nearest neighbor belong
 
 .. list-table:: ``_galzones`` output file
    :widths: 25 25 50
@@ -372,10 +389,103 @@ useful to the user post-void-finding) include
      - 
      - normalized z-component of the void's third ellipsoid axis
 
+.. list-table:: ``_triangles`` output file
+   :widths: 25 25 25 50
+   :header-rows: 1
+
+   * - Column name
+     - Data type
+     - Unit
+     - Comment
+   * - void_id
+     - integer
+     - 
+     - Unique identifier of the triangle's containing void
+   * - n_x
+     - float
+     - 
+     - normalized x-component of the triangle's normal vector
+   * - n_y
+     - float
+     - 
+     - normalized y-component of the triangle's normal vector
+   * - n_z
+     - float
+     - 
+     - normalized z-component of the triangle's normal vector
+   * - p1_x
+     - float
+     - Mpc/h
+     - x-coordinate of the triangle's first vertex
+   * - p1_y
+     - float
+     - Mpc/h
+     - y-coordinate of the triangle's first vertex
+   * - p1_z
+     - float
+     - Mpc/h
+     - z-coordinate of the triangle's first vertex
+   * - p2_x
+     - float
+     - Mpc/h
+     - x-coordinate of the triangle's second vertex
+   * - p2_y
+     - float
+     - Mpc/h
+     - y-coordinate of the triangle's second vertex
+   * - p2_z
+     - float
+     - Mpc/h
+     - z-coordinate of the triangle's second vertex
+   * - p3_x
+     - float
+     - Mpc/h
+     - x-coordinate of the triangle's third vertex
+   * - p3_y
+     - float
+     - Mpc/h
+     - y-coordinate of the triangle's third vertex
+   * - p3_z
+     - float
+     - Mpc/h
+     - z-coordinate of the triangle's third vertex
+
+.. list-table:: ``_galviz`` output file
+   :widths: 25 25 50
+   :header-rows: 1
+   
+   * - Column name
+     - Data type
+     - Comment
+   * - gid
+     - integer
+     - Unique galaxy identifier
+   * - g2v
+     - integer
+     - Unique identifier of the galaxy's containing void
+   * - g2v2
+     - integer
+     - Unique identifier of the containing void of the galaxy's nearest
+       neighbor
+
 
 
 
 Using the output
 ================
+
+Is my object in a void?
+-----------------------
+
+Because voids found by :raw-html:`<strong>V<sup>2</sup></strong>` are formed 
+from zones, which are unions of objects' voronoi cells, each object's void 
+membership is easily determined from the output.  The ``_galzones.dat`` output 
+file (see :ref:`V2-output`) contains each object's zone membership, and the 
+``_zonevoids.dat`` output file contains each zone's void membership.  If the 
+values in the ``void0`` and ``void1`` columns of a zone are ``-1``, the zone 
+does not belong to any void, and any objects contained within that zone are not 
+in a void.
+ 
+ 
 
 

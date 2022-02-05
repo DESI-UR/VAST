@@ -1,0 +1,19 @@
+# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+    configuration: Documentation/source/conf.py
+    
+# Python version and requirements
+python:
+    install:
+    - requirements: Documentation/source/requirements.txt
+    - method: pip
+      path: VoidFinder
+    - method: pip
+      path: Vsquared

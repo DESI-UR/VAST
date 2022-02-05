@@ -80,24 +80,29 @@ def toSky(cs,H0,Om_m,zstep):
     return z,ra,dec
 
 
-def inSphere(cs,r,coords):
-    """Checks if a set of comoving coordinates are within a sphere.
+def inSphere(cs, r, coords):
+    """
+    Checks if a set of comoving coordinates are within a sphere.
 
     Parameters
-    ----------
+    ==========
+
     cs : list or ndarray
         Center of sphere.
+
     r : float
         Sphere volume.
+
     coords : list or ndarray
         Comoving xyz-coordinates.
 
     Returns
-    -------
+    =======
+
     inSphere : bool
-        True if |coords - cs| < r.
+        True if abs(coords - cs) < r.
     """
-    return np.sum((cs.reshape(3,1)-coords.T)**2.,axis=0)<r**2.
+    return np.sum((cs.reshape(3,1) - coords.T)**2., axis=0)<r**2.
 
 
 def wCen(vols,coords):

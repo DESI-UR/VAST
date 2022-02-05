@@ -357,24 +357,28 @@ class VoidRender(app.Canvas):
         '''
         Main class for initializing the visualization.
         
-        Usage:
-        ------
+        Examples
+        ========
         
-        from voidfinder.viz import VoidRender, load_hole_data, load_galaxy_data
+        from vast.vsquared.viz import VoidRender, load_void_data, load_galaxy_data
         
-        holes_xyz, holes_radii, holes_flags = load_hole_data("vollim_dr7_cbp_102709_holes.txt")
+        voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data("DR7_triangles.dat", "DR7_galviz.dat")
     
-        galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.dat")
+        galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.fits")
     
-        viz = VoidFinderCanvas(holes_xyz, 
-                               holes_radii, 
+        viz = VoidFinderCanvas(voids_tri_x, voids_tri_y, voids_tri_z, 
+                               voids_norm, 
+                               voids_id, 
                                galaxy_data,
+                               gal_viz, 
+                               gal_opp, 
                                canvas_size=(1600,1200))
     
         viz.run()
         
+
         Notes
-        -----
+        =====
         
         Controls:
         w - translate forward
@@ -401,17 +405,18 @@ class VoidRender(app.Canvas):
         Right mouse click - translate forward & backward
         Mouse Wheel - increase & decrease galaxy size
         
+
         Parameters
-        ----------
+        ==========
         
-        holes_xyz : (N,3) numpy.ndarray
-            xyz coordinates of the hole centers
-            
-        holes_radii : (N,) numpy.ndarray
-            length of the hole radii in xyz coordinates
-            
-        holes_group_IDs : (N,) numpy.ndarray of integers
-            Void group to which a given hole belongs according to VoidFinder
+        voids_tri_x, _y, _z : numpy.ndarrays shape (N,3)
+            the xyz coordinates of the the vertices of triangles making up void edges
+
+        voids_norm : numpy.ndarray shape (N,3)
+            the xyz coordinates of each triangle's unit normal vector
+
+        voids_id : numpy.ndarray shape (N,)
+            the void ID of each triangle
             
         galaxy_xyz : (N,3) numpy.ndarray
             xyz coordinates of the galaxy locations
@@ -421,25 +426,11 @@ class VoidRender(app.Canvas):
             all be small compared to the void holes, and they don't have
             corresponding radii
             
-        remove_void_intersects : int, default 1
-            0 - turn off
-            1 - remove all intersections
-            2 - remove intersections only within predefined Void Groups based on hole_group_IDs
-            turn on (True) or off (False) the clipping of display triangles for
-            void interiors.  When true, removes all the triangles of a void hole
-            sphere which are fully contained inside another void hole, which essentially
-            creates a surface union of void holes which overlap.  Note that for smaller
-            sphere density values, the edge artifacts along the seams where void holes
-            intersect will be more visually apparent
-            
-        filter_for_degenerate : bool, default True
-            if true, filter the holes_xyz and holes_radii for any holes which
-            are completely contained within another hole and remove them
-            
-        enable_void_interior_highlight : bool, default True
-            if True, when a user enters a void sphere, it will highlight the sphere
-            in a different color (default green) so a user knows they are looking out
-            from inside a sphere.  False disables this functionality
+        gal_viz : numpy.ndarray shape (N,)
+            the void ID of each galaxy
+
+        gal_opp : numpy.ndarray shape (N,)
+            the void ID of each galaxy's nearest neighbor
             
         canvas_size : 2-tuple
             (width, height) in pixels for the output visualization
@@ -466,24 +457,8 @@ class VoidRender(app.Canvas):
            values from 0.0-1.0 representing RGB and Alpha for the galaxy
            points
            
-        void_hole_color : ndarray shape (4,) or (num_void,4) dtype float32
+        void_color : ndarray shape (4,) or (num_void,4) dtype float32
            values from 0.0-1.0 representing RGB and Alpha for the voids
-           
-        void_highlight_color : ndarray shape (4,) dtype float32
-           values from 0.0-1.0 representing RGB and Alpha for the void highlight,
-           when the camera enters a void hole it turns the hole this color so you
-           know you're inside IF enable_void_interior_highlight == True
-           
-        SPHERE_TRIANGULARIZATION_DEPTH : integer, default 3
-           number of subdivisions in the icosahedron sphere triangularization to make.
-           Total vertices will be num_voids * 20 * 3 * 4^SPHERE_TRIANGULARIZATION_DEPTH
-           so be careful increasing this value above 3.  Default of 3 results in 3840 vertices
-           (1280 triangles) per sphere
-        '''
-        
-        '''
-        if holes_xyz is None and galaxy_xyz is None:
-            raise ValueError("holex_xyz and galaxy_xyz cannot both be None, or there's nothing to display!")
         '''
         
         
@@ -2353,7 +2328,6 @@ if __name__ == "__main__":
                      galaxy_display_radius=4,
                      gal_viz = gal_viz,
                      gal_opp = gal_opp,
-                     #void_hole_color=np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32),
                      void_color=void_colors,
                      canvas_size=(1600,1200))
     

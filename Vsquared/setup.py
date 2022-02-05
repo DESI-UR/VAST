@@ -16,6 +16,21 @@ import codecs
 from distutils.command.sdist import sdist as DistutilsSdist
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
+
+# Build file path prefix
+# 
+# This is to make the ReadTheDocs work
+#
+cwd = os.getcwd()
+requirements_filepath = 'requirements.txt'
+working_contents = os.listdir(cwd)
+
+if requirements_filepath in working_contents:
+    path_prefix = ''
+else:
+    # Assumes we are one level up
+    path_prefix = 'Vsquared/'
+
 #
 # Version reader
 #
@@ -42,8 +57,9 @@ setup_keywords['author_email'] = 'dveyrat@ur.rochester.edu'
 setup_keywords['license'] = 'BSD 3-clause License'
 setup_keywords['url'] = 'https://github.com/DESI-UR/Voids/Vsquared'
 setup_keywords['version'] = get_version('vast/vsquared/__init__.py')
+
 requires = []
-with open('requirements.txt', 'r') as f:
+with open(path_prefix + 'requirements.txt', 'r') as f:
     for line in f:
         if line.strip():
             requires.append(line.strip())
@@ -52,8 +68,8 @@ setup_keywords['install_requires'] = requires
 # Use README.md as a long_description.
 #
 setup_keywords['long_description'] = ''
-if os.path.exists('README.md'):
-    with open('README.md') as readme:
+if os.path.exists(path_prefix + 'README.md'):
+    with open(path_prefix + 'README.md') as readme:
         setup_keywords['long_description'] = readme.read()
 setup_keywords['long_description_content_type'] = 'text/markdown'
 #
@@ -63,8 +79,7 @@ setup_keywords['provides'] = [setup_keywords['name']]
 setup_keywords['requires'] = ['Python (>3.7.0)']
 setup_keywords['zip_safe'] = False
 setup_keywords['use_2to3'] = False
-setup_keywords['packages'] = ['vast.vsquared',
-                              'vast.vsquared.viz']
+setup_keywords['packages'] = find_packages()
 setup_keywords['cmdclass'] = {'sdist': DistutilsSdist}
 setup_keywords['test_suite']='tests'
 setup_keywords['tests_require']=['pytest']

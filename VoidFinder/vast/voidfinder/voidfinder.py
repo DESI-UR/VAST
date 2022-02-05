@@ -506,6 +506,7 @@ def find_voids(galaxy_coords_xyz,
                check_only_empty_holes=True,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
+               min_maximal_radius=10.0,
                galaxy_map_grid_edge_length=None,
                hole_center_iter_dist=1.0,
                maximal_spheres_filename="maximal_spheres.txt",
@@ -516,7 +517,7 @@ def find_voids(galaxy_coords_xyz,
                use_start_checkpoint=False,
                batch_size=10000,
                verbose=0,
-               print_after=5.0,
+               print_after=5.0
                ):
     """
     Main entry point for VoidFinder.  
@@ -654,6 +655,10 @@ def find_voids(galaxy_coords_xyz,
         size in Mpc/h of the edge of 1 cube in the search grid, or distance 
         between 2 grid cells
         (xyz space)
+
+    min_maximal_radius : float
+        the minimum radius in units of distance for a hole to be considered
+        for maximal status.  Default value is 10 Mpc/h.
         
     max_hole_mask_overlap : float in range (0, 0.5)
         when the volume of a hole overlaps the mask by this fraction, discard 
@@ -708,7 +713,7 @@ def find_voids(galaxy_coords_xyz,
         value, if you batch size is 10,000 and your save_after is 1,000,000 you 
         might actually get a checkpoint at say 1,030,000.  If None, disables 
         saving the checkpoint file.
-        
+
     check_only_empty_holes : bool
         whether or not to start growing a hole in a cell which has galaxies in
         it, aka "non-empty".  If True (default), don't grow holes in these cells.
@@ -861,7 +866,8 @@ def find_voids(galaxy_coords_xyz,
     
     combine_start = time.time()
     
-    maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array)
+    maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array, 
+                                                           min_maximal_radius=min_maximal_radius)
     
     print("Combine time:", time.time() - combine_start, flush=True)
     

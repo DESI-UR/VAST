@@ -1,5 +1,5 @@
 ####################
-VoidFinder functions
+VoidFinder API
 ####################
 
 

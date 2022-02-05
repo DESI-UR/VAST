@@ -7,7 +7,7 @@ Using VoidFinder
 Quick start
 ===========
 
-A summary to-do list for installing and running `VAST.VoidFinder`.
+A summary checklist for installing and running **VoidFinder**.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
  * Navigate to ``VAST/VoidFinder`` and run::
@@ -33,8 +33,8 @@ The output files will be located in the directory specified by ``out_directory``
  * ``[survey_name]_[comoving/redshift]_holes.txt``
  * ``[survey_name]_[comoving/redshift]_maximal.txt``
  * ``[survey_name]_mask.pickle``
- * ``field_galaxies.txt``
- * ``wall_galaxies.txt``
+ * ``[survey_name]_field_gal_file.txt``
+ * ``[survey_name]_wall_gal_file.txt``
 
 See :ref:`VF-output` for a detailed description of each of these files.
 
@@ -44,13 +44,13 @@ See :ref:`VF-output` for a detailed description of each of these files.
 Example scripts
 ===============
 
-Included in the `VAST.VoidFinder` repository (``VAST/VoidFinder/scripts/``) are 
+Included in the **VoidFinder** repository (``VAST/VoidFinder/scripts/``) are 
 a finite selection of example scripts:
 
- * ``SDSS_VoidFinder_dr7.py`` will run `VoidFinder` on the SDSS DR7 main galaxy 
-   sample.  A volume-limited version of this galaxy catalog is provided with the 
-   package (``VAST/VoidFinder/vollim_dr7_cbp_102709.dat``).
- * ``classifyEnvironment.py`` takes the output of `VoidFinder` (identified 
+ * ``SDSS_VoidFinder_dr7.py`` will run **VoidFinder** on the SDSS DR7 main 
+   galaxy sample.  A volume-limited version of this galaxy catalog is provided 
+   with the package (``VAST/VoidFinder/vollim_dr7_cbp_102709.dat``).
+ * ``classifyEnvironment.py`` takes the output of **VoidFinder** (identified 
    voids) and determines which objects of a given catalog are within the voids 
    ("void" objects), which are outside the voids ("wall" objects), and which are 
    too close to the survey boundary and/or are outside the survey bounds to be 
@@ -62,10 +62,10 @@ a finite selection of example scripts:
 Finding voids
 =============
 
-The easiest way to use `VAST.VoidFinder` is to create a script that
+The easiest way to use **VoidFinder** is to create a script that
 
 1. Filters and processes the input galaxy catalog so that it is in the correct 
-   format for `VoidFinder`
+   format for **VoidFinder**
 2. Generates a survey mask based on the input galaxy catalog, defining the 
    boundaries within which voids can be found
 3. Finds voids within the galaxy catalog
@@ -82,15 +82,15 @@ Pre-processing the data
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Generally, the first function that should be called in a script running 
-`VoidFinder` is ``file_preprocess``::
+**VoidFinder** is ``file_preprocess``::
 
     from vast.voidfinder.preprocessing import file_preprocess
     
 This function reads the input data file into memory (as an 
 ``astropy.table.Table`` object), checks the various column names to ensure that 
 they match what is expected in other functions, and creates the file names for 
-the files produced by `VoidFinder`.  While not strictly necessary to run, it 
-encompasses many of the introductory steps necessary to run `VoidFinder`.
+the files produced by **VoidFinder**.  While not strictly necessary to run, it 
+encompasses many of the introductory steps necessary to run **VoidFinder**.
 
 The outputs from ``file_preprocess`` are
 
@@ -162,7 +162,7 @@ The outputs of ``generate_mask`` are
 3. Finding voids
 ----------------
 
-The heart of `VoidFinder`, voids are identified in the wall galaxy sample 
+The heart of **VoidFinder**, voids are identified in the wall galaxy sample 
 outputted from ``filter_galaxies`` in the ``find_voids`` fuunction::
 
     from vast.voidfinder import find_voids
@@ -195,8 +195,7 @@ To run ``find_voids`` in a single thread, set ``num_cpus = 1``.
 Checkpoint files
 ^^^^^^^^^^^^^^^^
 
-**Note** This capability is currently only available in the multi-process 
-implementation of ``find_voids``.
+.. note:: This capability is currently only available in the multi-process implementation of ``find_voids``.
 
 In addition, the current list of void spheres found can be saved to disk 
 periodically, and ``find_voids`` can be restarted from one of these files if the 
@@ -216,9 +215,8 @@ To start ``find_voids`` from one of these files, set
 Input file
 ----------
 
-As `VAST.VoidFinder` is designed to identify dynamically distinct cosmic voids 
-in a galaxy distribution, it requires a galaxy catalog (or similar) on which to 
-run.
+As **VoidFinder** is designed to identify dynamically distinct cosmic voids in a 
+galaxy distribution, it requires a galaxy catalog (or similar) on which to run.
 
 This input data file is specified by the ``galaxies_filename`` variable in the 
 sample ``SDSS_VoidFinder_dr7.py`` script.  Its location is specified with the 
@@ -233,6 +231,7 @@ File format
 Currently supported formats for the input data file include:
 
  * ascii commented header (readable by ``astropy.table.Table.read``)
+ * .fits or .fit
  * .h5
 
 
@@ -288,8 +287,8 @@ Data columns
 Output
 ------
 
-Each void found by `VAST.VoidFinder` is a union of spheres: one maximal sphere 
-(the largest sphere that can fit within that void) and a set of smaller spheres 
+Each void found by **VoidFinder** is a union of spheres: one maximal sphere (the 
+largest sphere that can fit within that void) and a set of smaller spheres 
 (called holes).  The two files that list the identified voids are:
 
  * ``[survey_name]_[comoving/redshift]_maximal.txt``
@@ -484,6 +483,12 @@ Adjustable parameters
      - 5.0
      - The length of the edge of one cell in the grid used to identify where to 
        start growing potential void spheres from.  Units are Mpc/h.
+   * - ``min_maximal_radius``
+     - ``find_voids``
+     - float
+     - 10.0
+     - The minimum radius of a maximal sphere (so the minimum radius of a void).  
+       Units are Mpc/h.
    * - ``galaxy_map_grid_edge_length``
      - ``find_voids``
      - float
@@ -569,7 +574,7 @@ Using the output
 Is my object in a void?
 -----------------------
 
-Because `VAST.VoidFinder` defines voids as a union of spheres, it is relatively 
+Because **VoidFinder** defines voids as a union of spheres, it is relatively 
 simple to determine whether or not an object is located within a void: if its 
 location falls within one of the spheres listed in the ``_holes.txt`` output 
 file (see :ref:`VF-output`), then it is within a void!

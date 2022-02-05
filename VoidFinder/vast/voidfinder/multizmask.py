@@ -4,6 +4,7 @@ from astropy.table import Table
 import numpy as np
 import time
 
+from vast.voidfinder.distance import z_to_comoving_dist
 from vast.voidfinder.constants import c #speed of light
 
 maskra = 360
@@ -14,8 +15,10 @@ D2R = np.pi/180.0
 
 
 def generate_mask(gal_data, 
+                  z_max, 
                   dist_metric='comoving',
                   smooth_mask=True,
+                  Omega_M=0.3,
                   h=1.0):
     """
     This function creates a grid of shape (N,M) where the N dimension represents 
@@ -41,6 +44,9 @@ def generate_mask(gal_data,
         Dec must be in -90 to 90 format since the code below subtracts
         90 degrees to go to 0 to 180 format
 
+    z_max : float
+        Maximum redshift of the volume-limited catalog.
+
     dist_metric : string
         Distance metric to use in calculations.  Options are 'comoving' 
         (default; distance dependent on cosmology) and 'redshift' (distance 
@@ -50,6 +56,9 @@ def generate_mask(gal_data,
         If smooth_mask is set to True (default), small holes in the mask (single 
         cells without any galaxy in them that are surrounded by at least 3 cells 
         which have galaxies in them) are unmasked.
+
+    Omega_M : float
+        Cosmological matter normalized energy density.  Default is 0.3.
 
     h : float
         Fractional value of Hubble's constant.  Default value is 1 (where 
@@ -82,11 +91,13 @@ def generate_mask(gal_data,
     ra  = gal_data['ra'].data % 360.0
     
     dec = gal_data['dec'].data
-
+    
     if dist_metric == 'comoving':
-        r = gal_data["Rgal"].data
+        r_max = z_to_comoving_dist(np.array([z_max], dtype=np.float32), 
+                                   Omega_M, 
+                                   h)
     else:
-        r = c*gal_data['redshift'].data/(100*h)
+        r_max = c*z_max/(100*h)
     
     num_galaxies = ra.shape[0]
 
@@ -117,7 +128,7 @@ def generate_mask(gal_data,
     # maximum distance).  The hardcoded value of 10.0 here represents the 
     # minimum radius for a maximal sphere
     #---------------------------------------------------------------------------
-    mask_resolution = 1 + int(D2R*np.amax(r)/10) # scalar value despite use of amax
+    mask_resolution = 1 + int(D2R*r_max/10) # scalar value despite value of r_max
     ############################################################################
 
     
