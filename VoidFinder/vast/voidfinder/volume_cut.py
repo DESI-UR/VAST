@@ -21,7 +21,7 @@ from ctypes import c_int64, c_double, c_float
 
 from .voidfinder_functions import in_mask, not_in_mask
 from .hole_combine import spherical_cap_volume
-from ._voidfinder_cython_find_next import not_in_mask as nim_cython
+from ._voidfinder_cython_find_next import not_in_mask2 as nim_cython
 from ._vol_cut_cython import _check_holes_mask_overlap, _check_holes_mask_overlap_2
 from ._voidfinder import process_message_buffer
 
@@ -228,9 +228,7 @@ def volume_cut(hole_table, survey_mask, mask_resolution, r_limits):
 
 
 def check_hole_bounds(x_y_z_r_array, 
-                      mask, 
-                      mask_resolution, 
-                      r_limits,
+                      mask_checker,
                       cut_pct=0.1,
                       pts_per_unit_volume=3,
                       num_surf_pts=20,
@@ -304,9 +302,7 @@ def check_hole_bounds(x_y_z_r_array,
     if num_cpus == 1:
         
         valid_index, monte_index = oob_cut_single(x_y_z_r_array, 
-                                                  mask, 
-                                                  mask_resolution, 
-                                                  r_limits,
+                                                  mask_checker,
                                                   cut_pct,
                                                   pts_per_unit_volume,
                                                   num_surf_pts)
@@ -314,9 +310,7 @@ def check_hole_bounds(x_y_z_r_array,
     else:
         
         valid_index, monte_index = oob_cut_multi(x_y_z_r_array, 
-                                                 mask, 
-                                                 mask_resolution, 
-                                                 r_limits,
+                                                 mask_checker,
                                                  cut_pct,
                                                  pts_per_unit_volume,
                                                  num_surf_pts,
@@ -331,9 +325,7 @@ def check_hole_bounds(x_y_z_r_array,
 
         
 def oob_cut_single(x_y_z_r_array, 
-                   mask, 
-                   mask_resolution, 
-                   r_limits,
+                   mask_checker,
                    cut_pct,
                    pts_per_unit_volume,
                    num_surf_pts):
@@ -415,10 +407,7 @@ def oob_cut_single(x_y_z_r_array,
     #---------------------------------------------------------------------------
     _check_holes_mask_overlap(x_y_z_r_array,
     #_check_holes_mask_overlap_2(x_y_z_r_array,
-                              mask,
-                              mask_resolution,
-                              r_limits[0],
-                              r_limits[1],
+                              mask_checker,
                               unit_sphere_pts,
                               mesh_points,
                               mesh_points_radii,
@@ -501,18 +490,16 @@ def oob_cut_single(x_y_z_r_array,
 
 
 def oob_cut_multi(x_y_z_r_array, 
-                   mask, 
-                   mask_resolution, 
-                   r_limits,
-                   cut_pct,
-                   pts_per_unit_volume,
-                   num_surf_pts,
-                   num_cpus,
-                   batch_size=1000,
-                   verbose=0,
-                   print_after=5.0,
-                   SOCKET_PATH="/tmp/voidfinder2.sock",
-                   RESOURCE_DIR="/dev/shm"):
+                  mask_checker,
+                  cut_pct,
+                  pts_per_unit_volume,
+                  num_surf_pts,
+                  num_cpus,
+                  batch_size=1000,
+                  verbose=0,
+                  print_after=5.0,
+                  SOCKET_PATH="/tmp/voidfinder2.sock",
+                  RESOURCE_DIR="/dev/shm"):
     """
     Out-Of-Bounds cut multi processed version.
     """
@@ -794,10 +781,11 @@ def oob_cut_multi(x_y_z_r_array,
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "batch_size" : batch_size,
                      
-                     "mask" : mask,
-                     "mask_resolution" : mask_resolution,
-                     "min_dist" : r_limits[0],
-                     "max_dist" : r_limits[1],
+                     "mask_checker" : mask_checker,
+                     #"mask" : mask,
+                     #"mask_resolution" : mask_resolution,
+                     #"min_dist" : r_limits[0],
+                     #"max_dist" : r_limits[1],
                      "cut_pct" : cut_pct,
                      
                      "XYZR_BUFFER_PATH" : XYZR_BUFFER_PATH,
@@ -1082,10 +1070,12 @@ def _oob_cut_worker(worker_idx, index_start, config):
     SOCKET_PATH = config["SOCKET_PATH"]
     batch_size = config["batch_size"]
     
-    mask = config["mask"]
-    mask_resolution = config["mask_resolution"]
-    min_dist = config["min_dist"]
-    max_dist = config["max_dist"]
+    
+    mask_checker = config["mask_checker"]
+    #mask = config["mask"]
+    #mask_resolution = config["mask_resolution"]
+    #min_dist = config["min_dist"]
+    #max_dist = config["max_dist"]
     cut_pct = config["cut_pct"]
     
     
@@ -1337,10 +1327,7 @@ def _oob_cut_worker(worker_idx, index_start, config):
                 
                 _check_holes_mask_overlap(x_y_z_r_array[start_idx:end_idx],
                 #_check_holes_mask_overlap_2(x_y_z_r_array[start_idx:end_idx],
-                                          mask,
-                                          mask_resolution,
-                                          min_dist,
-                                          max_dist,
+                                          mask_checker,
                                           unit_sphere_pts,
                                           mesh_points,
                                           mesh_points_radii,

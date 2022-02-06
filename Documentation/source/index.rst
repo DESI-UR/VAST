@@ -6,8 +6,6 @@
 .. role:: raw-html(raw)
     :format: html
 
-
-
 Welcome to VAST's documentation!
 ================================
 

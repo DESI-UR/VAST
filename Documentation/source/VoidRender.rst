@@ -1,3 +1,4 @@
+
 .. role:: raw-html(raw)
     :format: html
 
@@ -78,6 +79,7 @@ vispy``).
 Also, on Ubuntu, you may need to install the following::
 
     sudo apt-get install mesa-common-dev libgl1-mesa-dev libgl1-mesa-dev
+
 
 There is a version of **VoidRender** that corresponds to each void-finding 
 algorithm implemented in **VAST**.  As a result, **VoidRender** will be built 
