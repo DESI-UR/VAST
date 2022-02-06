@@ -188,12 +188,13 @@ for i in range(len(holes)):
     remove_boolean = np.logical_or(remove_boolean, (d < holes['r'][i]))
 
 find_voids(wall[~remove_boolean], 
-           dist_limits, 
-           mask, 
-           1, 
            np.min(gal, axis=0), 
            grid_shape, 
            'test_', 
+           mask=mask, 
+           mask_resolution=1, 
+           min_dist=dist_limits[0], 
+           max_dist=dist_limits[1], 
            hole_grid_edge_length=1.0,
            hole_center_iter_dist=0.2, 
            min_maximal_radius=1.0, 
