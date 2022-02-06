@@ -355,7 +355,29 @@ class CellIDGenerator(object):
         
 
     
+
+def SaveCheckpointFile(checkpoint_filepath,
+                       num_written_rows,
+                       next_cell_idx,
+                       temp_result):
+
+
+    if os.path.isfile(checkpoint_filepath):
+                    
+        os.remove(checkpoint_filepath)
+        
+    outfile = h5py.File(checkpoint_filepath, 'w')
     
+    outfile.attrs["num_written_rows"] = num_written_rows
+    
+    outfile.attrs["next_cell_idx"] = next_cell_idx
+    
+    outfile.create_dataset("result_array", data=temp_result)
+    
+    outfile.close()
+
+
+
 
 
 def _hole_finder_multi_process(ngrid, 
@@ -1035,6 +1057,9 @@ def _hole_finder_multi_process(ngrid,
                      "mask_resolution" : mask_resolution,
                      "min_dist" : min_dist,
                      "max_dist" : max_dist,
+                     "ENABLE_SAVE_MODE" : ENABLE_SAVE_MODE,
+                     "save_after" : save_after,
+                     "survey_name" : survey_name,
                      #w_coord,
                      "batch_size" : batch_size,
                      "verbose" : verbose,
@@ -1476,19 +1501,13 @@ def _hole_finder_multi_process(ngrid,
                 
                 temp_result = temp_result_array[0:num_written_rows,:]
                 
-                if os.path.isfile(survey_name+"VoidFinderCheckpoint.h5"):
-                    
-                    os.remove(survey_name+"VoidFinderCheckpoint.h5")
-                    
-                outfile = h5py.File(survey_name+"VoidFinderCheckpoint.h5", 'w')
                 
-                outfile.attrs["num_written_rows"] = num_written_rows
+                SaveCheckpointFile(survey_name+"VoidFinderCheckpoint.h5",
+                                   num_written_rows,
+                                   next_cell_idx,
+                                   temp_result)
                 
-                outfile.attrs["next_cell_idx"] = next_cell_idx
                 
-                outfile.create_dataset("result_array", data=temp_result)
-                
-                outfile.close()
                 
                 print("Saved checkpoint", survey_name+"VoidFinderCheckpoint.h5", 
                       flush=True)
@@ -1820,6 +1839,9 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     mask_resolution = config["mask_resolution"]
     min_dist = config["min_dist"]
     max_dist = config["max_dist"]
+    ENABLE_SAVE_MODE = config["ENABLE_SAVE_MODE"]
+    save_after = config["save_after"]
+    survey_name = config["survey_name"]
     xyz_limits = config["xyz_limits"]
     batch_size = config["batch_size"]
     verbose = config["verbose"]
@@ -1829,6 +1851,16 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     DEBUG_DIR = config["DEBUG_DIR"]
     ############################################################################
 
+
+
+
+    if ENABLE_SAVE_MODE:
+        save_after_counter = save_after
+        
+    if num_cpus == 1:
+        print_after_time = time.time()
+        
+        main_task_start_time = time.time()
 
 
     ############################################################################
@@ -2132,6 +2164,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     select_timeout = 0
     
+    local_cells_processed = 0
+    
     while not exit_process:
         
         total_loops += 1
@@ -2308,6 +2342,58 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
         # directly to the shared memmap, but the socket just updates the master 
         # with the number of new results (an integer).
         #-----------------------------------------------------------------------
+        if num_cpus == 1 and have_result_to_write:
+            
+            local_cells_processed += num_write
+            
+            have_result_to_write = False
+            
+            if ENABLE_SAVE_MODE:
+                
+                save_after_counter -= num_write
+                
+                if save_after_counter <= 0:
+                    
+                    temp_result_array = np.frombuffer(result_mmap_buffer, 
+                                                  dtype=np.float64)
+        
+                    temp_result_array.shape = (n_empty_cells, 4)
+                    
+                    temp_result = temp_result_array[0:local_cells_processed,:]
+                    
+                    next_cell_idx = ijk_start.value
+                    
+                    SaveCheckpointFile(survey_name+"VoidFinderCheckpoint.h5",
+                                       local_cells_processed,
+                                       next_cell_idx,
+                                       temp_result)
+                    
+                    
+                    print("Saving checkpoint file at: ", local_cells_processed)
+                    
+                    
+                    #Save checkpoint
+                    pass
+            
+                    save_after_counter = save_after
+        
+        
+        
+            #-----------------------------------------------------------------------
+            # Print status updates if verbose is on
+            #-----------------------------------------------------------------------
+            curr_time = time.time()
+            
+            if (curr_time - print_after_time) > print_after:
+            
+                print('Processed', num_cells_processed, 
+                      'cells of', n_empty_cells, "empty cells", 
+                      str(round(curr_time - main_task_start_time, 2)), 
+                      flush=True)
+                
+                print_after_time = curr_time
+        
+        
         if num_cpus > 1:
             if have_result_to_write:   
                 '''

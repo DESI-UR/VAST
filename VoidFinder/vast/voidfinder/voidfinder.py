@@ -710,7 +710,7 @@ def find_voids(galaxy_coords_xyz,
         choose a good balance between saving too often and not often enough if 
         using this parameter.  Note that it is an approximate value because it 
         depends on the number of worker processes and the provided batch_size 
-        value, if you batch size is 10,000 and your save_after is 1,000,000 you 
+        value, if your batch size is 10,000 and your save_after is 1,000,000 you 
         might actually get a checkpoint at say 1,030,000.  If None, disables 
         saving the checkpoint file.
 
