@@ -50,15 +50,16 @@ class Catalog:
         nnls = np.arange(len(z))
         nnls[zcut<1] = -1
         if maglim is not None:
-            mag  = hdulist[1].data['rabsmag']
             print("Applying magnitude cut...")
             mcut = np.logical_and(mag<maglim,zcut)
             if not mcut.any():
                 print("Choose valid magnitude limit")
                 return
             scut = mcut
+            ncut = np.arange(len(self.coord),dtype=int)[zcut][mcut[zcut]<1]
             tree = KDTree(self.coord[mcut])
-            nnls[zcut][mcut[zcut]<1] = tree.query(self.coord[zcut][mcut[zcut]<1])[1]
+            lut  = np.arange(len(self.coord),dtype=int)[mcut]
+            nnls[ncut] = lut[tree.query(self.coord[ncut])[1]]
             self.mcut = mcut
         self.nnls = nnls
         if maskfile is None:
@@ -100,12 +101,12 @@ class Tesselation:
         print("Computing volumes...")
         vol = np.zeros(len(reg))
         cu1 = np.array([-1 not in r for r in reg])
-        cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]])
+        cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
         msk = cat.mask
         nsd = hp.npix2nside(len(msk))
         pid = hp.ang2pix(nsd,vth,vph)
         imk = msk[pid]
-        cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]])
+        cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
         cut = np.arange(len(vol))
         cut = cut[cu1][cu2][cu3]
         hul = []
