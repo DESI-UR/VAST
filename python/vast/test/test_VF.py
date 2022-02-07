@@ -108,7 +108,6 @@ class TestVoidFinder(unittest.TestCase):
         distances, indices = gal_tree.query(self.gal, k=4)
         dist3 = distances[:,3]
         TestVoidFinder.wall = self.gal[dist3 < (np.mean(dist3) + 1.5*np.std(dist3))]
-        print(TestVoidFinder.wall)
         self.assertTrue(np.isclose(f_wall, TestVoidFinder.wall).all())
 
         # Check the field galaxy coordinates
@@ -142,7 +141,6 @@ class TestVoidFinder(unittest.TestCase):
         holes = vstack([holes, maximals])
 
         # Remove points which fall inside holes
-        print(TestVoidFinder.wall)
         remove_boolean = np.zeros(len(TestVoidFinder.wall), dtype=bool)
         for i in range(len(holes)):
             d = (holes['x'][i] - TestVoidFinder.wall[:,0])**2 + (holes['y'][i] - TestVoidFinder.wall[:,1])**2 + (holes['z'][i] - TestVoidFinder.wall[:,2])**2
