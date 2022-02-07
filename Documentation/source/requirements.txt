@@ -1,0 +1,4 @@
+numpydoc
+sphinx-argparse
+Cython
+numpy
