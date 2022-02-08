@@ -66,14 +66,14 @@ efficiently process such large datasets, this Python 3 implementation of
 **VoidFinder** includes a Cythonized [@Cython] version of the algorithm which 
 also allows for multi-process void-finding.  When run on the 7th Data Release of 
 the main galaxy sample of the Sloan Digital Sky Survey (SDSS DR7, 
-[@Abazajian:2009]) on a single thread, `vast.voidfinder` requires only one 
-minute to run, compared to the ~36 hours needed to run the original Fortran 
-version of **VoidFinder**.  The void-finding algorithm in **V<sup>2</sup>** 
-uses the `scipy.spatial` [@SciPy] submodule for fast computation of the Voronoi 
-tessellation and convex hulls involved in the algorithm.  In addition, 
-`vast.Vsquared` consolidates a large number of void-pruning methods (many 
-currently available in separate programming packages and different languages) 
-into a single package.
+[@Abazajian:2009]) on a single thread, `vast.voidfinder` requires less than 20 
+seconds to run, compared to the ~3 hours needed to run the original Fortran 
+version of **VoidFinder** (both run on an Intel Core i7-6700K @ 4GHz).  The 
+void-finding algorithm in **V<sup>2</sup>** uses the `scipy.spatial` [@SciPy] 
+submodule for fast computation of the Voronoi tessellation and convex hulls 
+involved in the algorithm.  In addition, `vast.Vsquared` consolidates a large 
+number of void-pruning methods (many currently available in separate programming 
+packages and different languages) into a single package.
 
 
 
@@ -117,7 +117,9 @@ and using them to grow unions of weakly divided zones.  This list of voids is
 then typically pruned to remove void candidates unlikely to be true voids.  
 `Vsquared` includes several of the different void-pruning methods that exist, 
 including methods from other ZOBOV implementations such as VIDE [@VIDE:2012] and 
-REVOLVER [@REVOLVER:2018].
+REVOLVER [@REVOLVER:2018]. The VIDE method, for example, sets a maximum density 
+for the boundaries by which zones can be grown into voids. Any voids formed from 
+unions of zones with denser boundaries are removed from the catalog.
 
 
 
