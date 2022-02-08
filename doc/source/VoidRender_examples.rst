@@ -14,26 +14,23 @@ Quick start
 A summary checklist for installing and running **VoidRender**.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
- * Navigate to ``VAST/VoidFender`` (for running **VoidRender** on output from 
-   **VoidFinder**) and/or ``VAST/Vsquared`` (for running **VoidRender** on 
-   output from :raw-html:`<strong>V<sup>2</sup></strong>`) and run::
+ * Navigate to ``VAST`` and run::
     
     python setup.py install
     
    See :ref:`VF-install` or :ref:`V2-install` for installation options.  NOTE: 
    The version of **VoidRender** that corresponds to the void-finding algorithm 
-   of choice will be built and installed when that algorithm (**VoidFinder**, 
-   for example) is built and installed.
+   of choice will be built and installed when **VAST** is built and installed.
    
- * Navigate to the ``scripts`` directory within your chosen void-finding 
-   algorithm and modify ``visualize_voids.py`` if appropriate.  Parameters to 
-   edit might include:
+ * Navigate to the ``example_scripts`` directory and modify 
+   ``visualize_voids_[algorithm].py`` if appropriate.  Parameters to edit might 
+   include:
    
    * Void file name(s) sent into ``viz.load_void_data``
    * Galaxy catalog file name sent into ``viz.load_galaxy_data``
    * etc.
 
- * Run your script (``visualize_voids.py``, in this case) on your machine.
+ * Run your script (``visualize_voids_[algorithm].py``) on your machine.
 
 
 
@@ -42,13 +39,14 @@ A summary checklist for installing and running **VoidRender**.
 Example scripts
 ===============
 
-Included in the **VoidFinder** repository (``VAST/VoidFinder/scripts/``) is 
-``visualize_voids.py``, a working example script for how to run **VoidRender** 
-to visualize the voids found with **VoidFinder** in a given catalog.
+Included in the **VAST** repository (``VAST/example_scripts/``) is 
+``visualize_voids_VoidFinder.py``, a working example script for how to run 
+**VoidRender** to visualize the voids found with **VoidFinder** in a given 
+catalog.
 
-Included in the :raw-html:`<strong>V<sup>2</sup></strong>` repository 
-(``VAST/Vsquared/scripts/``) is ``visualize_voids.py``, a working example script 
-for how to run **VoidRender** to visualize the voids found with 
+Also included in the **VAST** repository (``VAST/example_scripts/``) is 
+``visualize_voids_V2.py``, a working example script for how to run 
+**VoidRender** to visualize the voids found with 
 :raw-html:`<strong>V<sup>2</sup></strong>` in a given catalog.  Note: 
 :raw-html:`<strong>V<sup>2</sup></strong>` must be run with the ``-v`` option to 
 produce output needed for the visualization.
@@ -67,10 +65,9 @@ The easiest way to use **VoidRender** is to create a script that
 2. Defines various visualization aesthetics (void color, etc.).
 3. Generates an interactive 3D visualization of the voids and galaxies.
 
-Examples of this script are the ``visualize_voids.py`` files, located in the 
-``scripts`` directory within each of the void-finding algorithms within 
-**VAST**.  What follows is a breakdown of this script, explaining the various 
-options and functions called.
+Examples of this script are the ``visualize_voids_[algorithm].py`` files, 
+located in the ``example_scripts`` directory within **VAST**.  What follows is a 
+breakdown of this script, explaining the various options and functions called.
 
 .. note:: Due to differences in the void structures found by each of the different void-finding algorithms implemented in **VAST**, there is an implementation of **VoidRender** that corresponds to each algorithm.
 

@@ -14,9 +14,9 @@ voids based on the ZOBOV (ZOnes Bordering On Voidness) algorithm by
 the volume of adjacent voronoi cells to flow multiple cells into larger void 
 regions.
 
-The ``VAST/Vsquared`` directory contains the package, as well as an example 
-script for automatically running all steps of the algorithm. To import the main 
-void-finding class of :raw-html:`<strong>V<sup>2</sup></strong>`::
+**VAST** contains the package, as well as an example script for automatically 
+running all steps of the algorithm. To import the main void-finding class of 
+:raw-html:`<strong>V<sup>2</sup></strong>`::
 
     from vast.vsquared import zobov
 
@@ -69,10 +69,10 @@ package via the shell command::
 
     python setup.py install
     
-from ``VAST/Vsquared``.  It is important to remember that this will attempt to 
-install :raw-html:`<strong>V<sup>2</sup></strong>` into the ``site-packages`` 
-directory of whatever python environment that you are using.  To check on this, 
-you can type::
+from ``VAST``.  It is important to remember that this will attempt to install 
+:raw-html:`<strong>V<sup>2</sup></strong>` into the ``site-packages`` directory 
+of whatever python environment that you are using.  To check on this, you can 
+type::
 
     which python
     

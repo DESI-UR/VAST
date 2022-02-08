@@ -46,7 +46,7 @@ Operation system requirements
 
 **VoidFinder** is currently Unix-only.  **VoidFinder** relies on the tmpfs file 
 system (RAMdisk) on ``/dev/shm`` for shared memory, and this file system is 
-currently (as of February 2020) a Linux-only feature.  However, **VoidFinder** 
+currently (as of February 2022) a Linux-only feature.  However, **VoidFinder** 
 will fall back to memmapping files in the ``/tmp`` directory if ``/dev/shm`` 
 does not exist, so it can still run on OSX.  Depending on the OSX kernal 
 configuration, there may be no speed/performance loss if running shared memory 
@@ -66,8 +66,8 @@ so clone the repository from https://github.com/DESI-UR/VAST.
 
     python setup.py install
     
-from ``VAST/VoidFinder``.  It is important to remember that this will attempt to 
-install **VoidFinder** into the ``site-packages`` directory of whatever python 
+from ``VAST``.  It is important to remember that this will attempt to install 
+`vast.voidfinder` into the ``site-packages`` directory of whatever python 
 environment that you are using.  To check on this, you can type::
 
     which python
@@ -88,7 +88,7 @@ directory, and the symlink points back to wherever your local copy of the
 **VoidFinder** directory is.
 
 If you are developing **VoidFinder** and need to rebuild the cython, from the 
-``VAST/VoidFinder`` directory run::
+``VAST`` directory run::
 
     python setup.py build_ext --inplace
 
@@ -96,14 +96,14 @@ Note that you will need to add the path name to where your copy of the **VAST**
 repository lives to your scripts::
 
     import sys
-    sys.path.insert(0, '/path/to/your/VAST/VoidFinder/vast/voidfinder/')
+    sys.path.insert(0, '/path/to/your/VAST/python/')
  
 Occasionally, it can be helpful to know the following command::
 
     cython -a *.pyx
     
 which can be run from within the directory where the .pyx files live 
-(currently ``VAST/VoidFinder/vast/voidfinder/``) to "manually" build the cython 
+(currently ``VAST/python/vast/voidfinder/``) to "manually" build the cython 
 (.pyx) files.
 
 Installing VoidFinder without admin privileges
