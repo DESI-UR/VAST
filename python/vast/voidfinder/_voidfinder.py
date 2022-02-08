@@ -35,7 +35,8 @@ from ._voidfinder_cython_find_next import GalaxyMap, \
                                           Cell_ID_Memory, \
                                           GalaxyMapCustomDict, \
                                           HoleGridCustomDict, \
-                                          NeighborMemory
+                                          NeighborMemory, \
+                                          MaskChecker
 
 
 
@@ -67,12 +68,15 @@ def _hole_finder(hole_grid_shape,
                  hole_center_iter_dist,
                  galaxy_map_grid_edge_length,
                  coord_min, 
-                 mask,
-                 mask_resolution,
-                 min_dist,
-                 max_dist,
                  galaxy_coords,
                  survey_name,
+                 mask_mode=0,
+                 mask=None,
+                 mask_resolution=None,
+                 min_dist=None,
+                 max_dist=None,
+                 xyz_limits=None,
+                 check_only_empty_holes=True,
                  #hole_radial_mask_check_dist,
                  save_after=None,
                  use_start_checkpoint=False,
@@ -177,8 +181,8 @@ def _hole_finder(hole_grid_shape,
         number of cpus to use while running the main algorithm.  None will 
         result in using number of physical cores on the machine.  Some speedup 
         benefit may be obtained from using additional logical cores via Intel 
-        Hyperthreading but with diminishing returns.  This can safely be set 
-        above the number of physical cores without issue if desired.
+        Hyperthreading but with diminishing returns based on some basic
+        spot testing
     
     
     
@@ -194,101 +198,28 @@ def _hole_finder(hole_grid_shape,
         combining stage so will not represent the final output of VoidFinder
     '''
 
-
-    '''
-    #ijk reordertest
-    
-    batch_size = 126
-    
-    start_idx = 0
-
-    test_cell_ID_dict = {(4,4,0) : 1,
-                         (0,2,4) : 1}
-    
-    i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
-
-    test_gen = CellIDGenerator(5,5,5,test_cell_ID_dict)
-    
-    num_write = test_gen.gen_cell_ID_batch(start_idx, batch_size, i_j_k_array)
-
-    print("num_write: ", num_write)
-    
-    for idx, row in enumerate(i_j_k_array):
-        
-        print(idx, row)
-    
-    
-    print("Start idx 10")
-    
-    num_write = test_gen.gen_cell_ID_batch(10, 10, i_j_k_array)
-    
-    print(num_write)
-    print(i_j_k_array[0:10])
-    
-    print("Start idx 125")
-    
-    num_write = test_gen.gen_cell_ID_batch(126, 10, i_j_k_array)
-    
-    print(num_write)
-    
-    exit()
-    '''
-
-
-
-
-    ############################################################################
-    # Run single or multi-processed
-    ############################################################################
-    
-    if isinstance(num_cpus, int) and num_cpus == 1:
-        
-        #cProfile.runctx("run_single_process_cython(ngrid, dl, dr, coord_min, mask, mask_resolution, min_dist, max_dist, w_coord, batch_size=batch_size, verbose=verbose, print_after=print_after, num_cpus=num_cpus)", globals(), locals(), 'prof_single.prof')
-        #x_y_z_r_array = None
-        #n_holes = None
-        
-        
-        x_y_z_r_array, n_holes = _hole_finder_single_process(hole_grid_shape, 
-                                                             hole_grid_edge_length, 
-                                                             hole_center_iter_dist,
-                                                             galaxy_map_grid_edge_length,
-                                                             coord_min, 
-                                                             mask,
-                                                             mask_resolution,
-                                                             min_dist,
-                                                             max_dist,
-                                                             galaxy_coords,
-                                                             survey_name,
-                                                             #hole_radial_mask_check_dist,
-                                                             save_after=save_after,
-                                                             use_start_checkpoint=use_start_checkpoint,
-                                                             batch_size=batch_size,
-                                                             verbose=verbose,
-                                                             print_after=print_after,
-                                                             num_cpus=num_cpus
-                                                             )
-        
-    else:
-        
-        x_y_z_r_array, n_holes = _hole_finder_multi_process(hole_grid_shape, 
-                                                            hole_grid_edge_length, 
-                                                            hole_center_iter_dist,
-                                                            galaxy_map_grid_edge_length,
-                                                            coord_min, 
-                                                            mask,
-                                                            mask_resolution,
-                                                            min_dist,
-                                                            max_dist,
-                                                            galaxy_coords,
-                                                            survey_name,
-                                                            #hole_radial_mask_check_dist,
-                                                            save_after=save_after,
-                                                            use_start_checkpoint=use_start_checkpoint,
-                                                            batch_size=batch_size,
-                                                            verbose=verbose,
-                                                            print_after=print_after,
-                                                            num_cpus=num_cpus
-                                                            )
+    x_y_z_r_array, n_holes = _hole_finder_multi_process(hole_grid_shape, 
+                                                        hole_grid_edge_length, 
+                                                        hole_center_iter_dist,
+                                                        galaxy_map_grid_edge_length,
+                                                        coord_min, 
+                                                        galaxy_coords,
+                                                        survey_name,
+                                                        mask_mode=mask_mode,
+                                                        mask=mask,
+                                                        mask_resolution=mask_resolution,
+                                                        min_dist=min_dist,
+                                                        max_dist=max_dist,
+                                                        xyz_limits=xyz_limits,
+                                                        check_only_empty_holes=check_only_empty_holes,
+                                                        #hole_radial_mask_check_dist,
+                                                        save_after=save_after,
+                                                        use_start_checkpoint=use_start_checkpoint,
+                                                        batch_size=batch_size,
+                                                        verbose=verbose,
+                                                        print_after=print_after,
+                                                        num_cpus=num_cpus
+                                                        )
 
     return x_y_z_r_array, n_holes
 
@@ -424,440 +355,29 @@ class CellIDGenerator(object):
         
 
     
-def _hole_finder_single_process(void_grid_shape, 
-                                void_grid_edge_length, 
-                                hole_center_iter_dist,
-                                galaxy_map_grid_edge_length,
-                                coord_min, 
-                                mask,
-                                mask_resolution,
-                                min_dist,
-                                max_dist,
-                                galaxy_coords,
-                                survey_name,
-                                #hole_radial_mask_check_dist,
-                                save_after=None,
-                                use_start_checkpoint=False,
-                                batch_size=1000,
-                                verbose=0,
-                                print_after=5.0,
-                                num_cpus=None,
-                                DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
-                                ):
-    """
-    Run VoidFinder using the cython code, except just in single-process mode.
-    """
-    
-    start_time = time.time()
-        
-    if verbose > 0:
 
-        print("Running single-process mode", flush=True)
-        
-        print("Grid: ", void_grid_shape, flush=True)
-        
-        
-        
-        
-        
-        
-    ############################################################################
-    # First build a helper for the i,j,k generator, using the hole grid edge 
-    # length.  We basically need a flag that says "there is a galaxy in this ijk 
-    # cell" so VoidFinder can skip that i,j,k value when growing holes
-    ############################################################################
-    mesh_indices = ((galaxy_coords - coord_min)/void_grid_edge_length).astype(np.int64)
-    
-    hole_cell_ID_dict = {}
-    
-    for row in mesh_indices:
-        
-        hole_cell_ID_dict[tuple(row)] = 1
-    
-    
-    num_nonempty_hole_cells = len(hole_cell_ID_dict)
-    
-    
-    
-    hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
-    
-    hole_lookup_memory = np.zeros(hole_next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
-                                                          ("i", np.int16, ()),
-                                                          ("j", np.int16, ()),
-                                                          ("k", np.int16, ())])
-    
-    
-    new_hole_cell_ID_dict = HoleGridCustomDict(void_grid_shape, 
-                                               hole_lookup_memory)
-    
-    for curr_ijk in hole_cell_ID_dict:
-        
-        new_hole_cell_ID_dict.setitem(*curr_ijk)
-        
-    del hole_cell_ID_dict
-    
-    del mesh_indices
-    
-    if verbose > 0:
-        
-        print("Num nonempty hole cells: ", num_nonempty_hole_cells, flush=True)
-        
-        print("Total slots in hole_cell_ID_dict: ", hole_next_prime, flush=True)
-        
-        print("Num collisions hole_cell_ID_dict: ", 
-              new_hole_cell_ID_dict.num_collisions, 
-              flush=True)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-    ############################################################################
-    # Create the GalaxyMap index and GalaxyMap data array 
-    ############################################################################
-    mesh_indices = ((galaxy_coords - coord_min)/galaxy_map_grid_edge_length).astype(np.int64)
-        
-    galaxy_map = {}
+def SaveCheckpointFile(checkpoint_filepath,
+                       num_written_rows,
+                       next_cell_idx,
+                       temp_result):
 
-    for idx in range(mesh_indices.shape[0]):
 
-        bin_ID = tuple(mesh_indices[idx])
+    if os.path.isfile(checkpoint_filepath):
+                    
+        os.remove(checkpoint_filepath)
         
-        if bin_ID not in galaxy_map:
-            
-            galaxy_map[bin_ID] = []
-        
-        galaxy_map[bin_ID].append(idx)
-        
-    del mesh_indices
+    outfile = h5py.File(checkpoint_filepath, 'w')
     
-    num_in_galaxy_map = len(galaxy_map)
-        
-        
-    ############################################################################
-    # Convert the galaxy map from a map of grid_cell_ID -> belonging galaxy 
-    # indices to a map from grid_cell_ID -> (offset, num) into 
-    ############################################################################
+    outfile.attrs["num_written_rows"] = num_written_rows
     
-    offset = 0
+    outfile.attrs["next_cell_idx"] = next_cell_idx
     
-    galaxy_map_list = []
+    outfile.create_dataset("result_array", data=temp_result)
     
-    for key in galaxy_map:
-        
-        indices = np.array(galaxy_map[key], dtype=np.int64)
-        
-        num_elements = indices.shape[0]
-        
-        galaxy_map_list.append(indices)
-        
-        galaxy_map[key] = (offset, num_elements)
-        
-        offset += num_elements
-
-    galaxy_map_array = np.concatenate(galaxy_map_list)
-    
-    del galaxy_map_list
-        
-    ############################################################################
-    # Convert the galaxy_map dictionary into a custom dictionary 
-    ############################################################################
-    
-    num_galaxy_map_elements = len(galaxy_map)
-    
-    next_prime = find_next_prime(2*num_galaxy_map_elements)
-    
-    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()),
-                                                   ("i", np.int16, ()),
-                                                   ("j", np.int16, ()),
-                                                   ("k", np.int16, ()),
-                                                   ("offset", np.int64, ()),
-                                                   ("num_elements", np.int64, ())])
-    
-    new_galaxy_map = GalaxyMapCustomDict(void_grid_shape,
-                                         lookup_memory)
-    
-    for curr_ijk in galaxy_map:
-        
-        offset, num_elements = galaxy_map[curr_ijk]
-        
-        new_galaxy_map.setitem(*curr_ijk, offset, num_elements)
-        
-    del galaxy_map
-    
-    galaxy_map = new_galaxy_map
-    
-    
-    if verbose > 0:
-        print("Rebuilt galaxy map (size", num_in_galaxy_map, 
-              "total slots", next_prime,")", 
-              flush=True)
-        print("Num collisions in rebuild:", new_galaxy_map.num_collisions, 
-              flush=True)
-        
-        
-    cell_ID_mem = Cell_ID_Memory(2)
-    
-    neighbor_mem = NeighborMemory(50)
-    
-    ############################################################################
-    # Right now this object is a glorified data holder
-    ############################################################################
-    
-    galaxy_tree = GalaxyMap(galaxy_coords, 
-                            coord_min, 
-                            galaxy_map_grid_edge_length,
-                            galaxy_map,
-                            galaxy_map_array)
-    
-    
-    
-    ############################################################################
-    # Create the Cell ID generator
-    ############################################################################
-    
-    start_idx = 0
-    
-    out_start_idx = 0
-    
-    cell_ID_gen = CellIDGenerator(void_grid_shape[0], 
-                                  void_grid_shape[1], 
-                                  void_grid_shape[2], 
-                                  new_hole_cell_ID_dict)
-    
-    if verbose > 1:
-        
-        print("Len galaxy map (eliminated cells):", num_in_galaxy_map, flush=True)
-    
-    ############################################################################
-    # Convert the mask to an array of uint8 values for running in the cython 
-    # code
-    ############################################################################
-    
-    mask = mask.astype(np.uint8)
-    
-    ############################################################################
-    # Allocate memory for output/results
-    ############################################################################
-    
-    n_empty_cells = void_grid_shape[0]*void_grid_shape[1]*void_grid_shape[2] \
-                    - num_nonempty_hole_cells
-    
-    RETURN_ARRAY = np.empty((n_empty_cells, 4), dtype=np.float64)
-    
-    RETURN_ARRAY.fill(np.NAN)
-    
-    return_array = np.empty((batch_size, 4), dtype=np.float64)
-    
-    ############################################################################
-    # memory for a batch of cells to work on
-    ############################################################################
-    i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
-    
-    ############################################################################
-    #
-    # PROFILING VARIABLES
-    #
-    # PROFILE ARRAY elements are:
-    # 0 - total cell time
-    # 1 - cell exit stage
-    # 2 - kdtree_time
-    ############################################################################
-    
-    '''
-    PROFILE_COUNT = 80000000
-    
-    PROFILE_ARRAY = np.empty((85000000,3), dtype=np.float64)
-    
-    PROFILE_array = np.empty((batch_size, 3), dtype=np.float32)
-    
-    PROFILE_process_start_time = time.time()
-    
-    PROFILE_sample_times = []
-    
-    PROFILE_samples = []
-    
-    PROFILE_start_time = time.time()
-    
-    PROFILE_sample_time = 5.0
-    '''
-    
-    ############################################################################
-    # Set up print timer
-    ############################################################################
-        
-    print_start_time = time.time()
-    
-    main_task_start_time = time.time()
-        
-    
-    ############################################################################
-    # Mainloop
-    ############################################################################
-    
-    num_cells_processed = 0
-    
-    exit_condition = False
-    
-    while not exit_condition:
-        
-        '''
-        if num_cells_processed >= PROFILE_COUNT:
-            
-            exit_condition = True
-            
-            break
-        
-        if (time.time() - PROFILE_start_time) > PROFILE_sample_time:
-            
-            curr_sample_time = time.time() - PROFILE_process_start_time
-            
-            curr_sample_interval = time.time() - PROFILE_start_time
-            
-            PROFILE_sample_times.append(curr_sample_time)
-            
-            PROFILE_samples.append(num_cells_processed)
-            
-            PROFILE_start_time = time.time()
-        
-            if verbose > 0:
-            
-                print("Processing cell "+str(num_cells_processed)+" of "+str(n_empty_cells), str(round(curr_sample_time, 2)))
-            
-            if len(PROFILE_samples) > 3:
-                
-                cells_per_sec = (PROFILE_samples[-1] - PROFILE_samples[-2])/curr_sample_interval
-                
-                print(str(round(cells_per_sec, 2)), "cells per sec")
-        '''
-            
-        curr_time = time.time()
-        
-        if (curr_time - print_start_time) > print_after:
-            
-            print("Processed cell", num_cells_processed, 
-                  "of", n_empty_cells, 
-                  round(curr_time - main_task_start_time, 2))
-        
-            print_start_time = curr_time
-        
-        ########################################################################
-        # Generate the next batch and run the main algorithm
-        ########################################################################
-        
-        num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, 
-                                                  batch_size, 
-                                                  i_j_k_array)
-        
-        start_idx += batch_size
-        
-        num_cells_to_process = num_write
-        
-        if num_cells_to_process > 0:
-
-            if return_array.shape[0] != num_cells_to_process:
-
-                return_array = np.empty((num_cells_to_process, 4), 
-                                        dtype=np.float64)
-                
-                #PROFILE_array = np.empty((num_cells_to_process, 3), dtype=np.float32)
-        
-            main_algorithm(i_j_k_array[0:num_write],
-                           galaxy_tree,
-                           #galaxy_kdtree,
-                           galaxy_coords,
-                           void_grid_edge_length, 
-                           hole_center_iter_dist,
-                           coord_min,
-                           mask,
-                           mask_resolution,
-                           min_dist,
-                           max_dist,
-                           #hole_radial_mask_check_dist,
-                           return_array,
-                           cell_ID_mem,
-                           neighbor_mem,
-                           0,  
-                           #PROFILE_array
-                           )
-        
-            RETURN_ARRAY[out_start_idx:(out_start_idx+num_write),:] = return_array[0:num_write]
-            
-            #PROFILE_ARRAY[out_start_idx:(out_start_idx+num_write),:] = PROFILE_array[0:num_write]
-            
-            num_cells_processed += num_write
-            
-            out_start_idx += num_write
-        
-        elif num_cells_to_process == 0 and num_cells_processed == n_empty_cells:
-        
-            exit_condition = True
-            
-            
-    print("Total time growing holes:", time.time() - main_task_start_time)
-        
-    ######################################################################
-    # PROFILING CODE
-    ######################################################################
-    '''
-    outfile = open(os.path.join(DEBUG_DIR, "single_thread_profile.pickle"), 'wb')
-    pickle.dump((PROFILE_sample_times, PROFILE_samples), outfile)
-    outfile.close()    
-    
-    
-    if verbose > 0:
-        
-        
-        PROFILE_ARRAY_SUBSET = PROFILE_ARRAY[0:PROFILE_COUNT]
-        
-        for idx in range(7):
-            
-            curr_idx = PROFILE_ARRAY_SUBSET[:,1] == idx
-            
-            curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 0]
-            
-            if idx == 6:
-                outfile = open(os.path.join(DEBUG_DIR,"Cell_Processing_Times_SingleThreadCython.pickle"), 'wb')
-                pickle.dump(curr_data, outfile)
-                outfile.close()
-                print("Avg Cell time: ", np.mean(curr_data), len(curr_data))
-            
-            plot_cell_processing_times(curr_data, idx, "Single", DEBUG_DIR)
-            
-            curr_data = PROFILE_ARRAY_SUBSET[curr_idx, 2]
-            
-            if idx == 6:
-                print("Avg Cell KDTree time: ", np.mean(curr_data))
-            
-            plot_cell_kdtree_times(curr_data, idx, 'Single', DEBUG_DIR)
-        
-    
-        
-    n_holes = np.sum(np.logical_not(np.isnan(RETURN_ARRAY[0:PROFILE_COUNT,0])), axis=None, dtype=np.int64)
-    
-    print("N holes: ", n_holes)
-    '''
-    ######################################################################
-    # END PROFILING CODE
-    ######################################################################
-    
-    valid_idx = np.logical_not(np.isnan(RETURN_ARRAY[:,0]))
-    
-    n_holes = np.sum(valid_idx, axis=None, dtype=np.int64)
-    
-    return RETURN_ARRAY[valid_idx,:], n_holes
+    outfile.close()
 
 
 
-    
-    
-    
-    
-    
 
 
 def _hole_finder_multi_process(ngrid, 
@@ -865,12 +385,15 @@ def _hole_finder_multi_process(ngrid,
                                dr,
                                search_grid_edge_length,
                                coord_min, 
-                               mask,
-                               mask_resolution,
-                               min_dist,
-                               max_dist,
                                w_coord,
                                survey_name,
+                               mask_mode=0,
+                               mask=None,
+                               mask_resolution=None,
+                               min_dist=None,
+                               max_dist=None,
+                               xyz_limits=None,
+                               check_only_empty_holes=True,
                                #hole_radial_mask_check_dist,
                                batch_size=1000,
                                verbose=0,
@@ -893,7 +416,7 @@ def _hole_finder_multi_process(ngrid,
     ===========
     
     Work-horse method for running VoidFinder with the Cython code in parallel
-    multi-process form.  
+    multi-process form. Also the single threaded version now.
     
     This method contains the logic for:
     
@@ -938,6 +461,26 @@ def _hole_finder_multi_process(ngrid,
     
     
     """
+    
+    
+    #print("_hole_finder_mult mask_mode: ", mask_mode, xyz_limits)
+    
+    if mask_mode == 0:
+        if mask is None or \
+           mask_resolution is None or \
+           min_dist is None or \
+           max_dist is None:
+            raise ValueError("Mask mode is 0 (ra-dec-z) but a required mask parameter is None")
+    
+    if mask_mode == 1 and xyz_limits is None:
+        raise ValueError("Mask mode is 1 (xyz) but required mask parameter xyz_limits is None")
+       
+    
+    if mask_mode == 0:
+        
+        mask = mask.astype(np.uint8)
+    
+    
     
     
     ############################################################################
@@ -1034,9 +577,11 @@ def _hole_finder_multi_process(ngrid,
     
     hole_cell_ID_dict = {}
     
-    for row in mesh_indices:
-        
-        hole_cell_ID_dict[tuple(row)] = 1
+    if check_only_empty_holes:
+    
+        for row in mesh_indices:
+            
+            hole_cell_ID_dict[tuple(row)] = 1
     
     num_nonempty_hole_cells = len(hole_cell_ID_dict)
     ############################################################################
@@ -1049,7 +594,11 @@ def _hole_finder_multi_process(ngrid,
     # hash function it uses is faster than the built-in python one since we are
     # taking advantage of the sequential nature of grid cells
     #---------------------------------------------------------------------------
-    hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
+    
+    if num_nonempty_hole_cells == 0:
+        hole_next_prime = 1
+    else:
+        hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
     
     hole_lookup_memory = np.zeros(hole_next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
                                                           ("i", np.int16, ()),
@@ -1502,10 +1051,15 @@ def _hole_finder_multi_process(ngrid,
                      "dl" : dl, 
                      "dr" : dr,
                      "coord_min" : coord_min, 
-                     "mask" : mask.astype(np.uint8),
+                     "mask_mode" : mask_mode,
+                     "xyz_limits" : xyz_limits,
+                     "mask" : mask,
                      "mask_resolution" : mask_resolution,
                      "min_dist" : min_dist,
                      "max_dist" : max_dist,
+                     "ENABLE_SAVE_MODE" : ENABLE_SAVE_MODE,
+                     "save_after" : save_after,
+                     "survey_name" : survey_name,
                      #w_coord,
                      "batch_size" : batch_size,
                      "verbose" : verbose,
@@ -1594,45 +1148,55 @@ def _hole_finder_multi_process(ngrid,
     # a file descriptor for the listener socket so I was trying to be clean and 
     # have it "close on exec"
     #---------------------------------------------------------------------------
-    if hasattr(socket, "SOCK_CLOEXEC"):
+    
+    if num_cpus > 1:
+    
+        if hasattr(socket, "SOCK_CLOEXEC"):
+            
+            listener_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_CLOEXEC)
+            
+        else:
+            
+            listener_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         
-        listener_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM | socket.SOCK_CLOEXEC)
+        listener_socket.bind(SOCKET_PATH)
         
+        listener_socket.listen(num_cpus)
+        
+        startup_context = multiprocessing.get_context("fork")
+            
+        processes = []
+        
+        for proc_idx in range(num_cpus):
+            
+            '''
+            p = startup_context.Process(target=_main_hole_finder_startup, 
+                                         args=(proc_idx, CONFIG_PATH))
+            '''
+            p = startup_context.Process(target=_hole_finder_worker, 
+                                        args=(proc_idx, 
+                                              ijk_start, 
+                                              write_start, 
+                                              config_object))
+            
+            '''
+            p = startup_context.Process(target=_hole_finder_worker_profile, 
+                                        args=(proc_idx, 
+                                              ijk_start, 
+                                              write_start, 
+                                              config_object))
+            
+            '''
+            p.start()
+            
+            processes.append(p)
+            
     else:
-        
-        listener_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    
-    listener_socket.bind(SOCKET_PATH)
-    
-    listener_socket.listen(num_cpus)
-    
-    startup_context = multiprocessing.get_context("fork")
-        
-    processes = []
-    
-    for proc_idx in range(num_cpus):
-        
-        '''
-        p = startup_context.Process(target=_main_hole_finder_startup, 
-                                     args=(proc_idx, CONFIG_PATH))
-        '''
-        p = startup_context.Process(target=_hole_finder_worker, 
-                                    args=(proc_idx, 
-                                          ijk_start, 
-                                          write_start, 
-                                          config_object))
-        
-        '''
-        p = startup_context.Process(target=_hole_finder_worker_profile, 
-                                    args=(proc_idx, 
-                                          ijk_start, 
-                                          write_start, 
-                                          config_object))
-        
-        '''
-        p.start()
-        
-        processes.append(p)
+        #Single process mode
+        _hole_finder_worker(0, 
+                            ijk_start, 
+                            write_start, 
+                            config_object)
     
     worker_start_time = time.time()
     ############################################################################
@@ -1655,82 +1219,88 @@ def _hole_finder_multi_process(ngrid,
     # select() later, then shut down and close our listener/server socket since
     # we are done with it.
     #---------------------------------------------------------------------------
-    if verbose > 0:
-        
-        print("Attempting to connect workers", flush=True)
     
     num_active_processes = 0
     
-    worker_sockets = []
-    
-    message_buffers = []
-    
-    socket_index = {}
-    
-    all_successful_connections = True
-    
-    listener_socket.settimeout(10.0)
-    
-    for idx in range(num_cpus):
+    if num_cpus > 1:
         
-        try:
+        if verbose > 0:
             
-            worker_sock, worker_addr = listener_socket.accept()
+            print("Attempting to connect workers", flush=True)
+        
+        
+        
+        worker_sockets = []
+        
+        message_buffers = []
+        
+        socket_index = {}
+        
+        all_successful_connections = True
+        
+        listener_socket.settimeout(10.0)
+        
+        for idx in range(num_cpus):
             
-        except:
-            
-            all_successful_connections = False
-            
-            break
-        
-        worker_sockets.append(worker_sock)
-        
-        num_active_processes += 1
-        
-        message_buffers.append(b"")
-        
-        socket_index[worker_sock.fileno()] = idx
-        
-        
-    if verbose > 0:
-        
-        if all_successful_connections:
-            
-            print("Worker processes time to connect:", 
-                  time.time() - worker_start_time, 
-                  flush=True)
-    
-    # This try-except clause was added for weird behavior on mac/OSX
-    try:
-        listener_socket.shutdown(socket.SHUT_RDWR)
-    except:
-        pass
-    
-    listener_socket.close()
-    
-    os.unlink(SOCKET_PATH)
-    
-    
-    def cleanup_worker_sockets():
-        
-        #print("CLEANING UP WORKER SOCKETS", flush=True)
-        
-        for worker_sock in worker_sockets:
-            
-            worker_sock.close()
-            
-    atexit.register(cleanup_worker_sockets)
-    
-    
-    if not all_successful_connections:
-        
-        for worker_sock in worker_sockets:
+            try:
                 
-            worker_sock.send(b"exit")
-        
-        print("FAILED TO CONNECT ALL WORKERS SUCCESSFULLY, EXITING", flush=True)
+                worker_sock, worker_addr = listener_socket.accept()
+                
+            except:
+                
+                all_successful_connections = False
+                
+                break
             
-        raise RunTimeError("Worker sockets failed to connect properly")
+            worker_sockets.append(worker_sock)
+            
+            num_active_processes += 1
+            
+            message_buffers.append(b"")
+            
+            socket_index[worker_sock.fileno()] = idx
+            
+            
+        if verbose > 0:
+            
+            if all_successful_connections:
+                
+                print("Worker processes time to connect:", 
+                      time.time() - worker_start_time, 
+                      flush=True)
+        
+        # This try-except clause was added for weird behavior on mac/OSX
+        try:
+            listener_socket.shutdown(socket.SHUT_RDWR)
+        except:
+            pass
+        
+        listener_socket.close()
+        
+        os.unlink(SOCKET_PATH)
+        
+        
+        def cleanup_worker_sockets():
+            
+            #print("CLEANING UP WORKER SOCKETS", flush=True)
+            
+            for worker_sock in worker_sockets:
+                
+                worker_sock.close()
+                
+        atexit.register(cleanup_worker_sockets)
+        
+        
+        if not all_successful_connections:
+            
+            for worker_sock in worker_sockets:
+                    
+                worker_sock.send(b"exit")
+            
+            print("FAILED TO CONNECT ALL WORKERS SUCCESSFULLY, EXITING", flush=True)
+                
+            raise RunTimeError("Worker sockets failed to connect properly")
+    
     ############################################################################
 
         
@@ -1931,19 +1501,13 @@ def _hole_finder_multi_process(ngrid,
                 
                 temp_result = temp_result_array[0:num_written_rows,:]
                 
-                if os.path.isfile(survey_name+"VoidFinderCheckpoint.h5"):
-                    
-                    os.remove(survey_name+"VoidFinderCheckpoint.h5")
-                    
-                outfile = h5py.File(survey_name+"VoidFinderCheckpoint.h5", 'w')
                 
-                outfile.attrs["num_written_rows"] = num_written_rows
+                SaveCheckpointFile(survey_name+"VoidFinderCheckpoint.h5",
+                                   num_written_rows,
+                                   next_cell_idx,
+                                   temp_result)
                 
-                outfile.attrs["next_cell_idx"] = next_cell_idx
                 
-                outfile.create_dataset("result_array", data=temp_result)
-                
-                outfile.close()
                 
                 print("Saved checkpoint", survey_name+"VoidFinderCheckpoint.h5", 
                       flush=True)
@@ -1984,15 +1548,18 @@ def _hole_finder_multi_process(ngrid,
         print("Main task finish time:", time.time() - main_task_start_time, 
               flush=True)
     
-    if not sent_exit_commands:
-        
-        for idx in range(num_cpus):
-            
-            worker_sockets[idx].send(b"exit")
     
-    for p in processes:
+    if num_cpus > 1:
         
-        p.join(None) #block till join
+        if not sent_exit_commands:
+            
+            for idx in range(num_cpus):
+                
+                worker_sockets[idx].send(b"exit")
+        
+        for p in processes:
+            
+            p.join(None) #block till join
     ############################################################################
 
 
@@ -2267,10 +1834,15 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     dl = config["dl"]
     dr = config["dr"]
     coord_min = config["coord_min"]
+    mask_mode = config["mask_mode"]
     mask = config["mask"]
     mask_resolution = config["mask_resolution"]
     min_dist = config["min_dist"]
     max_dist = config["max_dist"]
+    ENABLE_SAVE_MODE = config["ENABLE_SAVE_MODE"]
+    save_after = config["save_after"]
+    survey_name = config["survey_name"]
+    xyz_limits = config["xyz_limits"]
     batch_size = config["batch_size"]
     verbose = config["verbose"]
     print_after = config["print_after"]
@@ -2281,6 +1853,16 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
 
 
 
+
+    if ENABLE_SAVE_MODE:
+        save_after_counter = save_after
+        
+    if num_cpus == 1:
+        print_after_time = time.time()
+        
+        main_task_start_time = time.time()
+
+
     ############################################################################
     # Open a UNIX-domain socket for communication to the master process.  We set
     # the timeout to be 10.0 seconds, so this worker will try notifying the 
@@ -2289,21 +1871,25 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     # results for 10 seconds again.  Right now the workers only exit after a 
     # b'exit' message has been received from the master.
     #---------------------------------------------------------------------------
-    worker_socket = socket.socket(socket.AF_UNIX)
     
-    worker_socket.settimeout(10.0)
     
-    connect_start = time.time()
-    
-    try:
+    if num_cpus > 1:
         
-        worker_socket.connect(SOCKET_PATH)
+        worker_socket = socket.socket(socket.AF_UNIX)
         
-    except Exception as E:
+        worker_socket.settimeout(10.0)
         
-        print("WORKER", worker_idx, "UNABLE TO CONNECT, EXITING", flush=True)
+        connect_start = time.time()
         
-        raise E
+        try:
+            
+            worker_socket.connect(SOCKET_PATH)
+            
+        except Exception as E:
+            
+            print("WORKER", worker_idx, "UNABLE TO CONNECT, EXITING", flush=True)
+            
+            raise E
     ############################################################################
 
     
@@ -2466,6 +2052,27 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     ############################################################################
 
 
+
+
+    ############################################################################
+    # Build class to help process mask checks
+    #---------------------------------------------------------------------------
+    #mask_mode = 0
+    
+    if mask_mode == 0:
+        mask_checker = MaskChecker(mask_mode,
+                                   survey_mask_ra_dec=mask,
+                                   n=mask_resolution,
+                                   rmin=min_dist,
+                                   rmax=max_dist,
+                                   )
+        
+    elif mask_mode == 1:
+        mask_checker = MaskChecker(mask_mode,
+                                   xyz_limits=xyz_limits)
+    ############################################################################
+
+
     
     ############################################################################
     # Profiling parameters
@@ -2534,7 +2141,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     i_j_k_array = np.empty((batch_size, 3), dtype=np.int64)
     
-    worker_sockets = [worker_socket]
+    if num_cpus > 1:
+        worker_sockets = [worker_socket]
     
     empty1 = []
     
@@ -2556,6 +2164,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     select_timeout = 0
     
+    local_cells_processed = 0
+    
     while not exit_process:
         
         total_loops += 1
@@ -2570,38 +2180,40 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
         #-----------------------------------------------------------------------
         #print("Worker "+str(worker_idx)+" "+str(message_buffer), flush=True)
         
-        read_socks, empty3, empty4 = select.select(worker_sockets, 
-                                                   empty1, 
-                                                   empty2, 
-                                                   select_timeout)
+        if num_cpus > 1:
         
-        if read_socks:
+            read_socks, empty3, empty4 = select.select(worker_sockets, 
+                                                       empty1, 
+                                                       empty2, 
+                                                       select_timeout)
             
-            message_buffer += worker_socket.recv(1024)
-            
-        if len(message_buffer) > 0:
-            
-            if len(message_buffer) >= 4 and message_buffer[0:4] == b'exit':
+            if read_socks:
                 
-                exit_process = True
+                message_buffer += worker_socket.recv(1024)
                 
-                received_exit_command = True
+            if len(message_buffer) > 0:
                 
-                continue
-            
-            elif len(message_buffer) >= 4 and message_buffer[0:4] == b"sync":
+                if len(message_buffer) >= 4 and message_buffer[0:4] == b'exit':
+                    
+                    exit_process = True
+                    
+                    received_exit_command = True
+                    
+                    continue
                 
-                sync = True
-                
-                message_buffer = message_buffer[4:]
-                
-            elif len(message_buffer) >= 6 and message_buffer[0:6] == b"resume":
-                
-                sync = False
-                
-                sent_sync_ack = False
-                
-                message_buffer = message_buffer[6:]
+                elif len(message_buffer) >= 4 and message_buffer[0:4] == b"sync":
+                    
+                    sync = True
+                    
+                    message_buffer = message_buffer[4:]
+                    
+                elif len(message_buffer) >= 6 and message_buffer[0:6] == b"resume":
+                    
+                    sync = False
+                    
+                    sent_sync_ack = False
+                    
+                    message_buffer = message_buffer[6:]
         #-----------------------------------------------------------------------
         
         
@@ -2659,10 +2271,11 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                dl, 
                                dr,
                                coord_min,
-                               mask,
-                               mask_resolution,
-                               min_dist,
-                               max_dist,
+                               mask_checker,
+                               #mask,
+                               #mask_resolution,
+                               #min_dist,
+                               #max_dist,
                                #hole_radial_mask_check_dist,
                                return_array,
                                cell_ID_mem,
@@ -2715,6 +2328,10 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                 # can notify the master that it is done working.
                 #---------------------------------------------------------------
                 no_cells_left_to_process = True
+                
+                #If we're in single threaded mode, exit now
+                if num_cpus == 1:
+                    exit_process = True
                 #---------------------------------------------------------------
         #-----------------------------------------------------------------------
 
@@ -2724,75 +2341,128 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
         # using our socket connection.  Note the actual results get written 
         # directly to the shared memmap, but the socket just updates the master 
         # with the number of new results (an integer).
-        #-----------------------------------------------------------------------  
-        if have_result_to_write:   
-            '''
-            n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), 
-                                           axis=None, 
-                                           dtype=np.int64)
-            '''
-            out_msg = b""
-            out_msg += struct.pack("b", 2) #1 byte - number of 8 byte fields
-            out_msg += struct.pack("=q", 0) #8 byte field - message type 0
-            out_msg += struct.pack("=q", num_write) #8 byte field - payload for num-write
-            
-            try:
-                worker_socket.send(out_msg)
-            except:
-                do_work = False
-            else:
-                do_work = True
-                have_result_to_write = False
         #-----------------------------------------------------------------------
-
+        if num_cpus == 1 and have_result_to_write:
             
-        #-----------------------------------------------------------------------
-        # If we are done working (cell ID generator reached the end/returned 0), 
-        # notify the master process that this worker is going into a "wait for 
-        # exit" state where we just sleep and check the input socket for the 
-        # b'exit' message
-        #-----------------------------------------------------------------------
-        if no_cells_left_to_process:
+            local_cells_processed += num_write
             
-            if not sent_deactivation:
+            have_result_to_write = False
             
+            if ENABLE_SAVE_MODE:
+                
+                save_after_counter -= num_write
+                
+                if save_after_counter <= 0:
+                    
+                    temp_result_array = np.frombuffer(result_mmap_buffer, 
+                                                  dtype=np.float64)
+        
+                    temp_result_array.shape = (n_empty_cells, 4)
+                    
+                    temp_result = temp_result_array[0:local_cells_processed,:]
+                    
+                    next_cell_idx = ijk_start.value
+                    
+                    SaveCheckpointFile(survey_name+"VoidFinderCheckpoint.h5",
+                                       local_cells_processed,
+                                       next_cell_idx,
+                                       temp_result)
+                    
+                    
+                    print("Saving checkpoint file at: ", local_cells_processed)
+                    
+                    
+                    #Save checkpoint
+                    pass
+            
+                    save_after_counter = save_after
+        
+        
+        
+            #-----------------------------------------------------------------------
+            # Print status updates if verbose is on
+            #-----------------------------------------------------------------------
+            curr_time = time.time()
+            
+            if (curr_time - print_after_time) > print_after:
+            
+                print('Processed', num_cells_processed, 
+                      'cells of', n_empty_cells, "empty cells", 
+                      str(round(curr_time - main_task_start_time, 2)), 
+                      flush=True)
+                
+                print_after_time = curr_time
+        
+        
+        if num_cpus > 1:
+            if have_result_to_write:   
+                '''
+                n_hole = np.sum(np.logical_not(np.isnan(return_array[:,0])), 
+                                               axis=None, 
+                                               dtype=np.int64)
+                '''
                 out_msg = b""
-                out_msg += struct.pack("b", 1) #1 byte - number of 8 byte fields
-                out_msg += struct.pack("=q", 1) #8 byte field - message type 1 (no payload)
-                
-                worker_socket.send(out_msg)
-                
-                sent_deactivation = True
-                
-                select_timeout = 2.0
-        #-----------------------------------------------------------------------
-
-            
-        #-----------------------------------------------------------------------
-        # If the master process wants to save a checkpoint, it needs the workers 
-        # to sync up.  It sends a b'sync' message, and then it waits for all the 
-        # workers to acknowledge that they have received the 'sync', so here we 
-        # send that acknowledgement.  After we have received the sync, we just 
-        # want to sleep and check the socket for a b'resume' message.
-        #-----------------------------------------------------------------------
-        if sync:
-            
-            if not sent_sync_ack:
-                
-                acknowledge_sync = b""
-                acknowledge_sync += struct.pack("b", 1) #1 byte - number of 8 byte fields
-                acknowledge_sync += struct.pack("=q", 2) #8 byte field - message type 2
+                out_msg += struct.pack("b", 2) #1 byte - number of 8 byte fields
+                out_msg += struct.pack("=q", 0) #8 byte field - message type 0
+                out_msg += struct.pack("=q", num_write) #8 byte field - payload for num-write
                 
                 try:
-                    worker_socket.send(acknowledge_sync)
+                    worker_socket.send(out_msg)
                 except:
-                    pass
+                    do_work = False
                 else:
-                    sent_sync_ack = True
-            else:
-            
-                time.sleep(1.0)
-        #-----------------------------------------------------------------------
+                    do_work = True
+                    have_result_to_write = False
+            #-----------------------------------------------------------------------
+    
+                
+            #-----------------------------------------------------------------------
+            # If we are done working (cell ID generator reached the end/returned 0), 
+            # notify the master process that this worker is going into a "wait for 
+            # exit" state where we just sleep and check the input socket for the 
+            # b'exit' message
+            #-----------------------------------------------------------------------
+            if no_cells_left_to_process:
+                
+                if not sent_deactivation:
+                
+                    out_msg = b""
+                    out_msg += struct.pack("b", 1) #1 byte - number of 8 byte fields
+                    out_msg += struct.pack("=q", 1) #8 byte field - message type 1 (no payload)
+                    
+                    worker_socket.send(out_msg)
+                    
+                    sent_deactivation = True
+                    
+                    select_timeout = 2.0
+            #-----------------------------------------------------------------------
+    
+                
+            #-----------------------------------------------------------------------
+            # If the master process wants to save a checkpoint, it needs the workers 
+            # to sync up.  It sends a b'sync' message, and then it waits for all the 
+            # workers to acknowledge that they have received the 'sync', so here we 
+            # send that acknowledgement.  After we have received the sync, we just 
+            # want to sleep and check the socket for a b'resume' message.
+            #-----------------------------------------------------------------------
+            if sync:
+                
+                if not sent_sync_ack:
+                    
+                    acknowledge_sync = b""
+                    acknowledge_sync += struct.pack("b", 1) #1 byte - number of 8 byte fields
+                    acknowledge_sync += struct.pack("=q", 2) #8 byte field - message type 2
+                    
+                    try:
+                        worker_socket.send(acknowledge_sync)
+                    except:
+                        pass
+                    else:
+                        sent_sync_ack = True
+                else:
+                
+                    time.sleep(1.0)
+            #-----------------------------------------------------------------------
     ############################################################################
 
 
@@ -2801,7 +2471,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     # We are all done!  Close the socket and any other resources, and finally 
     # return.
     #---------------------------------------------------------------------------
-    worker_socket.close()
+    if num_cpus > 1:
+        worker_socket.close()
     
     print("WORKER EXITING GRACEFULLY", worker_idx, flush=True)
     ############################################################################
