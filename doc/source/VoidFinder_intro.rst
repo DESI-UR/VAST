@@ -108,6 +108,7 @@ which can be run from within the directory where the .pyx files live
 
 Installing VoidFinder without admin privileges
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 If you are working in an environment where you cannot install **VoidFinder**, or 
 you do not have permissions to install it into the python environment that you 
 are using, add ``--user`` to your choice of build from above.  For example:: 
