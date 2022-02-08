@@ -36,9 +36,30 @@ from _voidfinder_cython_find_next cimport find_next_galaxy, \
                                           GalaxyMapCustomDict, \
                                           HoleGridCustomDict, \
                                           FindNextReturnVal, \
-                                          NeighborMemory
+                                          NeighborMemory, \
+                                          MaskChecker
+                                          
 
 import time
+
+
+#Create a typedef for the type of pointer which can point
+#to the mask check function
+ctypedef DTYPE_B_t (*MASK_CHECK_FUNCTION_t)(DTYPE_F64_t[:,:], DTYPE_B_t[:,:], DTYPE_INT32_t, DTYPE_F64_t, DTYPE_F64_t)
+
+
+
+
+
+
+cdef DTYPE_B_t test_function_woo(DTYPE_F64_t[:,:] a, 
+                                 DTYPE_B_t[:,:] b, 
+                                 DTYPE_INT32_t c,  
+                                 DTYPE_F64_t d, 
+                                 DTYPE_F64_t e):
+
+    return <DTYPE_B_t>0
+
 
 
 
@@ -292,10 +313,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                           DTYPE_F64_t dl, 
                           DTYPE_F64_t dr,
                           DTYPE_F64_t[:,:] coord_min, 
-                          DTYPE_B_t[:,:] mask,
-                          DTYPE_INT32_t mask_resolution,
-                          DTYPE_F64_t min_dist,
-                          DTYPE_F64_t max_dist,
+                          MaskChecker mask_checker,
+                          #DTYPE_B_t[:,:] mask,
+                          #DTYPE_INT32_t mask_resolution,
+                          #DTYPE_F64_t min_dist,
+                          #DTYPE_F64_t max_dist,
                           #DTYPE_F64_t hole_radial_mask_check_dist,
                           DTYPE_F64_t[:,:] return_array,
                           Cell_ID_Memory cell_ID_mem,
@@ -388,6 +410,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     NAN or (x,y,z,r) rows filled into the return_array parameter.
     
     '''
+    
+    
+    #cdef MASK_CHECK_FUNCTION_t mask_check_function = not_in_mask
     
     
     ############################################################################
@@ -555,7 +580,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             hole_center_memview[0,idx] = (hole_center_memview[0,idx] + 0.5)*dl + coord_min[0,idx]
             
             
-        if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        #if mask_check_function(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        if mask_checker.not_in_mask(hole_center_memview):
             
             '''
             out_str = ""
@@ -652,10 +679,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              nearest_gal_index_list, 
                                              1,
                                              w_coord, 
-                                             mask, 
-                                             mask_resolution,
-                                             min_dist, 
-                                             max_dist,
+                                             mask_checker,
+                                             #mask, 
+                                             #mask_resolution,
+                                             #min_dist, 
+                                             #max_dist,
                                              Bcenter_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
@@ -757,7 +785,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             hole_center_memview[0,idx] = w_coord[k1g,idx] - hole_radius*unit_vector_memview[idx]
         
         
-        if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        #if mask_check_function(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        if mask_checker.not_in_mask(hole_center_memview):
             
             '''
             out_str = ""
@@ -848,10 +878,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              nearest_gal_index_list, 
                                              2,
                                              w_coord, 
-                                             mask, 
-                                             mask_resolution, 
-                                             min_dist, 
-                                             max_dist,
+                                             mask_checker,
+                                             #mask, 
+                                             #mask_resolution, 
+                                             #min_dist, 
+                                             #max_dist,
                                              Bcenter_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
@@ -919,7 +950,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         hole_radius = sqrt(temp_f64_accum)
         
     
-        if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
+        if mask_checker.not_in_mask(hole_center_memview):
         
             '''
             out_str = ""
@@ -1017,10 +1049,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              nearest_gal_index_list, 
                                              3,
                                              w_coord, 
-                                             mask, 
-                                             mask_resolution,
-                                             min_dist, 
-                                             max_dist,
+                                             mask_checker,
+                                             #mask, 
+                                             #mask_resolution,
+                                             #min_dist, 
+                                             #max_dist,
                                              Bcenter_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
@@ -1077,10 +1110,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              nearest_gal_index_list, 
                                              3,
                                              w_coord, 
-                                             mask, 
-                                             mask_resolution,
-                                             min_dist, 
-                                             max_dist,
+                                             mask_checker,
+                                             #mask, 
+                                             #mask_resolution,
+                                             #min_dist, 
+                                             #max_dist,
                                              Bcenter_memview,
                                              cell_ID_mem,
                                              neighbor_mem,
@@ -1110,7 +1144,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # left the survey, return NAN output
         ########################################################################
         
-        not_in_mask_41 = not_in_mask(hole_center_41_memview, mask, mask_resolution, min_dist, max_dist)
+        #not_in_mask_41 = not_in_mask(hole_center_41_memview, mask, mask_resolution, min_dist, max_dist)
+        not_in_mask_41 = mask_checker.not_in_mask(hole_center_41_memview)
     
         if not not_in_mask_41 and minx41 <= minx42:
     
@@ -1120,7 +1155,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
             k4g = k4g1
     
-        elif not not_in_mask(hole_center_42_memview, mask, mask_resolution, min_dist, max_dist):
+        #elif not not_in_mask(hole_center_42_memview, mask, mask_resolution, min_dist, max_dist):
+        elif not mask_checker.not_in_mask(hole_center_42_memview):
             
             for idx in range(3):
     

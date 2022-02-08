@@ -54,7 +54,7 @@ def load_data_to_Table(input_filepath):
 
         hdu = fits.open(input_filepath)
 
-        data_table = hdu[1].data
+        data_table = Table(hdu[1].data)
 
         hdu.close()
         
