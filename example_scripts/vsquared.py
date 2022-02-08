@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""Driver program for Voronoi Voids (V^2) void finder module using the ZOBOV
+"""
+Driver program for Voronoi Voids (V^2) void finder module using the ZOBOV
 algorithm.
 """
 

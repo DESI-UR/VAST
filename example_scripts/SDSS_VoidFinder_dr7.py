@@ -55,8 +55,8 @@ survey_name = 'vollim_dr7_cbp_102709_'
 # File header
 # Change these directory paths to where your data is stored, and where you want 
 # the output to be saved.
-in_directory = '../'
-out_directory = '../'
+in_directory = ''
+out_directory = ''
 
 
 # Input file name
