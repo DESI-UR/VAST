@@ -580,7 +580,6 @@ def find_voids(galaxy_coords_xyz,
     no more maximal spheres, and all other spheres are joined to the maximal 
     spheres.
     
-    
     A note on the purpose of VoidFinder - VoidFinder is intended to find 
     distinct, discrete void *locations* within the large scale structure of the 
     universe.  This is in contrast to finding the large scale void *structure*.  
@@ -593,7 +592,6 @@ def find_voids(galaxy_coords_xyz,
     local density estimate for a given galaxy, you could just use the distance 
     to Nth nearest neighbor, for example.  This is not what VoidFinder is for.
     
-    
     To do this, VoidFinder makes the following assumptions:
     
     1.  A Void region can be approximated by a union of spheres.  Note: the 
@@ -604,10 +602,6 @@ def find_voids(galaxy_coords_xyz,
         tunneling structures throughout space, if does happen to be the 
         structure of space (it basically does happen to be that way) we want the 
         locations of the biggest rooms
-    
-    
-    
-    
     
     
     Parameters
@@ -748,7 +742,6 @@ def find_voids(galaxy_coords_xyz,
     combined voids table, ascii.commented_header format
     
     maximal spheres table
-    
     """
     
     
