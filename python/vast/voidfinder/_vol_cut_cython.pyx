@@ -27,7 +27,6 @@ from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 
 
 from ._voidfinder_cython_find_next cimport not_in_mask as Not_In_Mask
-from ._voidfinder_cython_find_next cimport MaskChecker
 
 
 
@@ -84,14 +83,17 @@ cdef inline ITYPE_t binary_searchsorted(DTYPE_F64_t[:] sorted_array,
 @cython.wraparound(False)
 @cython.cdivision(True)
 cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array, 
-                                     MaskChecker mask_checker,
-                                     DTYPE_F64_t[:,:] unit_sphere_pts,
-                                     DTYPE_F64_t[:,:] mesh_points,
-                                     DTYPE_F64_t[:] mesh_points_radii,
-                                     DTYPE_F64_t cut_pct,
-                                     DTYPE_B_t[:] valid_index,
-                                     DTYPE_B_t[:] monte_index
-                                     ):
+                                           DTYPE_B_t[:,:] mask, 
+                                           DTYPE_INT32_t mask_resolution,
+                                           DTYPE_F64_t min_dist,
+                                           DTYPE_F64_t max_dist,
+                                           DTYPE_F64_t[:,:] unit_sphere_pts,
+                                           DTYPE_F64_t[:,:] mesh_points,
+                                           DTYPE_F64_t[:] mesh_points_radii,
+                                           DTYPE_F64_t cut_pct,
+                                           DTYPE_B_t[:] valid_index,
+                                           DTYPE_B_t[:] monte_index
+                                           ):
     """
     Given N points on the boundary of each sphere, check them against the mask
     if any of the N fall outside the mask, do a monte-carlo volume calculation
@@ -135,9 +137,7 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
             curr_pt[0,1] = curr_hole_radius*unit_sphere_pts[jdx,1] + curr_hole_position[1]
             curr_pt[0,2] = curr_hole_radius*unit_sphere_pts[jdx,2] + curr_hole_position[2]
             
-            
-            not_in_mask = mask_checker.not_in_mask(curr_pt)
-            #not_in_mask = Not_In_Mask(curr_pt, mask, mask_resolution, min_dist, max_dist)
+            not_in_mask = Not_In_Mask(curr_pt, mask, mask_resolution, min_dist, max_dist)
             
             if not_in_mask:
                 
@@ -166,8 +166,7 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
                 curr_pt[0,1] = curr_hole_position[1] + mesh_points[kdx,1]
                 curr_pt[0,2] = curr_hole_position[2] + mesh_points[kdx,2]
                                                       
-                not_in_mask = mask_checker.not_in_mask(curr_pt)
-                #not_in_mask = Not_In_Mask(curr_pt, mask, mask_resolution, min_dist, max_dist)
+                not_in_mask = Not_In_Mask(curr_pt, mask, mask_resolution, min_dist, max_dist)
             
                 if not_in_mask:
                     

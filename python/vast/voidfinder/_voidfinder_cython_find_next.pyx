@@ -53,7 +53,10 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                         DTYPE_INT64_t[:] nearest_gal_index_list, 
                                         ITYPE_t num_neighbors,
                                         DTYPE_F64_t[:,:] w_coord, 
-                                        MaskChecker mask_checker,
+                                        DTYPE_B_t[:,:] mask, 
+                                        DTYPE_INT32_t mask_resolution,
+                                        DTYPE_F64_t min_dist, 
+                                        DTYPE_F64_t max_dist, 
                                         DTYPE_F64_t[:] Bcenter_memview,
                                         Cell_ID_Memory cell_ID_mem,
                                         NeighborMemory neighbor_mem,
@@ -535,8 +538,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 return retval
                 
 
-        #elif not_in_mask(temp_hole_center_memview, mask, mask_resolution, min_dist, max_dist):
-        elif mask_checker.not_in_mask(temp_hole_center_memview):
+        elif not_in_mask(temp_hole_center_memview, mask, mask_resolution, min_dist, max_dist):
             
             retval.in_mask = False
             
@@ -558,113 +560,11 @@ cdef DTYPE_F64_t DtoR = np.pi/180.
 cdef DTYPE_F64_t dec_offset = -90
 
 
-
-
-
-cdef class MaskChecker:
-    
-    def __init__(self, 
-                 mode,
-                 survey_mask_ra_dec=None,
-                 n=None,
-                 rmin=None,
-                 rmax=None,
-                 xyz_limits=None):
-        
-        self.mode = mode
-        
-        if survey_mask_ra_dec is not None:
-            self.survey_mask_ra_dec = survey_mask_ra_dec
-            
-        if n is not None:
-            self.n = n
-            
-        if rmin is not None:
-            self.rmin = rmin
-            
-        if rmax is not None:
-            self.rmax = rmax
-            
-        if xyz_limits is not None:
-            self.xyz_limits = xyz_limits
-        
-        
-    cdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates):
-        
-        if self.mode == 0:
-            
-            return not_in_mask(coordinates,
-                               self.survey_mask_ra_dec,
-                               self.n,
-                               self.rmin,
-                               self.rmax)
-            
-        elif self.mode == 1:
-            
-            return not_in_mask_xyz(coordinates, self.xyz_limits)
-
-
-
-
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(True)
-cdef DTYPE_B_t not_in_mask_xyz(DTYPE_F64_t[:,:] coordinates, 
-                               DTYPE_F64_t[:,:] xyz_limits):
-    """
-    Parameters
-    ==========
-    
-    coordinates : array shape (1,3)
-        format [x,y,z]
-        
-    xyz_limits : array shape (2,3)
-        format [x_min, y_min, z_min]
-               [x_max, y_max, z_max]
-    """
-    
-    cdef DTYPE_F64_t coord_x
-    cdef DTYPE_F64_t coord_y
-    cdef DTYPE_F64_t coord_z
-    
-    coord_x = coordinates[0,0]
-    coord_y = coordinates[0,1]
-    coord_z = coordinates[0,2]
-    
-    if coord_x < xyz_limits[0,0]:
-        return True
-    
-    if coord_x > xyz_limits[1,0]:
-        return True
-    
-    if coord_y < xyz_limits[0,1]:
-        return True
-    
-    if coord_y > xyz_limits[1,1]:
-        return True
-    
-    if coord_z < xyz_limits[0,2]:
-        return True
-    
-    if coord_z > xyz_limits[1,2]:
-        return True
-    
-    return False
-    
-    
-    
-    
-    
-
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
-@cython.profile(False)
-cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, 
+cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, 
                            DTYPE_B_t[:,:] survey_mask_ra_dec, 
                            DTYPE_INT32_t n,
                            DTYPE_F64_t rmin, 
@@ -798,27 +698,6 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
         return_mask_value = 1
 
     return return_mask_value
-
-
-
-
-
-
-
-"""
-Note in voidfinder.volume_cut we were using the cpdef wrapper
-around the cythonized not_in_mask function so I added this stupid
-little workaround so we can keep not_in_mask cdef'd to work with
-the typedef stuff 
-"""
-
-cpdef DTYPE_B_t not_in_mask2(DTYPE_F64_t[:,:] coordinates, 
-                               DTYPE_B_t[:,:] survey_mask_ra_dec, 
-                               DTYPE_INT32_t n,
-                               DTYPE_F64_t rmin, 
-                               DTYPE_F64_t rmax):
-                               
-    return not_in_mask(coordinates, survey_mask_ra_dec, n, rmin, rmax)
 
 
 

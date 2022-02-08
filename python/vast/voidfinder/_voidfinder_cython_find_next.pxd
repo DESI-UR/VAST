@@ -17,26 +17,6 @@ from typedefs cimport DTYPE_CP128_t, \
                       CELL_ID_t
 
 
-
-
-cdef class MaskChecker:
-
-    cdef int mode
-
-    cdef DTYPE_B_t[:,:] survey_mask_ra_dec
-    
-    cdef DTYPE_INT32_t n #mask resolution factor
-    
-    cdef DTYPE_F64_t rmin
-    
-    cdef DTYPE_F64_t rmax
-    
-    cdef DTYPE_F64_t[:,:] xyz_limits
-    
-    cdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates)
-
-
-
 cdef struct FindNextReturnVal:
     ITYPE_t nearest_neighbor_index
     DTYPE_F64_t min_x_ratio
@@ -79,30 +59,21 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         DTYPE_INT64_t[:] nearest_gal_index_list, \
                                         ITYPE_t num_neighbors, \
                                         DTYPE_F64_t[:,:] w_coord, \
-                                        MaskChecker mask_checker,
+                                        DTYPE_B_t[:,:] mask, \
+                                        DTYPE_INT32_t mask_resolution, \
+                                        DTYPE_F64_t min_dist, \
+                                        DTYPE_F64_t max_dist, \
                                         DTYPE_F64_t[:] Bcenter_memview, \
                                         Cell_ID_Memory cell_ID_mem, \
                                         NeighborMemory neighbor_mem, \
                                         )
                             
 
-cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
+cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
                   DTYPE_B_t[:,:] survey_mask_ra_dec, \
                   DTYPE_INT32_t n, \
                   DTYPE_F64_t rmin, \
                   DTYPE_F64_t rmax)
-
-#cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
-#                  DTYPE_B_t[:,:] survey_mask_ra_dec, \
-#                  DTYPE_INT32_t n, \
-#                  DTYPE_F64_t rmin, \
-#                  DTYPE_F64_t rmax)
-
-
-
-
-
-
 
 
 cdef class HoleGridCustomDict:
