@@ -11,10 +11,8 @@
 *.png
 *.mp4
 *__pycache__*
-VoidFinder/vast_voidfinder.egg-info/
-VoidFinder/vast/voidfinder/__pycache__/
-VoidFinder/build/
-VoidFinder/dist/
+build
+dist
 WorkingDir/
 .settings/
 .ipynb_checkpoints/
