@@ -16,13 +16,13 @@ A summary checklist for installing and running
 :raw-html:`<strong>V<sup>2</sup></strong>`.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
- * Navigate to ``VAST/Vsquared`` and run::
+ * Run::
     
     python setup.py install
     
    See :ref:`V2-install` for installation options.
    
- * Navigate to ``VAST/Vsquared/scripts`` and modify ``DR7_config.ini`` if 
+ * Navigate to ``VAST/example_scripts/`` and modify ``DR7_config.ini`` if 
    appropriate.  Fields to edit might include:
    
    * Input catalog and Survey name
@@ -31,8 +31,7 @@ A summary checklist for installing and running
    * Minimum void radius
    * etc.
 
- * Run ``vsquared.py`` from the ``VAST/Vsquared/scripts`` directory on your 
-
+ * Run ``vsquared.py`` from the ``VAST/example_scripts/`` directory on your 
    machine or using a cluster::
    
     python vsquared.py -c DR7_config.ini
@@ -58,14 +57,14 @@ Example configuration file
 ==========================
 
 Included in the :raw-html:`<strong>V<sup>2</sup></strong>` repository 
-(``VAST/Vsquared/scripts/``) are a finite selection of example configuration 
+(``VAST/example_scripts/``) are a finite selection of example configuration 
 files:
 
  * ``DR7_config.ini`` contains the settings to run 
    :raw-html:`<strong>V<sup>2</sup></strong>` on the SDSS DR7 main galaxy 
    sample.  A volume-limited version of this galaxy catalog is provided with the 
    package 
-   (``VAST/Vsquared/data/vollim_dr7_cbp_102709.fits``).
+   (``VAST/example_scripts/vollim_dr7_cbp_102709.fits``).
 
 See :ref:`V2-config` for details on the configuration file options.
 
@@ -80,7 +79,7 @@ Script
 ------
 
 The easiest way to use :raw-html:`<strong>V<sup>2</sup></strong>` is to use the 
-``vsquared.py`` script, located in ``VAST/Vsquared/scripts/``. For usage 
+``vsquared.py`` script, located in ``VAST/example_scripts/``. For usage 
 information, run::
 
     python vsquared.py --help

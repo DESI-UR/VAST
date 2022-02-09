@@ -10,14 +10,14 @@ Quick start
 A summary checklist for installing and running **VoidFinder**.
 
  * Clone the `GitHub repository <https://github.com/DESI-UR/VAST>`_
- * Navigate to ``VAST/VoidFinder`` and run::
+ * Run::
     
     python setup.py install
     
    See :ref:`VF-install` for installation options.
    
- * Navigate to ``VAST/VoidFinder/scripts`` and modify
-   ``SDSS_VoidFinder_dr7.py`` if appropriate.  Variables to edit might include:
+ * Navigate to ``example_scripts`` and modify ``SDSS_VoidFinder_dr7.py`` if 
+   appropriate.  Variables to edit might include:
    
    * ``in_directory`` and ``out_directory``
    * ``data_filename``
@@ -44,12 +44,12 @@ See :ref:`VF-output` for a detailed description of each of these files.
 Example scripts
 ===============
 
-Included in the **VoidFinder** repository (``VAST/VoidFinder/scripts/``) are 
-a finite selection of example scripts:
+Included in the **VAST** repository (``VAST/example_scripts/``) are a finite 
+selection of example scripts:
 
  * ``SDSS_VoidFinder_dr7.py`` will run **VoidFinder** on the SDSS DR7 main 
    galaxy sample.  A volume-limited version of this galaxy catalog is provided 
-   with the package (``VAST/VoidFinder/vollim_dr7_cbp_102709.dat``).
+   with the package (``VAST/example_scripts/vollim_dr7_cbp_102709.dat``).
  * ``classifyEnvironment.py`` takes the output of **VoidFinder** (identified 
    voids) and determines which objects of a given catalog are within the voids 
    ("void" objects), which are outside the voids ("wall" objects), and which are 
@@ -71,7 +71,7 @@ The easiest way to use **VoidFinder** is to create a script that
 3. Finds voids within the galaxy catalog
 
 An example of this script is the ``SDSS_VoidFinder_dr7.py`` file, located in 
-``VAST/VoidFinder/scripts/``.  What follows is a breakdown of this script, 
+``VAST/example_scripts/``.  What follows is a breakdown of this script, 
 explaining the various options and functions called.
 
 
@@ -194,8 +194,6 @@ To run ``find_voids`` in a single thread, set ``num_cpus = 1``.
 
 Checkpoint files
 ^^^^^^^^^^^^^^^^
-
-.. note:: This capability is currently only available in the multi-process implementation of ``find_voids``.
 
 In addition, the current list of void spheres found can be saved to disk 
 periodically, and ``find_voids`` can be restarted from one of these files if the 
@@ -483,6 +481,13 @@ Adjustable parameters
      - 5.0
      - The length of the edge of one cell in the grid used to identify where to 
        start growing potential void spheres from.  Units are Mpc/h.
+   * - ``mask_type``
+     - ``find_voids``
+     - string
+     - ra_dec_z
+     - The type of mask to use when growing spheres.  Options are ``ra_dec_z`` 
+       (input matter tracer catalog provides sky coordinates) and ``xyz`` (input 
+       matter tracer catalog provides Cartesian coordinates).
    * - ``min_maximal_radius``
      - ``find_voids``
      - float
@@ -596,9 +601,9 @@ compute the comoving distance using the ``z_to_comoving_dist`` function::
     from vast.voidfinder.distance import z_to_comoving_dist
     
 See the example script ``classifyEnvironment.py`` (found in the 
-``VAST/VoidFinder/scripts/`` directory) for a working example of how to 
-determine whether an object is within a void, in the wall, too close to the 
-survey boundary to classify, or outside the survey bounds. 
+``VAST/example_scripts/`` directory) for a working example of how to determine 
+whether an object is within a void, in the wall, too close to the survey 
+boundary to classify, or outside the survey bounds. 
  
  
  

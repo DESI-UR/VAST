@@ -235,7 +235,7 @@ def not_in_mask(coordinates, survey_mask_ra_dec, n, rmin, rmax):
     coords = coordinates[0]  # Convert shape from (1,3) to (3,)
     r = np.linalg.norm(coords)
 
-    if r < rmin or r > rmax:
+    if (r < rmin) or (r > rmax) or (r == 0):
         return True
 
     ra = np.arctan(coords[1]/coords[0])*RtoD
