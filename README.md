@@ -1,6 +1,7 @@
 # VAST: Void Analysis Software Toolkit
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4135702.svg)](https://zenodo.org/record/4135702)
+![tests](https://github.com/DESI-UR/VAST/actions/workflows/tests.yml/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/vast/badge/?version=latest)](https://vast.readthedocs.io/en/latest/?badge=latest)
 
 The Void Analysis Software Toolkit, or VAST, provides pure Python 
