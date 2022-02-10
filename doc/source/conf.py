@@ -7,8 +7,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'VAST'
-copyright = "2021, Kelly A. Douglass, Dylan Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
-author = "Kelly A. Douglass, Dylan Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
+copyright = "2022, Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
+author = "Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
 
 # The full version, including alpha/beta/rc tags
 release = 'v1.0.0-alpha'
