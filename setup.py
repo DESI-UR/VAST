@@ -79,7 +79,7 @@ with open('requirements.txt', 'r') as f:
 setup_keywords['install_requires'] = requires
 setup_keywords['extras_require'] = {  # Optional
     'dev': ['pytest', 'pytest-benchmark'],
-    'docs': requires + ['numpydoc', 'sphinx-argparse', 'sphinx_rtd_theme']
+    'docs': ['numpydoc', 'sphinx-argparse', 'sphinx_rtd_theme']
 }
 #
 # Run the setup command
