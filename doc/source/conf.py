@@ -4,15 +4,23 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import sys
+import os
+import re
+
+sys.path.insert(0, os.path.abspath('../../python/'))
+import vast
+
 # -- Project information -----------------------------------------------------
 
 project = 'VAST'
 copyright = "2022, Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
 author = "Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
 
+# The short X.Y version
+version = re.match(r"v?(\d+\.\d+)", vast._version.__version__).group(1)
 # The full version, including alpha/beta/rc tags
-release = 'v1.0.0-alpha'
-
+release = vast._version.__version__
 
 # -- General configuration ---------------------------------------------------
 
@@ -50,7 +58,7 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'classic'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
