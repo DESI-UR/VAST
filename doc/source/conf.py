@@ -10,7 +10,7 @@ import re
 
 import sphinx_rtd_theme
 
-sys.path.insert(0, os.path.abspath('../../python/'))
+sys.path.insert(0, os.path.abspath('../'))
 import vast
 
 # -- Project information -----------------------------------------------------
@@ -30,6 +30,8 @@ release = vast._version.__version__
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'numpydoc',
+    'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
     'sphinx.ext.todo',
@@ -39,9 +41,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
     'sphinx_rtd_theme',
-    'numpydoc',
     'sphinxarg.ext'
-    #'pyquickhelper.sphinxext.sphinx_autosignature'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -52,8 +52,15 @@ templates_path = ['.templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-
 #html_logo = 'filename.png'
+
+# -- Options for autodoc/napoleon -----------------------------------------
+
+# Napoleon settings (see https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html)
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_use_rtype = False
+autoclass_content = 'both'
 
 
 # -- Options for HTML output -------------------------------------------------
