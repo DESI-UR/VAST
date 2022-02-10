@@ -64,7 +64,7 @@ ext_modules = []
 extfiles = glob('python/vast/voidfinder/*.pyx') + glob('python/vast/voidfinder/*/*.pyx')
 for extfile in extfiles:
     name = name = extfile.replace('python/', '').replace('/', '.').replace('.pyx', '')
-    ext_modules.append(Extension(name, [extfile], library_dirs=['m']))
+    ext_modules.append(Extension(name, [extfile], library_dirs=['m'], cython_directives = {'embedsignature': True}))
 #
 setup_keywords['ext_modules'] = ext_modules
 setup_keywords['cmdclass'] = { 'build_ext' : build_ext }
