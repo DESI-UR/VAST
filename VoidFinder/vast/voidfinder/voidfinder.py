@@ -47,7 +47,7 @@ RtoD = 180./np.pi
 def filter_galaxies(galaxy_table,
                     survey_name, 
                     out_directory,
-                    mag_cut=False, 
+                    mag_cut=True, 
                     delta_cut=True,
                     dist_limits=None,
                     rm_isolated=True,
@@ -153,7 +153,7 @@ def filter_galaxies(galaxy_table,
         
         galaxy_table = galaxy_table[galaxy_table['rabsmag'] <= magnitude_limit]
     if delta_cut:
-        galaxy_table = galaxy_table[galaxy_table['Delta'] >= delta_limit]
+        galaxy_table = galaxy_table[galaxy_table['Delta'] <= delta_limit]
 
     # Remove galaxies outside redshift range
     if dist_limits is not None:

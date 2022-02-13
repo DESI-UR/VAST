@@ -94,7 +94,7 @@ def load_data_to_Table(input_filepath):
 def file_preprocess(galaxies_filename, 
                     in_directory, 
                     out_directory, 
-                    mag_cut=False,
+                    mag_cut=True,
                     delta_cut=True,
                     rm_isolated=True,
                     dist_metric='comoving', 
