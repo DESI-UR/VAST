@@ -1,7 +1,7 @@
 # VAST: Void Analysis Software Toolkit
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4135702.svg)](https://zenodo.org/record/4135702)
-[![CircleCI](https://circleci.com/gh/DESI-UR/VAST.svg?style=svg)](https://circleci.com/gh/DESI-UR/VAST)
+![tests](https://github.com/DESI-UR/VAST/actions/workflows/tests.yml/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/vast/badge/?version=latest)](https://vast.readthedocs.io/en/latest/?badge=latest)
 
 The Void Analysis Software Toolkit, or VAST, provides pure Python 
@@ -30,6 +30,5 @@ for 3D OpenGL-based visualization of VoidFinder's voids in SDSS DR7!
 
 **V<sup>2</sup>** is a voronoi-tesselation-based algorithm for finding the void 
 regions, based on the ZOBOV algorithm.  ZOBOV uses the gradient of the volume of 
-adjacent voronoi cells to flow multiple cells together into large void regions.  
-This code is still under development.
+adjacent voronoi cells to flow multiple cells together into large void regions.
 
