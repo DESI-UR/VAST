@@ -38,6 +38,9 @@ from ._voidfinder_cython import check_mask_overlap
 
 from ._voidfinder_cython_find_next import MaskChecker
 
+from astropy.table import Table
+from astropy.io import ascii, fits
+
 
 ################################################################################
 DtoR = np.pi/180.
@@ -50,7 +53,7 @@ def filter_galaxies(galaxy_table,
                     survey_name, 
                     out_directory,
                     mag_cut=True, 
-                    delta_cut=True,
+                    delta_cut=False,
                     dist_limits=None,
                     rm_isolated=True,
                     write_table=True,
@@ -59,7 +62,7 @@ def filter_galaxies(galaxy_table,
                     h=1.0,
                     hole_grid_edge_length=5.0,
                     magnitude_limit=-20.09,
-                    delta_limit=0,
+                    delta_limit=3.0,
                     verbose=0):
     """
     A hodge podge of miscellaneous tasks which need to be done to format the data into
@@ -145,7 +148,6 @@ def filter_galaxies(galaxy_table,
     
     
     print('Filter Galaxies Start', flush=True)
-
     ############################################################################
     # PRE-PROCESS DATA
     # Filter based on magnitude and convert from redshift to radius if necessary
@@ -156,7 +158,7 @@ def filter_galaxies(galaxy_table,
         galaxy_table = galaxy_table[galaxy_table['rabsmag'] <= magnitude_limit]
     if delta_cut:
         galaxy_table = galaxy_table[galaxy_table['Delta'] <= delta_limit]
-
+    print(galaxy_table,"galaxy_table1")
     # Remove galaxies outside redshift range
     if dist_limits is not None:
 
@@ -164,6 +166,7 @@ def filter_galaxies(galaxy_table,
 
             distance_boolean = np.logical_and(galaxy_table['Rgal'] >= dist_limits[0], 
                                               galaxy_table['Rgal'] <= dist_limits[1])
+            print(distance_boolean, "distance_boolean")
         else:
 
             H0 = 100*h
@@ -290,9 +293,10 @@ def ra_dec_to_xyz(galaxy_table,
     coords_xyz : numpy.ndarray of shape (N,3)
         values of the galaxies in xyz space
     """
-    
+    print(galaxy_table,"galaxy_table")
     
     if distance_metric == 'comoving':
+    
         
         r_gal = galaxy_table['Rgal'].data
         
