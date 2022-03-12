@@ -14,4 +14,4 @@ on the package maintainers to debate and find consensus on each issue individual
 but this can provide a useful frame of reference for the versioning.
 """
 
-__version__ = '1.1.0'
+__version__ = '1.1.1'
