@@ -12,6 +12,8 @@ catalogs:
 1. Void identification using watershed algorithms.
 
 
+Our docs can be found here: https://vast.readthedocs.io/en/latest/
+
 ## VoidFinder
 
 **VoidFinder** is an algorithm which utilizes a sphere-growing method on a grid 

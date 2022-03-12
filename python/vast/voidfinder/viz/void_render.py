@@ -498,11 +498,6 @@ class VoidRender(app.Canvas):
             if true, filter the holes_xyz and holes_radii for any holes which
             are completely contained within another hole and remove them
             
-        enable_void_interior_highlight : bool, default True
-            if True, when a user enters a void sphere, it will highlight the sphere
-            in a different color (default green) so a user knows they are looking out
-            from inside a sphere.  False disables this functionality
-            
         canvas_size : 2-tuple
             (width, height) in pixels for the output visualization
             
@@ -549,8 +544,8 @@ class VoidRender(app.Canvas):
            (1280 triangles) per sphere
         '''
         
-        if holes_xyz is None and galaxy_xyz is None:
-            raise ValueError("holex_xyz and galaxy_xyz cannot both be None, or there's nothing to display!")
+        if holes_xyz is None and galaxy_xyz is None and wall_galaxy_xyz is None:
+            raise ValueError("holex_xyz, galaxy_xyz, and wall_galaxy_xyz cannot all be None, or there's nothing to display!")
         
         
         app.Canvas.__init__(self, 
@@ -802,8 +797,10 @@ class VoidRender(app.Canvas):
         
             if self.holes_enabled:
                 start_location = np.mean(self.holes_xyz, axis=0)
-            else:
+            elif self.galaxies_enabled:
                 start_location = np.mean(self.galaxy_xyz, axis=0)
+            elif self.walls_enabled:
+                start_location = np.mean(self.wall_galaxy_xyz, axis=0)
         
             start_location[2] += 300.0
             
