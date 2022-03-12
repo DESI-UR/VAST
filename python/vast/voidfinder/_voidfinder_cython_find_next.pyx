@@ -1,4 +1,4 @@
-
+#cython: language_level=3
 
 
 
@@ -14,7 +14,7 @@ cimport numpy as np
 
 np.import_array()  # required in order to use C-API
 
-from typedefs cimport DTYPE_CP128_t, \
+from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_CP64_t, \
                       DTYPE_F64_t, \
                       DTYPE_F32_t, \

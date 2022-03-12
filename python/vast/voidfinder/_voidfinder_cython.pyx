@@ -1,5 +1,4 @@
-
-
+#cython: language_level=3
 
 
 
@@ -14,7 +13,7 @@ cimport numpy as np
 np.import_array()  # required in order to use C-API
 
 
-from typedefs cimport DTYPE_CP128_t, \
+from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_CP64_t, \
                       DTYPE_F64_t, \
                       DTYPE_F32_t, \
@@ -28,7 +27,7 @@ from numpy.math cimport NAN, INFINITY
 
 from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
-from _voidfinder_cython_find_next cimport find_next_galaxy, \
+from ._voidfinder_cython_find_next cimport find_next_galaxy, \
                                           not_in_mask, \
                                           _query_first, \
                                           DistIdxPair, \
@@ -37,7 +36,8 @@ from _voidfinder_cython_find_next cimport find_next_galaxy, \
                                           HoleGridCustomDict, \
                                           FindNextReturnVal, \
                                           NeighborMemory, \
-                                          MaskChecker
+                                          MaskChecker, \
+                                          GalaxyMap
                                           
 
 import time
@@ -308,7 +308,7 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 @cython.cdivision(True)
 @cython.profile(True)
 cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
-                          galaxy_tree,
+                          GalaxyMap galaxy_tree,
                           DTYPE_F64_t[:,:] w_coord,
                           DTYPE_F64_t dl, 
                           DTYPE_F64_t dr,

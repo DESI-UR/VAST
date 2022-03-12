@@ -503,6 +503,7 @@ def find_voids(galaxy_coords_xyz,
                min_dist=None,
                max_dist=None,
                xyz_limits=None,
+               periodic=False,
                check_only_empty_holes=True,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
@@ -611,25 +612,23 @@ def find_voids(galaxy_coords_xyz,
         coordinates of the galaxies in the survey, units of Mpc/h 
         (xyz space)
         
-    mask_type : string, 'ra_dec_z' or 'xyz'
-        Determines the mode of mask checking to use and what mask parameters
-        to use.  ra_dec_z means the mask, mask_resolution, and dist_limits parameters
-        will be provided representing an angular `mask` in Right Ascension and Declination
-        and a corresponding mask_resolution integer, as well as dist_limits representing
-        the min and max redshift values represented as radial distances in the xyz space
+    mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
+        Determines the mode of mask checking to use and which mask parameters to use.  
         
-        'xyz' means that the xyz_limits parameter will be provided which directly encodes
-        a bounding box for the survey in xyz space
+        'ra_dec_z' means the mask, mask_resolution, and dist_limits parameters
+            must be provided.  The 'mask' represents an angular space in Right Ascension and 
+            Declination, the corresponding mask_resolution integer represents the scale needed
+            to index into the Right Ascension and Declination of the mask, and the dist_limits
+            represent the min and max redshift values (as radial distances in xyz space).
         
-    
-    dist_limits : numpy array of shape (2,)
-        minimum and maximum distance limit of the survey in units of Mpc/h 
-        (xyz space)
-        
-    xyz_limits : numpy array of shape (2,3)
-        format [x_min, y_min, z_min]
-               [x_max, y_max, z_max]
-        to be used for checking against the mask when mask_type == 'xyz'
+        'xyz' means that the xyz_limits parameter must be provided which directly encodes
+            a bounding box for the survey in xyz space
+            
+        'periodic' means that the xyz_limits parameter must be provided, which directly
+            encodes a bounding box representing the periodic boundary of the survey, and
+            the survey will be treated as if its bounding box were tiled to infinity in
+            all directions.  Spheres will still only be grown starting from within the
+            original bounding box.
         
     mask : numpy.ndarray of shape (N,M) type bool
         represents the survey footprint in scaled ra/dec space.  Value of True 
@@ -638,6 +637,16 @@ def find_voids(galaxy_coords_xyz,
 
     mask_resolution : integer
         Scale factor of coordinates needed to index mask
+        
+    dist_limits : numpy array of shape (2,)
+        minimum and maximum distance limit of the survey in units of Mpc/h 
+        (xyz space)
+        
+    xyz_limits : numpy array of shape (2,3)
+        format [x_min, y_min, z_min]
+               [x_max, y_max, z_max]
+        to be used for checking against the mask when mask_type == 'xyz' or for
+        periodic conditions when mask_type == 'periodic'
         
     coords_min : ndarray of shape (3,) or (1,3)
         coordinates used for converting from xyz space into the grid ijk space
@@ -744,13 +753,14 @@ def find_voids(galaxy_coords_xyz,
     maximal spheres table
     """
     
-    
     if mask_type == "ra_dec_z":
         mask_mode = 0
     elif mask_type == "xyz":
         mask_mode = 1
+    elif mask_type == "periodic":
+        mask_mode = 2
     else:
-        raise ValueError("mask_type must be 'ra_dec_z' or 'xyz'")
+        raise ValueError("mask_type must be 'ra_dec_z', 'xyz', or 'periodic'")
     
     
     
