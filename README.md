@@ -11,7 +11,7 @@ catalogs:
 1. Void identification using watershed algorithms.
 
 
-In case you missed the link above, the docs can be found here: https://vast.readthedocs.io/en/latest/
+Our docs can be found here: https://vast.readthedocs.io/en/latest/
 
 ## VoidFinder
 
