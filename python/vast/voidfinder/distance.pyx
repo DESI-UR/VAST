@@ -28,9 +28,9 @@ from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 from scipy.integrate import _quadpack
 
-import constants as VF_CONSTANTS
+from .constants import c as speed_of_light
 
-cdef DTYPE_F32_t c = <DTYPE_F32_t>(VF_CONSTANTS.c)
+cdef DTYPE_F32_t c = <DTYPE_F32_t>(speed_of_light)
 
 
 

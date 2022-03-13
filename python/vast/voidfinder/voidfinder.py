@@ -56,7 +56,6 @@ def filter_galaxies(galaxy_table,
                     sep_neighbor=3,
                     dist_metric='comoving', 
                     h=1.0,
-                    hole_grid_edge_length=5.0,
                     magnitude_limit=-20.09,
                     verbose=0):
     """
@@ -116,8 +115,6 @@ def filter_galaxies(galaxy_table,
         Fractional value of Hubble's constant.  Default value is 1 (where 
         H0 = 100h).
         
-    hole_grid_edge_length : float
-        length in Mpc/h of the edge of one cell of a grid cube for the search grid
         
     verbose : int
         values greater than zero indicate to print output
@@ -176,12 +173,7 @@ def filter_galaxies(galaxy_table,
 
     
     
-    ############################################################################
-    # Grid shape
-    #---------------------------------------------------------------------------
-    hole_grid_shape, coords_min, coords_max = calculate_grid(coords_xyz,
-                                                             hole_grid_edge_length)
-    ############################################################################
+    
 
 
     
@@ -242,7 +234,7 @@ def filter_galaxies(galaxy_table,
     ############################################################################
 
 
-    return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
+    return wall_gals_xyz, field_gals_xyz
 
 
 
@@ -494,8 +486,6 @@ def wall_field_separation(galaxy_coords_xyz,
 
 
 def find_voids(galaxy_coords_xyz,
-               coords_min,
-               hole_grid_shape,
                survey_name,
                mask_type='ra_dec_z',
                mask=None, 
@@ -503,7 +493,6 @@ def find_voids(galaxy_coords_xyz,
                min_dist=None,
                max_dist=None,
                xyz_limits=None,
-               periodic=False,
                check_only_empty_holes=True,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
@@ -648,12 +637,6 @@ def find_voids(galaxy_coords_xyz,
         to be used for checking against the mask when mask_type == 'xyz' or for
         periodic conditions when mask_type == 'periodic'
         
-    coords_min : ndarray of shape (3,) or (1,3)
-        coordinates used for converting from xyz space into the grid ijk space
-    
-    hole_grid_shape : tuple of 3 integers
-        ijk dimensions of the 3 grid directions
-        
     hole_grid_edge_length : float
         size in Mpc/h of the edge of 1 cube in the search grid, or distance 
         between 2 grid cells
@@ -769,17 +752,13 @@ def find_voids(galaxy_coords_xyz,
     ############################################################################
     # GROW HOLES
     #---------------------------------------------------------------------------
-    if galaxy_map_grid_edge_length is None:
-        
-        galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+    
 
     tot_hole_start = time.time()
 
-    x_y_z_r_array, n_holes = _hole_finder(hole_grid_shape, 
-                                          hole_grid_edge_length, 
+    x_y_z_r_array, n_holes = _hole_finder(hole_grid_edge_length, 
                                           hole_center_iter_dist,
                                           galaxy_map_grid_edge_length,
-                                          coords_min.reshape(1,3),
                                           #mask,
                                           #mask_resolution,
                                           #dist_limits[0],

@@ -45,13 +45,12 @@ import time
 
 #Create a typedef for the type of pointer which can point
 #to the mask check function
-ctypedef DTYPE_B_t (*MASK_CHECK_FUNCTION_t)(DTYPE_F64_t[:,:], DTYPE_B_t[:,:], DTYPE_INT32_t, DTYPE_F64_t, DTYPE_F64_t)
+#ctypedef DTYPE_B_t (*MASK_CHECK_FUNCTION_t)(DTYPE_F64_t[:,:], DTYPE_B_t[:,:], DTYPE_INT32_t, DTYPE_F64_t, DTYPE_F64_t)
 
 
 
 
-
-
+'''
 cdef DTYPE_B_t test_function_woo(DTYPE_F64_t[:,:] a, 
                                  DTYPE_B_t[:,:] b, 
                                  DTYPE_INT32_t c,  
@@ -59,11 +58,7 @@ cdef DTYPE_B_t test_function_woo(DTYPE_F64_t[:,:] a,
                                  DTYPE_F64_t e):
 
     return <DTYPE_B_t>0
-
-
-
-
-
+'''
 
 
 @cython.boundscheck(False)
@@ -217,7 +212,6 @@ cpdef DTYPE_INT64_t fill_ijk_zig_zag(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
@@ -301,12 +295,10 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                           GalaxyMap galaxy_tree,
                           DTYPE_F64_t[:,:] w_coord,
@@ -1300,11 +1292,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cpdef DTYPE_B_t check_mask_overlap(DTYPE_F64_t[:,:] coordinates,
                                   DTYPE_F64_t[:,:] temp_coordinates,
                                   DTYPE_F64_t hole_radial_mask_check_dist,

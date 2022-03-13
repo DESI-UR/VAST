@@ -107,13 +107,18 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
 
 cdef class HoleGridCustomDict:
 
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
+    cdef object hole_lookup_buffer
+    
+    cdef object numpy_dtype
+    
+
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod, num_elements, lookup_fd
     
     cdef public HOLE_LOOKUPMEM_t[:] lookup_memory
     
     cdef public DTYPE_INT64_t num_collisions
     
-    cdef DTYPE_INT64_t mem_length
+    cdef public DTYPE_INT64_t mem_length
 
     cdef public DTYPE_INT64_t custom_hash(self, 
                                           CELL_ID_t i, 
@@ -130,16 +135,23 @@ cdef class HoleGridCustomDict:
                               CELL_ID_t j,
                               CELL_ID_t k)
 
+    cdef public void resize(self, DTYPE_INT64_t new_mem_length)
+
+
 
 cdef class GalaxyMapCustomDict:
+
+    cdef object lookup_buffer
+    
+    cdef object numpy_dtype
          
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod, num_elements, lookup_fd
     
     cdef public LOOKUPMEM_t[:] lookup_memory
     
     cdef public DTYPE_INT64_t num_collisions
     
-    cdef DTYPE_INT64_t mem_length
+    cdef public DTYPE_INT64_t mem_length
 
     cdef public DTYPE_INT64_t custom_hash(self, 
                                           CELL_ID_t i, 
@@ -162,6 +174,8 @@ cdef class GalaxyMapCustomDict:
                               CELL_ID_t k, 
                               DTYPE_INT64_t offset,
                               DTYPE_INT64_t num_elements)
+    
+    cdef public void resize(self, DTYPE_INT64_t new_mem_length)
 
 
 cdef class GalaxyMap:
@@ -260,5 +274,5 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, \
                                          
                                          
                                          
-                                         
+cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value)     
                                          

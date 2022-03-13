@@ -37,6 +37,7 @@ from ._voidfinder_cython_find_next cimport GalaxyMapCustomDict, \
 
 cdef DTYPE_F64_t pi = np.pi
 
+import os
 import time
 
 
@@ -318,8 +319,9 @@ cpdef np.ndarray find_maximals_2(DTYPE_F64_t[:,:] x_y_z_r_array,
 @cython.wraparound(False)
 @cython.cdivision(True)
 def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
-                                 DTYPE_F64_t frac,
-                                 DTYPE_F64_t min_radius):
+                    DTYPE_F64_t frac,
+                    DTYPE_F64_t min_radius,
+                    RESOURCE_DIR="/dev/shm",):
                                                
     """
     Description
@@ -352,6 +354,17 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     out_maximals_index : ndarray of shape (N,)
     """
+    
+    
+    if not os.path.isdir(RESOURCE_DIR):
+        
+        print("WARNING: RESOURCE DIR", RESOURCE_DIR, 
+              "does not exist.  Falling back to /tmp but could be slow", 
+              flush=True)
+        
+        RESOURCE_DIR = "/tmp"
+    
+    
                                                
     ################################################################################
     # Create the output array and add a memview for fast access to it, and an array
@@ -519,17 +532,10 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
         
     #print("Num non-empty grid cells: ", len(galaxy_map))
         
-    next_prime = find_next_prime(2*num_candidates)
     
-    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
-                                                ("p", np.int16, ()),
-                                                ("q", np.int16, ()),
-                                                ("r", np.int16, ()),
-                                                ("offset", np.int64, ()),
-                                                ("num_elements", np.int64, ())])
     
     new_galaxy_map = GalaxyMapCustomDict((n_grid_x, n_grid_y, n_grid_z), 
-                                         lookup_memory)
+                                         RESOURCE_DIR)
     
     
     offset = 0

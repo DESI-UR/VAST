@@ -32,6 +32,12 @@ from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 #from libc.stdlib cimport malloc, free
 
 import time
+import os
+import tempfile
+from multiprocessing import RLock
+import mmap
+
+
 
 
 
@@ -42,7 +48,7 @@ import time
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, 
                                         DTYPE_F64_t[:,:] temp_hole_center_memview,
                                         DTYPE_F64_t search_radius, 
@@ -610,7 +616,7 @@ cdef class MaskChecker:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef DTYPE_B_t not_in_mask_xyz(DTYPE_F64_t[:,:] coordinates, 
                                DTYPE_F64_t[:,:] xyz_limits):
     """
@@ -853,24 +859,74 @@ cdef class HoleGridCustomDict:
         
     """
 
-    def __init__(self, 
-                 grid_dimensions, 
-                 lookup_memory):
+    def __init__(self, grid_dimensions, resource_dir, starting_cells=8):
+        
+        cdef HOLE_LOOKUPMEM_t curr_element
+        
+        
+        ################################################################################
+        # First, set up some parameters corresponding to the VoidFinder hole-growing
+        # grid, which we use in the hash function to calculate hash table indices
+        ################################################################################
+        self.i_dim = grid_dimensions[0]
+        
+        self.j_dim = grid_dimensions[1]
+        
+        self.k_dim = grid_dimensions[2]
+        
+        self.jk_mod = self.j_dim*self.k_dim
+        
+        
+        ################################################################################
+        # Next, create a memory-mapped file we can use as the shared memory
+        # to share among our processes.  Since we're using fork(), the file descriptor
+        # which we create here will point to the same file in the child processes
+        # meaning we can just pass this whole class across the fork()
+        ################################################################################
+        next_prime = find_next_prime(2*starting_cells)
+        
+        self.mem_length = next_prime
+        
+        self.lookup_fd, HOLE_LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                                      dir=resource_dir, 
+                                                                      text=False)
+        
+        hole_lookup_buffer_length = self.mem_length*7
+        
+        os.ftruncate(self.lookup_fd, hole_lookup_buffer_length)
+        
+        self.hole_lookup_buffer = mmap.mmap(self.lookup_fd, hole_lookup_buffer_length)
+        
+        os.unlink(HOLE_LOOKUPMEM_BUFFER_PATH)
+        
+        lookup_dtype = [("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
+                        ("i", np.int16, ()),
+                        ("j", np.int16, ()),
+                        ("k", np.int16, ())]
+        
+        self.numpy_dtype = np.dtype(lookup_dtype, align=False)
+        
+        self.lookup_memory = np.frombuffer(self.hole_lookup_buffer, dtype=self.numpy_dtype)
+        
+        ################################################################################
+        # Writing a bunch of 0's directly to the self.hole_lookup_buffer did not work
+        # I do not know why, but instead we must use the array broadcasting with
+        # an element whose flag has been 0'd to properly zero out the hash table
+        ################################################################################
+        curr_element.filled_flag = 0
+        
+        self.lookup_memory[:] = curr_element
+        
+        self.num_elements = 0
+        
+        self.num_collisions = 0
+        
+        
+        
+        
             
-            self.i_dim = grid_dimensions[0]
-            
-            self.j_dim = grid_dimensions[1]
-            
-            self.k_dim = grid_dimensions[2]
-            
-            self.jk_mod = self.j_dim*self.k_dim
-            
-            self.lookup_memory = lookup_memory
-            
-            self.mem_length = lookup_memory.shape[0]
-            
-            self.num_collisions = 0
-            
+    def __len__(self):
+        return self.num_elements
             
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -905,8 +961,6 @@ cdef class HoleGridCustomDict:
             
             hash_addr += self.mem_length
         
-        
-        
         return hash_addr
     
     
@@ -924,8 +978,6 @@ cdef class HoleGridCustomDict:
         
         cdef DTYPE_INT64_t curr_hash_addr
         
-        cdef DTYPE_B_t mem_flag
-        
         cdef HOLE_LOOKUPMEM_t curr_element
         
         hash_addr = self.custom_hash(i, j, k)
@@ -935,16 +987,12 @@ cdef class HoleGridCustomDict:
             curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
             
             curr_element = self.lookup_memory[curr_hash_addr]
-            
-            #mem_flag = curr_element.filled_flag
-            
+        
             if not curr_element.filled_flag:
                 
                 return False
             
             else:
-                
-                #mem_key = self.lookup_memory[curr_hash_addr][1]
                 
                 if curr_element.key_i == i and \
                    curr_element.key_j == j and \
@@ -966,7 +1014,7 @@ cdef class HoleGridCustomDict:
                        CELL_ID_t k, 
                        ):
         """
-        Will always succeed since we initialize the length of
+        we initialize the length of
         self.lookup_memory to be longer than the number of items
         """
         
@@ -975,8 +1023,6 @@ cdef class HoleGridCustomDict:
         cdef DTYPE_INT64_t hash_offset
         
         cdef DTYPE_INT64_t curr_hash_addr
-        
-        cdef DTYPE_B_t mem_flag
         
         cdef HOLE_LOOKUPMEM_t curr_element
         
@@ -1005,7 +1051,9 @@ cdef class HoleGridCustomDict:
                 
                 self.lookup_memory[curr_hash_addr] = out_element
                 
-                return
+                self.num_elements += 1
+                
+                break
             
             else:
                 
@@ -1018,19 +1066,112 @@ cdef class HoleGridCustomDict:
                         self.num_collisions += 1
                     
                     self.lookup_memory[curr_hash_addr] = out_element
+                    
+                    # Dont increment num_elements here because this is overwriting
+                    # an existing key
                 
-                    return
+                    break
                 
             first_try = False
     
+        if self.num_elements >= (<DTYPE_INT64_t>(0.90*self.mem_length)):
+            
+            self.resize(2*self.mem_length)
+            
+        return
+            
+            
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void resize(self, DTYPE_INT64_t new_mem_length):
     
+        cdef HOLE_LOOKUPMEM_t curr_element
+        
+        cdef ITYPE_t idx
+        
+        cdef HOLE_LOOKUPMEM_t[:] old_lookup_mem
+        
+        ################################################################################
+        # There may be a better way, but for now, we're just going to make a copy
+        # of the 'old memory' since the key-value pairs it is storing need to be
+        # re-distributed into new locations.  There might be a way to do this in-place
+        # but that's an optimization for future-Steve to look into
+        ################################################################################
+        old_elements = np.frombuffer(self.hole_lookup_buffer, dtype=self.numpy_dtype)
+        
+        old_elements = old_elements.copy()
+        
+        old_lookup_mem = old_elements
+        
+        old_mem_length = self.mem_length
+        
+        
+        ################################################################################
+        # Resize our existing memory to the first prime number larger than the
+        # requested value given by new_mem_length
+        ################################################################################
+        next_prime = find_next_prime(new_mem_length)
+    
+        self.mem_length = next_prime
+        
+        hole_lookup_buffer_length = self.mem_length*7 #7 bytes per element
+        
+        os.ftruncate(self.lookup_fd, hole_lookup_buffer_length)
+        
+        ################################################################################
+        # Close the old mmap and re-map it since we changed the size of our memory file
+        # pointed to by self.lookup_fd.  Then point our self.lookup_memory memoryview
+        # object to the extended version of where it was already pointing
+        ################################################################################
+        self.hole_lookup_buffer.close()
+        
+        self.hole_lookup_buffer = mmap.mmap(self.lookup_fd, hole_lookup_buffer_length)
+        
+        self.lookup_memory = np.frombuffer(self.hole_lookup_buffer, dtype=self.numpy_dtype)
+        
+        ################################################################################
+        # Zero out the hash table before re-filling it
+        ################################################################################
+        curr_element.filled_flag = 0
+        
+        self.lookup_memory[:] = curr_element
+        
+        self.num_elements = 0
+        
+        self.num_collisions = 0
+        
+        
+        ################################################################################
+        # Re-fill our hash table using the copy of the old one
+        ################################################################################
+        #num_filled = 0
+        
+        for idx in range(old_mem_length):
+        
+            curr_element = old_lookup_mem[idx]
+            
+            if curr_element.filled_flag:
+                
+                self.setitem(curr_element.key_i, curr_element.key_j, curr_element.key_k)
+                
+                #num_filled += 1
+
+        #print("Num filled: ", num_filled)
+
+        #print("HoleGridCustomDict resized to: "+str(self.mem_length)+" "+str(self.num_elements), flush=True)
+        
+        return
 
 
 
-
-
-
-
+    def close(self):
+        
+        self.hole_lookup_buffer.close()
+        
+        #print("Closing file descriptor: ", self.lookup_fd, flush=True)
+        
+        os.close(self.lookup_fd)
 
 cdef class GalaxyMapCustomDict:
     """
@@ -1066,25 +1207,75 @@ cdef class GalaxyMapCustomDict:
     
     
     """
-
-    def __init__(self, 
-                 grid_dimensions, 
-                 lookup_memory):
+  
+    def __init__(self, grid_dimensions, resource_dir, starting_cells=8):
+        
+        cdef LOOKUPMEM_t curr_element
+        
+        
+        ################################################################################
+        # First, set up some parameters corresponding to the VoidFinder hole-growing
+        # grid, which we use in the hash function to calculate hash table indices
+        ################################################################################
+        self.i_dim = grid_dimensions[0]
+        
+        self.j_dim = grid_dimensions[1]
+        
+        self.k_dim = grid_dimensions[2]
+        
+        self.jk_mod = self.j_dim*self.k_dim
+        
+        
+        ################################################################################
+        # Next, create a memory-mapped file we can use as the shared memory
+        # to share among our processes.  Since we're using fork(), the file descriptor
+        # which we create here will point to the same file in the child processes
+        # meaning we can just pass this whole class across the fork()
+        ################################################################################
+        next_prime = find_next_prime(2*starting_cells)
+        
+        self.mem_length = next_prime
+        
+        self.lookup_fd, LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                                 dir=resource_dir, 
+                                                                 text=False)
+        
+        lookup_buffer_length = self.mem_length*23
+        
+        os.ftruncate(self.lookup_fd, lookup_buffer_length)
+        
+        self.lookup_buffer = mmap.mmap(self.lookup_fd, lookup_buffer_length)
+        
+        os.unlink(LOOKUPMEM_BUFFER_PATH)
+        
+        lookup_dtype = [("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
+                        ("p", np.int16, ()),
+                        ("q", np.int16, ()),
+                        ("r", np.int16, ()),
+                        ("offset", np.int64, ()),
+                        ("num_elements", np.int64, ())]
+        
+        self.numpy_dtype = np.dtype(lookup_dtype, align=False)
+        
+        self.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
+        
+        ################################################################################
+        # Writing a bunch of 0's directly to the self.hole_lookup_buffer did not work
+        # I do not know why, but instead we must use the array broadcasting with
+        # an element whose flag has been 0'd to properly zero out the hash table
+        ################################################################################
+        curr_element.filled_flag = 0
+        
+        self.lookup_memory[:] = curr_element
+        
+        self.num_elements = 0
+        
+        self.num_collisions = 0
             
-            self.i_dim = grid_dimensions[0]
             
-            self.j_dim = grid_dimensions[1]
-            
-            self.k_dim = grid_dimensions[2]
-            
-            self.jk_mod = self.j_dim*self.k_dim
-            
-            self.lookup_memory = lookup_memory
-            
-            self.mem_length = lookup_memory.shape[0]
-            
-            self.num_collisions = 0
-            
+    
+    def __len__(self):
+        return self.num_elements
             
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -1121,7 +1312,6 @@ cdef class GalaxyMapCustomDict:
             
             hash_addr += self.mem_length
         
-        
         return hash_addr
     
     
@@ -1129,9 +1319,9 @@ cdef class GalaxyMapCustomDict:
     @cython.wraparound(False)
     @cython.cdivision(True)
     cpdef DTYPE_B_t contains(self,
-                                 CELL_ID_t i, 
-                                 CELL_ID_t j, 
-                                 CELL_ID_t k):
+                             CELL_ID_t i, 
+                             CELL_ID_t j, 
+                             CELL_ID_t k):
         """
         TODO: update names to p-q-r
         """
@@ -1142,8 +1332,6 @@ cdef class GalaxyMapCustomDict:
         
         cdef DTYPE_INT64_t curr_hash_addr
         
-        cdef DTYPE_B_t mem_flag
-        
         cdef LOOKUPMEM_t curr_element
         
         hash_addr = self.custom_hash(i, j, k)
@@ -1152,19 +1340,13 @@ cdef class GalaxyMapCustomDict:
             
             curr_hash_addr = (hash_addr + hash_offset) % self.mem_length
             
-            #print("Loc-G1: "+str(curr_hash_addr), flush=True)
-            
             curr_element = self.lookup_memory[curr_hash_addr]
-            
-            #mem_flag = curr_element.filled_flag
             
             if not curr_element.filled_flag:
                 
                 return False
             
             else:
-                
-                #mem_key = self.lookup_memory[curr_hash_addr][1]
                 
                 if curr_element.key_i == i and \
                    curr_element.key_j == j and \
@@ -1191,13 +1373,7 @@ cdef class GalaxyMapCustomDict:
         
         cdef DTYPE_INT64_t curr_hash_addr
         
-        cdef DTYPE_B_t mem_flag
-        
         cdef LOOKUPMEM_t curr_element
-        
-        #cdef DTYPE_INT64_t return_offset
-        
-        #cdef DTYPE_INT64_t return_num
         
         cdef OffsetNumPair out
         
@@ -1209,26 +1385,18 @@ cdef class GalaxyMapCustomDict:
             
             curr_element = self.lookup_memory[curr_hash_addr]
             
-            #mem_flag = self.lookup_memory[curr_hash_addr][0]
-            
             if not curr_element.filled_flag:
                 
                 raise KeyError("key: ", i, j, k, " not in dictionary")
             
             else:
                 
-                #mem_key = self.lookup_memory[curr_hash_addr][1]
-                
-                #if numpy.all(mem_key == numpy.array(ijk).astype(numpy.uint16)):
                 if curr_element.key_i == i and \
                    curr_element.key_j == j and \
                    curr_element.key_k == k:
                     
                     out.offset = curr_element.offset
                     out.num_elements = curr_element.num_elements
-                    
-                    #return_offset = curr_element.offset
-                    #return_num = curr_element.num_elements
                     
                     return out
                 
@@ -1256,8 +1424,6 @@ cdef class GalaxyMapCustomDict:
         cdef DTYPE_INT64_t hash_offset
         
         cdef DTYPE_INT64_t curr_hash_addr
-        
-        cdef DTYPE_B_t mem_flag
         
         cdef LOOKUPMEM_t curr_element
         
@@ -1288,7 +1454,9 @@ cdef class GalaxyMapCustomDict:
                 
                 self.lookup_memory[curr_hash_addr] = out_element
                 
-                return
+                self.num_elements += 1
+                
+                break
             
             else:
                 
@@ -1301,10 +1469,120 @@ cdef class GalaxyMapCustomDict:
                         self.num_collisions += 1
                     
                     self.lookup_memory[curr_hash_addr] = out_element
+                    
+                    # Don't increment num_elements here because we are
+                    # overwriting an existing key
                 
-                    return
+                    break
                 
             first_try = False
+    
+        if self.num_elements >= (<DTYPE_INT64_t>(0.90*self.mem_length)):
+            
+            self.resize(2*self.mem_length)
+            
+        return
+    
+    
+          
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void resize(self, DTYPE_INT64_t new_mem_length):
+    
+        cdef LOOKUPMEM_t curr_element
+        
+        cdef ITYPE_t idx
+        
+        cdef LOOKUPMEM_t[:] old_lookup_mem
+        
+        ################################################################################
+        # There may be a better way, but for now, we're just going to make a copy
+        # of the 'old memory' since the key-value pairs it is storing need to be
+        # re-distributed into new locations.  There might be a way to do this in-place
+        # but that's an optimization for future-Steve to look into
+        ################################################################################
+        old_elements = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
+        
+        old_elements = old_elements.copy()
+        
+        old_lookup_mem = old_elements
+        
+        old_mem_length = self.mem_length
+        
+        
+        ################################################################################
+        # Resize our existing memory to the first prime number larger than the
+        # requested value given by new_mem_length
+        ################################################################################
+        next_prime = find_next_prime(new_mem_length)
+    
+        self.mem_length = next_prime
+        
+        lookup_buffer_length = self.mem_length*23 #23 bytes per element
+        
+        os.ftruncate(self.lookup_fd, lookup_buffer_length)
+        
+        ################################################################################
+        # Close the old mmap and re-map it since we changed the size of our memory file
+        # pointed to by self.lookup_fd.  Then point our self.lookup_memory memoryview
+        # object to the extended version of where it was already pointing
+        ################################################################################
+        self.lookup_buffer.close()
+        
+        self.lookup_buffer = mmap.mmap(self.lookup_fd, lookup_buffer_length)
+        
+        self.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
+        
+        ################################################################################
+        # Zero out the hash table before re-filling it
+        ################################################################################
+        curr_element.filled_flag = 0
+        
+        self.lookup_memory[:] = curr_element
+        
+        self.num_elements = 0
+        
+        self.num_collisions = 0
+        
+        
+        ################################################################################
+        # Re-fill our hash table using the copy of the old one
+        ################################################################################
+        #num_filled = 0
+        
+        for idx in range(old_mem_length):
+        
+            curr_element = old_lookup_mem[idx]
+            
+            if curr_element.filled_flag:
+                
+                self.setitem(curr_element.key_i, 
+                             curr_element.key_j, 
+                             curr_element.key_k,
+                             curr_element.offset,
+                             curr_element.num_elements)
+                
+                #num_filled += 1
+
+        #print("Num filled: ", num_filled)
+
+        #print("HoleGridCustomDict resized to: "+str(self.mem_length)+" "+str(self.num_elements), flush=True)
+        
+        return
+
+
+
+    def close(self):
+        
+        self.lookup_buffer.close()
+        
+        #print("Closing file descriptor: ", self.lookup_fd, flush=True)
+        
+        os.close(self.lookup_fd)
+    
+    
+    
     
     
 cdef class GalaxyMap:
@@ -1741,7 +2019,7 @@ cdef class Cell_ID_Memory:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                               DTYPE_F64_t[:,:] coord_min,
                               DTYPE_F64_t dl,
@@ -1918,7 +2196,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
                               DTYPE_F64_t[:,:] w_coord, 
                               DTYPE_F64_t[:,:] coord_min, 
@@ -2060,7 +2338,7 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef void _query_shell_radius_2(CELL_ID_t[:,:] reference_point_ijk,
                                 DTYPE_F64_t[:,:] coord_min,
                                 DTYPE_F64_t dl,
@@ -2215,7 +2493,7 @@ cdef void _query_shell_radius_2(CELL_ID_t[:,:] reference_point_ijk,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz, 
                                 DTYPE_F64_t[:,:] cell_center_xyz,
                                 DTYPE_F64_t[:,:] coord_min,
@@ -2256,7 +2534,7 @@ cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz, 
                                      DTYPE_F64_t[:,:] reference_point_xyz
                                      ) except *:
@@ -2304,7 +2582,7 @@ cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk, 
                                                DTYPE_INT32_t level,
                                                Cell_ID_Memory cell_ID_mem,
@@ -2589,7 +2867,7 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, 
                              DTYPE_INT32_t level,
                              Cell_ID_Memory cell_ID_mem,
@@ -2628,6 +2906,64 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
         
         
 
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value):
+    """
+    Description
+    ===========
+    
+    Given an input integer threshold_value, find the next prime number
+    greater than threshold_value.  This is used as a helper in creating
+    the memory backing array for the galaxy map, because taking an index
+    modulus a prime number is a nice way to hash an integer.
+    
+    Uses Bertrams(?) theorem that for every n > 1 there is a prime number
+    p such that n < p < 2n
+    
+    
+    Parameters
+    ==========
+    
+    threshold_value : int
+        find the next prime number after this value
+        
+    
+    Returns
+    =======
+    
+    check_val : int
+        next prime number after threshold_value
+    """
+    
+    cdef DTYPE_INT64_t check_val, j, sqrt_check
+    
+    cdef DTYPE_B_t at_least_one_divisor
+    
+    
+    for check_val in range(threshold_value+1, 2*threshold_value):
+        
+        if check_val%2 == 0:
+            continue
+        
+        sqrt_check = <DTYPE_INT64_t>sqrt(<DTYPE_F64_t>check_val) + 1
+        
+        at_least_one_divisor = 0
+        
+        for j in range(3, sqrt_check):
+            
+            if check_val % j == 0:
+                
+                at_least_one_divisor = 1
+                
+                break
+            
+        if not at_least_one_divisor:
+            
+            return check_val
 
 
 
