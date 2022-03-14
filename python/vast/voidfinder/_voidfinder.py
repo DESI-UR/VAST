@@ -202,11 +202,33 @@ def SaveCheckpointFile(checkpoint_filepath,
 
 
 
+def get_common_divisors(values):
+    
+    
+    min_value = int(numpy.ceil(min(values)/2))
+    
+    divisors = []
+    
+    for idx in range(1, min_value):
+        
+        if all([value % idx == 0 for value in values]):
+        
+            divisors.append(idx)
+            
+    return divisors
+            
+        
 
-def _hole_finder(hole_grid_edge_length, 
+
+
+
+
+
+
+def _hole_finder(galaxy_coords,
+                 hole_grid_edge_length, 
                  hole_center_iter_dist,
                  galaxy_map_grid_edge_length,
-                 galaxy_coords,
                  survey_name,
                  mask_mode=0,
                  mask=None,
@@ -246,13 +268,13 @@ def _hole_finder(hole_grid_edge_length,
     5). Start the workers
     6). Make sure workers connect to the comm socket
     7). Checkpoint the progress if those parameters are enabled
-    8). Collect progress results from the workers
+    8). Collect & print progress results from the workers
     
     This function is designed to be run on Linux on an SMP (Symmetric 
     Multi-Processing) architecture.  It takes advantage of 2 Linux-specific 
     properties: the /dev/shm filesystem and the fork() method of spawning 
     processes. /dev/shm is used as the preferred location for creating memory 
-    maps to share information between the worker processes since on Linux is is 
+    maps to share information between the worker processes since on Linux it is 
     a RAMdisk, and the implementation of fork() on Linux is used to share file 
     descriptor values between the master and worker processes, whereas on 
     mac/OSX fork() is wonky and Windows does not offer fork() at all.  This has 
@@ -266,8 +288,10 @@ def _hole_finder(hole_grid_edge_length,
     Parameters
     ==========
     
-    hole_grid_shape : array or tuple of length 3
-        the number of grid cells in each of the 3 x,y,z dimensions
+    
+    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
+        coordinates of the galaxies in the survey, units of Mpc/h
+        (xyz space)
     
     hole_grid_edge_length : scalar float
         length of each cell in Mpc/h
@@ -275,7 +299,6 @@ def _hole_finder(hole_grid_edge_length,
     hole_center_iter_dist : scalar float
         distance to shift hole centers during iterative void hole growing in 
         Mpc/h
-        
         
     galaxy_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor 
@@ -287,11 +310,13 @@ def _hole_finder(hole_grid_edge_length,
         need to be searched.
         (xyz space)
         
-    coord_min : numpy.ndarray of shape (1,3) 
-        minimum coordinates of the survey in x,y,z in Mpc/h
-
-        Note that this coordinate is used for transforming values into the i,j,k 
-        search grid space and also into the p,q,r galaxy map grid space
+    survey_name : str
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
+        
+    mask_mode : int, one of [0,1,2]
+        Determines which mode VoidFinder is running in with regards to the Mask
+        checking.  0 == 'ra-dec-redshift', 1 == 'xyz' and 2 == 'periodic'
         
     mask : numpy.ndarray of shape (N,M) type bool
         represents the survey footprint in scaled ra/dec space.  Value of True 
@@ -306,17 +331,8 @@ def _hole_finder(hole_grid_edge_length,
     max_dist : float
         maximum redshift in units of Mpc/h
         
-    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
-        coordinates of the galaxies in the survey, units of Mpc/h
-        (xyz space)
         
-    survey_name : str
-        identifier for the survey running, may be prepended or appended to 
-        output filenames including the checkpoint filename
         
-    DEPRECATED hole_radial_mask_check_dist : float in (0.0,1.0)
-        radial distance to check whether or not a hole overlaps with outside the 
-        mask too much
         
     save_after : int or None
         save a VoidFinderCheckpoint.h5 file after *approximately* every 
@@ -367,12 +383,22 @@ def _hole_finder(hole_grid_edge_length,
     """
     
     
+    
+    
+    ############################################################################
+    # Do some sanity checking on the mask modes and various inputs since we
+    # have a lot of None type optional inputs
+    #---------------------------------------------------------------------------
+    
     if mask_mode == 0:
         if mask is None or \
            mask_resolution is None or \
            min_dist is None or \
            max_dist is None:
             raise ValueError("Mask mode is 0 (ra-dec-z) but a required mask parameter is None")
+        
+        #The cython requires some very specific types and shapes
+        mask = mask.astype(np.uint8)
     
     if mask_mode == 1 and xyz_limits is None:
         raise ValueError("Mask mode is 1 (xyz) but required mask parameter xyz_limits is None")
@@ -380,11 +406,38 @@ def _hole_finder(hole_grid_edge_length,
     if mask_mode == 2 and xyz_limits is None:
         raise ValueError("Mask mode is 2 (periodic) but required mask parameter xyz_limits is None")
        
+    ############################################################################
     
-    if mask_mode == 0:
+    
+    
+    
         
-        mask = mask.astype(np.uint8)
-    
+    ############################################################################
+    # Next, depending on the mask mode, calculate the transform origin and
+    # grid cell parameters for our Hole grid and our Galaxy Map grids.
+    #
+    # For 'ra-dec-z' - just use the min and max of the provided
+    #    coordinates of the survey for the transform 
+    #
+    # For 'xyz' mode - use the required/provided xyz_limits
+    #
+    # For 'periodic' mode - use the required/provided xyz_limits, but we
+    #     also have to ensure the GalaxyMap cells align with the xyz_limits
+    #     boundaries, so that VoidFinder doesn't accidentally introduce 
+    #     dead space into cells because of misalignment.  
+    #
+    # The important values calculated below are:
+    #    'coords_min' - origin for transforming between real and index spaces
+    #    'hole_grid_shape' - grid cells for the hole growing grid
+    #    'galaxy_map_grid_shape' - grid cells for the galaxy finding grid
+    #
+    #---------------------------------------------------------------------------
+    if mask_mode == 0: #ra-dec-redshift
+        
+        if galaxy_map_grid_edge_length is None:
+        
+            galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+        
         coords_max = np.max(galaxy_coords, axis=0)
     
         coords_min = np.min(galaxy_coords, axis=0)
@@ -393,11 +446,18 @@ def _hole_finder(hole_grid_edge_length,
     
         ngrid = box/hole_grid_edge_length
         
-        #print("Ngrid: ", ngrid)
-        
         hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
         
-    else:
+        ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+        galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+        
+        
+    elif mask_mode == 1: #xyz
+        
+        if galaxy_map_grid_edge_length is None:
+        
+            galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
         
         box = xyz_limits[1,:] - xyz_limits[0,:]
         
@@ -406,15 +466,78 @@ def _hole_finder(hole_grid_edge_length,
         hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
         
         coords_min = xyz_limits[0,:]
-    
-    
-    
-    coords_min = coords_min.reshape(1,3)
-    
-    if galaxy_map_grid_edge_length is None:
         
-        galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+        ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+        galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+        
+        
+    elif mask_mode == 2: #periodic
+        
+        box = xyz_limits[1,:] - xyz_limits[0,:]
+        
+        ngrid = box/hole_grid_edge_length
+        
+        hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+        
+        coords_min = xyz_limits[0,:]
+        
+        if galaxy_map_grid_edge_length is None:
+            
+            desired_length = 3.0*hole_grid_edge_length
+            
+            #Find the common integer divisors of the length dimensions of the survey limits
+            common_divisors = get_common_divisors(box)
+            
+            if len(common_divisors) == 0 or \
+               (len(common_divisors) == 1 and common_divisors[0] == 1):
+                
+                error_str = """Could not automatically determine meaningful galaxy_map_grid_edge_length 
+                from the provided xyz_limits.  In mask_mode==periodic, the survey limits 
+                provided by the xyz_limits variable must be divisible by a common integer 
+                in all dimensions"""
+                
+                raise ValueError(error_str)
+            
+            common_divisors = numpy.array(common_divisors)
+            
+            argmin = numpy.abs(common_divisors - desired_length).argmin()
+            
+            galaxy_map_grid_edge_length = float(common_divisors[argmin])
+            
+            ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+            galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+            
+        else:
+            
+            
+            ngrid_galaxymap = box/galaxy_map_grid_edge_length
+            
+            ceiled = numpy.ceil(ngrid_galaxymap)
+            
+            close_to_ceil = numpy.isclose(ngrid_galaxymap, ceiled)
+            
+            if numpy.all(close_to_ceil):
+                #Vals are good, just proceed with given
+                galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+            else:
+                #Attempt to adjust galaxy_map_grid_edge_length
+                error_str = """The provided combination of xyz_limits and galaxy_map_grid_edge length
+                will not work.  In mask_mode==periodic, the edge length must be an integer
+                divisor of all dimensions of the survey as provided by the xyz_limits input."""
     
+                raise ValueError(error_str)
+        
+        
+    coords_min = coords_min.reshape(1,3).astype(numpy.float64)
+    
+    
+    if verbose > 0:
+        
+        print("Hole-growing Grid: ", hole_grid_shape, flush=True)
+        
+    ############################################################################
     
     
     ############################################################################
@@ -422,14 +545,17 @@ def _hole_finder(hole_grid_edge_length,
     # location instead.  Since on Linux /dev/shm is guaranteed to be a mounted
     # RAMdisk, I do not know if /tmp will be as fast or not, probably depends on
     # kernel settings.
+    # Also future updates to Linux on some distros might be using /run/shm
+    # instead of /dev/shm
     #---------------------------------------------------------------------------
     if not os.path.isdir(RESOURCE_DIR):
         
         print("WARNING: RESOURCE DIR", RESOURCE_DIR, 
-              "does not exist.  Falling back to /tmp but could be slow", 
+              "does not exist.  Falling back to /tmp", 
               flush=True)
         
         RESOURCE_DIR = "/tmp"
+        
     ############################################################################
         
     
@@ -445,9 +571,6 @@ def _hole_finder(hole_grid_edge_length,
           
         num_cpus = cpu_count(logical=False)
         
-    if verbose > 0:
-        
-        print("Grid: ", hole_grid_shape, flush=True)
     ############################################################################
 
         
@@ -552,7 +675,10 @@ def _hole_finder(hole_grid_edge_length,
     ############################################################################
     # Next create the GalaxyMap p-q-r-space index, which is constructed 
     # identically to the hole_grid i-j-k-space, except that we use a larger cell 
-    # edge length so we get more galaxies per cell
+    # edge length so we get more galaxies per cell, and we actually store 
+    # information about that cell, so we have to do a first pass through
+    # all the galaxies to sort their indices into their cells first before we 
+    # can actually construct the hash map based GalaxyMapCustomDict
     #---------------------------------------------------------------------------
     if verbose > 0:
         
@@ -593,10 +719,8 @@ def _hole_finder(hole_grid_edge_length,
     # galaxy_map_array tell us the rows in the main galaxy_coords array where 
     # the galaxies in our p-q-r cell of interest are.
     #---------------------------------------------------------------------------
-    
     galaxy_map = GalaxyMapCustomDict(hole_grid_shape,
                                      RESOURCE_DIR)
-    
     
     offset = 0
     
@@ -610,8 +734,6 @@ def _hole_finder(hole_grid_edge_length,
         
         galaxy_map_list.append(indices)
         
-        #galaxy_map[key] = (offset, num_elements)
-        
         galaxy_map.setitem(*key, offset, num_elements)
         
         offset += num_elements
@@ -621,36 +743,7 @@ def _hole_finder(hole_grid_edge_length,
     del galaxy_map_list
     
     num_galaxy_map_elements = len(galaxy_map)
-    ############################################################################
-
     
-    
-    ############################################################################
-    # Now convert the galaxy_map python dict created above into a custom 
-    # dictionary type which exposes the backing hash-table array, so we can 
-    # mem-map that array and share it among our worker processes.
-    #---------------------------------------------------------------------------
-    '''
-    next_prime = find_next_prime(2*num_galaxy_map_elements)
-    
-    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
-                                                ("p", np.int16, ()),
-                                                ("q", np.int16, ()),
-                                                ("r", np.int16, ()),
-                                                ("offset", np.int64, ()),
-                                                ("num_elements", np.int64, ())])
-    
-    new_galaxy_map = GalaxyMapCustomDict(hole_grid_shape, 
-                                         lookup_memory)
-    
-    for curr_pqr in galaxy_map:
-        
-        offset, num_elements = galaxy_map[curr_pqr]
-        
-        new_galaxy_map.setitem(*curr_pqr, offset, num_elements)
-        
-    del galaxy_map
-    '''
     if verbose > 0:
         
         print("Galaxy Map build time:", time.time() - galaxy_map_start_time, 
@@ -723,67 +816,9 @@ def _hole_finder(hole_grid_edge_length,
     os.unlink(WCOORD_BUFFER_PATH)
     ############################################################################
 
-    
-    
-    ############################################################################
-    # memmap the lookup memory for the galaxy map
-    # maybe rename it to the galaxy map hash table
-    #---------------------------------------------------------------------------
-    '''
-    lookup_fd, LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
-                                                        dir=RESOURCE_DIR, 
-                                                        text=False)
-    
-    if verbose > 0:
-        
-        print("Galaxy map lookup memmap:", LOOKUPMEM_BUFFER_PATH, lookup_fd, 
-              flush=True)
-    
-    lookup_buffer_length = next_prime*23 #23 bytes per element
-    
-    os.ftruncate(lookup_fd, lookup_buffer_length)
-    
-    lookup_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
-    
-    lookup_buffer.write(lookup_memory.tobytes())
-    
-    del lookup_memory
-    
-    os.unlink(LOOKUPMEM_BUFFER_PATH)
-    '''
-    ############################################################################
 
     
     
-    ############################################################################
-    # memmap the lookup memory for the hole_cell_ID_dict
-    # maybe rename it to the hole_cell_ID hash table
-    #---------------------------------------------------------------------------
-    '''
-    hole_lookup_fd, HOLE_LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
-                                                                  dir=RESOURCE_DIR, 
-                                                                  text=False)
-    
-    if verbose > 0:
-        
-        print("Hole cell lookup memmap:", 
-              HOLE_LOOKUPMEM_BUFFER_PATH, 
-              hole_lookup_fd, 
-              flush=True)
-    
-    hole_lookup_buffer_length = hole_next_prime*7 #7 bytes per element
-    
-    os.ftruncate(hole_lookup_fd, hole_lookup_buffer_length)
-    
-    hole_lookup_buffer = mmap.mmap(hole_lookup_fd, hole_lookup_buffer_length)
-    
-    hole_lookup_buffer.write(hole_lookup_memory.tobytes())
-    
-    del hole_lookup_memory
-    
-    os.unlink(HOLE_LOOKUPMEM_BUFFER_PATH)
-    '''
-    ############################################################################
 
     
     

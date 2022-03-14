@@ -490,8 +490,7 @@ def find_voids(galaxy_coords_xyz,
                mask_type='ra_dec_z',
                mask=None, 
                mask_resolution=None,
-               min_dist=None,
-               max_dist=None,
+               dist_limits=None,
                xyz_limits=None,
                check_only_empty_holes=True,
                max_hole_mask_overlap=0.1,
@@ -601,6 +600,10 @@ def find_voids(galaxy_coords_xyz,
         coordinates of the galaxies in the survey, units of Mpc/h 
         (xyz space)
         
+    survey_name : str
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
+        
     mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
         Determines the mode of mask checking to use and which mask parameters to use.  
         
@@ -628,8 +631,7 @@ def find_voids(galaxy_coords_xyz,
         Scale factor of coordinates needed to index mask
         
     dist_limits : numpy array of shape (2,)
-        minimum and maximum distance limit of the survey in units of Mpc/h 
-        (xyz space)
+        [min_dist, max_dist] in units of Mpc/h (xyz space)
         
     xyz_limits : numpy array of shape (2,3)
         format [x_min, y_min, z_min]
@@ -652,9 +654,7 @@ def find_voids(galaxy_coords_xyz,
         hole center will be outside the mask, but more importantly because the 
         numpy.roots() function used below won't return a valid polynomial root.
         
-    survey_name : str
-        identifier for the survey running, may be prepended or appended to 
-        output filenames including the checkpoint filename
+    
         
     galaxy_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor 
@@ -756,23 +756,18 @@ def find_voids(galaxy_coords_xyz,
 
     tot_hole_start = time.time()
 
-    x_y_z_r_array, n_holes = _hole_finder(hole_grid_edge_length, 
+    x_y_z_r_array, n_holes = _hole_finder(galaxy_coords_xyz,
+                                          hole_grid_edge_length, 
                                           hole_center_iter_dist,
                                           galaxy_map_grid_edge_length,
-                                          #mask,
-                                          #mask_resolution,
-                                          #dist_limits[0],
-                                          #dist_limits[1],
-                                          galaxy_coords_xyz,
                                           survey_name,
                                           mask_mode=mask_mode,
                                           mask=mask,
                                           mask_resolution=mask_resolution,
-                                          min_dist=min_dist,
-                                          max_dist=max_dist,
+                                          min_dist=dist_limits[0],
+                                          max_dist=dist_limits[1],
                                           xyz_limits=xyz_limits,
                                           check_only_empty_holes=check_only_empty_holes,
-                                          #radial_mask_check,
                                           save_after=save_after,
                                           use_start_checkpoint=use_start_checkpoint,
                                           batch_size=batch_size,

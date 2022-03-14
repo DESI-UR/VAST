@@ -17,3 +17,4 @@ WorkingDir/
 .settings/
 .ipynb_checkpoints/
 python/vast.egg-info/
+/.pytest_cache/

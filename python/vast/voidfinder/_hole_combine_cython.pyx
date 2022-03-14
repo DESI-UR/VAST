@@ -359,7 +359,7 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
     if not os.path.isdir(RESOURCE_DIR):
         
         print("WARNING: RESOURCE DIR", RESOURCE_DIR, 
-              "does not exist.  Falling back to /tmp but could be slow", 
+              "does not exist.  Falling back to /tmp", 
               flush=True)
         
         RESOURCE_DIR = "/tmp"
