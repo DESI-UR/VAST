@@ -719,7 +719,7 @@ def _hole_finder(galaxy_coords,
     # galaxy_map_array tell us the rows in the main galaxy_coords array where 
     # the galaxies in our p-q-r cell of interest are.
     #---------------------------------------------------------------------------
-    galaxy_map = GalaxyMapCustomDict(hole_grid_shape,
+    galaxy_search_cell_dict = GalaxyMapCustomDict(hole_grid_shape,
                                      RESOURCE_DIR)
     
     offset = 0
@@ -734,7 +734,7 @@ def _hole_finder(galaxy_coords,
         
         galaxy_map_list.append(indices)
         
-        galaxy_map.setitem(*key, offset, num_elements)
+        galaxy_search_cell_dict.setitem(*key, offset, num_elements)
         
         offset += num_elements
 
@@ -742,7 +742,20 @@ def _hole_finder(galaxy_coords,
     
     del galaxy_map_list
     
-    num_galaxy_map_elements = len(galaxy_map)
+    num_galaxy_map_elements = len(galaxy_search_cell_dict)
+    
+    
+    
+    galaxy_map = GalaxyMap(RESOURCE_DIR,
+                           mask_mode,
+                           galaxy_coords, 
+                           coords_min, 
+                           galaxy_map_grid_edge_length,
+                           galaxy_search_cell_dict,
+                           galaxy_map_array)
+    
+    
+    
     
     if verbose > 0:
         
@@ -751,9 +764,9 @@ def _hole_finder(galaxy_coords,
         
         print("Num items in Galaxy Map:", num_in_galaxy_map, flush=True)
         
-        print("Total slots in galaxy map hash table:", galaxy_map.mem_length, flush=True)
+        print("Total slots in galaxy map hash table:", galaxy_search_cell_dict.mem_length, flush=True)
         
-        print("Num collisions in rebuild:", galaxy_map.num_collisions, 
+        print("Num collisions in rebuild:", galaxy_search_cell_dict.num_collisions, 
               flush=True)
     ############################################################################
 
@@ -787,6 +800,7 @@ def _hole_finder(galaxy_coords,
     # "spawn" or "forkserver" methods would work correctly on this code, and if 
     # we needed to use them it might require re-engineering this code.
     #---------------------------------------------------------------------------
+    '''
     w_coord_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
                                                       dir=RESOURCE_DIR, 
                                                       text=False)
@@ -814,6 +828,7 @@ def _hole_finder(galaxy_coords,
     galaxy_coords.shape = (num_galaxies, 3)
     
     os.unlink(WCOORD_BUFFER_PATH)
+    '''
     ############################################################################
 
 
@@ -825,6 +840,7 @@ def _hole_finder(galaxy_coords,
     ############################################################################
     # Memmap the galaxy map array to our worker processes 
     #---------------------------------------------------------------------------
+    '''
     gma_fd, GMA_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
                                                dir=RESOURCE_DIR, 
                                                text=False)
@@ -850,6 +866,7 @@ def _hole_finder(galaxy_coords,
     galaxy_map_array = np.frombuffer(gma_buffer, dtype=np.int64)
     
     galaxy_map_array.shape = (num_gma_indices,)
+    '''
     ############################################################################
 
     
@@ -994,12 +1011,12 @@ def _hole_finder(galaxy_coords,
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "RESULT_BUFFER_PATH" : RESULT_BUFFER_PATH,
                      "result_fd" : result_fd,
-                     "WCOORD_BUFFER_PATH" : WCOORD_BUFFER_PATH,
-                     "w_coord_fd" : w_coord_fd,
-                     "num_galaxies" : num_galaxies,
-                     "GMA_BUFFER_PATH" : GMA_BUFFER_PATH,
-                     "gma_fd" : gma_fd,
-                     "num_gma_indices" : num_gma_indices,
+                     #"WCOORD_BUFFER_PATH" : WCOORD_BUFFER_PATH,
+                     #"w_coord_fd" : w_coord_fd,
+                     #"num_galaxies" : num_galaxies,
+                     #"GMA_BUFFER_PATH" : GMA_BUFFER_PATH,
+                     #"gma_fd" : gma_fd,
+                     #"num_gma_indices" : num_gma_indices,
                      #"LOOKUPMEM_BUFFER_PATH" : LOOKUPMEM_BUFFER_PATH,
                      #"lookup_fd" : lookup_fd,
                      #"next_prime" : next_prime,
@@ -1073,17 +1090,17 @@ def _hole_finder(galaxy_coords,
         
             os.remove(RESULT_BUFFER_PATH)
         
-    def cleanup_wcoord():
+    #def cleanup_wcoord():
+    #    
+    #    if os.path.isfile(WCOORD_BUFFER_PATH):
+    #    
+    #        os.remove(WCOORD_BUFFER_PATH)
         
-        if os.path.isfile(WCOORD_BUFFER_PATH):
-        
-            os.remove(WCOORD_BUFFER_PATH)
-        
-    def cleanup_gma():
-        
-        if os.path.isfile(GMA_BUFFER_PATH):
-        
-            os.remove(GMA_BUFFER_PATH)
+    #def cleanup_gma():
+    #    
+    #    if os.path.isfile(GMA_BUFFER_PATH):
+    #    
+    #        os.remove(GMA_BUFFER_PATH)
         
     #def cleanup_lookupmem():
     #    
@@ -1098,9 +1115,9 @@ def _hole_finder(galaxy_coords,
     
     atexit.register(cleanup_result)
     
-    atexit.register(cleanup_wcoord)
+    #atexit.register(cleanup_wcoord)
     
-    atexit.register(cleanup_gma)
+    #atexit.register(cleanup_gma)
     
     #atexit.register(cleanup_lookupmem)
     ############################################################################
@@ -1629,18 +1646,15 @@ def _hole_finder(galaxy_coords,
     #---------------------------------------------------------------------------
     result_buffer.close()
     
-    gma_buffer.close()
-    
-    #lookup_buffer.close()
-    
     # Since the worker function closes this stuff too, we only have to close
     # our parent copies if we're running multi-processed
+    
     if num_cpus > 1:
+        
         hole_cell_ID_dict.close()
         
         galaxy_map.close()
     
-    w_coord_buffer.close()
     ############################################################################
         
     return valid_result_array, n_holes
@@ -1798,12 +1812,12 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     SOCKET_PATH = config["SOCKET_PATH"]
     RESULT_BUFFER_PATH = config["RESULT_BUFFER_PATH"]
     result_fd = config["result_fd"]
-    WCOORD_BUFFER_PATH = config["WCOORD_BUFFER_PATH"]
-    w_coord_fd = config["w_coord_fd"]
-    num_galaxies = config["num_galaxies"]
-    GMA_BUFFER_PATH = config["GMA_BUFFER_PATH"]
-    gma_fd = config["gma_fd"]
-    num_gma_indices = config["num_gma_indices"]
+    #WCOORD_BUFFER_PATH = config["WCOORD_BUFFER_PATH"]
+    #w_coord_fd = config["w_coord_fd"]
+    #num_galaxies = config["num_galaxies"]
+    #GMA_BUFFER_PATH = config["GMA_BUFFER_PATH"]
+    #gma_fd = config["gma_fd"]
+    #num_gma_indices = config["num_gma_indices"]
     #LOOKUPMEM_BUFFER_PATH = config["LOOKUPMEM_BUFFER_PATH"]
     #lookup_fd = config["lookup_fd"]
     #next_prime = config["next_prime"]
@@ -1896,6 +1910,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     # but every system does have a limit on how many file descriptors can be 
     # open for a process and on the whole system).
     #---------------------------------------------------------------------------
+    '''
     wcoord_buffer_length = num_galaxies*3*8 # 3 since xyz and 8 since float64
     
     wcoord_mmap_buffer = mmap.mmap(w_coord_fd, wcoord_buffer_length)
@@ -1903,6 +1918,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     w_coord = np.frombuffer(wcoord_mmap_buffer, dtype=np.float64)
     
     w_coord.shape = (num_galaxies, 3)
+    '''
     ############################################################################
 
     
@@ -1910,6 +1926,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     ############################################################################
     # Load up galaxy_map_array from shared memory
     #---------------------------------------------------------------------------
+    '''
     gma_buffer_length = num_gma_indices*8 # 3 since xyz and 8 since float64
     
     gma_mmap_buffer = mmap.mmap(gma_fd, gma_buffer_length)
@@ -1917,6 +1934,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     galaxy_map_array = np.frombuffer(gma_mmap_buffer, dtype=np.int64)
     
     galaxy_map_array.shape = (num_gma_indices,)
+    '''
     ############################################################################
 
     
@@ -1961,11 +1979,14 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     galaxy_map = GalaxyMapCustomDict(ngrid,
                                      lookup_memory)
     '''
+        
+    '''
     galaxy_tree = GalaxyMap(w_coord, 
                             coords_min, 
                             search_grid_edge_length,
                             galaxy_map,
                             galaxy_map_array)
+    '''
     ############################################################################
 
     
@@ -2254,8 +2275,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                             dtype=np.float64)
                     
                 main_algorithm(i_j_k_array[0:num_write],
-                               galaxy_tree,
-                               w_coord,
+                               galaxy_map,
                                dl, 
                                dr,
                                coords_min,
@@ -2463,6 +2483,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
         worker_socket.close()
         
     hole_cell_ID_dict.close()
+    
+    galaxy_map.close()
     
     print("WORKER EXITING GRACEFULLY", worker_idx, flush=True)
     ############################################################################

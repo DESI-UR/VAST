@@ -26,12 +26,13 @@ from numpy.math cimport NAN, INFINITY
 
 from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 
-from ._voidfinder import find_next_prime
+#from ._voidfinder import find_next_prime
 
 from ._voidfinder_cython_find_next cimport GalaxyMapCustomDict, \
                                            Cell_ID_Memory, \
                                            _gen_cube, \
-                                           OffsetNumPair
+                                           OffsetNumPair, \
+                                           find_next_prime
 
 
 

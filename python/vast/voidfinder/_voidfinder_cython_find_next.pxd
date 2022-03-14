@@ -75,11 +75,10 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         DTYPE_F64_t dr, \
                                         DTYPE_F64_t direction_mod,\
                                         DTYPE_F64_t[:] unit_vector_memview, \
-                                        galaxy_tree, \
+                                        GalaxyMap galaxy_tree, \
                                         DTYPE_INT64_t[:] nearest_gal_index_list, \
                                         ITYPE_t num_neighbors, \
-                                        DTYPE_F64_t[:,:] w_coord, \
-                                        MaskChecker mask_checker,
+                                        MaskChecker mask_checker, \
                                         DTYPE_F64_t[:] Bcenter_memview, \
                                         Cell_ID_Memory cell_ID_mem, \
                                         NeighborMemory neighbor_mem, \
@@ -179,8 +178,14 @@ cdef class GalaxyMapCustomDict:
 
 
 cdef class GalaxyMap:
+
+    cdef public DTYPE_INT32_t mask_mode
     
-    cdef public DTYPE_F64_t[:,:] w_coord
+    cdef public DTYPE_F64_t[:,:] wall_galaxy_coords
+    
+    cdef public object wall_galaxy_buffer
+    
+    cdef public DTYPE_INT64_t num_wall_galaxies, wall_galaxies_coords_fd
     
     cdef public DTYPE_F64_t[:,:] coord_min
     
@@ -201,6 +206,12 @@ cdef class GalaxyMap:
     cdef public GalaxyMapCustomDict galaxy_map
     
     cdef public DTYPE_INT64_t[:] galaxy_map_array
+    
+    cdef public object galaxy_map_array_buffer
+    
+    cdef public DTYPE_INT64_t num_gma_indices
+    
+    cdef public DTYPE_INT64_t gma_fd
 
 
 cdef class NeighborMemory:

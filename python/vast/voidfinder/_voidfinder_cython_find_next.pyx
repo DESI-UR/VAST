@@ -55,10 +55,9 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                         DTYPE_F64_t dr, 
                                         DTYPE_F64_t direction_mod,
                                         DTYPE_F64_t[:] unit_vector_memview, 
-                                        galaxy_tree, 
+                                        GalaxyMap galaxy_tree, 
                                         DTYPE_INT64_t[:] nearest_gal_index_list, 
                                         ITYPE_t num_neighbors,
-                                        DTYPE_F64_t[:,:] w_coord, 
                                         MaskChecker mask_checker,
                                         DTYPE_F64_t[:] Bcenter_memview,
                                         Cell_ID_Memory cell_ID_mem,
@@ -68,6 +67,8 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     '''
     Description:
     ============
+    
+    
     Function to locate the next nearest galaxy during hole center propagation 
     along direction defined by unit_vector_memview.
 
@@ -291,7 +292,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             
             for idx in range(3):
                 
-                temp_f64_val = w_coord[nearest_gal_index_list[0],idx] - temp_hole_center_memview[0,idx]
+                temp_f64_val = galaxy_tree.wall_galaxy_coords[nearest_gal_index_list[0],idx] - temp_hole_center_memview[0,idx]
                 
                 temp_f64_accum += temp_f64_val*temp_f64_val
                 
@@ -312,7 +313,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         #print("Loc-C1", flush=True)
         
         _query_shell_radius(galaxy_tree.reference_point_ijk,
-                            galaxy_tree.w_coord,
+                            galaxy_tree.wall_galaxy_coords,
                             galaxy_tree.coord_min,
                             galaxy_tree.dl, 
                             galaxy_tree.galaxy_map,
@@ -410,14 +411,14 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                     
                     if num_neighbors == 1:
                         
-                        neighbor_mem.candidate_minus_A[3*idx+jdx] = w_coord[nearest_gal_index_list[0], jdx] - w_coord[temp_idx, jdx]
+                        neighbor_mem.candidate_minus_A[3*idx+jdx] = galaxy_tree.wall_galaxy_coords[nearest_gal_index_list[0], jdx] - galaxy_tree.wall_galaxy_coords[temp_idx, jdx]
                         
                         
                     else:
 
-                        neighbor_mem.candidate_minus_A[3*idx+jdx] = w_coord[temp_idx, jdx] - w_coord[nearest_gal_index_list[0], jdx]
+                        neighbor_mem.candidate_minus_A[3*idx+jdx] = galaxy_tree.wall_galaxy_coords[temp_idx, jdx] - galaxy_tree.wall_galaxy_coords[nearest_gal_index_list[0], jdx]
                         
-                    neighbor_mem.candidate_minus_center[3*idx+jdx] = w_coord[temp_idx, jdx] - hole_center_memview[0, jdx]
+                    neighbor_mem.candidate_minus_center[3*idx+jdx] = galaxy_tree.wall_galaxy_coords[temp_idx, jdx] - hole_center_memview[0, jdx]
 
             ############################################################################
             # Calculate bottom of ratio to be minimized
@@ -453,7 +454,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
                 for idx in range(3):
 
-                    Bcenter_memview[idx] = w_coord[nearest_gal_index_list[1], idx] - hole_center_memview[0, idx]
+                    Bcenter_memview[idx] = galaxy_tree.wall_galaxy_coords[nearest_gal_index_list[1], idx] - hole_center_memview[0, idx]
 
 
                 temp_f64_accum = 0.0
@@ -1594,10 +1595,24 @@ cdef class GalaxyMap:
     '''
     Right now this is a glorified container class for passing around a handful of
     object references in memory.
+    
+    Changing this so that it implements the logic for regular mode versus
+    periodic mode where we need to be able to resize our arrays in shared 
+    memory.
+    
+    This will also be the interface of the GalaxyMapCustomDict to the
+    _gen_shell and _gen_cube methods where the logic of filtering out
+    cell IDs is implemented, so that when mask_mode==periodic, we
+    store off even the cells whose num_elements is 0 so that we can
+    be sure that we have created them if they didn't yet exist.
+    
+    
     '''
     
-    def __init__(self, 
-                 w_coord, 
+    def __init__(self,
+                 resource_dir,
+                 mask_mode,
+                 galaxy_coords, 
                  coord_min, 
                  dl,
                  galaxy_map,
@@ -1608,21 +1623,100 @@ cdef class GalaxyMap:
                are implicitly relying on this behavior.  Let's make this explicit
                so I can do it correctly in cython
         """
-        self.w_coord = w_coord
+        self.mask_mode = mask_mode
         
         self.coord_min = coord_min
         
+        #This value is the galaxy_map_grid_edge_length, not hole_grid_edge_length
         self.dl = dl
-        
-        self.reference_point_ijk = np.empty((1,3), dtype=np.int16)
         
         self.galaxy_map = galaxy_map
         
-        self.galaxy_map_array = galaxy_map_array
+        self.reference_point_ijk = np.empty((1,3), dtype=np.int16)
             
         self.shell_boundaries_xyz = np.empty((2,3), dtype=np.float64)
         
         self.cell_center_xyz = np.empty((1,3), dtype=np.float64)
+        
+        ################################################################################
+        # First, memmap the galaxy coordinate array
+        ################################################################################
+        wall_galaxies_coords_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                                       dir=resource_dir, 
+                                                                       text=False)
+        
+        
+        num_galaxies = galaxy_coords.shape[0]
+    
+        w_coord_buffer_length = num_galaxies*3*8 # 3 for xyz and 8 for float64
+        
+        os.ftruncate(wall_galaxies_coords_fd, w_coord_buffer_length)
+        
+        w_coord_buffer = mmap.mmap(wall_galaxies_coords_fd, w_coord_buffer_length)
+        
+        w_coord_buffer.write(galaxy_coords.astype(np.float64).tobytes())
+        
+        del galaxy_coords
+        
+        galaxy_coords = np.frombuffer(w_coord_buffer, dtype=np.float64)
+        
+        galaxy_coords.shape = (num_galaxies, 3)
+        
+        os.unlink(WCOORD_BUFFER_PATH)
+        
+        self.wall_galaxy_coords = galaxy_coords
+        
+        self.wall_galaxy_buffer = w_coord_buffer
+        
+        self.num_wall_galaxies = num_galaxies
+        
+        self.wall_galaxies_coords_fd = wall_galaxies_coords_fd
+        
+        
+        
+        ################################################################################
+        # Next, memmap the galaxy array helper
+        ################################################################################
+        gma_fd, GMA_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                   dir=resource_dir, 
+                                                   text=False)
+    
+        
+        num_gma_indices = galaxy_map_array.shape[0]
+        
+        gma_buffer_length = num_gma_indices*8 # 8 for int64
+        
+        os.ftruncate(gma_fd, gma_buffer_length)
+        
+        gma_buffer = mmap.mmap(gma_fd, gma_buffer_length)
+        
+        gma_buffer.write(galaxy_map_array.astype(np.int64).tobytes())
+        
+        del galaxy_map_array
+        
+        os.unlink(GMA_BUFFER_PATH)
+        
+        galaxy_map_array = np.frombuffer(gma_buffer, dtype=np.int64)
+        
+        galaxy_map_array.shape = (num_gma_indices,)
+        
+        self.galaxy_map_array = galaxy_map_array
+        
+        self.galaxy_map_array_buffer = gma_buffer
+        
+        self.num_gma_indices = num_gma_indices
+        
+        self.gma_fd = gma_fd
+        
+    def close(self):
+        
+        self.wall_galaxy_buffer.close()
+        
+        os.close(self.wall_galaxies_coords_fd)
+        
+        self.galaxy_map_array_buffer.close()
+        
+        os.close(self.gma_fd)
         
 
 cdef class NeighborMemory:
@@ -2220,9 +2314,17 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
     Description
     ===========
     
-    Only called once in find_next_galaxy()
-    
     Find all the neighbors within a given radius of a reference point.
+    
+    Since we're finding galaxies, we are using the parameters of the GalaxyMap
+    search space (PQR), not the hole grid space (IJK)
+    
+    Only used in find_next_galaxy() (called once in a loop)
+    When find_next_galaxy() propagates the center out of a search grid cell
+    it will have to reset the memory in the cell_ID_mem, but while it remains
+    in that cell the _gen_cube and _gen_shell functions will re-use that memory
+    
+    
     
     Returns
     =======
@@ -2887,12 +2989,23 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
     Only called once in _query_shell_radius() (this file) which is only called once in
     find_next_galaxy() (also this file)
     
-    Take advantage of the optimizations in _gen_shell()
+    Take advantage of the optimizations in _gen_shell() - this function is really
+    just a wrapper to sequentially call _gen_shell()
+    
+    
+    Parameters
+    ==========
+    
+    TODO: describe
+    
+    Returns
+    =======
+    
+    Number of cell IDs loaded into cell_ID_mem
     
     """
     
     
-    #print("Loc-D2", flush=True)
     
     cdef DTYPE_INT32_t curr_level
     
@@ -2905,8 +3018,6 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
                                          cell_ID_mem,
                                          galaxy_map)
         
-    
-    #rint("Loc-D3", flush=True)
                 
     return cell_ID_mem.next_unused_row_idx
     
