@@ -788,8 +788,8 @@ def find_voids(galaxy_coords_xyz,
         mask_checker = MaskChecker(mask_mode,
                                    survey_mask_ra_dec=mask.astype(np.uint8),
                                    n=mask_resolution,
-                                   rmin=min_dist,
-                                   rmax=max_dist,
+                                   rmin=dist_limits[0],
+                                   rmax=dist_limits[1],
                                    )
         
     elif mask_mode == 1:

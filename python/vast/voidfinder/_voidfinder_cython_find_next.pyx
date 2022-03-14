@@ -608,6 +608,11 @@ cdef class MaskChecker:
         elif self.mode == 1:
             
             return not_in_mask_xyz(coordinates, self.xyz_limits)
+        
+        
+        elif self.mode == 2: #periodic, so everything is always in the mask
+            
+            return False
 
 
 
@@ -2339,17 +2344,19 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cdef void _query_shell_radius_2(CELL_ID_t[:,:] reference_point_ijk,
-                                DTYPE_F64_t[:,:] coord_min,
-                                DTYPE_F64_t dl,
-                                GalaxyMapCustomDict galaxy_map,
-                                DTYPE_INT64_t[:] galaxy_map_array,
-                                Cell_ID_Memory cell_ID_mem,
-                                NeighborMemory neighbor_mem,
-                                DTYPE_F64_t[:,:] reference_point_xyz,
-                                DTYPE_INT32_t current_shell
-                                ):
+cdef void _query_shell_radius_2_DEPRECATED(CELL_ID_t[:,:] reference_point_ijk,
+                                            DTYPE_F64_t[:,:] coord_min,
+                                            DTYPE_F64_t dl,
+                                            GalaxyMapCustomDict galaxy_map,
+                                            DTYPE_INT64_t[:] galaxy_map_array,
+                                            Cell_ID_Memory cell_ID_mem,
+                                            NeighborMemory neighbor_mem,
+                                            DTYPE_F64_t[:,:] reference_point_xyz,
+                                            DTYPE_INT32_t current_shell
+                                            ):
     """
+    
+    Deprecated and will be removed after verification this is unused.
     
     TODO: update names from ijk to pqr
     

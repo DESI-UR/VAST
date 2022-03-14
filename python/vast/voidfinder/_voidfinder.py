@@ -530,7 +530,7 @@ def _hole_finder(galaxy_coords,
                 raise ValueError(error_str)
         
         
-    coords_min = coords_min.reshape(1,3).astype(numpy.float64)
+    coords_min = coords_min.reshape(1,3).astype(np.float64)
     
     
     if verbose > 0:
@@ -2055,7 +2055,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                    rmax=max_dist,
                                    )
         
-    elif mask_mode == 1:
+    elif mask_mode in [1,2]:
         mask_checker = MaskChecker(mask_mode,
                                    xyz_limits=xyz_limits)
     ############################################################################
