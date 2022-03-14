@@ -212,6 +212,24 @@ cdef class GalaxyMap:
     cdef public DTYPE_INT64_t num_gma_indices
     
     cdef public DTYPE_INT64_t gma_fd
+    
+    
+    cdef public DTYPE_B_t contains(self,
+                                   CELL_ID_t i, 
+                                   CELL_ID_t j, 
+                                   CELL_ID_t k)
+    
+    cdef public OffsetNumPair getitem(self,
+                                      CELL_ID_t i, 
+                                      CELL_ID_t j, 
+                                      CELL_ID_t k)
+    
+    cdef public void setitem(self, 
+                             CELL_ID_t i,
+                             CELL_ID_t j,
+                             CELL_ID_t k, 
+                             DTYPE_INT64_t offset,
+                             DTYPE_INT64_t num_elements)
 
 
 cdef class NeighborMemory:
@@ -267,9 +285,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
                               DTYPE_F64_t dl, \
                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
                               DTYPE_F64_t[:,:] cell_center_xyz, \
-                              GalaxyMapCustomDict galaxy_map, \
-                              DTYPE_INT64_t[:] galaxy_map_array, \
-                              DTYPE_F64_t[:,:] w_coord, \
+                              GalaxyMap galaxy_map, \
                               Cell_ID_Memory cell_ID_mem, \
                               DTYPE_F64_t[:,:] reference_point_xyz)
                                          
@@ -280,7 +296,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
 cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, \
                              DTYPE_INT32_t level, \
                              Cell_ID_Memory cell_ID_mem, \
-                             GalaxyMapCustomDict galaxy_map)
+                             GalaxyMap galaxy_map)
                                          
                                          
                                          

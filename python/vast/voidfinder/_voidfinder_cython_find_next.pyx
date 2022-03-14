@@ -313,11 +313,9 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         #print("Loc-C1", flush=True)
         
         _query_shell_radius(galaxy_tree.reference_point_ijk,
-                            galaxy_tree.wall_galaxy_coords,
                             galaxy_tree.coord_min,
                             galaxy_tree.dl, 
-                            galaxy_tree.galaxy_map,
-                            galaxy_tree.galaxy_map_array,
+                            galaxy_tree,
                             cell_ID_mem,
                             neighbor_mem,
                             temp_hole_center_memview, 
@@ -1708,6 +1706,49 @@ cdef class GalaxyMap:
         
         self.gma_fd = gma_fd
         
+        
+        
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef DTYPE_B_t contains(self,
+                            CELL_ID_t i, 
+                            CELL_ID_t j, 
+                            CELL_ID_t k):
+                            
+        return self.galaxy_map.contains(i, j, k)
+        
+        
+        
+        
+        
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef OffsetNumPair getitem(self,
+                               CELL_ID_t i, 
+                               CELL_ID_t j, 
+                               CELL_ID_t k):
+                                
+        return self.galaxy_map.getitem(i, j, k)
+        
+        
+        
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void setitem(self, 
+                      CELL_ID_t i,
+                      CELL_ID_t j,
+                      CELL_ID_t k, 
+                      DTYPE_INT64_t offset,
+                      DTYPE_INT64_t num_elements):
+                       
+        self.galaxy_map.setitem(i, j, k, offset, num_elements)
+        
+        
+        
+        
     def close(self):
         
         self.wall_galaxy_buffer.close()
@@ -2124,9 +2165,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                               DTYPE_F64_t dl,
                               DTYPE_F64_t[:,:] shell_boundaries_xyz,
                               DTYPE_F64_t[:,:] cell_center_xyz,
-                              GalaxyMapCustomDict galaxy_map,
-                              DTYPE_INT64_t[:] galaxy_map_array,
-                              DTYPE_F64_t[:,:] w_coord,
+                              GalaxyMap galaxy_map,
                               Cell_ID_Memory cell_ID_mem,
                               DTYPE_F64_t[:,:] reference_point_xyz
                               ):
@@ -2251,9 +2290,9 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
             
             for idx in range(num_elements):
                 
-                potential_neighbor_idx = <ITYPE_t>galaxy_map_array[offset+idx]
+                potential_neighbor_idx = <ITYPE_t>(galaxy_map.galaxy_map_array[offset+idx])
                 
-                potential_neighbor_xyz = w_coord[potential_neighbor_idx]
+                potential_neighbor_xyz = galaxy_map.wall_galaxy_coords[potential_neighbor_idx]
                 
                 temp1 = potential_neighbor_xyz[0] - reference_point_xyz[0,0]
                 temp2 = potential_neighbor_xyz[1] - reference_point_xyz[0,1]
@@ -2297,11 +2336,9 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
 @cython.cdivision(True)
 @cython.profile(False)
 cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
-                              DTYPE_F64_t[:,:] w_coord, 
                               DTYPE_F64_t[:,:] coord_min, 
                               DTYPE_F64_t dl,
-                              GalaxyMapCustomDict galaxy_map,
-                              DTYPE_INT64_t[:] galaxy_map_array,
+                              GalaxyMap galaxy_map,
                               Cell_ID_Memory cell_ID_mem,
                               NeighborMemory neighbor_mem,
                               DTYPE_F64_t[:,:] reference_point_xyz, 
@@ -2420,9 +2457,9 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
         
         for idx in range(num_elements):
             
-            curr_galaxy_idx = <ITYPE_t>galaxy_map_array[offset+idx]
+            curr_galaxy_idx = <ITYPE_t>galaxy_map.galaxy_map_array[offset+idx]
             
-            galaxy_xyz = w_coord[curr_galaxy_idx]
+            galaxy_xyz = galaxy_map.wall_galaxy_coords[curr_galaxy_idx]
             
             temp1 = galaxy_xyz[0] - reference_point_xyz[0,0]
             temp2 = galaxy_xyz[1] - reference_point_xyz[0,1]
@@ -2435,163 +2472,6 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
                 neighbor_mem.append(curr_galaxy_idx)
                 
     return      
-
-
-
-
-
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
-@cython.profile(False)
-cdef void _query_shell_radius_2_DEPRECATED(CELL_ID_t[:,:] reference_point_ijk,
-                                            DTYPE_F64_t[:,:] coord_min,
-                                            DTYPE_F64_t dl,
-                                            GalaxyMapCustomDict galaxy_map,
-                                            DTYPE_INT64_t[:] galaxy_map_array,
-                                            Cell_ID_Memory cell_ID_mem,
-                                            NeighborMemory neighbor_mem,
-                                            DTYPE_F64_t[:,:] reference_point_xyz,
-                                            DTYPE_INT32_t current_shell
-                                            ):
-    """
-    
-    Deprecated and will be removed after verification this is unused.
-    
-    TODO: update names from ijk to pqr
-    
-    Description
-    ===========
-    
-    Only called once in _voidfinder_cython.main_algorithm()
-    
-    Finds first nearest neighbor for the given reference point
-    
-    NOTE:  This function is OK as a "find first only" setup because
-    we're only ever going to give it data points which are Cell centers
-    and not data points from w_coord, if we gave it a point from w_coord
-    it would always just return that same point which would be dumb, but
-    we're ok cause we're not gonna do that.
-    
-    
-    Parameters
-    ==========
-    
-    reference_point_xyz : ndarray of shape (1,3)
-        the point in xyz coordinates of whom we would like to find
-        the nearest neighbors for
-        
-    """
-    
-    
-    ################################################################################
-    # Convert our query point from xyz to pqr space
-    ################################################################################
-    
-    reference_point_ijk[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
-    reference_point_ijk[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
-    reference_point_ijk[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
-    
-    ################################################################################
-    # All the variables we need cdef'd
-    ################################################################################
-    #cdef DTYPE_INT32_t current_shell = -1
-    
-    #cdef DTYPE_B_t check_next_shell = True
-    
-    #cdef ITYPE_t neighbor_idx = 0
-    
-    #cdef DTYPE_F64_t neighbor_dist_xyz_sq = INFINITY
-    
-    #cdef DTYPE_F64_t neighbor_dist_xyz = INFINITY
-    
-    #cdef DTYPE_F64_t min_containing_radius_xyz
-    
-    cdef ITYPE_t cell_ID_idx
-    
-    cdef ITYPE_t offset, num_elements
-    
-    cdef OffsetNumPair curr_offset_num_pair
-    
-    #cdef DistIdxPair return_vals
-    
-    cdef ITYPE_t idx = 0
-    
-    #cdef DTYPE_F64_t dist_sq
-    
-    #cdef DTYPE_F64_t temp1
-    
-    #cdef DTYPE_F64_t temp2
-    
-    #cdef DTYPE_F64_t temp3
-    
-    cdef ITYPE_t potential_neighbor_idx
-    
-    #cdef DTYPE_F64_t[:] potential_neighbor_xyz
-    
-    #cdef DTYPE_INT64_t num_cell_IDs
-    
-    cdef DTYPE_INT64_t cell_start_row, cell_end_row
-    
-    cdef CELL_ID_t id1, id2, id3
-    
-    cdef DTYPE_INT32_t debug_counter = 0
-    
-    ################################################################################
-    # Iterate through the grid cells shell-by-shell growing outwards until we find
-    # the nearest neighbor to our reference_point_xyz
-    ################################################################################
-    
-    '''
-    _gen_shell_boundaries(shell_boundaries_xyz,
-                          cell_center_xyz,
-                          coord_min,
-                          dl,
-                          reference_point_ijk,
-                          current_shell)
-    
-    min_containing_radius_xyz = _min_contain_radius(shell_boundaries_xyz, 
-                                                    reference_point_xyz)
-    '''
-    cell_start_row, cell_end_row = _gen_shell(reference_point_ijk, 
-                                              current_shell,
-                                              cell_ID_mem,
-                                              galaxy_map)
-    
-    
-    #print("_gen_shell results: "+str(cell_end_row - cell_start_row)+" level: "+str(current_shell)+ \
-    #      " cell: "+str(reference_point_ijk[0,0])+","+str(reference_point_ijk[0,1])+","+str(reference_point_ijk[0,2]), flush=True)
-    ################################################################################
-    # When we iterate through the cell IDs below, we won't get any non-existent
-    # ones because the cell_ID_mem object has already checked the cell IDs against
-    # the galaxy map to confirm they are populated with galaxies
-    ################################################################################
-    for cell_ID_idx in range(<ITYPE_t>cell_start_row, <ITYPE_t>cell_end_row):
-        
-        id1 = cell_ID_mem.data[3*cell_ID_idx]
-        id2 = cell_ID_mem.data[3*cell_ID_idx+1]
-        id3 = cell_ID_mem.data[3*cell_ID_idx+2]
-        
-        curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
-        
-        offset = curr_offset_num_pair.offset
-        
-        num_elements = curr_offset_num_pair.num_elements
-        
-        for idx in range(num_elements):
-            
-            potential_neighbor_idx = <ITYPE_t>galaxy_map_array[offset+idx]
-            
-            neighbor_mem.append(potential_neighbor_idx)
-            
-            debug_counter += 1
-            
-            
-    #print("End _query_shell_radius_2, found: "+str(debug_counter), flush=True)
-                
-    return
 
 
 
@@ -2695,7 +2575,7 @@ cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk, 
                                                DTYPE_INT32_t level,
                                                Cell_ID_Memory cell_ID_mem,
-                                               GalaxyMapCustomDict galaxy_map,
+                                               GalaxyMap galaxy_map,
                                                ):
     """
     TODO: update names from ijk to pqr
@@ -2980,7 +2860,7 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
 cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, 
                              DTYPE_INT32_t level,
                              Cell_ID_Memory cell_ID_mem,
-                             GalaxyMapCustomDict galaxy_map
+                             GalaxyMap galaxy_map
                              ):
     """
     Description

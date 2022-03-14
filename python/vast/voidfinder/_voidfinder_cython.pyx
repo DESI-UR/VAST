@@ -28,16 +28,16 @@ from numpy.math cimport NAN, INFINITY
 from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 from ._voidfinder_cython_find_next cimport find_next_galaxy, \
-                                          not_in_mask, \
-                                          _query_first, \
-                                          DistIdxPair, \
-                                          Cell_ID_Memory, \
-                                          GalaxyMapCustomDict, \
-                                          HoleGridCustomDict, \
-                                          FindNextReturnVal, \
-                                          NeighborMemory, \
-                                          MaskChecker, \
-                                          GalaxyMap
+                                           not_in_mask, \
+                                           _query_first, \
+                                           DistIdxPair, \
+                                           Cell_ID_Memory, \
+                                           GalaxyMapCustomDict, \
+                                           HoleGridCustomDict, \
+                                           FindNextReturnVal, \
+                                           NeighborMemory, \
+                                           MaskChecker, \
+                                           GalaxyMap
                                           
 
 import time
@@ -604,9 +604,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                   galaxy_map.dl,
                                   galaxy_map.shell_boundaries_xyz,
                                   galaxy_map.cell_center_xyz,
-                                  galaxy_map.galaxy_map,
-                                  galaxy_map.galaxy_map_array,
-                                  galaxy_map.wall_galaxy_coords,
+                                  galaxy_map,
                                   cell_ID_mem,
                                   hole_center_memview)
         
