@@ -205,7 +205,7 @@ def SaveCheckpointFile(checkpoint_filepath,
 def get_common_divisors(values):
     
     
-    min_value = int(numpy.ceil(min(values)/2))
+    min_value = int(np.ceil(min(values)/2))
     
     divisors = []
     
@@ -236,7 +236,7 @@ def _hole_finder(galaxy_coords,
                  min_dist=None,
                  max_dist=None,
                  xyz_limits=None,
-                 check_only_empty_holes=True,
+                 check_only_empty_cells=True,
                  save_after=None,
                  use_start_checkpoint=False,
                  batch_size=1000,
@@ -499,9 +499,9 @@ def _hole_finder(galaxy_coords,
                 
                 raise ValueError(error_str)
             
-            common_divisors = numpy.array(common_divisors)
+            common_divisors = np.array(common_divisors)
             
-            argmin = numpy.abs(common_divisors - desired_length).argmin()
+            argmin = np.abs(common_divisors - desired_length).argmin()
             
             galaxy_map_grid_edge_length = float(common_divisors[argmin])
             
@@ -514,11 +514,11 @@ def _hole_finder(galaxy_coords,
             
             ngrid_galaxymap = box/galaxy_map_grid_edge_length
             
-            ceiled = numpy.ceil(ngrid_galaxymap)
+            ceiled = np.ceil(ngrid_galaxymap)
             
-            close_to_ceil = numpy.isclose(ngrid_galaxymap, ceiled)
+            close_to_ceil = np.isclose(ngrid_galaxymap, ceiled)
             
-            if numpy.all(close_to_ceil):
+            if np.all(close_to_ceil):
                 #Vals are good, just proceed with given
                 galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
             else:
@@ -536,6 +536,10 @@ def _hole_finder(galaxy_coords,
     if verbose > 0:
         
         print("Hole-growing Grid: ", hole_grid_shape, flush=True)
+        
+        print("Galaxy-searching Grid: ", galaxy_map_grid_shape)
+        
+        print("Galaxy-searching edge length: ", galaxy_map_grid_edge_length)
         
     ############################################################################
     
@@ -639,7 +643,7 @@ def _hole_finder(galaxy_coords,
     hole_cell_ID_dict = HoleGridCustomDict(hole_grid_shape,
                                            RESOURCE_DIR)
     
-    if check_only_empty_holes:
+    if check_only_empty_cells:
         
         #print("Num rows: ", len(mesh_indices))
     
@@ -657,7 +661,7 @@ def _hole_finder(galaxy_coords,
     
     if verbose > 0:
         
-        print("Number of nonempty hole cells: ", num_nonempty_hole_cells, 
+        print("Number of filtered out hole-growing cells: ", num_nonempty_hole_cells, 
               flush=True)
         
         print("Total slots in hole_cell_ID_dict: ", hole_cell_ID_dict.mem_length, flush=True)
@@ -875,6 +879,9 @@ def _hole_finder(galaxy_coords,
     # Calculate the number of cells we need to search
     #---------------------------------------------------------------------------
     n_empty_cells = hole_grid_shape[0]*hole_grid_shape[1]*hole_grid_shape[2] - num_nonempty_hole_cells
+    
+    if n_empty_cells == 0:
+        raise ValueError("Found 0 cells to grow holes in.  Either set 'check_only_empty_cells' to False or check your grid and grid edge length parameters")
     ############################################################################
     
     
@@ -1396,7 +1403,7 @@ def _hole_finder(galaxy_coords,
         if (curr_time - print_after_time) > print_after:
         
             print('Processed', num_cells_processed, 
-                  'cells of', n_empty_cells, "empty cells", 
+                  'cells of', n_empty_cells, " cells", 
                   str(round(curr_time - main_task_start_time, 2)), 
                   flush=True)
             
@@ -2395,7 +2402,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
             if (curr_time - print_after_time) > print_after:
             
                 print('Processed', num_cells_processed, 
-                      'cells of', n_empty_cells, "empty cells", 
+                      'cells of', n_empty_cells, " cells", 
                       str(round(curr_time - main_task_start_time, 2)), 
                       flush=True)
                 

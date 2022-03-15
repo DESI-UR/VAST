@@ -492,7 +492,7 @@ def find_voids(galaxy_coords_xyz,
                mask_resolution=None,
                dist_limits=None,
                xyz_limits=None,
-               check_only_empty_holes=True,
+               check_only_empty_cells=True,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
                min_maximal_radius=10.0,
@@ -700,7 +700,7 @@ def find_voids(galaxy_coords_xyz,
         might actually get a checkpoint at say 1,030,000.  If None, disables 
         saving the checkpoint file.
 
-    check_only_empty_holes : bool
+    check_only_empty_cells : bool
         whether or not to start growing a hole in a cell which has galaxies in
         it, aka "non-empty".  If True (default), don't grow holes in these cells.
     
@@ -746,6 +746,14 @@ def find_voids(galaxy_coords_xyz,
         raise ValueError("mask_type must be 'ra_dec_z', 'xyz', or 'periodic'")
     
     
+    if dist_limits is None:
+        min_dist = None
+        max_dist = None
+    else:
+        min_dist = dist_limits[0]
+        max_dist = dist_limits[1]
+    
+    
     
     print('Growing holes', flush=True)
         
@@ -764,10 +772,10 @@ def find_voids(galaxy_coords_xyz,
                                           mask_mode=mask_mode,
                                           mask=mask,
                                           mask_resolution=mask_resolution,
-                                          min_dist=dist_limits[0],
-                                          max_dist=dist_limits[1],
+                                          min_dist=min_dist,
+                                          max_dist=max_dist,
                                           xyz_limits=xyz_limits,
-                                          check_only_empty_holes=check_only_empty_holes,
+                                          check_only_empty_cells=check_only_empty_cells,
                                           save_after=save_after,
                                           use_start_checkpoint=use_start_checkpoint,
                                           batch_size=batch_size,
@@ -788,11 +796,11 @@ def find_voids(galaxy_coords_xyz,
         mask_checker = MaskChecker(mask_mode,
                                    survey_mask_ra_dec=mask.astype(np.uint8),
                                    n=mask_resolution,
-                                   rmin=dist_limits[0],
-                                   rmax=dist_limits[1],
+                                   rmin=min_dist,
+                                   rmax=max_dist,
                                    )
         
-    elif mask_mode == 1:
+    elif mask_mode in [1,2]:
         mask_checker = MaskChecker(mask_mode,
                                    xyz_limits=xyz_limits)
 

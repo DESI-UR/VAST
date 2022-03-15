@@ -1079,7 +1079,7 @@ cdef class HoleGridCustomDict:
                 
             first_try = False
     
-        if self.num_elements >= (<DTYPE_INT64_t>(0.90*self.mem_length)):
+        if self.num_elements >= (<DTYPE_INT64_t>(0.60*self.mem_length)):
             
             self.resize(2*self.mem_length)
             
@@ -1512,7 +1512,7 @@ cdef class GalaxyMapCustomDict:
                 
             first_try = False
     
-        if self.num_elements.value >= (<DTYPE_INT64_t>(0.90*self.mem_length)):
+        if self.num_elements.value >= (<DTYPE_INT64_t>(0.60*self.mem_length)):
             
             self.resize(2*self.mem_length)
             
