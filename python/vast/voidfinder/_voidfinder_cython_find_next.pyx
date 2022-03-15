@@ -34,7 +34,8 @@ from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 import time
 import os
 import tempfile
-from multiprocessing import RLock
+from multiprocessing import RLock, Value
+from ctypes import c_int64
 import mmap
 
 
@@ -1177,6 +1178,7 @@ cdef class HoleGridCustomDict:
         
         os.close(self.lookup_fd)
 
+
 cdef class GalaxyMapCustomDict:
     """
     Description
@@ -1258,6 +1260,7 @@ cdef class GalaxyMapCustomDict:
                         ("r", np.int16, ()),
                         ("offset", np.int64, ()),
                         ("num_elements", np.int64, ())]
+        # 1 + 2 + 2 + 2 + 8 + 8 = 23 bytes per element
         
         self.numpy_dtype = np.dtype(lookup_dtype, align=False)
         
@@ -1272,14 +1275,40 @@ cdef class GalaxyMapCustomDict:
         
         self.lookup_memory[:] = curr_element
         
-        self.num_elements = 0
+        #self.num_elements = 0
+        self.num_elements = Value(c_int64, 0, lock=False)
+        
+        self.process_local_num_elements = 0
         
         self.num_collisions = 0
             
             
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void refresh(self):
+        """
+        If someone has updated the underlying shared memory, need to refresh the size of our 
+        mappings.  Don't need to call the expensive resize() method, just refresh.
+        """
+        
+    
+        self.lookup_buffer.resize(self.lookup_buffer.size()) #resize to full file length
+        
+        self.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
+        
+        self.mem_length = self.lookup_buffer.size() // 23
+        
+        self.process_local_num_elements = self.num_elements.value
+        
+        # Whoever updated the memory needs to have also updated the self.num_elements value
+        # so we do not update it here
+        
+        
+        
     
     def __len__(self):
-        return self.num_elements
+        return self.num_elements.value
             
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -1366,7 +1395,7 @@ cdef class GalaxyMapCustomDict:
     cpdef OffsetNumPair getitem(self,
                                 CELL_ID_t i, 
                                 CELL_ID_t j, 
-                                CELL_ID_t k):
+                                CELL_ID_t k) except *:
         """
         TODO: update names to p-q-r
         """
@@ -1458,7 +1487,9 @@ cdef class GalaxyMapCustomDict:
                 
                 self.lookup_memory[curr_hash_addr] = out_element
                 
-                self.num_elements += 1
+                self.num_elements.value += 1
+                
+                self.process_local_num_elements += 1
                 
                 break
             
@@ -1481,7 +1512,7 @@ cdef class GalaxyMapCustomDict:
                 
             first_try = False
     
-        if self.num_elements >= (<DTYPE_INT64_t>(0.90*self.mem_length)):
+        if self.num_elements.value >= (<DTYPE_INT64_t>(0.90*self.mem_length)):
             
             self.resize(2*self.mem_length)
             
@@ -1532,9 +1563,10 @@ cdef class GalaxyMapCustomDict:
         # pointed to by self.lookup_fd.  Then point our self.lookup_memory memoryview
         # object to the extended version of where it was already pointing
         ################################################################################
-        self.lookup_buffer.close()
+        #self.lookup_buffer.close()
         
-        self.lookup_buffer = mmap.mmap(self.lookup_fd, lookup_buffer_length)
+        #self.lookup_buffer = mmap.mmap(self.lookup_fd, lookup_buffer_length)
+        self.lookup_buffer.resize(self.lookup_buffer.size()) #resize to full file length
         
         self.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
         
@@ -1545,7 +1577,9 @@ cdef class GalaxyMapCustomDict:
         
         self.lookup_memory[:] = curr_element
         
-        self.num_elements = 0
+        self.num_elements.value = 0
+        
+        self.process_local_num_elements = 0
         
         self.num_collisions = 0
         
@@ -1636,6 +1670,8 @@ cdef class GalaxyMap:
         
         self.cell_center_xyz = np.empty((1,3), dtype=np.float64)
         
+        self.update_lock = RLock()
+        
         ################################################################################
         # First, memmap the galaxy coordinate array
         ################################################################################
@@ -1715,8 +1751,47 @@ cdef class GalaxyMap:
                             CELL_ID_t i, 
                             CELL_ID_t j, 
                             CELL_ID_t k):
+        """
+        Return True when a cell actually contains galaxies.
+        Mostly for periodic mode - a cell will always exist
+        but we need to return False if it doesn't contain 
+        any galaxies, we can't just return True all the time.
+        
+        However, I believe we will always call contains on a cell
+        before we call getitem on that cell, which simplifies
+        getitem()
+        """
+        
+        cdef OffsetNumPair curr_item
                             
-        return self.galaxy_map.contains(i, j, k)
+        if self.mask_mode == 0 or self.mask_mode == 1:
+            
+            return self.galaxy_map.contains(i, j, k)
+        
+        elif self.mask_mode == 2:
+            
+            self.update_lock.acquire()
+            
+            if self.galaxy_map.process_local_num_elements != self.galaxy_map.num_elements.value:
+                self.galaxy_map.refresh()
+            
+            try:
+                curr_item = self.galaxy_map.getitem(i, j, k)
+                
+            except KeyError:
+                
+                self.add_cell_periodic(i, j, k)
+                
+                curr_item = self.galaxy_map.getitem(i, j, k)
+                
+                
+            self.update_lock.release()
+                
+            if curr_item.num_elements > 0:
+        
+                return True
+            else:
+                return False
         
         
         
@@ -1729,10 +1804,36 @@ cdef class GalaxyMap:
                                CELL_ID_t i, 
                                CELL_ID_t j, 
                                CELL_ID_t k):
-                                
-        return self.galaxy_map.getitem(i, j, k)
+                               
+        """
+        I believe we will always call contains() on a cell
+        before we call getitem() on that cell, so it should be
+        simple here
+        """
+        
+        cdef OffsetNumPair curr_item
         
         
+        if self.mask_mode == 0 or self.mask_mode == 1:
+        
+            return self.galaxy_map.getitem(i, j, k)
+        
+        elif self.mask_mode == 2:
+            
+            self.update_lock.acquire()
+            
+            if self.galaxy_map.process_local_num_elements != self.galaxy_map.num_elements.value:
+                self.galaxy_map.refresh()
+            
+            curr_item = self.galaxy_map.getitem(i, j, k)
+        
+            self.update_lock.release()
+            
+            return curr_item
+            
+        
+            
+            
         
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -1744,7 +1845,252 @@ cdef class GalaxyMap:
                       DTYPE_INT64_t offset,
                       DTYPE_INT64_t num_elements):
                        
+        # Right now we don't have any multiprocessing synchronization
+        # on setitem() because its only being used in single-threaded
+        # or already-locked locations
         self.galaxy_map.setitem(i, j, k, offset, num_elements)
+        
+        
+        
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void add_cell_periodic(self,
+                                CELL_ID_t i,
+                                CELL_ID_t j,
+                                CELL_ID_t k):
+        """
+        This method is assumed to be called within the context
+        of the update_lock for synchronization purposes.
+        
+        We just called galaxy_map.getitem(i,j,k) and it raised a KeyError meaning
+        the cell didn't exist.
+        
+        Its now our job to add that cell to the galaxy map, add 0 or more galaxies
+        to the wall_galaxies_coords array (with appropriate SHIFT), and add new idxs 
+        to the galaxy_map_array and then the appropriate (offset, num_elements) 
+        into the galaxy_map_cell_dict
+        """
+        
+        cdef CELL_ID_t source_i, source_j, source_k
+        
+        cdef DTYPE_B_t in_bounds = 0
+        
+        cdef OffsetNumPair curr_item
+        
+        cdef DTYPE_INT64_t n_bytes, new_offset, num_new_indices, old_num_gals
+        
+        cdef ITYPE_t idx, kdx, gma_idx, curr_gal_idx, out_gma_idx
+        
+        cdef DTYPE_F64_t[:] source_center_xyz, curr_center_xyz, shift_xyz
+        
+        
+        
+        
+        
+        ################################################################################
+        # We can figure out if the cell requested is part of the source data 
+        # (aka within the xyz_limits) or a virtual/external cell
+        # Figure that out and also map the requested i,j,k to its source i,j,k
+        ################################################################################
+        if i >= 0 and i < self.galaxy_map.i_dim and \
+           j >= 0 and j < self.galaxy_map.j_dim and \
+           k >= 0 and k < self.galaxy_map.k_dim:
+            in_bounds = 1
+        
+        #Since cython.cdivision(True) have to check for less than 0
+        source_i = i % self.galaxy_map.i_dim
+        if source_i < 0:
+            source_i += self.galaxy_map.i_dim
+            
+        source_j = j % self.galaxy_map.j_dim
+        if source_j < 0:
+            source_j += self.galaxy_map.j_dim
+            
+        source_k = k % self.galaxy_map.k_dim
+        if source_k < 0:
+            source_k += self.galaxy_map.k_dim
+        
+        
+        ################################################################################
+        # Next, make sure our own internal references/buffers are up to date
+        # self.galaxy_map.refresh() has already been called within the context
+        # of the current lock acquire so that doesn't need to be called
+        ################################################################################
+        
+        n_bytes = self.wall_galaxy_buffer.size()
+        
+        self.wall_galaxy_buffer.resize(n_bytes)
+        
+        galaxy_coords = np.frombuffer(self.wall_galaxy_buffer, dtype=np.float64)
+        
+        self.num_wall_galaxies = n_bytes/(3*8)
+        
+        galaxy_coords.shape = (self.num_wall_galaxies, 3)
+        
+        self.wall_galaxy_coords = galaxy_coords
+        
+        
+        
+        
+        n_bytes = self.galaxy_map_array_buffer.size()
+        
+        self.galaxy_map_array_buffer.resize(n_bytes)
+        
+        galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
+        
+        self.num_gma_indices = n_bytes/8
+        
+        galaxy_map_array.shape = (self.num_gma_indices,)
+        
+        self.galaxy_map_array = galaxy_map_array
+        
+        
+        ################################################################################
+        # Now that all our shared memory values are current, we can
+        # add the new rows (or 0 new rows)
+        #
+        # If in_bounds == 1, we are adding a cell that was in our original survey
+        # but had no galaxies - we know this because if the cell we're currently
+        # adding is within the bounds, we're only adding it because it wasn't added
+        # in the creation of GalaxyMapCustomDict because it had 0 galaxies in it
+        ################################################################################
+        new_offset = self.num_gma_indices
+        
+        old_num_gals = self.wall_galaxy_coords.shape[0]
+        
+        if in_bounds == 1:
+            
+            num_new_indices = 0
+            
+        # We were asked to add a virtual cell
+        elif in_bounds == 0:
+            
+        
+            # Try to get the source i,j,k from the dict, if that fails we know
+            # it also has 0 elements
+            try:
+                curr_item = self.galaxy_map.getitem(source_i, source_j, source_k)
+                
+            except KeyError:
+            
+                #If the source ijk lookup fails, we know it had 0 galaxies
+                num_new_indices = 0
+                
+            else:
+                
+                # If we got a valid offset,num_elements then we need to calculate how much
+                # space they take in the wall_galaxy_coords and galaxy_map_array and copy
+                # over the new chunk from the old galaxies
+                # WITH GALACTIC SHIFT
+                
+                #new_offset = curr_item.offset
+                num_new_indices = curr_item.num_elements
+                
+                # If we picked a source cell that already existed but had 0 elements we
+                # dont have to calculate all this stuff
+                if num_new_indices > 0:
+                    
+                    wall_gal_nbytes = 3*8*num_new_indices
+                    gal_array_nbytes = 8*num_new_indices
+                    
+                    
+                    # Extend our shared memory, these guys are basically being "appended" to
+                    
+                    self.wall_galaxy_buffer.resize(self.wall_galaxy_buffer.size()+wall_gal_nbytes)
+            
+                    galaxy_coords = np.frombuffer(self.wall_galaxy_buffer, dtype=np.float64)
+                    
+                    self.num_wall_galaxies = self.wall_galaxy_buffer.size()/(3*8)
+                    
+                    galaxy_coords.shape = (self.num_wall_galaxies, 3)
+                    
+                    self.wall_galaxy_coords = galaxy_coords
+                    
+                    
+                    
+                    self.galaxy_map_array_buffer.resize(self.galaxy_map_array_buffer.size()+gal_array_nbytes)
+                    
+                    galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
+                    
+                    self.num_gma_indices = self.galaxy_map_array_buffer.size()/8
+                    
+                    galaxy_map_array.shape = (self.num_gma_indices,)
+                    
+                    self.galaxy_map_array = galaxy_map_array
+                    
+                    # Now we need to calculate the shift in position between the source ijk 
+                    # and the current ijk we're being asked to fill to add it to all the galaxies 
+                    # we are copying over
+                    
+                    source_center_xyz = np.zeros(3, dtype=np.float64)
+                    curr_center_xyz = np.zeros(3, dtype=np.float64)
+                    shift_xyz = np.zeros(3, dtype=np.float64)
+                    
+                    
+                    
+                    
+                    source_center_xyz[0] = (<DTYPE_F64_t>source_i + 0.5)*self.dl + self.coord_min[0,0]
+                    source_center_xyz[1] = (<DTYPE_F64_t>source_j + 0.5)*self.dl + self.coord_min[0,1]
+                    source_center_xyz[2] = (<DTYPE_F64_t>source_k + 0.5)*self.dl + self.coord_min[0,2]
+                    
+                    curr_center_xyz[0] = (<DTYPE_F64_t>i + 0.5)*self.dl + self.coord_min[0,0]
+                    curr_center_xyz[1] = (<DTYPE_F64_t>j + 0.5)*self.dl + self.coord_min[0,1]
+                    curr_center_xyz[2] = (<DTYPE_F64_t>k + 0.5)*self.dl + self.coord_min[0,2]
+                    
+                    
+                    
+                    shift_xyz[0] = curr_center_xyz[0] - source_center_xyz[0]
+                    shift_xyz[1] = curr_center_xyz[1] - source_center_xyz[1]
+                    shift_xyz[2] = curr_center_xyz[2] - source_center_xyz[2]
+                    
+                    
+                    
+                    # We now have the new space, but we need to fill it in
+                    # Since we're appending to both the wall_galaxy_coords and galaxy_map_array
+                    # the output index for both will be the same now
+                    
+                    for idx, gma_idx in enumerate(range(curr_item.offset, curr_item.offset+num_new_indices)):
+                    
+                        curr_gal_idx = self.galaxy_map_array[gma_idx]
+                        
+                        out_gma_idx = new_offset + idx
+                        
+                        #out_gal_idx = old_num_gals + idx
+                        
+                        
+                        for kdx in range(3):
+                        
+                            self.wall_galaxy_coords[out_gma_idx,kdx] = self.wall_galaxy_coords[curr_gal_idx,kdx] + shift_xyz[kdx] # PLUS SHIFT
+                        
+                        self.galaxy_map_array[out_gma_idx] = out_gma_idx
+                        
+                
+                
+                
+                
+            
+            
+        self.galaxy_map.setitem(i, j, k, new_offset, num_new_indices)
+        
+        
+        
+        #self.galaxy_map.lookup_buffer.close()
+        
+        #self.galaxy_map.lookup_buffer = mmap.mmap(self.lookup_fd, lookup_buffer_length)
+        
+        #self.galaxy_map.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
+        
+        
+        
+        
+        
+            
+        
+        #self.update_lock.release()
+        
+        
+        
         
         
         
@@ -1758,6 +2104,9 @@ cdef class GalaxyMap:
         self.galaxy_map_array_buffer.close()
         
         os.close(self.gma_fd)
+        
+        
+        
         
 
 cdef class NeighborMemory:

@@ -144,13 +144,17 @@ cdef class GalaxyMapCustomDict:
     
     cdef object numpy_dtype
          
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod, num_elements, lookup_fd
+    cdef object num_elements
+         
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod, lookup_fd, process_local_num_elements
     
     cdef public LOOKUPMEM_t[:] lookup_memory
     
     cdef public DTYPE_INT64_t num_collisions
     
     cdef public DTYPE_INT64_t mem_length
+    
+    cdef public void refresh(self)
 
     cdef public DTYPE_INT64_t custom_hash(self, 
                                           CELL_ID_t i, 
@@ -165,7 +169,7 @@ cdef class GalaxyMapCustomDict:
     cpdef public OffsetNumPair getitem(self,
                                        CELL_ID_t i, 
                                        CELL_ID_t j, 
-                                       CELL_ID_t k)
+                                       CELL_ID_t k) except *
 
     cpdef public void setitem(self, 
                               CELL_ID_t i,
@@ -179,6 +183,8 @@ cdef class GalaxyMapCustomDict:
 
 cdef class GalaxyMap:
 
+    cdef public object update_lock
+    
     cdef public DTYPE_INT32_t mask_mode
     
     cdef public DTYPE_F64_t[:,:] wall_galaxy_coords
@@ -230,6 +236,12 @@ cdef class GalaxyMap:
                              CELL_ID_t k, 
                              DTYPE_INT64_t offset,
                              DTYPE_INT64_t num_elements)
+
+    cdef void add_cell_periodic(self,
+                                CELL_ID_t i,
+                                CELL_ID_t j,
+                                CELL_ID_t k)
+ 
 
 
 cdef class NeighborMemory:
