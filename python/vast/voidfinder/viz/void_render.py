@@ -2408,11 +2408,12 @@ class VoidRender(app.Canvas):
             
             self.press_once_commands[event.text]()
             
-        for curr_key in self.keyboard_active:
-            
-            if self.keyboard_active[curr_key]:
-    
-                self.keyboard_commands[curr_key]()
+        #These are now called in on_timer()
+        #for curr_key in self.keyboard_active:
+        #    
+        #    if self.keyboard_active[curr_key]:
+        #   
+        #        self.keyboard_commands[curr_key]()
             
             
     def on_key_release(self, event):
@@ -2471,7 +2472,7 @@ class VoidRender(app.Canvas):
         ######################################################################
         # Run any active keyboard commands
         ######################################################################
-        if time.time() - self.last_keypress_time > 0.02:
+        if time.time() - self.last_keypress_time > 0.01:
             
             for curr_key in self.keyboard_active:
             
@@ -2480,6 +2481,13 @@ class VoidRender(app.Canvas):
                     self.keyboard_commands[curr_key]()
                     
                     requires_update = True
+                    
+                    
+            if self.mouse_state == 1:
+                requires_update = True
+                    
+            if requires_update:
+                self.last_keypress_time = time.time()
                     
         ######################################################################
         # If we did anything that requires a redraw, update the uniform
@@ -2624,7 +2632,6 @@ class VoidRender(app.Canvas):
                 self.rotate_camera(1, 1.0)
             
             
-            pass
             
         elif self.mouse_state == 1 and event.button == 2:
             
