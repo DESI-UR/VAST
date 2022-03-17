@@ -111,7 +111,7 @@ class TestVoidFinder(unittest.TestCase):
                                           'test_', 
                                           '', 
                                           dist_metric='redshift', 
-                                          hole_grid_edge_length=1.0)
+                                          )
 
         # Check the wall galaxy coordinates
         gal_tree = neighbors.KDTree(self.gal)
