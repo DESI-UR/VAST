@@ -211,6 +211,8 @@ cdef class GalaxyMap:
     
     cdef public GalaxyMapCustomDict galaxy_map
     
+    cdef public GalaxyMapCustomDict galaxy_map_2
+    
     cdef public DTYPE_INT64_t[:] galaxy_map_array
     
     cdef public object galaxy_map_array_buffer
@@ -220,7 +222,7 @@ cdef class GalaxyMap:
     cdef public DTYPE_INT64_t gma_fd
     
     
-    cdef public DTYPE_B_t contains(self,
+    cpdef public DTYPE_B_t contains(self,
                                    CELL_ID_t i, 
                                    CELL_ID_t j, 
                                    CELL_ID_t k)
@@ -237,10 +239,15 @@ cdef class GalaxyMap:
                              DTYPE_INT64_t offset,
                              DTYPE_INT64_t num_elements)
 
+
+    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k)
+    
     cdef void add_cell_periodic(self,
                                 CELL_ID_t i,
                                 CELL_ID_t j,
                                 CELL_ID_t k)
+ 
+    cpdef void refresh(self)
  
 
 

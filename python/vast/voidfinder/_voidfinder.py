@@ -45,7 +45,7 @@ from ctypes import c_int64, c_double, c_float
 
 
 
-
+from .viz import VoidRender
 
     
     
@@ -514,13 +514,17 @@ def _hole_finder(galaxy_coords,
             
             ngrid_galaxymap = box/galaxy_map_grid_edge_length
             
-            ceiled = np.ceil(ngrid_galaxymap)
+            rounded = np.rint(ngrid_galaxymap)
             
-            close_to_ceil = np.isclose(ngrid_galaxymap, ceiled)
+            print(rounded)
             
-            if np.all(close_to_ceil):
+            close_to_round = np.isclose(ngrid_galaxymap, rounded)
+            
+            print(close_to_round)
+            
+            if np.all(close_to_round):
                 #Vals are good, just proceed with given
-                galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+                galaxy_map_grid_shape = tuple(np.rint(ngrid_galaxymap).astype(int))
             else:
                 #Attempt to adjust galaxy_map_grid_edge_length
                 error_str = """The provided combination of xyz_limits and galaxy_map_grid_edge length
@@ -723,8 +727,8 @@ def _hole_finder(galaxy_coords,
     # galaxy_map_array tell us the rows in the main galaxy_coords array where 
     # the galaxies in our p-q-r cell of interest are.
     #---------------------------------------------------------------------------
-    galaxy_search_cell_dict = GalaxyMapCustomDict(hole_grid_shape,
-                                     RESOURCE_DIR)
+    galaxy_search_cell_dict = GalaxyMapCustomDict(galaxy_map_grid_shape,
+                                                  RESOURCE_DIR)
     
     offset = 0
     
@@ -757,6 +761,45 @@ def _hole_finder(galaxy_coords,
                            galaxy_map_grid_edge_length,
                            galaxy_search_cell_dict,
                            galaxy_map_array)
+    
+    
+    
+    if verbose > 0:
+        
+        print("Total slots in galaxy map: ", galaxy_search_cell_dict.mem_length, flush=True)
+        
+        print("Num gma indices: ", galaxy_map.num_gma_indices, flush=True)
+    
+    
+    if mask_mode == 2:
+        #Brute force all the cells including a shell around the survey when in
+        #periodic mode
+        for i in range(-1, galaxy_map_grid_shape[0]+1):
+            for j in range(-1, galaxy_map_grid_shape[1]+1):
+                for k in range(-1, galaxy_map_grid_shape[2]+1):
+                    
+                    #Yes using contains not setitem here
+                    galaxy_map.contains(i,j,k)
+                
+                
+    
+    
+    
+    
+    
+    
+    '''
+    viz = VoidRender(
+                 
+                 galaxy_xyz=galaxy_coords,
+                 wall_galaxy_xyz=galaxy_map.wall_galaxy_coords,
+                 galaxy_display_radius=10,
+                 SPHERE_TRIANGULARIZATION_DEPTH=3,
+                 canvas_size=(1600,1200))
+
+    viz.run()
+    '''
+    
     
     
     
@@ -1194,11 +1237,18 @@ def _hole_finder(galaxy_coords,
         if verbose > 0:
             print("Running single-process mode,", str(num_cpus), "cpus", flush=True)
         
+        main_task_start_time = time.time()
+        
         #Single process mode
         _hole_finder_worker(0, 
                             ijk_start, 
                             write_start, 
                             config_object)
+        
+        if verbose > 0:
+            print("Main task finish time:", time.time() - main_task_start_time, 
+                      flush=True)
+        
     
     worker_start_time = time.time()
     ############################################################################
@@ -1547,8 +1597,9 @@ def _hole_finder(galaxy_coords,
     #---------------------------------------------------------------------------
     if verbose > 0:
         
-        print("Main task finish time:", time.time() - main_task_start_time, 
-              flush=True)
+        if num_cpus > 1:
+            print("Main task finish time:", time.time() - main_task_start_time, 
+                  flush=True)
     
     
     if num_cpus > 1:
@@ -2493,7 +2544,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     galaxy_map.close()
     
-    print("WORKER EXITING GRACEFULLY", worker_idx, flush=True)
+    if verbose > 1:
+        print("WORKER EXITING GRACEFULLY", worker_idx, flush=True)
     ############################################################################
 
     

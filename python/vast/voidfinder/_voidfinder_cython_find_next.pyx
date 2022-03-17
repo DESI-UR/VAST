@@ -42,6 +42,10 @@ import mmap
 
 
 
+cdef DTYPE_F64_t RtoD = 180./np.pi
+cdef DTYPE_F64_t DtoR = np.pi/180.
+cdef DTYPE_F64_t dec_offset = -90
+
 
 
 
@@ -311,8 +315,6 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         
         neighbor_mem.next_neigh_idx = 0
         
-        #print("Loc-C1", flush=True)
-        
         _query_shell_radius(galaxy_tree.reference_point_ijk,
                             galaxy_tree.coord_min,
                             galaxy_tree.dl, 
@@ -322,21 +324,6 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                             temp_hole_center_memview, 
                             search_radius)
         
-        #print("Loc-C2", flush=True)
-        
-        '''
-        
-        _query_shell_radius_2(galaxy_tree.reference_point_ijk,
-                                galaxy_tree.coord_min,
-                                galaxy_tree.dl,
-                                galaxy_tree.galaxy_map,
-                                galaxy_tree.galaxy_map_array,
-                                cell_ID_mem,
-                                neighbor_mem,
-                                hole_center_memview,
-                                curr_level
-                                )
-        '''
         #When we're looping through, keep track of the last ijk so we can track whether or not
         #we have already queried this "level" with respect to the hole_center on next loop and
         #short circuit if the movement of length dr didn't move us into a new ijk cell                        
@@ -557,11 +544,6 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
 
 
 
-
-
-cdef DTYPE_F64_t RtoD = 180./np.pi
-cdef DTYPE_F64_t DtoR = np.pi/180.
-cdef DTYPE_F64_t dec_offset = -90
 
 
 
@@ -1743,14 +1725,32 @@ cdef class GalaxyMap:
         self.gma_fd = gma_fd
         
         
+        ################################################################################
+        # In periodic mode, create a secondary galaxy map for the dynamic portion
+        # of cell lookups
+        ################################################################################
+        
+        if self.mask_mode == 2:
+            
+            grid_dims = (self.galaxy_map.i_dim, self.galaxy_map.j_dim, self.galaxy_map.k_dim)
+            
+            grid_dims_inner = (self.galaxy_map.i_dim -1, self.galaxy_map.j_dim - 1, self.galaxy_map.k_dim - 1)
+            
+            starting_cells = np.prod(grid_dims) - np.prod(grid_dims_inner)
+            
+            self.galaxy_map_2 = GalaxyMapCustomDict(grid_dims, resource_dir, 2*starting_cells)
+        
+        
+        
+        
         
     @cython.boundscheck(False)
     @cython.wraparound(False)
     @cython.cdivision(True)
-    cdef DTYPE_B_t contains(self,
-                            CELL_ID_t i, 
-                            CELL_ID_t j, 
-                            CELL_ID_t k):
+    cpdef DTYPE_B_t contains(self,
+                             CELL_ID_t i, 
+                             CELL_ID_t j, 
+                             CELL_ID_t k):
         """
         Return True when a cell actually contains galaxies.
         Mostly for periodic mode - a cell will always exist
@@ -1763,18 +1763,21 @@ cdef class GalaxyMap:
         """
         
         cdef OffsetNumPair curr_item
-                            
+        
+        cdef DTYPE_B_t in_bounds
+        
         if self.mask_mode == 0 or self.mask_mode == 1:
             
             return self.galaxy_map.contains(i, j, k)
         
         elif self.mask_mode == 2:
-            
+            '''
             self.update_lock.acquire()
             
             if self.galaxy_map.process_local_num_elements != self.galaxy_map.num_elements.value:
                 self.galaxy_map.refresh()
-            
+                self.refresh()
+                
             try:
                 curr_item = self.galaxy_map.getitem(i, j, k)
                 
@@ -1788,10 +1791,48 @@ cdef class GalaxyMap:
             self.update_lock.release()
                 
             if curr_item.num_elements > 0:
-        
+                
                 return True
             else:
+                
                 return False
+            '''
+            
+            in_bounds = self.cell_in_source(i, j, k)
+            
+            if in_bounds:
+                
+                
+                try:
+                
+                    return self.galaxy_map.contains(i,j,k)
+                except KeyError:
+                    print("Should not be getting keyerror: ", i,j,k)
+                    
+            else:
+                self.update_lock.acquire()
+                if self.galaxy_map_2.process_local_num_elements != self.galaxy_map_2.num_elements.value:
+                    self.galaxy_map_2.refresh()
+                    self.refresh()
+                try:
+                    curr_item = self.galaxy_map_2.getitem(i, j, k)
+                    
+                except KeyError:
+                    
+                    self.add_cell_periodic(i, j, k)
+                    
+                    curr_item = self.galaxy_map_2.getitem(i, j, k)
+                    
+                    
+                self.update_lock.release()
+                    
+                if curr_item.num_elements > 0:
+                    
+                    return True
+                else:
+                    
+                    return False
+            
         
         
         
@@ -1813,6 +1854,8 @@ cdef class GalaxyMap:
         
         cdef OffsetNumPair curr_item
         
+        cdef DTYPE_B_t in_bounds
+        
         
         if self.mask_mode == 0 or self.mask_mode == 1:
         
@@ -1820,16 +1863,36 @@ cdef class GalaxyMap:
         
         elif self.mask_mode == 2:
             
+            '''
             self.update_lock.acquire()
             
             if self.galaxy_map.process_local_num_elements != self.galaxy_map.num_elements.value:
                 self.galaxy_map.refresh()
+                self.refresh()
             
             curr_item = self.galaxy_map.getitem(i, j, k)
         
             self.update_lock.release()
             
             return curr_item
+            '''
+            
+            in_bounds = self.cell_in_source(i, j, k)
+            
+            if in_bounds:
+                return self.galaxy_map.getitem(i, j, k)
+            else:
+                self.update_lock.acquire()
+            
+                if self.galaxy_map_2.process_local_num_elements != self.galaxy_map_2.num_elements.value:
+                    self.galaxy_map_2.refresh()
+                    self.refresh()
+                
+                curr_item = self.galaxy_map_2.getitem(i, j, k)
+            
+                self.update_lock.release()
+                
+                return curr_item
             
         
             
@@ -1851,6 +1914,26 @@ cdef class GalaxyMap:
         self.galaxy_map.setitem(i, j, k, offset, num_elements)
         
         
+        
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k):
+        """
+        Return True if the cell is in the xyz_limits and false if its
+        just part of the periodic infinity
+        """
+    
+        cdef DTYPE_B_t in_bounds = 0
+        
+        if i >= 0 and i < self.galaxy_map.i_dim and \
+           j >= 0 and j < self.galaxy_map.j_dim and \
+           k >= 0 and k < self.galaxy_map.k_dim:
+            in_bounds = 1
+            
+        return in_bounds
+    
+    
         
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -1893,10 +1976,13 @@ cdef class GalaxyMap:
         # (aka within the xyz_limits) or a virtual/external cell
         # Figure that out and also map the requested i,j,k to its source i,j,k
         ################################################################################
+        '''
         if i >= 0 and i < self.galaxy_map.i_dim and \
            j >= 0 and j < self.galaxy_map.j_dim and \
            k >= 0 and k < self.galaxy_map.k_dim:
             in_bounds = 1
+        '''
+        in_bounds = self.cell_in_source(i,j,k)
         
         #Since cython.cdivision(True) have to check for less than 0
         source_i = i % self.galaxy_map.i_dim
@@ -1918,32 +2004,7 @@ cdef class GalaxyMap:
         # of the current lock acquire so that doesn't need to be called
         ################################################################################
         
-        n_bytes = self.wall_galaxy_buffer.size()
-        
-        self.wall_galaxy_buffer.resize(n_bytes)
-        
-        galaxy_coords = np.frombuffer(self.wall_galaxy_buffer, dtype=np.float64)
-        
-        self.num_wall_galaxies = n_bytes/(3*8)
-        
-        galaxy_coords.shape = (self.num_wall_galaxies, 3)
-        
-        self.wall_galaxy_coords = galaxy_coords
-        
-        
-        
-        
-        n_bytes = self.galaxy_map_array_buffer.size()
-        
-        self.galaxy_map_array_buffer.resize(n_bytes)
-        
-        galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
-        
-        self.num_gma_indices = n_bytes/8
-        
-        galaxy_map_array.shape = (self.num_gma_indices,)
-        
-        self.galaxy_map_array = galaxy_map_array
+        self.refresh()
         
         
         ################################################################################
@@ -1970,6 +2031,8 @@ cdef class GalaxyMap:
             # Try to get the source i,j,k from the dict, if that fails we know
             # it also has 0 elements
             try:
+                
+                #Keep galaxy_map not galaxy_map_2 here because it contains all the source
                 curr_item = self.galaxy_map.getitem(source_i, source_j, source_k)
                 
             except KeyError:
@@ -1986,6 +2049,7 @@ cdef class GalaxyMap:
                 
                 #new_offset = curr_item.offset
                 num_new_indices = curr_item.num_elements
+                
                 
                 # If we picked a source cell that already existed but had 0 elements we
                 # dont have to calculate all this stuff
@@ -2045,7 +2109,6 @@ cdef class GalaxyMap:
                     shift_xyz[2] = curr_center_xyz[2] - source_center_xyz[2]
                     
                     
-                    
                     # We now have the new space, but we need to fill it in
                     # Since we're appending to both the wall_galaxy_coords and galaxy_map_array
                     # the output index for both will be the same now
@@ -2056,9 +2119,6 @@ cdef class GalaxyMap:
                         
                         out_gma_idx = new_offset + idx
                         
-                        #out_gal_idx = old_num_gals + idx
-                        
-                        
                         for kdx in range(3):
                         
                             self.wall_galaxy_coords[out_gma_idx,kdx] = self.wall_galaxy_coords[curr_gal_idx,kdx] + shift_xyz[kdx] # PLUS SHIFT
@@ -2066,31 +2126,45 @@ cdef class GalaxyMap:
                         self.galaxy_map_array[out_gma_idx] = out_gma_idx
                         
                 
-                
-                
-                
-            
-            
-        self.galaxy_map.setitem(i, j, k, new_offset, num_new_indices)
+        self.galaxy_map_2.setitem(i, j, k, new_offset, num_new_indices)
         
-        
-        
-        #self.galaxy_map.lookup_buffer.close()
-        
-        #self.galaxy_map.lookup_buffer = mmap.mmap(self.lookup_fd, lookup_buffer_length)
-        
-        #self.galaxy_map.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
+        return
         
         
         
         
+    cpdef void refresh(self):
+        """
+        Resize the shared memory for our wall galaxy buffer and
+        galaxy map array
+        """
         
-            
+        n_bytes = self.wall_galaxy_buffer.size()
         
-        #self.update_lock.release()
+        self.wall_galaxy_buffer.resize(n_bytes)
+        
+        galaxy_coords = np.frombuffer(self.wall_galaxy_buffer, dtype=np.float64)
+        
+        self.num_wall_galaxies = n_bytes/(3*8)
+        
+        galaxy_coords.shape = (self.num_wall_galaxies, 3)
+        
+        self.wall_galaxy_coords = galaxy_coords
         
         
         
+        
+        n_bytes = self.galaxy_map_array_buffer.size()
+        
+        self.galaxy_map_array_buffer.resize(n_bytes)
+        
+        galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
+        
+        self.num_gma_indices = n_bytes/8
+        
+        galaxy_map_array.shape = (self.num_gma_indices,)
+        
+        self.galaxy_map_array = galaxy_map_array
         
         
         
@@ -3012,6 +3086,9 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
         
         if <DTYPE_INT64_t>level <= cell_ID_mem.max_level_available:
             
+            
+            #print("_gen_cell shortcutting on cell ", center_ijk[0,0], center_ijk[0,1], center_ijk[0,2], level, flush=True)
+            
             return cell_ID_mem.level_start_idx[level], cell_ID_mem.level_stop_idx[level]
     
         else:
@@ -3067,6 +3144,9 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
     
         cell_ID_mem.level_stop_idx[level] = cell_ID_mem.next_unused_row_idx
         
+        
+        #print("_gen_cell level 0 shortcut on cell ", center_ijk[0,0], center_ijk[0,1], center_ijk[0,2], level, flush=True)
+        
         return cell_ID_mem.level_start_idx[level], cell_ID_mem.level_stop_idx[level]
     
     ################################################################################
@@ -3102,7 +3182,7 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 
             out_i = <CELL_ID_t>(-level) + center_i
             
-            if out_i >= 0 and galaxy_map.contains(out_i, out_j, out_k):
+            if galaxy_map.contains(out_i, out_j, out_k):
             
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
@@ -3111,7 +3191,6 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 out_idx += 3
                 num_written += 1
                 
-    #print("Loc-E5", flush=True)
     ################################################################################
     # j dimension
     # Next do the 2 "planes" at the "j +/- level" coordinates, except for the edges
@@ -3125,13 +3204,19 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
             out_j = <CELL_ID_t>level + center_j
             out_k = <CELL_ID_t>k + center_k
             
-            
-            #print("Loc-F1: "+str(out_i)+" "+str(out_j)+" "+str(out_k), flush=True)
+            if galaxy_map.contains(out_i, out_j, out_k):
+                
+                cell_ID_mem.data[out_idx] = out_i
+                cell_ID_mem.data[out_idx+1] = out_j
+                cell_ID_mem.data[out_idx+2] = out_k
+                
+                out_idx += 3
+                num_written += 1
+                
+            out_j = <CELL_ID_t>(-level) + center_j
             
             if galaxy_map.contains(out_i, out_j, out_k):
                 
-                #print("Loc-F2", flush=True)
-            
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
@@ -3139,22 +3224,6 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 out_idx += 3
                 num_written += 1
                 
-            #print("Loc-F3", flush=True)
-                
-            out_j = <CELL_ID_t>(-level) + center_j
-        
-            if out_j >= 0 and galaxy_map.contains(out_i, out_j, out_k):
-            
-                cell_ID_mem.data[out_idx] = out_i
-                cell_ID_mem.data[out_idx+1] = out_j
-                cell_ID_mem.data[out_idx+2] = out_k
-                
-                out_idx += 3
-                num_written += 1
-                
-                
-    
-    #print("Loc-E6", flush=True)
     
     ################################################################################
     # k dimension
@@ -3171,7 +3240,7 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
             out_k = <CELL_ID_t>level + center_k
             
             if galaxy_map.contains(out_i, out_j, out_k):
-            
+                
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
@@ -3180,15 +3249,18 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 num_written += 1
                 
             out_k = <CELL_ID_t>(-level) + center_k
-        
-            if out_k >= 0 and galaxy_map.contains(out_i, out_j, out_k):
             
+            if galaxy_map.contains(out_i, out_j, out_k):
+                
                 cell_ID_mem.data[out_idx] = out_i
                 cell_ID_mem.data[out_idx+1] = out_j
                 cell_ID_mem.data[out_idx+2] = out_k
                 
                 out_idx += 3
                 num_written += 1
+            
+            
+    #print("_gen_shell called on ", center_i, center_j, center_k, " with level", level, "written cells ", num_written, flush=True)
             
             
     cell_ID_mem.next_unused_row_idx += num_written
