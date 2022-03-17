@@ -159,8 +159,8 @@ class TestVoidFinder(unittest.TestCase):
             remove_boolean = np.logical_or(remove_boolean, (d < holes['r'][i]))
 
         find_voids(TestVoidFinder.wall[~remove_boolean], 
-                   np.min(self.gal, axis=0), 
-                   TestVoidFinder.grid_shape, 
+                   #np.min(self.gal, axis=0), 
+                   #TestVoidFinder.grid_shape, 
                    'test_', 
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
