@@ -75,10 +75,7 @@ def filter_galaxies(galaxy_table,
     ==========
     
     galaxy_table : astropy.table of shape (N,?)
-        variable number of required columns.  If doing magnitude cut, must include
-        'rabsmag' column. If distance metric is 'comoving', must include 'Rgal'
-        column, otherwise must include 'redshift'.  Also must always include 'ra' 
-        and 'dec'
+        variable number of required columns.  If doing magnitude cut, must include 'rabsmag' column. If distance metric is 'comoving', must include 'Rgal' column, otherwise must include 'redshift'.  Also must always include 'ra' and 'dec'
         
     survey_name : str
         Name of the galxy catalog, string value to prepend or append to output names
@@ -87,41 +84,34 @@ def filter_galaxies(galaxy_table,
         Directory path for output files
         
     mag_cut : bool
-        whether or not to cut on magnitude, removing galaxies less than
-        magnitude_limit
+        whether or not to cut on magnitude, removing galaxies less than magnitude_limit
 
     dist_limits : list of length 2
         [Minimum distance, maximum distance] of galaxy sample (in units of Mpc/h)
         
     magnitude_limit : float
         value at which to perform magnitude cut
-        
+
     rm_isolated : bool
-        whether or not to perform Nth neighbor distance calculation, and use it
-        to partition the input galaxies into wall and field galaxies
-        
+        whether or not to perform Nth neighbor distance calculation, and use it to partition the input galaxies into wall and field galaxies
+
     write_table : bool
-        use astropy.table.Table.write to write out the wall and field galaxies
-        to file
-        
+        use astropy.table.Table.write to write out the wall and field galaxies to file
+
     sep_neighbor : int, positive
         if rm_isolated_flag is true, find the Nth galaxy neighbors based on this value
-        
+
     dist_metric : str
-        Distance metric to use in calculations.  Options are 'comoving' 
-        (default; distance dependent on cosmology) and 'redshift' (distance 
-        independent of cosmology).
+        Distance metric to use in calculations.  Options are 'comoving' (default; distance dependent on cosmology) and 'redshift' (distance independent of cosmology).
 
     h : float
-        Fractional value of Hubble's constant.  Default value is 1 (where 
-        H0 = 100h).
+        Fractional value of Hubble's constant.  Default value is 1 (where H0 = 100h).
         
     hole_grid_edge_length : float
         length in Mpc/h of the edge of one cell of a grid cube for the search grid
         
     verbose : int
         values greater than zero indicate to print output
-        
         
     Returns
     =======
@@ -136,9 +126,7 @@ def filter_galaxies(galaxy_table,
         shape of the hole search grid
     
     coords_min : numpy.ndarray of shape (3,)
-        coordinates of the minimum of the survey used for converting from
-        xyz space into ijk space
-    
+        coordinates of the minimum of the survey used for converting from xyz space into ijk space
     """
     
     

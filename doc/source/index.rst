@@ -50,6 +50,11 @@ algorithms: **VoidFinder** and :raw-html:`<strong>V<sup>2</sup></strong>`.
    VoidRender_examples
    VoidRender_functions
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Contributing to VAST 
+
+   contributing
 
 Indices and tables
 ==================
