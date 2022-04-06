@@ -9,7 +9,7 @@ from vast.voidfinder.preprocessing import load_data_to_Table
 
 
 
-wall_coords_xyz = load_data_to_Table("gadget_sim_100_256_wall.txt")
+wall_coords_xyz = load_data_to_Table("gadget_sim_100_256_wall.dat")
 
 x = wall_coords_xyz['x']
 y = wall_coords_xyz['y']
