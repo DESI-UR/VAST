@@ -1,3 +1,4 @@
+#cython: language_level=3
 
 
 """
@@ -12,7 +13,7 @@ cimport numpy as np
 
 np.import_array()  # required in order to use C-API
 
-from typedefs cimport DTYPE_CP128_t, \
+from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_CP64_t, \
                       DTYPE_F64_t, \
                       DTYPE_F32_t, \
@@ -27,9 +28,9 @@ from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 from scipy.integrate import _quadpack
 
-import constants as VF_CONSTANTS
+from .constants import c as speed_of_light
 
-cdef DTYPE_F32_t c = <DTYPE_F32_t>(VF_CONSTANTS.c)
+cdef DTYPE_F32_t c = <DTYPE_F32_t>(speed_of_light)
 
 
 

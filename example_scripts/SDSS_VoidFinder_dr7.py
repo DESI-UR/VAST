@@ -142,16 +142,16 @@ temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
 mask, mask_resolution = pickle.load(temp_infile)
 temp_infile.close()
 
-wall_coords_xyz, field_coords_xyz, hole_grid_shape, coords_min = filter_galaxies(galaxy_data_table,
-                                                                                 survey_name,
-                                                                                 out_directory,
-                                                                                 dist_limits=dist_limits,
-                                                                                 #mag_cut_flag=mag_cut,
-                                                                                 #rm_isolated_flag=rm_isolated,
-                                                                                 #hole_grid_edge_length=5.0,
-                                                                                 dist_metric=dist_metric,
-                                                                                 #h=h,
-                                                                                 verbose=0)
+wall_coords_xyz, field_coords_xyz = filter_galaxies(galaxy_data_table,
+                                                    survey_name,
+                                                    out_directory,
+                                                    dist_limits=dist_limits,
+                                                    #mag_cut_flag=mag_cut,
+                                                    #rm_isolated_flag=rm_isolated,
+                                                    #hole_grid_edge_length=5.0,
+                                                    dist_metric=dist_metric,
+                                                    #h=h,
+                                                    verbose=0)
 
 del galaxy_data_table
 
@@ -182,8 +182,7 @@ find_voids(wall_coords_xyz,
            mask_type='ra_dec_z',
            mask=mask, 
            mask_resolution=mask_resolution,
-           min_dist=dist_limits[0],
-           max_dist=dist_limits[1],
+           dist_limits=dist_limits,
            xyz_limits=None,
            #save_after=50000,
            #use_start_checkpoint=True,

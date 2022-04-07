@@ -1,11 +1,11 @@
-
+#cython: language_level=3
 
 
 
 cimport numpy as np
 cimport cython
 
-from typedefs cimport DTYPE_CP128_t, \
+from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_CP64_t, \
                       DTYPE_F64_t, \
                       DTYPE_F32_t, \
@@ -75,11 +75,10 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         DTYPE_F64_t dr, \
                                         DTYPE_F64_t direction_mod,\
                                         DTYPE_F64_t[:] unit_vector_memview, \
-                                        galaxy_tree, \
+                                        GalaxyMap galaxy_tree, \
                                         DTYPE_INT64_t[:] nearest_gal_index_list, \
                                         ITYPE_t num_neighbors, \
-                                        DTYPE_F64_t[:,:] w_coord, \
-                                        MaskChecker mask_checker,
+                                        MaskChecker mask_checker, \
                                         DTYPE_F64_t[:] Bcenter_memview, \
                                         Cell_ID_Memory cell_ID_mem, \
                                         NeighborMemory neighbor_mem, \
@@ -107,13 +106,18 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
 
 cdef class HoleGridCustomDict:
 
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
+    cdef object hole_lookup_buffer
+    
+    cdef object numpy_dtype
+    
+
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod, num_elements, lookup_fd
     
     cdef public HOLE_LOOKUPMEM_t[:] lookup_memory
     
     cdef public DTYPE_INT64_t num_collisions
     
-    cdef DTYPE_INT64_t mem_length
+    cdef public DTYPE_INT64_t mem_length
 
     cdef public DTYPE_INT64_t custom_hash(self, 
                                           CELL_ID_t i, 
@@ -130,16 +134,27 @@ cdef class HoleGridCustomDict:
                               CELL_ID_t j,
                               CELL_ID_t k)
 
+    cdef public void resize(self, DTYPE_INT64_t new_mem_length)
+
+
 
 cdef class GalaxyMapCustomDict:
+
+    cdef object lookup_buffer
+    
+    cdef object numpy_dtype
          
-    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod
+    cdef object num_elements
+         
+    cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod, lookup_fd, process_local_num_elements
     
     cdef public LOOKUPMEM_t[:] lookup_memory
     
     cdef public DTYPE_INT64_t num_collisions
     
-    cdef DTYPE_INT64_t mem_length
+    cdef public DTYPE_INT64_t mem_length
+    
+    cdef public void refresh(self)
 
     cdef public DTYPE_INT64_t custom_hash(self, 
                                           CELL_ID_t i, 
@@ -154,7 +169,7 @@ cdef class GalaxyMapCustomDict:
     cpdef public OffsetNumPair getitem(self,
                                        CELL_ID_t i, 
                                        CELL_ID_t j, 
-                                       CELL_ID_t k)
+                                       CELL_ID_t k) except *
 
     cpdef public void setitem(self, 
                               CELL_ID_t i,
@@ -162,11 +177,21 @@ cdef class GalaxyMapCustomDict:
                               CELL_ID_t k, 
                               DTYPE_INT64_t offset,
                               DTYPE_INT64_t num_elements)
+    
+    cdef public void resize(self, DTYPE_INT64_t new_mem_length)
 
 
 cdef class GalaxyMap:
+
+    cdef public object update_lock
     
-    cdef public DTYPE_F64_t[:,:] w_coord
+    cdef public DTYPE_INT32_t mask_mode
+    
+    cdef public DTYPE_F64_t[:,:] wall_galaxy_coords
+    
+    cdef public object wall_galaxy_buffer
+    
+    cdef public DTYPE_INT64_t num_wall_galaxies, wall_galaxies_coords_fd
     
     cdef public DTYPE_F64_t[:,:] coord_min
     
@@ -186,7 +211,44 @@ cdef class GalaxyMap:
     
     cdef public GalaxyMapCustomDict galaxy_map
     
+    cdef public GalaxyMapCustomDict galaxy_map_2
+    
     cdef public DTYPE_INT64_t[:] galaxy_map_array
+    
+    cdef public object galaxy_map_array_buffer
+    
+    cdef public DTYPE_INT64_t num_gma_indices
+    
+    cdef public DTYPE_INT64_t gma_fd
+    
+    
+    cpdef public DTYPE_B_t contains(self,
+                                   CELL_ID_t i, 
+                                   CELL_ID_t j, 
+                                   CELL_ID_t k)
+    
+    cdef public OffsetNumPair getitem(self,
+                                      CELL_ID_t i, 
+                                      CELL_ID_t j, 
+                                      CELL_ID_t k)
+    
+    cdef public void setitem(self, 
+                             CELL_ID_t i,
+                             CELL_ID_t j,
+                             CELL_ID_t k, 
+                             DTYPE_INT64_t offset,
+                             DTYPE_INT64_t num_elements)
+
+
+    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k)
+    
+    cdef void add_cell_periodic(self,
+                                CELL_ID_t i,
+                                CELL_ID_t j,
+                                CELL_ID_t k)
+ 
+    cpdef void refresh(self)
+ 
 
 
 cdef class NeighborMemory:
@@ -242,9 +304,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
                               DTYPE_F64_t dl, \
                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
                               DTYPE_F64_t[:,:] cell_center_xyz, \
-                              GalaxyMapCustomDict galaxy_map, \
-                              DTYPE_INT64_t[:] galaxy_map_array, \
-                              DTYPE_F64_t[:,:] w_coord, \
+                              GalaxyMap galaxy_map, \
                               Cell_ID_Memory cell_ID_mem, \
                               DTYPE_F64_t[:,:] reference_point_xyz)
                                          
@@ -255,10 +315,10 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
 cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, \
                              DTYPE_INT32_t level, \
                              Cell_ID_Memory cell_ID_mem, \
-                             GalaxyMapCustomDict galaxy_map)
+                             GalaxyMap galaxy_map)
                                          
                                          
                                          
                                          
-                                         
+cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value)     
                                          

@@ -21,11 +21,11 @@ from vispy.color import Colormap
 ################################################################################
 
 
-holes_xyz, holes_radii, holes_flags = load_void_data("../vollim_dr7_cbp_102709_comoving_holes.txt")
+holes_xyz, holes_radii, holes_flags = load_void_data("./vollim_dr7_cbp_102709_comoving_holes.txt")
 
-field_galaxy_data = load_galaxy_data('../vollim_dr7_cbp_102709_field_gal_file.txt')
+field_galaxy_data = load_galaxy_data('./vollim_dr7_cbp_102709_field_gal_file.txt')
 
-wall_galaxy_data = load_galaxy_data('../vollim_dr7_cbp_102709_wall_gal_file.txt')
+wall_galaxy_data = load_galaxy_data('./vollim_dr7_cbp_102709_wall_gal_file.txt')
 
 print("Field galaxies:", field_galaxy_data.shape)
 print('Wall galaxies:', wall_galaxy_data.shape)

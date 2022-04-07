@@ -41,19 +41,23 @@ maximal sphere by at least 50% of its volume.  The union of a set of spheres
 Installation
 ============
 
-Operation system requirements
+Operating System Support & Requirements
 -----------------------------
 
-**VoidFinder** is currently Unix-only.  **VoidFinder** relies on the tmpfs file 
-system (RAMdisk) on ``/dev/shm`` for shared memory, and this file system is 
-currently (as of February 2022) a Linux-only feature.  However, **VoidFinder** 
-will fall back to memmapping files in the ``/tmp`` directory if ``/dev/shm`` 
-does not exist, so it can still run on OSX.  Depending on the OSX kernal 
-configuration, there may be no speed/performance loss if running shared memory 
-out of ``/tmp``, but it depends entirely on the kernal buffer sizes.
+Linux - **VoidFinder** is currently only fully supported on Linux, but may run on OSX and other Unix variants,
+and potentially even Windows in single-process mode.
 
-**VoidFinder** also uses the ``fork()`` method for its worker processes, and the 
-``fork()`` method does not exist on Windows.
+OSX - The authors have successfully run **VoidFinder** with full multi-processing power on Mac/OSX,
+but until Apple guarantees a POSIX- or Single Unix Specification-compliant ``fork()`` system call, 
+full multi-processing **VoidFinder** cannot be guaranteed.  However, the single-process version of 
+**VoidFinder** should always work on OSX to the best of our knowledge, and (as of March 2022), **VoidFinder**
+seems to be working correctly on OSX.
+
+Windows - The authors have encountered difficulty compiling the Cython code on the Windows platform,
+and more importantly the ``fork()`` system call is not supported by Windows, so given its small popularity 
+as a scientific computing platform we have no plans (as of March 2022) to support Windows.  
+
+
 
 
 Building VoidFinder

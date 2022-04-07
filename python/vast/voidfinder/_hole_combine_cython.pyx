@@ -1,3 +1,4 @@
+#cython: language_level=3
 
 from __future__ import print_function
 
@@ -10,7 +11,7 @@ cimport numpy as np
 np.import_array()  # required in order to use C-API
 
 
-from typedefs cimport DTYPE_CP128_t, \
+from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_CP64_t, \
                       DTYPE_F64_t, \
                       DTYPE_F32_t, \
@@ -25,17 +26,20 @@ from numpy.math cimport NAN, INFINITY
 
 from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 
-from ._voidfinder import find_next_prime
+#from ._voidfinder import find_next_prime
 
 from ._voidfinder_cython_find_next cimport GalaxyMapCustomDict, \
+                                           GalaxyMap, \
                                            Cell_ID_Memory, \
                                            _gen_cube, \
-                                           OffsetNumPair
+                                           OffsetNumPair, \
+                                           find_next_prime
 
 
 
 cdef DTYPE_F64_t pi = np.pi
 
+import os
 import time
 
 
@@ -317,8 +321,9 @@ cpdef np.ndarray find_maximals_2(DTYPE_F64_t[:,:] x_y_z_r_array,
 @cython.wraparound(False)
 @cython.cdivision(True)
 def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
-                                 DTYPE_F64_t frac,
-                                 DTYPE_F64_t min_radius):
+                    DTYPE_F64_t frac,
+                    DTYPE_F64_t min_radius,
+                    RESOURCE_DIR="/dev/shm",):
                                                
     """
     Description
@@ -351,6 +356,17 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     out_maximals_index : ndarray of shape (N,)
     """
+    
+    
+    if not os.path.isdir(RESOURCE_DIR):
+        
+        print("WARNING: RESOURCE DIR", RESOURCE_DIR, 
+              "does not exist.  Falling back to /tmp", 
+              flush=True)
+        
+        RESOURCE_DIR = "/tmp"
+    
+    
                                                
     ################################################################################
     # Create the output array and add a memview for fast access to it, and an array
@@ -518,32 +534,39 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
         
     #print("Num non-empty grid cells: ", len(galaxy_map))
         
-    next_prime = find_next_prime(2*num_candidates)
     
-    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
-                                                ("p", np.int16, ()),
-                                                ("q", np.int16, ()),
-                                                ("r", np.int16, ()),
-                                                ("offset", np.int64, ()),
-                                                ("num_elements", np.int64, ())])
     
-    new_galaxy_map = GalaxyMapCustomDict((n_grid_x, n_grid_y, n_grid_z), 
-                                         lookup_memory)
+    cust_galaxy_map = GalaxyMapCustomDict((n_grid_x, n_grid_y, n_grid_z), 
+                                         RESOURCE_DIR)
     
     
     offset = 0
     
     for curr_pqr in galaxy_map:
         
-        new_galaxy_map.setitem(curr_pqr[0],
-                               curr_pqr[1],
-                               curr_pqr[2],
-                               offset, 
-                               0)
+        cust_galaxy_map.setitem(curr_pqr[0],
+                           curr_pqr[1],
+                           curr_pqr[2],
+                           offset, 
+                           0)
         
         num_elements = galaxy_map[curr_pqr]
         
         offset += num_elements
+        
+        
+    # Using a dummy workaround for now, changed the code to use the
+    # GalaxyMap interface instead of the GalaxyMapCustomDict directly,
+    # so instantiate the interface with some dummy variables here
+    # and the real galaxy map custom dict we were using before
+    new_galaxy_map = GalaxyMap(RESOURCE_DIR,
+                               0, #mask mode 0 or 1 should be good
+                               np.empty((2,3), dtype=np.float64),
+                               np.empty((1,3), dtype=np.float64),
+                               1.0,
+                               cust_galaxy_map,
+                               np.empty(5, dtype=np.int64)
+                               )
         
     
     
@@ -942,7 +965,7 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_F64_t twice_largest_radius = maximals_info["twice_largest_radius"]
     
-    cdef GalaxyMapCustomDict maximals_map = maximals_info["maximals_map"]
+    cdef GalaxyMap maximals_map = maximals_info["maximals_map"]
     
     cdef DTYPE_INT64_t[:] maximals_map_array = maximals_info["maximals_cell_array"]
     '''

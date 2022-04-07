@@ -612,7 +612,7 @@ def oob_cut_multi(x_y_z_r_array,
     ############################################################################
     xyzr_fd, XYZR_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print("XYZR MEMMAP PATH: ", XYZR_BUFFER_PATH, xyzr_fd, flush=True)
     
@@ -642,7 +642,7 @@ def oob_cut_multi(x_y_z_r_array,
     ############################################################################
     valid_idx_fd, VALID_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print("VALID_IDX MEMMAP PATH: ", VALID_IDX_BUFFER_PATH, valid_idx_fd, flush=True)
     
@@ -667,7 +667,7 @@ def oob_cut_multi(x_y_z_r_array,
     ############################################################################
     monte_idx_fd, MONTE_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print("MONTE_IDX MEMMAP PATH: ", MONTE_IDX_BUFFER_PATH, monte_idx_fd, flush=True)
     
@@ -692,7 +692,7 @@ def oob_cut_multi(x_y_z_r_array,
     ############################################################################
     unit_sphere_fd, UNIT_SHELL_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print("UNIT SHELL MEMMAP PATH: ", UNIT_SHELL_BUFFER_PATH, unit_sphere_fd, flush=True)
     
@@ -717,7 +717,7 @@ def oob_cut_multi(x_y_z_r_array,
     ############################################################################
     mesh_pts_fd, MESH_PTS_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print("MESH PTS MEMMAP PATH: ", MESH_PTS_BUFFER_PATH, mesh_pts_fd, flush=True)
     
@@ -742,7 +742,7 @@ def oob_cut_multi(x_y_z_r_array,
     ############################################################################
     mesh_radii_fd, MESH_RADII_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print("MESH RADII MEMMAP PATH: ", MESH_RADII_BUFFER_PATH, mesh_radii_fd, flush=True)
     
@@ -752,7 +752,7 @@ def oob_cut_multi(x_y_z_r_array,
     
     mesh_radii_buffer = mmap.mmap(mesh_radii_fd, mesh_radii_buffer_length)
     
-    if verbose > 0:
+    if verbose > 1:
         
         print(mesh_radii_buffer_length, len(mesh_points_radii.tobytes()), flush=True)
     
@@ -1421,7 +1421,7 @@ def _oob_cut_worker(worker_idx, index_start, config):
     ############################################################################
     worker_socket.close()
     
-    print("WORKER EXITING GRACEFULLY "+str(worker_idx), flush=True)
+    #print("WORKER EXITING GRACEFULLY "+str(worker_idx), flush=True)
     
     return None
     

@@ -56,7 +56,6 @@ def filter_galaxies(galaxy_table,
                     sep_neighbor=3,
                     dist_metric='comoving', 
                     h=1.0,
-                    hole_grid_edge_length=5.0,
                     magnitude_limit=-20.09,
                     verbose=0):
     """
@@ -116,8 +115,6 @@ def filter_galaxies(galaxy_table,
         Fractional value of Hubble's constant.  Default value is 1 (where 
         H0 = 100h).
         
-    hole_grid_edge_length : float
-        length in Mpc/h of the edge of one cell of a grid cube for the search grid
         
     verbose : int
         values greater than zero indicate to print output
@@ -176,12 +173,7 @@ def filter_galaxies(galaxy_table,
 
     
     
-    ############################################################################
-    # Grid shape
-    #---------------------------------------------------------------------------
-    hole_grid_shape, coords_min, coords_max = calculate_grid(coords_xyz,
-                                                             hole_grid_edge_length)
-    ############################################################################
+    
 
 
     
@@ -242,7 +234,7 @@ def filter_galaxies(galaxy_table,
     ############################################################################
 
 
-    return wall_gals_xyz, field_gals_xyz, hole_grid_shape, coords_min
+    return wall_gals_xyz, field_gals_xyz
 
 
 
@@ -494,16 +486,13 @@ def wall_field_separation(galaxy_coords_xyz,
 
 
 def find_voids(galaxy_coords_xyz,
-               coords_min,
-               hole_grid_shape,
                survey_name,
                mask_type='ra_dec_z',
                mask=None, 
                mask_resolution=None,
-               min_dist=None,
-               max_dist=None,
+               dist_limits=None,
                xyz_limits=None,
-               check_only_empty_holes=True,
+               check_only_empty_cells=True,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
                min_maximal_radius=10.0,
@@ -611,25 +600,27 @@ def find_voids(galaxy_coords_xyz,
         coordinates of the galaxies in the survey, units of Mpc/h 
         (xyz space)
         
-    mask_type : string, 'ra_dec_z' or 'xyz'
-        Determines the mode of mask checking to use and what mask parameters
-        to use.  ra_dec_z means the mask, mask_resolution, and dist_limits parameters
-        will be provided representing an angular `mask` in Right Ascension and Declination
-        and a corresponding mask_resolution integer, as well as dist_limits representing
-        the min and max redshift values represented as radial distances in the xyz space
+    survey_name : str
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
         
-        'xyz' means that the xyz_limits parameter will be provided which directly encodes
-        a bounding box for the survey in xyz space
+    mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
+        Determines the mode of mask checking to use and which mask parameters to use.  
         
-    
-    dist_limits : numpy array of shape (2,)
-        minimum and maximum distance limit of the survey in units of Mpc/h 
-        (xyz space)
+        'ra_dec_z' means the mask, mask_resolution, and dist_limits parameters
+            must be provided.  The 'mask' represents an angular space in Right Ascension and 
+            Declination, the corresponding mask_resolution integer represents the scale needed
+            to index into the Right Ascension and Declination of the mask, and the dist_limits
+            represent the min and max redshift values (as radial distances in xyz space).
         
-    xyz_limits : numpy array of shape (2,3)
-        format [x_min, y_min, z_min]
-               [x_max, y_max, z_max]
-        to be used for checking against the mask when mask_type == 'xyz'
+        'xyz' means that the xyz_limits parameter must be provided which directly encodes
+            a bounding box for the survey in xyz space
+            
+        'periodic' means that the xyz_limits parameter must be provided, which directly
+            encodes a bounding box representing the periodic boundary of the survey, and
+            the survey will be treated as if its bounding box were tiled to infinity in
+            all directions.  Spheres will still only be grown starting from within the
+            original bounding box.
         
     mask : numpy.ndarray of shape (N,M) type bool
         represents the survey footprint in scaled ra/dec space.  Value of True 
@@ -639,11 +630,14 @@ def find_voids(galaxy_coords_xyz,
     mask_resolution : integer
         Scale factor of coordinates needed to index mask
         
-    coords_min : ndarray of shape (3,) or (1,3)
-        coordinates used for converting from xyz space into the grid ijk space
-    
-    hole_grid_shape : tuple of 3 integers
-        ijk dimensions of the 3 grid directions
+    dist_limits : numpy array of shape (2,)
+        [min_dist, max_dist] in units of Mpc/h (xyz space)
+        
+    xyz_limits : numpy array of shape (2,3)
+        format [x_min, y_min, z_min]
+               [x_max, y_max, z_max]
+        to be used for checking against the mask when mask_type == 'xyz' or for
+        periodic conditions when mask_type == 'periodic'
         
     hole_grid_edge_length : float
         size in Mpc/h of the edge of 1 cube in the search grid, or distance 
@@ -660,9 +654,7 @@ def find_voids(galaxy_coords_xyz,
         hole center will be outside the mask, but more importantly because the 
         numpy.roots() function used below won't return a valid polynomial root.
         
-    survey_name : str
-        identifier for the survey running, may be prepended or appended to 
-        output filenames including the checkpoint filename
+    
         
     galaxy_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor 
@@ -708,7 +700,7 @@ def find_voids(galaxy_coords_xyz,
         might actually get a checkpoint at say 1,030,000.  If None, disables 
         saving the checkpoint file.
 
-    check_only_empty_holes : bool
+    check_only_empty_cells : bool
         whether or not to start growing a hole in a cell which has galaxies in
         it, aka "non-empty".  If True (default), don't grow holes in these cells.
     
@@ -744,13 +736,22 @@ def find_voids(galaxy_coords_xyz,
     maximal spheres table
     """
     
-    
     if mask_type == "ra_dec_z":
         mask_mode = 0
     elif mask_type == "xyz":
         mask_mode = 1
+    elif mask_type == "periodic":
+        mask_mode = 2
     else:
-        raise ValueError("mask_type must be 'ra_dec_z' or 'xyz'")
+        raise ValueError("mask_type must be 'ra_dec_z', 'xyz', or 'periodic'")
+    
+    
+    if dist_limits is None:
+        min_dist = None
+        max_dist = None
+    else:
+        min_dist = dist_limits[0]
+        max_dist = dist_limits[1]
     
     
     
@@ -759,22 +760,14 @@ def find_voids(galaxy_coords_xyz,
     ############################################################################
     # GROW HOLES
     #---------------------------------------------------------------------------
-    if galaxy_map_grid_edge_length is None:
-        
-        galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+    
 
     tot_hole_start = time.time()
 
-    x_y_z_r_array, n_holes = _hole_finder(hole_grid_shape, 
+    x_y_z_r_array, n_holes = _hole_finder(galaxy_coords_xyz,
                                           hole_grid_edge_length, 
                                           hole_center_iter_dist,
                                           galaxy_map_grid_edge_length,
-                                          coords_min.reshape(1,3),
-                                          #mask,
-                                          #mask_resolution,
-                                          #dist_limits[0],
-                                          #dist_limits[1],
-                                          galaxy_coords_xyz,
                                           survey_name,
                                           mask_mode=mask_mode,
                                           mask=mask,
@@ -782,8 +775,7 @@ def find_voids(galaxy_coords_xyz,
                                           min_dist=min_dist,
                                           max_dist=max_dist,
                                           xyz_limits=xyz_limits,
-                                          check_only_empty_holes=check_only_empty_holes,
-                                          #radial_mask_check,
+                                          check_only_empty_cells=check_only_empty_cells,
                                           save_after=save_after,
                                           use_start_checkpoint=use_start_checkpoint,
                                           batch_size=batch_size,
@@ -808,7 +800,7 @@ def find_voids(galaxy_coords_xyz,
                                    rmax=max_dist,
                                    )
         
-    elif mask_mode == 1:
+    elif mask_mode in [1,2]:
         mask_checker = MaskChecker(mask_mode,
                                    xyz_limits=xyz_limits)
 
@@ -906,4 +898,9 @@ def find_voids(galaxy_coords_xyz,
     #---------------------------------------------------------------------------
     ############################################################################
     
+    
+    return maximal_spheres_table, myvoids_table
+
+
+
 

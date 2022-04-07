@@ -9,7 +9,7 @@ from vast.voidfinder.preprocessing import load_data_to_Table
 
 
 
-wall_coords_xyz = load_data_to_Table("SDSS_dr7_wall_gal_file.txt")
+wall_coords_xyz = load_data_to_Table("gadget_sim_100_256_wall.dat")
 
 x = wall_coords_xyz['x']
 y = wall_coords_xyz['y']
@@ -27,22 +27,23 @@ hole_grid_shape, coords_min, coords_max = calculate_grid(wall_coords_xyz,
                                                          hole_grid_edge_length)
 
 
-xyz_limits = np.concatenate((coords_min.reshape(1,3),
-                             coords_max.reshape(1,3)), axis=0)
+#xyz_limits = np.concatenate((coords_min.reshape(1,3),
+#                             coords_max.reshape(1,3)), axis=0)
+xyz_limits = np.array([[-50.,-50.,-50.],[50.,50.,50.]])
 
 
-survey_name = "SDSS_dr7_"
+survey_name = "Gadget_100_256_"
 
-out1_filename = "maximals.txt"
+out1_filename = survey_name+"maximals.txt"
 
-out2_filename = "voids.txt"
+out2_filename = survey_name+"voids.txt"
 
 
 find_voids(wall_coords_xyz,
-           coords_min,
-           hole_grid_shape,
+           #coords_min,
+           #hole_grid_shape,
            survey_name,
-           mask_type='xyz',
+           mask_type='periodic',
            mask=None, 
            mask_resolution=None,
            dist_limits=None,

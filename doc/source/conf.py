@@ -4,15 +4,25 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import sys
+import os
+import re
+
+import sphinx_rtd_theme
+
+sys.path.insert(0, os.path.abspath('../'))
+import vast
+
 # -- Project information -----------------------------------------------------
 
 project = 'VAST'
-copyright = "2021, Kelly A. Douglass, Dylan Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
-author = "Kelly A. Douglass, Dylan Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
+copyright = "2022, Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
+author = "Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
 
+# The short X.Y version
+version = re.match(r"v?(\d+\.\d+)", vast._version.__version__).group(1)
 # The full version, including alpha/beta/rc tags
-release = 'v1.0.0-alpha'
-
+release = vast._version.__version__
 
 # -- General configuration ---------------------------------------------------
 
@@ -20,6 +30,8 @@ release = 'v1.0.0-alpha'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'numpydoc',
+    'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
     'sphinx.ext.doctest',
     'sphinx.ext.todo',
@@ -28,9 +40,8 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'numpydoc',
+    'sphinx_rtd_theme',
     'sphinxarg.ext'
-    #'pyquickhelper.sphinxext.sphinx_autosignature'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -41,8 +52,15 @@ templates_path = ['.templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-
 #html_logo = 'filename.png'
+
+# -- Options for autodoc/napoleon -----------------------------------------
+
+# Napoleon settings (see https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html)
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_use_rtype = False
+autoclass_content = 'both'
 
 
 # -- Options for HTML output -------------------------------------------------
