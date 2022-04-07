@@ -11,11 +11,6 @@ maskdec = 180
 dec_offset = -90
 
 
-# Distance limits (units of Mpc/h, taken from voids_sdss.py)
-rmin = 0
-rmax = 300
-
-
 ################################################################################
 #
 #   FUNCTION - DETERMINE_VFLAG
@@ -23,7 +18,7 @@ rmax = 300
 ################################################################################
 
 
-def determine_vflag(x, y, z, voids, mask, mask_resolution):
+def determine_vflag(x, y, z, voids, mask, mask_resolution, rmin, rmax):
     '''
     Determines whether or not a galaxy is a void, wall, edge, or unclassifiable
     galaxy.
@@ -49,6 +44,14 @@ def determine_vflag(x, y, z, voids, mask, mask_resolution):
     mask : numpy boolean array of shape (n,m)
         True values correspond to ra,dec coordinates which lie within the 
         survey footprint.
+
+    rmin : float
+        Minimum distance over which the voids were found.  Should be the same as 
+        that used when running VoidFinder.  Units are Mpc/h.
+
+    rmax : float
+        Maximum distance over which the voids were found.  Should be the same as 
+        that used when running VoidFinder.  Units are Mpc/h.
 
 
     Returns:
