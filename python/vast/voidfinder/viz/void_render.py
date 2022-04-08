@@ -961,57 +961,59 @@ class VoidRender(app.Canvas):
         #-----------------------------------------------------------------------
         #self.wall_distance
         
-        wall_KDTree = neighbors.KDTree(self.wall_galaxy_xyz)
-        
-        neighbor_indices = wall_KDTree.query_radius(self.wall_galaxy_xyz, self.wall_distance)
-        
-        #print(neighbor_indices)
-        
-        wall_lines_list = []
-        
-        for idx, curr_neighbors in enumerate(neighbor_indices):
+        if self.wall_distance is not None:
             
-            curr_pt = self.wall_galaxy_xyz[idx,:]
+            wall_KDTree = neighbors.KDTree(self.wall_galaxy_xyz)
             
-            for neighbor_idx in curr_neighbors:
+            neighbor_indices = wall_KDTree.query_radius(self.wall_galaxy_xyz, self.wall_distance)
+            
+            #print(neighbor_indices)
+            
+            wall_lines_list = []
+            
+            for idx, curr_neighbors in enumerate(neighbor_indices):
                 
-                if idx == neighbor_idx:
+                curr_pt = self.wall_galaxy_xyz[idx,:]
+                
+                for neighbor_idx in curr_neighbors:
                     
-                    continue
-                
-                wall_lines_list.append(curr_pt)
-                
-                wall_lines_list.append(self.wall_galaxy_xyz[neighbor_idx,:])
-        
-        
-        wall_lines = np.array(wall_lines_list)
-        
-        del wall_lines_list
-        
-        #print(wall_lines.shape)
-        
-        
-        
-        self.wall_line_data = np.ones(wall_lines.shape[0], 
-                                      [('a_position', np.float32, 4)])
-        
-        
-        self.wall_line_data['a_position'][:,0:3] = wall_lines
-        
-        #self.wall_line_data['color'] = np.tile(self.wall_galaxy_color, (wall_lines.shape[0],1))
-        
-        
-        self.wall_line_data_VB = gloo.VertexBuffer(self.wall_line_data)
-        
-        print(self.wall_line_data_VB)
-        
-        self.wall_line_data_program = gloo.Program(vert_wall_lines, frag_wall_lines)
-        
-        self.wall_line_data_program.bind(self.wall_line_data_VB)
-        
-        self.enabled_programs.append((self.wall_line_data_program, "lines"))
-        
-        self.wall_line_data_program['u_color'] = self.wall_galaxy_color
+                    if idx == neighbor_idx:
+                        
+                        continue
+                    
+                    wall_lines_list.append(curr_pt)
+                    
+                    wall_lines_list.append(self.wall_galaxy_xyz[neighbor_idx,:])
+            
+            
+            wall_lines = np.array(wall_lines_list)
+            
+            del wall_lines_list
+            
+            #print(wall_lines.shape)
+            
+            
+            
+            self.wall_line_data = np.ones(wall_lines.shape[0], 
+                                          [('a_position', np.float32, 4)])
+            
+            
+            self.wall_line_data['a_position'][:,0:3] = wall_lines
+            
+            #self.wall_line_data['color'] = np.tile(self.wall_galaxy_color, (wall_lines.shape[0],1))
+            
+            
+            self.wall_line_data_VB = gloo.VertexBuffer(self.wall_line_data)
+            
+            print(self.wall_line_data_VB)
+            
+            self.wall_line_data_program = gloo.Program(vert_wall_lines, frag_wall_lines)
+            
+            self.wall_line_data_program.bind(self.wall_line_data_VB)
+            
+            self.enabled_programs.append((self.wall_line_data_program, "lines"))
+            
+            self.wall_line_data_program['u_color'] = self.wall_galaxy_color
         ########################################################################
         
         
@@ -2408,11 +2410,12 @@ class VoidRender(app.Canvas):
             
             self.press_once_commands[event.text]()
             
-        for curr_key in self.keyboard_active:
-            
-            if self.keyboard_active[curr_key]:
-    
-                self.keyboard_commands[curr_key]()
+        #These are now called in on_timer()
+        #for curr_key in self.keyboard_active:
+        #    
+        #    if self.keyboard_active[curr_key]:
+        #   
+        #        self.keyboard_commands[curr_key]()
             
             
     def on_key_release(self, event):
@@ -2471,7 +2474,7 @@ class VoidRender(app.Canvas):
         ######################################################################
         # Run any active keyboard commands
         ######################################################################
-        if time.time() - self.last_keypress_time > 0.02:
+        if time.time() - self.last_keypress_time > 0.01:
             
             for curr_key in self.keyboard_active:
             
@@ -2480,6 +2483,13 @@ class VoidRender(app.Canvas):
                     self.keyboard_commands[curr_key]()
                     
                     requires_update = True
+                    
+                    
+            if self.mouse_state == 1:
+                requires_update = True
+                    
+            if requires_update:
+                self.last_keypress_time = time.time()
                     
         ######################################################################
         # If we did anything that requires a redraw, update the uniform
@@ -2624,7 +2634,6 @@ class VoidRender(app.Canvas):
                 self.rotate_camera(1, 1.0)
             
             
-            pass
             
         elif self.mouse_state == 1 and event.button == 2:
             

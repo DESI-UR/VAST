@@ -5,24 +5,21 @@
 import os
 import stat
 import sys
-import fcntl
 import mmap
 import struct
 import socket
 import select
 import atexit
-import signal
 import tempfile
 import multiprocessing
 import h5py
+import pickle
+import time
 from psutil import cpu_count
-
 
 import cProfile
 
 import numpy as np
-
-import time
 
 from .voidfinder_functions import not_in_mask
 
@@ -30,199 +27,25 @@ from ._voidfinder_cython import main_algorithm, \
                                 fill_ijk, \
                                 fill_ijk_zig_zag
 
-
 from ._voidfinder_cython_find_next import GalaxyMap, \
                                           Cell_ID_Memory, \
                                           GalaxyMapCustomDict, \
                                           HoleGridCustomDict, \
                                           NeighborMemory, \
-                                          MaskChecker
-
-
+                                          MaskChecker, \
+                                          find_next_prime
 
 from multiprocessing import Queue, Process, RLock, Value, Array
 
 from ctypes import c_int64, c_double, c_float
 
-from queue import Empty
-
-from copy import deepcopy
-
-import pickle
-
-from astropy.table import Table
-
-from .table_functions import to_array
-
-import matplotlib
+#import matplotlib
 #matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
 
-
-
-
-def _hole_finder(hole_grid_shape, 
-                 hole_grid_edge_length, 
-                 hole_center_iter_dist,
-                 galaxy_map_grid_edge_length,
-                 coord_min, 
-                 galaxy_coords,
-                 survey_name,
-                 mask_mode=0,
-                 mask=None,
-                 mask_resolution=None,
-                 min_dist=None,
-                 max_dist=None,
-                 xyz_limits=None,
-                 check_only_empty_holes=True,
-                 #hole_radial_mask_check_dist,
-                 save_after=None,
-                 use_start_checkpoint=False,
-                 batch_size=1000,
-                 verbose=0,
-                 print_after=5.0,
-                 num_cpus=1):
-    
-    '''
-    Description
-    ===========
-
-    See help(voidfinder.find_voids)
-
-    This function is basically a glorified switch between single-threaded mode 
-    and multi-processed mode of running VoidFinder.
-
-    
-    Parameters
-    ==========
-    
-    hole_grid_shape : array or tuple of length 3
-        the number of grid cells in each of the 3 x,y,z dimensions
-    
-    hole_grid_edge_length : scalar float
-        length of each cell in Mpc/h
-        
-    hole_center_iter_dist : scalar float
-        distance to shift hole centers during iterative void hole growing in 
-        Mpc/h
-        
-        
-    galaxy_map_grid_edge_length : float or None
-        edge length in Mpc/h for the secondary grid for finding nearest neighbor 
-        galaxies.  If None, will default to 3*void_grid_edge_length (which 
-        results in a cell volume of 3^3 = 27 times larger cube volume).  This 
-        parameter yields a tradeoff between number of galaxies in a cell, and 
-        number of cells to search when growing a sphere.  Too large and many 
-        redundant galaxies may be searched, too small and too many cells will 
-        need to be searched.
-        (xyz space)
-        
-    coord_min : numpy.ndarray of shape (1,3) 
-        minimum coordinates of the survey in x,y,z in Mpc/h
-
-        Note that this coordinate is used for transforming values into the i,j,k 
-        search grid space and also into the p,q,r galaxy map grid space
-        
-    mask : numpy.ndarray of shape (N,M) type bool
-        represents the survey footprint in scaled ra/dec space.  Value of True 
-        indicates that a location is within the survey
-
-    mask_resolution : integer
-        Scale factor of coordinates needed to index mask
-    
-    min_dist : float
-        minimum redshift in units of Mpc/h
-        
-    max_dist : float
-        maximum redshift in units of Mpc/h
-        
-    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
-        coordinates of the galaxies in the survey, units of Mpc/h
-        (xyz space)
-        
-    survey_name : str
-        identifier for the survey running, may be prepended or appended to 
-        output filenames including the checkpoint filename
-        
-    DEPRECATED hole_radial_mask_check_dist : float in (0.0,1.0)
-        radial distance to check whether or not a hole overlaps with outside the 
-        mask too much
-        
-    save_after : int or None
-        save a VoidFinderCheckpoint.h5 file after *approximately* every 
-        save_after cells have been processed.  This will over-write this 
-        checkpoint file every save_after cells, NOT append to it.  Also, saving 
-        the checkpoint file forces the worker processes to pause and synchronize 
-        with the master process to ensure the correct values get written, so 
-        choose a good balance between saving too often and not often enough if 
-        using this parameter.  Note that it is an approximate value because it 
-        depends on the number of worker processes and the provided batch_size 
-        value, if you batch size is 10,000 and your save_after is 1,000,000 you 
-        might actually get a checkpoint at say 1,030,000.  If None, disables 
-        saving the checkpoint file
-        
-    
-    use_start_checkpoint : bool
-        Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can 
-        be used to restart the VF run
-        If False, VoidFinder will start fresh from 0    
-
-    batch_size : scalar float
-        Number of empty cells to pass into each process.  Initialized to 1000.
-
-    verbose : int
-        value to determine whether or not to display status messages while 
-        running.  0 is off, 1 is print after N updates, 2 is full debugging 
-        prints.
-
-    num_cpus : int or None
-        number of cpus to use while running the main algorithm.  None will 
-        result in using number of physical cores on the machine.  Some speedup 
-        benefit may be obtained from using additional logical cores via Intel 
-        Hyperthreading but with diminishing returns based on some basic
-        spot testing
-    
-    
-    
-    Returns
-    =======
-    
-    x_y_z_r_array : numpy.ndarray of shape (N,4)
-        x,y,z coordinates of the N hole centers found in units of Mpc/h (cols 
-        0,1,2) and Radii of the N holes found in units of Mpc/h
-
-    n_holes : scalar float
-        Number of potential holes found - note this number is prior to the void 
-        combining stage so will not represent the final output of VoidFinder
-    '''
-
-    x_y_z_r_array, n_holes = _hole_finder_multi_process(hole_grid_shape, 
-                                                        hole_grid_edge_length, 
-                                                        hole_center_iter_dist,
-                                                        galaxy_map_grid_edge_length,
-                                                        coord_min, 
-                                                        galaxy_coords,
-                                                        survey_name,
-                                                        mask_mode=mask_mode,
-                                                        mask=mask,
-                                                        mask_resolution=mask_resolution,
-                                                        min_dist=min_dist,
-                                                        max_dist=max_dist,
-                                                        xyz_limits=xyz_limits,
-                                                        check_only_empty_holes=check_only_empty_holes,
-                                                        #hole_radial_mask_check_dist,
-                                                        save_after=save_after,
-                                                        use_start_checkpoint=use_start_checkpoint,
-                                                        batch_size=batch_size,
-                                                        verbose=verbose,
-                                                        print_after=print_after,
-                                                        num_cpus=num_cpus
-                                                        )
-
-    return x_y_z_r_array, n_holes
-
+from .viz import VoidRender
 
     
     
@@ -379,44 +202,61 @@ def SaveCheckpointFile(checkpoint_filepath,
 
 
 
+def get_common_divisors(values):
+    
+    
+    min_value = int(np.ceil(min(values)/2))
+    
+    divisors = []
+    
+    for idx in range(1, min_value):
+        
+        if all([value % idx == 0 for value in values]):
+        
+            divisors.append(idx)
+            
+    return divisors
+            
+        
 
-def _hole_finder_multi_process(ngrid, 
-                               dl, 
-                               dr,
-                               search_grid_edge_length,
-                               coord_min, 
-                               w_coord,
-                               survey_name,
-                               mask_mode=0,
-                               mask=None,
-                               mask_resolution=None,
-                               min_dist=None,
-                               max_dist=None,
-                               xyz_limits=None,
-                               check_only_empty_holes=True,
-                               #hole_radial_mask_check_dist,
-                               batch_size=1000,
-                               verbose=0,
-                               print_after=10000,
-                               
-                               save_after=None,
-                               use_start_checkpoint=False,
-                               
-                               num_cpus=None,
-                               CONFIG_PATH="/tmp/voidfinder_config.pickle",
-                               SOCKET_PATH="/tmp/voidfinder.sock",
-                               #RESULT_BUFFER_PATH="/tmp/voidfinder_result_buffer.dat",
-                               #CELL_ID_BUFFER_PATH="/tmp/voidfinder_cell_ID_gen.dat",
-                               #PROFILE_BUFFER_PATH="/tmp/voidfinder_profile_buffer.dat",
-                               RESOURCE_DIR="/dev/shm",
-                               DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
-                               ):
+
+
+
+
+
+
+def _hole_finder(galaxy_coords,
+                 hole_grid_edge_length, 
+                 hole_center_iter_dist,
+                 galaxy_map_grid_edge_length,
+                 survey_name,
+                 mask_mode=0,
+                 mask=None,
+                 mask_resolution=None,
+                 min_dist=None,
+                 max_dist=None,
+                 xyz_limits=None,
+                 check_only_empty_cells=True,
+                 save_after=None,
+                 use_start_checkpoint=False,
+                 batch_size=1000,
+                 verbose=0,
+                 print_after=10000,
+                 num_cpus=None,
+               
+                 CONFIG_PATH="/tmp/voidfinder_config.pickle",
+                 SOCKET_PATH="/tmp/voidfinder.sock",
+                 RESOURCE_DIR="/dev/shm",
+                 DEBUG_DIR="/home/moose/VoidFinder/doc/debug_dir"
+                 ):
     """
     Description
     ===========
     
+    See help(voidfinder.find_voids)
+    
     Work-horse method for running VoidFinder with the Cython code in parallel
-    multi-process form. Also the single threaded version now.
+    multi-process form. Also the single threaded version.
     
     This method contains the logic for:
     
@@ -428,13 +268,13 @@ def _hole_finder_multi_process(ngrid,
     5). Start the workers
     6). Make sure workers connect to the comm socket
     7). Checkpoint the progress if those parameters are enabled
-    8). Collect progress results from the workers
+    8). Collect & print progress results from the workers
     
     This function is designed to be run on Linux on an SMP (Symmetric 
     Multi-Processing) architecture.  It takes advantage of 2 Linux-specific 
     properties: the /dev/shm filesystem and the fork() method of spawning 
     processes. /dev/shm is used as the preferred location for creating memory 
-    maps to share information between the worker processes since on Linux is is 
+    maps to share information between the worker processes since on Linux it is 
     a RAMdisk, and the implementation of fork() on Linux is used to share file 
     descriptor values between the master and worker processes, whereas on 
     mac/OSX fork() is wonky and Windows does not offer fork() at all.  This has 
@@ -445,42 +285,260 @@ def _hole_finder_multi_process(ngrid,
     do not.  Use at your own risk.  However, the single-threaded version of 
     VoidFinder should have no trouble running on Linux, Windows, or OSx.
     
+
     Parameters
     ==========
     
-    FILL IN LATER
+    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
+        coordinates of the galaxies in the survey, units of Mpc/h
+        (xyz space)
     
+    hole_grid_edge_length : scalar float
+        length of each cell in Mpc/h
+        
+    hole_center_iter_dist : scalar float
+        distance to shift hole centers during iterative void hole growing in 
+        Mpc/h
+        
+    galaxy_map_grid_edge_length : float or None
+        edge length in Mpc/h for the secondary grid for finding nearest neighbor 
+        galaxies.  If None, will default to 3*void_grid_edge_length (which 
+        results in a cell volume of 3^3 = 27 times larger cube volume).  This 
+        parameter yields a tradeoff between number of galaxies in a cell, and 
+        number of cells to search when growing a sphere.  Too large and many 
+        redundant galaxies may be searched, too small and too many cells will 
+        need to be searched.
+        (xyz space)
+        
+    survey_name : str
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
+        
+    mask_mode : int, one of [0,1,2]
+        Determines which mode VoidFinder is running in with regards to the Mask
+        checking.  0 == 'ra-dec-redshift', 1 == 'xyz' and 2 == 'periodic'
+        
+    mask : numpy.ndarray of shape (N,M) type bool
+        represents the survey footprint in scaled ra/dec space.  Value of True 
+        indicates that a location is within the survey
+
+    mask_resolution : integer
+        Scale factor of coordinates needed to index mask
+    
+    min_dist : float
+        minimum redshift in units of Mpc/h
+        
+    max_dist : float
+        maximum redshift in units of Mpc/h
+        
+    save_after : int or None
+        save a VoidFinderCheckpoint.h5 file after *approximately* every 
+        save_after cells have been processed.  This will over-write this 
+        checkpoint file every save_after cells, NOT append to it.  Also, saving 
+        the checkpoint file forces the worker processes to pause and synchronize 
+        with the master process to ensure the correct values get written, so 
+        choose a good balance between saving too often and not often enough if 
+        using this parameter.  Note that it is an approximate value because it 
+        depends on the number of worker processes and the provided batch_size 
+        value, if you batch size is 10,000 and your save_after is 1,000,000 you 
+        might actually get a checkpoint at say 1,030,000.  If None, disables 
+        saving the checkpoint file
+        
+    use_start_checkpoint : bool
+        Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can 
+        be used to restart the VF run
+        If False, VoidFinder will start fresh from 0    
+
+    batch_size : scalar float
+        Number of empty cells to pass into each process.  Initialized to 1000.
+
+    verbose : int
+        value to determine whether or not to display status messages while 
+        running.  0 is off, 1 is print after N updates, 2 is full debugging 
+        prints.
+
+    num_cpus : int or None
+        number of cpus to use while running the main algorithm.  None will 
+        result in using number of physical cores on the machine.  Some speedup 
+        benefit may be obtained from using additional logical cores via Intel 
+        Hyperthreading but with diminishing returns based on some basic
+        spot testing
+    
+
     Returns
     =======
     
-    valid_result_array : numpy.ndarray shape (?,4)
-        x,y,z and radius values for all holes which were found
-    
-    n_holes : int
-        number of valid holes found
-    
-    
+    x_y_z_r_array : numpy.ndarray of shape (N,4)
+        x,y,z coordinates of the N hole centers found in units of Mpc/h (cols 
+        0,1,2) and Radii of the N holes found in units of Mpc/h
+
+    n_holes : scalar float
+        Number of potential holes found - note this number is prior to the void 
+        combining stage so will not represent the final output of VoidFinder
     """
     
     
-    #print("_hole_finder_mult mask_mode: ", mask_mode, xyz_limits)
     
+    
+    ############################################################################
+    # Do some sanity checking on the mask modes and various inputs since we
+    # have a lot of None type optional inputs
+    #---------------------------------------------------------------------------
     if mask_mode == 0:
         if mask is None or \
-           mask_resolution is None or \
-           min_dist is None or \
-           max_dist is None:
+            mask_resolution is None or \
+            min_dist is None or \
+            max_dist is None:
             raise ValueError("Mask mode is 0 (ra-dec-z) but a required mask parameter is None")
+        
+        #The cython requires some very specific types and shapes
+        mask = mask.astype(np.uint8)
     
     if mask_mode == 1 and xyz_limits is None:
         raise ValueError("Mask mode is 1 (xyz) but required mask parameter xyz_limits is None")
-       
     
-    if mask_mode == 0:
+    if mask_mode == 2 and xyz_limits is None:
+        raise ValueError("Mask mode is 2 (periodic) but required mask parameter xyz_limits is None")
+    ############################################################################
+    
+    
+    
+    
         
-        mask = mask.astype(np.uint8)
+    ############################################################################
+    # Next, depending on the mask mode, calculate the transform origin and
+    # grid cell parameters for our Hole grid and our Galaxy Map grids.
+    #
+    # For 'ra-dec-z' - just use the min and max of the provided
+    #    coordinates of the survey for the transform 
+    #
+    # For 'xyz' mode - use the required/provided xyz_limits
+    #
+    # For 'periodic' mode - use the required/provided xyz_limits, but we
+    #     also have to ensure the GalaxyMap cells align with the xyz_limits
+    #     boundaries, so that VoidFinder doesn't accidentally introduce 
+    #     dead space into cells because of misalignment.  
+    #
+    # The important values calculated below are:
+    #    'coords_min' - origin for transforming between real and index spaces
+    #    'hole_grid_shape' - grid cells for the hole growing grid
+    #    'galaxy_map_grid_shape' - grid cells for the galaxy finding grid
+    #
+    #---------------------------------------------------------------------------
+    if mask_mode == 0: #ra-dec-redshift
+        
+        if galaxy_map_grid_edge_length is None:
+        
+            galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+        
+        coords_max = np.max(galaxy_coords, axis=0)
+    
+        coords_min = np.min(galaxy_coords, axis=0)
+        
+        box = coords_max - coords_min
+    
+        ngrid = box/hole_grid_edge_length
+        
+        hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+        
+        ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+        galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+        
+        
+    elif mask_mode == 1: #xyz
+        
+        if galaxy_map_grid_edge_length is None:
+        
+            galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+        
+        box = xyz_limits[1,:] - xyz_limits[0,:]
+        
+        ngrid = box/hole_grid_edge_length
+        
+        hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+        
+        coords_min = xyz_limits[0,:]
+        
+        ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+        galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+        
+        
+    elif mask_mode == 2: #periodic
+        
+        box = xyz_limits[1,:] - xyz_limits[0,:]
+        
+        ngrid = box/hole_grid_edge_length
+        
+        hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+        
+        coords_min = xyz_limits[0,:]
+        
+        if galaxy_map_grid_edge_length is None:
+            
+            desired_length = 3.0*hole_grid_edge_length
+            
+            #Find the common integer divisors of the length dimensions of the survey limits
+            common_divisors = get_common_divisors(box)
+            
+            if len(common_divisors) == 0 or \
+               (len(common_divisors) == 1 and common_divisors[0] == 1):
+                
+                error_str = """Could not automatically determine meaningful galaxy_map_grid_edge_length 
+                from the provided xyz_limits.  In mask_mode==periodic, the survey limits 
+                provided by the xyz_limits variable must be divisible by a common integer 
+                in all dimensions"""
+                
+                raise ValueError(error_str)
+            
+            common_divisors = np.array(common_divisors)
+            
+            argmin = np.abs(common_divisors - desired_length).argmin()
+            
+            galaxy_map_grid_edge_length = float(common_divisors[argmin])
+            
+            ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+            galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+            
+        else:
+            
+            ngrid_galaxymap = box/galaxy_map_grid_edge_length
+            
+            rounded = np.rint(ngrid_galaxymap)
+            
+            print(rounded)
+            
+            close_to_round = np.isclose(ngrid_galaxymap, rounded)
+            
+            print(close_to_round)
+            
+            if np.all(close_to_round):
+                #Vals are good, just proceed with given
+                galaxy_map_grid_shape = tuple(np.rint(ngrid_galaxymap).astype(int))
+            else:
+                #Attempt to adjust galaxy_map_grid_edge_length
+                error_str = """The provided combination of xyz_limits and galaxy_map_grid_edge length
+                will not work.  In mask_mode==periodic, the edge length must be an integer
+                divisor of all dimensions of the survey as provided by the xyz_limits input."""
+    
+                raise ValueError(error_str)
+        
+        
+    coords_min = coords_min.reshape(1,3).astype(np.float64)
     
     
+    if verbose > 0:
+        
+        print("Hole-growing Grid:", hole_grid_shape, flush=True)
+        
+        print("Galaxy-searching Grid:", galaxy_map_grid_shape, flush=True)
+        
+        print("Galaxy-searching edge length:", galaxy_map_grid_edge_length, 
+              flush=True)
+        
+    ############################################################################
     
     
     ############################################################################
@@ -488,11 +546,13 @@ def _hole_finder_multi_process(ngrid,
     # location instead.  Since on Linux /dev/shm is guaranteed to be a mounted
     # RAMdisk, I do not know if /tmp will be as fast or not, probably depends on
     # kernel settings.
+    # Also future updates to Linux on some distros might be using /run/shm
+    # instead of /dev/shm
     #---------------------------------------------------------------------------
     if not os.path.isdir(RESOURCE_DIR):
         
         print("WARNING: RESOURCE DIR", RESOURCE_DIR, 
-              "does not exist.  Falling back to /tmp but could be slow", 
+              "does not exist.  Falling back to /tmp", 
               flush=True)
         
         RESOURCE_DIR = "/tmp"
@@ -507,15 +567,9 @@ def _hole_finder_multi_process(ngrid,
     # Maybe should use psutil.cpu_count(logical=False) instead of the
     # multiprocessing version?
     #---------------------------------------------------------------------------
-    if (num_cpus is None):
+    if num_cpus is None:
           
         num_cpus = cpu_count(logical=False)
-        
-    if verbose > 0:
-        
-        print("Running multi-process mode,", str(num_cpus), "cpus", flush=True)
-        
-        print("Grid: ", ngrid, flush=True)
     ############################################################################
 
         
@@ -572,68 +626,60 @@ def _hole_finder_multi_process(ngrid,
     # First build a helper for the i,j,k generator, using the hole grid edge 
     # length.  We basically need a flag that says "there is a galaxy in this ijk 
     # cell" so VoidFinder can skip that i,j,k value when growing holes
+    #
+    # The HoleGridCustomDict class now creates and manages its own internal
+    # memmaped file so it can be passed directly across fork() and has a resize
+    # method so we can just use it directly without the helper
     #---------------------------------------------------------------------------
-    mesh_indices = ((w_coord - coord_min)/dl).astype(np.int64)
+    mesh_indices = ((galaxy_coords - coords_min)/hole_grid_edge_length).astype(np.int64)
     
-    hole_cell_ID_dict = {}
+    #test_hole_cell_ID_dict = {}
     
-    if check_only_empty_holes:
+    hole_cell_ID_dict = HoleGridCustomDict(hole_grid_shape,
+                                           RESOURCE_DIR)
+    
+    if check_only_empty_cells:
+        
+        #print("Num rows: ", len(mesh_indices))
     
         for row in mesh_indices:
             
-            hole_cell_ID_dict[tuple(row)] = 1
+            #test_hole_cell_ID_dict[tuple(row)] = 1
+            
+            hole_cell_ID_dict.setitem(*tuple(row))
+            
     
     num_nonempty_hole_cells = len(hole_cell_ID_dict)
-    ############################################################################
-
     
-    
-    ############################################################################
-    # Now convert this ijk helper into the cython class so we can share its
-    # memory array among the processes to not duplicate memory, also the custom
-    # hash function it uses is faster than the built-in python one since we are
-    # taking advantage of the sequential nature of grid cells
-    #---------------------------------------------------------------------------
-    
-    if num_nonempty_hole_cells == 0:
-        hole_next_prime = 1
-    else:
-        hole_next_prime = find_next_prime(2*num_nonempty_hole_cells)
-    
-    hole_lookup_memory = np.zeros(hole_next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
-                                                          ("i", np.int16, ()),
-                                                          ("j", np.int16, ()),
-                                                          ("k", np.int16, ())])
-    
-    new_hole_cell_ID_dict = HoleGridCustomDict(ngrid, 
-                                               hole_lookup_memory)
-    
-    for curr_ijk in hole_cell_ID_dict:
-        
-        new_hole_cell_ID_dict.setitem(*curr_ijk)
-        
-    del hole_cell_ID_dict
     
     del mesh_indices
     
     if verbose > 0:
         
-        print("Number of nonempty hole cells: ", num_nonempty_hole_cells, 
+        print("Number of filtered out hole-growing cells:", 
+              num_nonempty_hole_cells, 
               flush=True)
         
-        print("Total slots in hole_cell_ID_dict: ", hole_next_prime, flush=True)
-        
-        print("Num collisions hole_cell_ID_dict: ", 
-              new_hole_cell_ID_dict.num_collisions, 
+        print("Total slots in hole_cell_ID_dict:", 
+              hole_cell_ID_dict.mem_length, 
               flush=True)
+        
+        print("Num collisions hole_cell_ID_dict:", 
+              hole_cell_ID_dict.num_collisions, 
+              flush=True)
+    
+    #print("Test: ", len(test_hole_cell_ID_dict), num_nonempty_hole_cells)
     ############################################################################
 
-    
+
     
     ############################################################################
     # Next create the GalaxyMap p-q-r-space index, which is constructed 
     # identically to the hole_grid i-j-k-space, except that we use a larger cell 
-    # edge length so we get more galaxies per cell
+    # edge length so we get more galaxies per cell, and we actually store 
+    # information about that cell, so we have to do a first pass through
+    # all the galaxies to sort their indices into their cells first before we 
+    # can actually construct the hash map based GalaxyMapCustomDict
     #---------------------------------------------------------------------------
     if verbose > 0:
         
@@ -641,23 +687,23 @@ def _hole_finder_multi_process(ngrid,
         
         print("Building galaxy map", flush=True)
     
-    mesh_indices = ((w_coord - coord_min)/search_grid_edge_length).astype(np.int64)
+    mesh_indices = ((galaxy_coords - coords_min)/galaxy_map_grid_edge_length).astype(np.int64)
         
-    galaxy_map = {}
+    pre_galaxy_map = {}
 
     for idx in range(mesh_indices.shape[0]):
 
         bin_ID_pqr = tuple(mesh_indices[idx])
         
-        if bin_ID_pqr not in galaxy_map:
+        if bin_ID_pqr not in pre_galaxy_map:
             
-            galaxy_map[bin_ID_pqr] = []
+            pre_galaxy_map[bin_ID_pqr] = []
         
-        galaxy_map[bin_ID_pqr].append(idx)
+        pre_galaxy_map[bin_ID_pqr].append(idx)
         
     del mesh_indices
     
-    num_in_galaxy_map = len(galaxy_map)
+    num_in_galaxy_map = len(pre_galaxy_map)
     ############################################################################
 
     
@@ -674,19 +720,22 @@ def _hole_finder_multi_process(ngrid,
     # galaxy_map_array tell us the rows in the main galaxy_coords array where 
     # the galaxies in our p-q-r cell of interest are.
     #---------------------------------------------------------------------------
+    galaxy_search_cell_dict = GalaxyMapCustomDict(galaxy_map_grid_shape,
+                                                  RESOURCE_DIR)
+    
     offset = 0
     
     galaxy_map_list = []
     
-    for key in galaxy_map:
+    for key in pre_galaxy_map:
         
-        indices = np.array(galaxy_map[key], dtype=np.int64)
+        indices = np.array(pre_galaxy_map[key], dtype=np.int64)
         
         num_elements = indices.shape[0]
         
         galaxy_map_list.append(indices)
         
-        galaxy_map[key] = (offset, num_elements)
+        galaxy_search_cell_dict.setitem(*key, offset, num_elements)
         
         offset += num_elements
 
@@ -694,35 +743,61 @@ def _hole_finder_multi_process(ngrid,
     
     del galaxy_map_list
     
-    num_galaxy_map_elements = len(galaxy_map)
-    ############################################################################
+    num_galaxy_map_elements = len(galaxy_search_cell_dict)
+    
+    
+    
+    galaxy_map = GalaxyMap(RESOURCE_DIR,
+                           mask_mode,
+                           galaxy_coords, 
+                           coords_min, 
+                           galaxy_map_grid_edge_length,
+                           galaxy_search_cell_dict,
+                           galaxy_map_array)
+    
+    
+    
+    if verbose > 0:
+        
+        print("Total slots in galaxy map:", 
+              galaxy_search_cell_dict.mem_length, 
+              flush=True)
+        
+        print("Num gma indices:", galaxy_map.num_gma_indices, flush=True)
+    
+    
+    if mask_mode == 2:
+        #Brute force all the cells including a shell around the survey when in
+        #periodic mode
+        for i in range(-1, galaxy_map_grid_shape[0]+1):
+            for j in range(-1, galaxy_map_grid_shape[1]+1):
+                for k in range(-1, galaxy_map_grid_shape[2]+1):
+                    
+                    #Yes using contains not setitem here
+                    galaxy_map.contains(i,j,k)
+                
+                
+    
+    
+    
+    
+    
+    
+    '''
+    viz = VoidRender(
+                 
+                 galaxy_xyz=galaxy_coords,
+                 wall_galaxy_xyz=galaxy_map.wall_galaxy_coords,
+                 galaxy_display_radius=10,
+                 SPHERE_TRIANGULARIZATION_DEPTH=3,
+                 canvas_size=(1600,1200))
 
+    viz.run()
+    '''
     
     
-    ############################################################################
-    # Now convert the galaxy_map python dict created above into a custom 
-    # dictionary type which exposes the backing hash-table array, so we can 
-    # mem-map that array and share it among our worker processes.
-    #---------------------------------------------------------------------------
-    next_prime = find_next_prime(2*num_galaxy_map_elements)
     
-    lookup_memory = np.zeros(next_prime, dtype=[("filled_flag", np.uint8, ()), #() indicates scalar, or length 1 shape
-                                                ("p", np.int16, ()),
-                                                ("q", np.int16, ()),
-                                                ("r", np.int16, ()),
-                                                ("offset", np.int64, ()),
-                                                ("num_elements", np.int64, ())])
     
-    new_galaxy_map = GalaxyMapCustomDict(ngrid, 
-                                         lookup_memory)
-    
-    for curr_pqr in galaxy_map:
-        
-        offset, num_elements = galaxy_map[curr_pqr]
-        
-        new_galaxy_map.setitem(*curr_pqr, offset, num_elements)
-        
-    del galaxy_map
     
     if verbose > 0:
         
@@ -731,9 +806,12 @@ def _hole_finder_multi_process(ngrid,
         
         print("Num items in Galaxy Map:", num_in_galaxy_map, flush=True)
         
-        print("Total slots in galaxy map hash table:", next_prime, flush=True)
+        print("Total slots in galaxy map hash table:", 
+              galaxy_search_cell_dict.mem_length, 
+              flush=True)
         
-        print("Num collisions in rebuild:", new_galaxy_map.num_collisions, 
+        print("Num collisions in rebuild:", 
+              galaxy_search_cell_dict.num_collisions, 
               flush=True)
     ############################################################################
 
@@ -767,6 +845,7 @@ def _hole_finder_multi_process(ngrid,
     # "spawn" or "forkserver" methods would work correctly on this code, and if 
     # we needed to use them it might require re-engineering this code.
     #---------------------------------------------------------------------------
+    '''
     w_coord_fd, WCOORD_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
                                                       dir=RESOURCE_DIR, 
                                                       text=False)
@@ -777,7 +856,7 @@ def _hole_finder_multi_process(ngrid,
         
         print("WCOORD MEMMAP PATH:", WCOORD_BUFFER_PATH, w_coord_fd, flush=True)
     
-    num_galaxies = w_coord.shape[0]
+    num_galaxies = galaxy_coords.shape[0]
     
     w_coord_buffer_length = num_galaxies*3*8 # 3 for xyz and 8 for float64
     
@@ -785,80 +864,28 @@ def _hole_finder_multi_process(ngrid,
     
     w_coord_buffer = mmap.mmap(w_coord_fd, w_coord_buffer_length)
     
-    w_coord_buffer.write(w_coord.astype(np.float64).tobytes())
+    w_coord_buffer.write(galaxy_coords.astype(np.float64).tobytes())
     
-    del w_coord
+    del galaxy_coords
     
-    w_coord = np.frombuffer(w_coord_buffer, dtype=np.float64)
+    galaxy_coords = np.frombuffer(w_coord_buffer, dtype=np.float64)
     
-    w_coord.shape = (num_galaxies, 3)
+    galaxy_coords.shape = (num_galaxies, 3)
     
     os.unlink(WCOORD_BUFFER_PATH)
+    '''
     ############################################################################
+
 
     
     
-    ############################################################################
-    # memmap the lookup memory for the galaxy map
-    # maybe rename it to the galaxy map hash table
-    #---------------------------------------------------------------------------
-    lookup_fd, LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
-                                                        dir=RESOURCE_DIR, 
-                                                        text=False)
-    
-    if verbose > 0:
-        
-        print("Galaxy map lookup memmap:", LOOKUPMEM_BUFFER_PATH, lookup_fd, 
-              flush=True)
-    
-    lookup_buffer_length = next_prime*23 #23 bytes per element
-    
-    os.ftruncate(lookup_fd, lookup_buffer_length)
-    
-    lookup_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
-    
-    lookup_buffer.write(lookup_memory.tobytes())
-    
-    del lookup_memory
-    
-    os.unlink(LOOKUPMEM_BUFFER_PATH)
-    ############################################################################
-
-    
-    
-    ############################################################################
-    # memmap the lookup memory for the hole_cell_ID_dict
-    # maybe rename it to the hole_cell_ID hash table
-    #---------------------------------------------------------------------------
-    hole_lookup_fd, HOLE_LOOKUPMEM_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
-                                                                  dir=RESOURCE_DIR, 
-                                                                  text=False)
-    
-    if verbose > 0:
-        
-        print("Hole cell lookup memmap:", 
-              HOLE_LOOKUPMEM_BUFFER_PATH, 
-              hole_lookup_fd, 
-              flush=True)
-    
-    hole_lookup_buffer_length = hole_next_prime*7 #7 bytes per element
-    
-    os.ftruncate(hole_lookup_fd, hole_lookup_buffer_length)
-    
-    hole_lookup_buffer = mmap.mmap(hole_lookup_fd, hole_lookup_buffer_length)
-    
-    hole_lookup_buffer.write(hole_lookup_memory.tobytes())
-    
-    del hole_lookup_memory
-    
-    os.unlink(HOLE_LOOKUPMEM_BUFFER_PATH)
-    ############################################################################
 
     
     
     ############################################################################
     # Memmap the galaxy map array to our worker processes 
     #---------------------------------------------------------------------------
+    '''
     gma_fd, GMA_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
                                                dir=RESOURCE_DIR, 
                                                text=False)
@@ -884,6 +911,7 @@ def _hole_finder_multi_process(ngrid,
     galaxy_map_array = np.frombuffer(gma_buffer, dtype=np.int64)
     
     galaxy_map_array.shape = (num_gma_indices,)
+    '''
     ############################################################################
 
     
@@ -891,7 +919,10 @@ def _hole_finder_multi_process(ngrid,
     ############################################################################
     # Calculate the number of cells we need to search
     #---------------------------------------------------------------------------
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_nonempty_hole_cells
+    n_empty_cells = hole_grid_shape[0]*hole_grid_shape[1]*hole_grid_shape[2] - num_nonempty_hole_cells
+    
+    if n_empty_cells == 0:
+        raise ValueError("Found 0 cells to grow holes in.  Either set 'check_only_empty_cells' to False or check your grid and grid edge length parameters")
     ############################################################################
     
     
@@ -1028,18 +1059,20 @@ def _hole_finder_multi_process(ngrid,
     config_object = {"SOCKET_PATH" : SOCKET_PATH,
                      "RESULT_BUFFER_PATH" : RESULT_BUFFER_PATH,
                      "result_fd" : result_fd,
-                     "WCOORD_BUFFER_PATH" : WCOORD_BUFFER_PATH,
-                     "w_coord_fd" : w_coord_fd,
-                     "num_galaxies" : num_galaxies,
-                     "GMA_BUFFER_PATH" : GMA_BUFFER_PATH,
-                     "gma_fd" : gma_fd,
-                     "num_gma_indices" : num_gma_indices,
-                     "LOOKUPMEM_BUFFER_PATH" : LOOKUPMEM_BUFFER_PATH,
-                     "lookup_fd" : lookup_fd,
-                     "next_prime" : next_prime,
-                     "HOLE_LOOKUPMEM_BUFFER_PATH" : HOLE_LOOKUPMEM_BUFFER_PATH,
-                     "hole_lookup_fd" : hole_lookup_fd,
-                     "hole_next_prime" : hole_next_prime,
+                     #"WCOORD_BUFFER_PATH" : WCOORD_BUFFER_PATH,
+                     #"w_coord_fd" : w_coord_fd,
+                     #"num_galaxies" : num_galaxies,
+                     #"GMA_BUFFER_PATH" : GMA_BUFFER_PATH,
+                     #"gma_fd" : gma_fd,
+                     #"num_gma_indices" : num_gma_indices,
+                     #"LOOKUPMEM_BUFFER_PATH" : LOOKUPMEM_BUFFER_PATH,
+                     #"lookup_fd" : lookup_fd,
+                     #"next_prime" : next_prime,
+                     "galaxy_map" : galaxy_map,
+                     #"HOLE_LOOKUPMEM_BUFFER_PATH" : HOLE_LOOKUPMEM_BUFFER_PATH,
+                     #"hole_lookup_fd" : hole_lookup_fd,
+                     #"hole_next_prime" : hole_next_prime,
+                     "hole_cell_ID_dict" : hole_cell_ID_dict,
                      "num_nonempty_hole_cells" : num_nonempty_hole_cells,
                      #"hole_radial_mask_check_dist" : hole_radial_mask_check_dist,
                      #"CELL_ID_BUFFER_PATH" : CELL_ID_BUFFER_PATH,
@@ -1047,10 +1080,10 @@ def _hole_finder_multi_process(ngrid,
                      #"cell_ID_dict" : cell_ID_dict,
                      #"galaxy_map" : galaxy_map,
                      "num_in_galaxy_map" : num_in_galaxy_map,
-                     "ngrid" : ngrid, 
-                     "dl" : dl, 
-                     "dr" : dr,
-                     "coord_min" : coord_min, 
+                     "ngrid" : hole_grid_shape, 
+                     "dl" : hole_grid_edge_length, 
+                     "dr" : hole_center_iter_dist,
+                     "coords_min" : coords_min, 
                      "mask_mode" : mask_mode,
                      "xyz_limits" : xyz_limits,
                      "mask" : mask,
@@ -1065,7 +1098,7 @@ def _hole_finder_multi_process(ngrid,
                      "verbose" : verbose,
                      "print_after" : print_after,
                      "num_cpus" : num_cpus,
-                     "search_grid_edge_length" : search_grid_edge_length,
+                     "search_grid_edge_length" : galaxy_map_grid_edge_length,
                      "DEBUG_DIR" : DEBUG_DIR
                      }
     ############################################################################
@@ -1105,23 +1138,23 @@ def _hole_finder_multi_process(ngrid,
         
             os.remove(RESULT_BUFFER_PATH)
         
-    def cleanup_wcoord():
+    #def cleanup_wcoord():
+    #    
+    #    if os.path.isfile(WCOORD_BUFFER_PATH):
+    #    
+    #        os.remove(WCOORD_BUFFER_PATH)
         
-        if os.path.isfile(WCOORD_BUFFER_PATH):
+    #def cleanup_gma():
+    #    
+    #    if os.path.isfile(GMA_BUFFER_PATH):
+    #    
+    #        os.remove(GMA_BUFFER_PATH)
         
-            os.remove(WCOORD_BUFFER_PATH)
-        
-    def cleanup_gma():
-        
-        if os.path.isfile(GMA_BUFFER_PATH):
-        
-            os.remove(GMA_BUFFER_PATH)
-        
-    def cleanup_lookupmem():
-        
-        if os.path.isfile(LOOKUPMEM_BUFFER_PATH):
-        
-            os.remove(LOOKUPMEM_BUFFER_PATH)
+    #def cleanup_lookupmem():
+    #    
+    #    if os.path.isfile(LOOKUPMEM_BUFFER_PATH):
+    #    
+    #        os.remove(LOOKUPMEM_BUFFER_PATH)
         
     
     atexit.register(cleanup_config)
@@ -1130,11 +1163,11 @@ def _hole_finder_multi_process(ngrid,
     
     atexit.register(cleanup_result)
     
-    atexit.register(cleanup_wcoord)
+    #atexit.register(cleanup_wcoord)
     
-    atexit.register(cleanup_gma)
+    #atexit.register(cleanup_gma)
     
-    atexit.register(cleanup_lookupmem)
+    #atexit.register(cleanup_lookupmem)
     ############################################################################
 
     
@@ -1150,6 +1183,11 @@ def _hole_finder_multi_process(ngrid,
     #---------------------------------------------------------------------------
     
     if num_cpus > 1:
+        
+        if verbose > 0:
+            print("Running multi-process mode,", str(num_cpus), "cpus", flush=True)
+        
+        
     
         if hasattr(socket, "SOCK_CLOEXEC"):
             
@@ -1192,11 +1230,23 @@ def _hole_finder_multi_process(ngrid,
             processes.append(p)
             
     else:
+        
+        
+        if verbose > 0:
+            print("Running single-process mode,", str(num_cpus), "cpus", flush=True)
+        
+        main_task_start_time = time.time()
+        
         #Single process mode
         _hole_finder_worker(0, 
                             ijk_start, 
                             write_start, 
                             config_object)
+        
+        if verbose > 0:
+            print("Main task finish time:", time.time() - main_task_start_time, 
+                      flush=True)
+        
     
     worker_start_time = time.time()
     ############################################################################
@@ -1401,7 +1451,7 @@ def _hole_finder_multi_process(ngrid,
         if (curr_time - print_after_time) > print_after:
         
             print('Processed', num_cells_processed, 
-                  'cells of', n_empty_cells, "empty cells", 
+                  'cells of', n_empty_cells, " cells", 
                   str(round(curr_time - main_task_start_time, 2)), 
                   flush=True)
             
@@ -1545,8 +1595,9 @@ def _hole_finder_multi_process(ngrid,
     #---------------------------------------------------------------------------
     if verbose > 0:
         
-        print("Main task finish time:", time.time() - main_task_start_time, 
-              flush=True)
+        if num_cpus > 1:
+            print("Main task finish time:", time.time() - main_task_start_time, 
+                  flush=True)
     
     
     if num_cpus > 1:
@@ -1651,13 +1702,15 @@ def _hole_finder_multi_process(ngrid,
     #---------------------------------------------------------------------------
     result_buffer.close()
     
-    gma_buffer.close()
+    # Since the worker function closes this stuff too, we only have to close
+    # our parent copies if we're running multi-processed
     
-    lookup_buffer.close()
+    if num_cpus > 1:
+        
+        hole_cell_ID_dict.close()
+        
+        galaxy_map.close()
     
-    hole_lookup_buffer.close()
-    
-    w_coord_buffer.close()
     ############################################################################
         
     return valid_result_array, n_holes
@@ -1815,25 +1868,27 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     SOCKET_PATH = config["SOCKET_PATH"]
     RESULT_BUFFER_PATH = config["RESULT_BUFFER_PATH"]
     result_fd = config["result_fd"]
-    WCOORD_BUFFER_PATH = config["WCOORD_BUFFER_PATH"]
-    w_coord_fd = config["w_coord_fd"]
-    num_galaxies = config["num_galaxies"]
-    GMA_BUFFER_PATH = config["GMA_BUFFER_PATH"]
-    gma_fd = config["gma_fd"]
-    num_gma_indices = config["num_gma_indices"]
-    LOOKUPMEM_BUFFER_PATH = config["LOOKUPMEM_BUFFER_PATH"]
-    lookup_fd = config["lookup_fd"]
-    next_prime = config["next_prime"]
-    HOLE_LOOKUPMEM_BUFFER_PATH = config["HOLE_LOOKUPMEM_BUFFER_PATH"]
-    hole_lookup_fd = config["hole_lookup_fd"]
-    hole_next_prime = config["hole_next_prime"]
+    #WCOORD_BUFFER_PATH = config["WCOORD_BUFFER_PATH"]
+    #w_coord_fd = config["w_coord_fd"]
+    #num_galaxies = config["num_galaxies"]
+    #GMA_BUFFER_PATH = config["GMA_BUFFER_PATH"]
+    #gma_fd = config["gma_fd"]
+    #num_gma_indices = config["num_gma_indices"]
+    #LOOKUPMEM_BUFFER_PATH = config["LOOKUPMEM_BUFFER_PATH"]
+    #lookup_fd = config["lookup_fd"]
+    #next_prime = config["next_prime"]
+    galaxy_map = config["galaxy_map"]
+    #HOLE_LOOKUPMEM_BUFFER_PATH = config["HOLE_LOOKUPMEM_BUFFER_PATH"]
+    #hole_lookup_fd = config["hole_lookup_fd"]
+    #hole_next_prime = config["hole_next_prime"]
+    hole_cell_ID_dict = config["hole_cell_ID_dict"]
     num_nonempty_hole_cells = config["num_nonempty_hole_cells"]
     #hole_radial_mask_check_dist = config["hole_radial_mask_check_dist"]
     num_in_galaxy_map = config["num_in_galaxy_map"]
     ngrid = config["ngrid"]
     dl = config["dl"]
     dr = config["dr"]
-    coord_min = config["coord_min"]
+    coords_min = config["coords_min"]
     mask_mode = config["mask_mode"]
     mask = config["mask"]
     mask_resolution = config["mask_resolution"]
@@ -1911,6 +1966,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     # but every system does have a limit on how many file descriptors can be 
     # open for a process and on the whole system).
     #---------------------------------------------------------------------------
+    '''
     wcoord_buffer_length = num_galaxies*3*8 # 3 since xyz and 8 since float64
     
     wcoord_mmap_buffer = mmap.mmap(w_coord_fd, wcoord_buffer_length)
@@ -1918,6 +1974,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     w_coord = np.frombuffer(wcoord_mmap_buffer, dtype=np.float64)
     
     w_coord.shape = (num_galaxies, 3)
+    '''
     ############################################################################
 
     
@@ -1925,6 +1982,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     ############################################################################
     # Load up galaxy_map_array from shared memory
     #---------------------------------------------------------------------------
+    '''
     gma_buffer_length = num_gma_indices*8 # 3 since xyz and 8 since float64
     
     gma_mmap_buffer = mmap.mmap(gma_fd, gma_buffer_length)
@@ -1932,6 +1990,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     galaxy_map_array = np.frombuffer(gma_mmap_buffer, dtype=np.int64)
     
     galaxy_map_array.shape = (num_gma_indices,)
+    '''
     ############################################################################
 
     
@@ -1955,6 +2014,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     # belong to that p-q-r cell.  The num_elements galaxy_map_array values are 
     # the indices into w_coord for the galaxies at the p-q-r cell
     #---------------------------------------------------------------------------
+    '''
     lookup_buffer_length = next_prime*23 # 23 bytes per element
     
     lookup_mmap_buffer = mmap.mmap(lookup_fd, lookup_buffer_length)
@@ -1974,12 +2034,15 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
 
     galaxy_map = GalaxyMapCustomDict(ngrid,
                                      lookup_memory)
-
+    '''
+        
+    '''
     galaxy_tree = GalaxyMap(w_coord, 
-                            coord_min, 
+                            coords_min, 
                             search_grid_edge_length,
                             galaxy_map,
                             galaxy_map_array)
+    '''
     ############################################################################
 
     
@@ -2018,6 +2081,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     ############################################################################
     # Load/mmap the dictionary corresponding to the hole grid.
     #---------------------------------------------------------------------------
+    '''
     hole_lookup_buffer_length = hole_next_prime*7 # 7 bytes per element
     
     hole_lookup_mmap_buffer = mmap.mmap(hole_lookup_fd, 
@@ -2038,6 +2102,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     
     hole_cell_ID_dict = HoleGridCustomDict(ngrid,
                                            hole_lookup_memory)
+    '''
     ############################################################################
 
 
@@ -2067,7 +2132,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                    rmax=max_dist,
                                    )
         
-    elif mask_mode == 1:
+    elif mask_mode in [1,2]:
         mask_checker = MaskChecker(mask_mode,
                                    xyz_limits=xyz_limits)
     ############################################################################
@@ -2266,11 +2331,10 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                             dtype=np.float64)
                     
                 main_algorithm(i_j_k_array[0:num_write],
-                               galaxy_tree,
-                               w_coord,
+                               galaxy_map,
                                dl, 
                                dr,
-                               coord_min,
+                               coords_min,
                                mask_checker,
                                #mask,
                                #mask_resolution,
@@ -2387,7 +2451,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
             if (curr_time - print_after_time) > print_after:
             
                 print('Processed', num_cells_processed, 
-                      'cells of', n_empty_cells, "empty cells", 
+                      'cells of', n_empty_cells, " cells", 
                       str(round(curr_time - main_task_start_time, 2)), 
                       flush=True)
                 
@@ -2473,8 +2537,13 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     #---------------------------------------------------------------------------
     if num_cpus > 1:
         worker_socket.close()
+        
+    hole_cell_ID_dict.close()
     
-    print("WORKER EXITING GRACEFULLY", worker_idx, flush=True)
+    galaxy_map.close()
+    
+    if verbose > 1:
+        print("WORKER EXITING GRACEFULLY", worker_idx, flush=True)
     ############################################################################
 
     
@@ -2483,8 +2552,12 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
 
 
 
-def find_next_prime(threshold_value):
+def find_next_prime_DEPRECATED(threshold_value):
     """
+    replaced by cythonized version from _voidfinder_cython_find_next just keeping
+    this function here until new one is tested
+    
+    
     Description
     ===========
     

@@ -94,14 +94,24 @@ class TestVoidFinder(unittest.TestCase):
 
     def test_3_filter_galaxies(self):
         """Filter galaxies.
+        
+        Update 3/14/2022 - filter_galaxies is no longer returning grid_shape
+        and coords_min parameters - instead they are calculated inside the
+        main body of find_voids() for consistency among the 3 mask_mode
+        types
+        
         """
         # Take a table of galaxy coordinates, the name of the survey, and the
         # output directory and returns astropy tables of the Cartesian
         # coordinates of the wall and field galaxies as well as the shape 
         # of the grid on which the galaxies will be placed and the coordinates
         # of the lower left corner of the grid.
-        f_wall, f_field, f_grid_shape, f_min = filter_galaxies(
-            self.galaxies_shuffled, 'test_', '', dist_metric='redshift', hole_grid_edge_length=1.0)
+        
+        f_wall, f_field = filter_galaxies(self.galaxies_shuffled, 
+                                          'test_', 
+                                          '', 
+                                          dist_metric='redshift', 
+                                          )
 
         # Check the wall galaxy coordinates
         gal_tree = neighbors.KDTree(self.gal)
@@ -114,13 +124,15 @@ class TestVoidFinder(unittest.TestCase):
         field = self.gal[dist3 >= (np.mean(dist3) + 1.5*np.std(dist3))]
         self.assertTrue(np.isclose(f_field, field).all())
 
+        #These tests are deprecated as the 3/14/2022 update
+        #leaving the commented versions here in case we need to roll back
         # Check the grid shape
-        n_cells = (np.max(self.gal, axis=0) - np.min(self.gal, axis=0))
-        TestVoidFinder.grid_shape = tuple(np.ceil(n_cells).astype(int))
-        self.assertEqual(f_grid_shape, TestVoidFinder.grid_shape)
+        #n_cells = (np.max(self.gal, axis=0) - np.min(self.gal, axis=0))
+        #TestVoidFinder.grid_shape = tuple(np.ceil(n_cells).astype(int))
+        #self.assertEqual(f_grid_shape, TestVoidFinder.grid_shape)
 
         # Check the minimum coordinates
-        self.assertTrue(np.isclose(f_min, np.min(self.gal, axis=0)).all())
+        #self.assertTrue(np.isclose(f_min, np.min(self.gal, axis=0)).all())
 
     def test_4_find_voids(self):
         """Identify maximal spheres and holes in the galaxy distribution
@@ -147,13 +159,12 @@ class TestVoidFinder(unittest.TestCase):
             remove_boolean = np.logical_or(remove_boolean, (d < holes['r'][i]))
 
         find_voids(TestVoidFinder.wall[~remove_boolean], 
-                   np.min(self.gal, axis=0), 
-                   TestVoidFinder.grid_shape, 
+                   #np.min(self.gal, axis=0), 
+                   #TestVoidFinder.grid_shape, 
                    'test_', 
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
-                   min_dist=TestVoidFinder.dist_limits[0],
-                   max_dist=TestVoidFinder.dist_limits[1],
+                   dist_limits=TestVoidFinder.dist_limits,
                    hole_grid_edge_length=1.0,
                    hole_center_iter_dist=0.2, 
                    min_maximal_radius=1.0, 

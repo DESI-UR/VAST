@@ -12,8 +12,9 @@ defines voids as the unions of sets of spheres grown in the underdense regions
 of the large-scale structure.
 
 The **VoidFinder** directory contains the package, which includes an efficient 
-Multi-Process Cythonized version of VoidFinder.  To import the main 
-void-finding function of VoidFinder::
+Multi-Process Cythonized version of VoidFinder.  Options are available to 
+identify voids in both observational galaxy surveys and periodic cosmological 
+simulations.  To import the main void-finding function of VoidFinder::
     
     from vast.voidfinder import find_voids
 
@@ -41,19 +42,25 @@ maximal sphere by at least 50% of its volume.  The union of a set of spheres
 Installation
 ============
 
-Operation system requirements
------------------------------
+Operating System Support & Requirements
+---------------------------------------
 
-**VoidFinder** is currently Unix-only.  **VoidFinder** relies on the tmpfs file 
-system (RAMdisk) on ``/dev/shm`` for shared memory, and this file system is 
-currently (as of February 2022) a Linux-only feature.  However, **VoidFinder** 
-will fall back to memmapping files in the ``/tmp`` directory if ``/dev/shm`` 
-does not exist, so it can still run on OSX.  Depending on the OSX kernal 
-configuration, there may be no speed/performance loss if running shared memory 
-out of ``/tmp``, but it depends entirely on the kernal buffer sizes.
+*Linux* --- **VoidFinder** is currently only fully supported on Linux, but may run 
+on OSX and other Unix variants.
 
-**VoidFinder** also uses the ``fork()`` method for its worker processes, and the 
-``fork()`` method does not exist on Windows.
+*OSX* --- The authors have successfully run **VoidFinder** with full 
+multi-processing power on Mac/OSX, but until Apple guarantees a POSIX- or Single 
+Unix Specification-compliant ``fork()`` system call, full multi-processing 
+**VoidFinder** cannot be guaranteed.  However, the single-process version of 
+**VoidFinder** should always work on OSX to the best of our knowledge, and (as 
+of March 2022), **VoidFinder** seems to be working correctly on OSX.
+
+*Windows* --- The authors have encountered difficulty compiling the Cython code 
+on the Windows platform, and more importantly the ``fork()`` system call is not 
+supported by Windows.  Given its small popularity as a scientific computing 
+platform, we have no plans (as of March 2022) to support Windows.  
+
+
 
 
 Building VoidFinder
@@ -75,6 +82,7 @@ environment that you are using.  To check on this, you can type::
 into a normal unix shell and it will give you a path like ``/usr/bin/python`` or 
 ``/opt/anaconda3/bin/python``, which lets you know which python binary your 
 ``python`` command actually points to.
+
 
 Developing VoidFinder
 ^^^^^^^^^^^^^^^^^^^^^
@@ -105,6 +113,7 @@ Occasionally, it can be helpful to know the following command::
 which can be run from within the directory where the .pyx files live 
 (currently ``VAST/python/vast/voidfinder/``) to "manually" build the cython 
 (.pyx) files.
+
 
 Installing VoidFinder without admin privileges
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

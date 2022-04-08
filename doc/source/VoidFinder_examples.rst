@@ -50,6 +50,13 @@ selection of example scripts:
  * ``SDSS_VoidFinder_dr7.py`` will run **VoidFinder** on the SDSS DR7 main 
    galaxy sample.  A volume-limited version of this galaxy catalog is provided 
    with the package (``VAST/example_scripts/vollim_dr7_cbp_102709.dat``).
+ * ``Gadget_VoidFinder_periodic.py`` will run **VoidFinder** on a simulated  
+   galaxy catalog with periodic boundary conditions.  A small example data file 
+   is provided with the package 
+   (``VAST/example_scripts/gadget_sim_100_256_wall.dat``).
+ * ``Gadget_VoidFinder_xyz.py`` will run **VoidFinder** on a simulated galaxy 
+   catalog with Cartesian coordinates.  A small example data file is provided 
+   with the package (``VAST/example_scripts/gadget_sim_100_256_wall.dat``).
  * ``classifyEnvironment.py`` takes the output of **VoidFinder** (identified 
    voids) and determines which objects of a given catalog are within the voids 
    ("void" objects), which are outside the voids ("wall" objects), and which are 
@@ -70,9 +77,13 @@ The easiest way to use **VoidFinder** is to create a script that
    boundaries within which voids can be found
 3. Finds voids within the galaxy catalog
 
-An example of this script is the ``SDSS_VoidFinder_dr7.py`` file, located in 
-``VAST/example_scripts/``.  What follows is a breakdown of this script, 
-explaining the various options and functions called.
+Examples of this script include the ``SDSS_VoidFinder_dr7.py`` file (for a 
+generic distribution of galaxies), the ``Gadget_VoidFinder_periodic.py`` file 
+(for a rectangular simulation with periodic boundary conditions), and the 
+``Gadget_VoidFinder_xyz.py`` file (for a rectangular distribution of galaxies 
+with Cartesian coordinates) all located in ``VAST/example_scripts/``.  What 
+follows is a breakdown of these scripts, explaining the various options and 
+functions called.
 
 
 1. Preparing the data
@@ -97,6 +108,7 @@ The outputs from ``file_preprocess`` are
  * The input galaxy catalog as an ``astropy.table.Table`` object
  * The distance limits within which to locate voids
  * The output file names for the void files (see :ref:`VF-output` for details)
+
 
 Constructing a volume-limited sample
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -158,6 +170,14 @@ The outputs of ``generate_mask`` are
   (ra, dec) coordinates to the array index within the mask where it belongs.
 
 
+Cartesian coordinates
+^^^^^^^^^^^^^^^^^^^^^
+  
+When running **VoidFinder** on a rectangular volume (e.g., a halo catalog 
+generated from a cosmological simulation), the mask is defined directly by the 
+user as the minimum and maximum extent of the tracers in each dimension.
+
+
 
 3. Finding voids
 ----------------
@@ -181,6 +201,36 @@ volume).  The union of a maximal sphere and its void's holes defines a void.
 The outputs of ``find_voids`` are the output files described in 
 :ref:`VF-output`.
 
+
+Setting the mask
+^^^^^^^^^^^^^^^^
+
+**VoidFinder** is capable of running on an observational galaxy survey, mass 
+tracers with Cartesian coordinates, and a cosmological simulation with periodic 
+boundary conditions.  Each of these different input data sets requires a 
+different set of inputs to ``find_voids``, with the ``mask_type`` keyword 
+identifying which method the algorithm should follow.  Consult the table below 
+for details on what is required for each version.
+
+.. list-table:: Input catalog options
+   :width: 100%
+   :widths: 25 25 25 50
+   :header-rows: 1
+
+   * - Input catalog coordinates
+     - Required mask inputs
+     - Value of ``mask_type`` input to ``find_voids`` (string)
+   * - (ra, dec, redshift)
+     - ``mask`` and ``mask_resolution`` (outputs from ``generate_mask``)
+     - ra_dec_z
+   * - (x, y, z)
+     - ``xyz_limits`` (minimum and maximum in each dimension)
+     - xyz
+   * - (x, y, z) with periodic boundaries
+     - ``xyz_limits`` (minimum and maximum in each dimension)
+     - periodic
+
+
 Parallelized void-finding
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -191,6 +241,7 @@ used.  The number of cells given to each thread at a given time is set by the
 value in ``batch_size``.
 
 To run ``find_voids`` in a single thread, set ``num_cpus = 1``.
+
 
 Checkpoint files
 ^^^^^^^^^^^^^^^^
@@ -437,7 +488,7 @@ Adjustable parameters
        If left to ``None``, the minimum and maximum redshift range of the 
        input galaxy catalog is used.
    * - ``dist_limits``
-     - ``filter_galaxies``
+     - ``filter_galaxies``, ``find_voids``
      - list of floats
      - None
      - The minimum and maximum distance limits within which to find the voids.  
@@ -486,8 +537,29 @@ Adjustable parameters
      - string
      - ra_dec_z
      - The type of mask to use when growing spheres.  Options are ``ra_dec_z`` 
-       (input matter tracer catalog provides sky coordinates) and ``xyz`` (input 
-       matter tracer catalog provides Cartesian coordinates).
+       (input matter tracer catalog provides sky coordinates), ``xyz`` (input 
+       matter tracer catalog provides Cartesian coordinates), and ``periodic`` 
+       (input matter tracer catalog provides Cartesian coordinates and was 
+       generated with periodic boundary conditions).
+   * - ``mask``
+     - ``find_voids``
+     - boolean array
+     - None
+     - The survey footprint in (ra, dec) space, where values of True indicate 
+       locations within the survey boundary.  This input is required when 
+       ``mask_type = 'ra_dec_z'``.
+   * - ``mask_resolution``
+     - ``find_voids``
+     - integer
+     - None
+     - The scale factor of the coordinates needed to index the mask.  This input 
+       is required when ``mask_type = 'ra_dec_z'``.
+   * - ``xyz_limits``
+     - ``find_voids``
+     - array of shape (2,3)
+     - None
+     - The volume limits of the Cartesian coordinates in each dimension.  This 
+       input it required when ``mask_type = 'xyz'`` or ``'periodic'``.
    * - ``min_maximal_radius``
      - ``find_voids``
      - float

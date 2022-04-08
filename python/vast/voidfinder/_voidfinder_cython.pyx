@@ -1,5 +1,4 @@
-
-
+#cython: language_level=3
 
 
 
@@ -14,7 +13,7 @@ cimport numpy as np
 np.import_array()  # required in order to use C-API
 
 
-from typedefs cimport DTYPE_CP128_t, \
+from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_CP64_t, \
                       DTYPE_F64_t, \
                       DTYPE_F32_t, \
@@ -28,16 +27,17 @@ from numpy.math cimport NAN, INFINITY
 
 from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
-from _voidfinder_cython_find_next cimport find_next_galaxy, \
-                                          not_in_mask, \
-                                          _query_first, \
-                                          DistIdxPair, \
-                                          Cell_ID_Memory, \
-                                          GalaxyMapCustomDict, \
-                                          HoleGridCustomDict, \
-                                          FindNextReturnVal, \
-                                          NeighborMemory, \
-                                          MaskChecker
+from ._voidfinder_cython_find_next cimport find_next_galaxy, \
+                                           not_in_mask, \
+                                           _query_first, \
+                                           DistIdxPair, \
+                                           Cell_ID_Memory, \
+                                           GalaxyMapCustomDict, \
+                                           HoleGridCustomDict, \
+                                           FindNextReturnVal, \
+                                           NeighborMemory, \
+                                           MaskChecker, \
+                                           GalaxyMap
                                           
 
 import time
@@ -45,13 +45,12 @@ import time
 
 #Create a typedef for the type of pointer which can point
 #to the mask check function
-ctypedef DTYPE_B_t (*MASK_CHECK_FUNCTION_t)(DTYPE_F64_t[:,:], DTYPE_B_t[:,:], DTYPE_INT32_t, DTYPE_F64_t, DTYPE_F64_t)
+#ctypedef DTYPE_B_t (*MASK_CHECK_FUNCTION_t)(DTYPE_F64_t[:,:], DTYPE_B_t[:,:], DTYPE_INT32_t, DTYPE_F64_t, DTYPE_F64_t)
 
 
 
 
-
-
+'''
 cdef DTYPE_B_t test_function_woo(DTYPE_F64_t[:,:] a, 
                                  DTYPE_B_t[:,:] b, 
                                  DTYPE_INT32_t c,  
@@ -59,11 +58,7 @@ cdef DTYPE_B_t test_function_woo(DTYPE_F64_t[:,:] a,
                                  DTYPE_F64_t e):
 
     return <DTYPE_B_t>0
-
-
-
-
-
+'''
 
 
 @cython.boundscheck(False)
@@ -217,7 +212,6 @@ cpdef DTYPE_INT64_t fill_ijk_zig_zag(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
@@ -301,24 +295,16 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
-                          galaxy_tree,
-                          DTYPE_F64_t[:,:] w_coord,
+                          GalaxyMap galaxy_map,
                           DTYPE_F64_t dl, 
                           DTYPE_F64_t dr,
                           DTYPE_F64_t[:,:] coord_min, 
                           MaskChecker mask_checker,
-                          #DTYPE_B_t[:,:] mask,
-                          #DTYPE_INT32_t mask_resolution,
-                          #DTYPE_F64_t min_dist,
-                          #DTYPE_F64_t max_dist,
-                          #DTYPE_F64_t hole_radial_mask_check_dist,
                           DTYPE_F64_t[:,:] return_array,
                           Cell_ID_Memory cell_ID_mem,
                           NeighborMemory neighbor_mem,
@@ -354,12 +340,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         a batch of N cell IDs on which to run the VoidFinder hole-growing 
         algorithm
       
-    galaxy_tree : python object
-        a glorified wrapper around a couple of the data structures used by 
-        VoidFinder
+    galaxy_map : _voidfinder_cython_find_next.GalaxyMap
+        An interface to searching, accessing, and retrieving the galaxies
+        in the survey efficiently.  handles logic like regular vs. periodic
+        access, and memory mapping the arrays for the workers
         
-    w_coord : memoryview to (K,3) numpy array
-        xyz space galaxy coordinates
         
     dl : float
         edge length in Mpc/h of the hole grid cell size
@@ -614,14 +599,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #
         ########################################################################
         
-        query_vals = _query_first(galaxy_tree.reference_point_ijk,
-                                  galaxy_tree.coord_min,
-                                  galaxy_tree.dl,
-                                  galaxy_tree.shell_boundaries_xyz,
-                                  galaxy_tree.cell_center_xyz,
-                                  galaxy_tree.galaxy_map,
-                                  galaxy_tree.galaxy_map_array,
-                                  galaxy_tree.w_coord,
+        query_vals = _query_first(galaxy_map.reference_point_ijk,
+                                  galaxy_map.coord_min,
+                                  galaxy_map.dl,
+                                  galaxy_map.shell_boundaries_xyz,
+                                  galaxy_map.cell_center_xyz,
+                                  galaxy_map,
                                   cell_ID_mem,
                                   hole_center_memview)
         
@@ -643,7 +626,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         for idx in range(3):
             
-            unit_vector_memview[idx] = (w_coord[k1g,idx] - hole_center_memview[0,idx])/vector_modulus
+            unit_vector_memview[idx] = (galaxy_map.wall_galaxy_coords[k1g,idx] - hole_center_memview[0,idx])/vector_modulus
             
         hole_radius = vector_modulus
         
@@ -675,10 +658,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              dr, 
                                              -1.0,
                                              unit_vector_memview, 
-                                             galaxy_tree, 
+                                             galaxy_map, 
                                              nearest_gal_index_list, 
                                              1,
-                                             w_coord, 
+                                             #galaxy_map.wall_galaxy_coords, 
                                              mask_checker,
                                              #mask, 
                                              #mask_resolution,
@@ -771,7 +754,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         for idx in range(3):
         
-            temp_f64_val = w_coord[k1g,idx] - w_coord[k2g, idx]
+            temp_f64_val = galaxy_map.wall_galaxy_coords[k1g,idx] - galaxy_map.wall_galaxy_coords[k2g, idx]
             
             temp_f64_accum += temp_f64_val*temp_f64_val
             
@@ -782,7 +765,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         for idx in range(3):
             
-            hole_center_memview[0,idx] = w_coord[k1g,idx] - hole_radius*unit_vector_memview[idx]
+            hole_center_memview[0,idx] = galaxy_map.wall_galaxy_coords[k1g,idx] - hole_radius*unit_vector_memview[idx]
         
         
         #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
@@ -827,7 +810,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         for idx in range(3):
             
-            midpoint_memview[idx] = 0.5*(w_coord[k1g,idx] + w_coord[k2g,idx])
+            midpoint_memview[idx] = 0.5*(galaxy_map.wall_galaxy_coords[k1g,idx] + galaxy_map.wall_galaxy_coords[k2g,idx])
         
         
         temp_f64_accum = 0.0
@@ -874,10 +857,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              dr, 
                                              1.0,
                                              unit_vector_memview, 
-                                             galaxy_tree, 
+                                             galaxy_map, 
                                              nearest_gal_index_list, 
                                              2,
-                                             w_coord, 
+                                             #galaxy_map.wall_galaxy_coords, 
                                              mask_checker,
                                              #mask, 
                                              #mask_resolution, 
@@ -943,7 +926,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
         for idx in range(3):
     
-            temp_f64_val = hole_center_memview[0,idx] - w_coord[k1g,idx]
+            temp_f64_val = hole_center_memview[0,idx] - galaxy_map.wall_galaxy_coords[k1g,idx]
     
             temp_f64_accum += temp_f64_val*temp_f64_val
     
@@ -990,9 +973,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
         for idx in range(3):
     
-            AB_memview[idx] = w_coord[k1g, idx] - w_coord[k2g, idx]
+            AB_memview[idx] = galaxy_map.wall_galaxy_coords[k1g, idx] - galaxy_map.wall_galaxy_coords[k2g, idx]
     
-            BC_memview[idx] = w_coord[k3g, idx] - w_coord[k2g, idx]
+            BC_memview[idx] = galaxy_map.wall_galaxy_coords[k3g, idx] - galaxy_map.wall_galaxy_coords[k2g, idx]
     
     
         v3_memview[0] = AB_memview[1]*BC_memview[2] - AB_memview[2]*BC_memview[1]
@@ -1045,10 +1028,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              dr, 
                                              1.0,
                                              unit_vector_memview, 
-                                             galaxy_tree, 
+                                             galaxy_map, 
                                              nearest_gal_index_list, 
                                              3,
-                                             w_coord, 
+                                             #galaxy_map.wall_galaxy_coords, 
                                              mask_checker,
                                              #mask, 
                                              #mask_resolution,
@@ -1106,10 +1089,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
                                              dr, 
                                              1.0,
                                              unit_vector_memview, 
-                                             galaxy_tree, 
+                                             galaxy_map, 
                                              nearest_gal_index_list, 
                                              3,
-                                             w_coord, 
+                                             #galaxy_map.wall_galaxy_coords, 
                                              mask_checker,
                                              #mask, 
                                              #mask_resolution,
@@ -1210,7 +1193,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
         for idx in range(3):
     
-            temp_f64_val = hole_center_memview[0, idx] - w_coord[k1g, idx]
+            temp_f64_val = hole_center_memview[0, idx] - galaxy_map.wall_galaxy_coords[k1g, idx]
     
             temp_f64_accum += temp_f64_val*temp_f64_val
     
@@ -1300,11 +1283,10 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-@cython.profile(True)
+@cython.profile(False)
 cpdef DTYPE_B_t check_mask_overlap(DTYPE_F64_t[:,:] coordinates,
                                   DTYPE_F64_t[:,:] temp_coordinates,
                                   DTYPE_F64_t hole_radial_mask_check_dist,
