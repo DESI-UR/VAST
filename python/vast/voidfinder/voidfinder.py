@@ -324,18 +324,19 @@ def ra_dec_to_xyz(galaxy_table,
 def calculate_grid(galaxy_coords_xyz,
                    hole_grid_edge_length):
     """
-    Given a galaxy survey in xyz/Cartesian coordinates and the length
-    of a cubical grid cell, calculate the cubical grid shape which will
-    contain the survey.
+    Given a galaxy survey in xyz/Cartesian coordinates and the length of a 
+    cubical grid cell, calculate the cubical grid shape which will contain the 
+    survey.
     
-    The cubical grid is obtained by finding the minimum and maximum values in each
-    of the 3 dimensions, calculating the distance of the survey in each dimension, and
-    dividing each dimension by the cell grid length to get the number of required grid
-    cells in each dimension.
+    The cubical grid is obtained by finding the minimum and maximum values in 
+    each of the 3 dimensions, calculating the distance of the survey in each 
+    dimension, and dividing each dimension by the cell grid length to get the 
+    number of required grid cells in each dimension.
         
-    In order to transform additional points to their closest grid cell later in VoidFinder,
-    a user will need the origin (0,0,0) of the grid, which is the point (min_x, min_y, min_z)
-    from the survey, so this function also returns that min value.
+    In order to transform additional points to their closest grid cell later in 
+    VoidFinder, a user will need the origin (0,0,0) of the grid, which is the 
+    point (min_x, min_y, min_z) from the survey, so this function also returns 
+    that min value.
     
     
     Parameters
@@ -356,7 +357,9 @@ def calculate_grid(galaxy_coords_xyz,
         
     coords_min : numpy.ndarray of shape (3,)
         the (min_x, min_y, min_z) point which is the (0,0,0) of the grid
-    
+
+    coords_max : numpy.ndarray of shape (3,)
+        the (max_x, max_y, max_z) point of the galaxies
     """
     
     
@@ -653,8 +656,6 @@ def find_voids(galaxy_coords_xyz,
         that hole.  Maximum value of 0.5 because a value of 0.5 means that the 
         hole center will be outside the mask, but more importantly because the 
         numpy.roots() function used below won't return a valid polynomial root.
-        
-    
         
     galaxy_map_grid_edge_length : float or None
         edge length in Mpc/h for the secondary grid for finding nearest neighbor 

@@ -285,9 +285,9 @@ def _hole_finder(galaxy_coords,
     do not.  Use at your own risk.  However, the single-threaded version of 
     VoidFinder should have no trouble running on Linux, Windows, or OSx.
     
+
     Parameters
     ==========
-    
     
     galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
         coordinates of the galaxies in the survey, units of Mpc/h
@@ -331,9 +331,6 @@ def _hole_finder(galaxy_coords,
     max_dist : float
         maximum redshift in units of Mpc/h
         
-        
-        
-        
     save_after : int or None
         save a VoidFinderCheckpoint.h5 file after *approximately* every 
         save_after cells have been processed.  This will over-write this 
@@ -347,7 +344,6 @@ def _hole_finder(galaxy_coords,
         might actually get a checkpoint at say 1,030,000.  If None, disables 
         saving the checkpoint file
         
-    
     use_start_checkpoint : bool
         Whether to attempt looking for a  VoidFinderCheckpoint.h5 file which can 
         be used to restart the VF run
@@ -368,6 +364,7 @@ def _hole_finder(galaxy_coords,
         Hyperthreading but with diminishing returns based on some basic
         spot testing
     
+
     Returns
     =======
     
@@ -378,8 +375,6 @@ def _hole_finder(galaxy_coords,
     n_holes : scalar float
         Number of potential holes found - note this number is prior to the void 
         combining stage so will not represent the final output of VoidFinder
-    
-    
     """
     
     
@@ -389,12 +384,11 @@ def _hole_finder(galaxy_coords,
     # Do some sanity checking on the mask modes and various inputs since we
     # have a lot of None type optional inputs
     #---------------------------------------------------------------------------
-    
     if mask_mode == 0:
         if mask is None or \
-           mask_resolution is None or \
-           min_dist is None or \
-           max_dist is None:
+            mask_resolution is None or \
+            min_dist is None or \
+            max_dist is None:
             raise ValueError("Mask mode is 0 (ra-dec-z) but a required mask parameter is None")
         
         #The cython requires some very specific types and shapes
@@ -405,7 +399,6 @@ def _hole_finder(galaxy_coords,
     
     if mask_mode == 2 and xyz_limits is None:
         raise ValueError("Mask mode is 2 (periodic) but required mask parameter xyz_limits is None")
-       
     ############################################################################
     
     
@@ -511,7 +504,6 @@ def _hole_finder(galaxy_coords,
             
         else:
             
-            
             ngrid_galaxymap = box/galaxy_map_grid_edge_length
             
             rounded = np.rint(ngrid_galaxymap)
@@ -539,11 +531,12 @@ def _hole_finder(galaxy_coords,
     
     if verbose > 0:
         
-        print("Hole-growing Grid: ", hole_grid_shape, flush=True)
+        print("Hole-growing Grid:", hole_grid_shape, flush=True)
         
-        print("Galaxy-searching Grid: ", galaxy_map_grid_shape)
+        print("Galaxy-searching Grid:", galaxy_map_grid_shape, flush=True)
         
-        print("Galaxy-searching edge length: ", galaxy_map_grid_edge_length)
+        print("Galaxy-searching edge length:", galaxy_map_grid_edge_length, 
+              flush=True)
         
     ############################################################################
     
@@ -563,7 +556,6 @@ def _hole_finder(galaxy_coords,
               flush=True)
         
         RESOURCE_DIR = "/tmp"
-        
     ############################################################################
         
     
@@ -575,10 +567,9 @@ def _hole_finder(galaxy_coords,
     # Maybe should use psutil.cpu_count(logical=False) instead of the
     # multiprocessing version?
     #---------------------------------------------------------------------------
-    if (num_cpus is None):
+    if num_cpus is None:
           
         num_cpus = cpu_count(logical=False)
-        
     ############################################################################
 
         
@@ -665,15 +656,17 @@ def _hole_finder(galaxy_coords,
     
     if verbose > 0:
         
-        print("Number of filtered out hole-growing cells: ", num_nonempty_hole_cells, 
+        print("Number of filtered out hole-growing cells:", 
+              num_nonempty_hole_cells, 
               flush=True)
         
-        print("Total slots in hole_cell_ID_dict: ", hole_cell_ID_dict.mem_length, flush=True)
+        print("Total slots in hole_cell_ID_dict:", 
+              hole_cell_ID_dict.mem_length, 
+              flush=True)
         
-        print("Num collisions hole_cell_ID_dict: ", 
+        print("Num collisions hole_cell_ID_dict:", 
               hole_cell_ID_dict.num_collisions, 
               flush=True)
-    
     
     #print("Test: ", len(test_hole_cell_ID_dict), num_nonempty_hole_cells)
     ############################################################################
@@ -766,9 +759,11 @@ def _hole_finder(galaxy_coords,
     
     if verbose > 0:
         
-        print("Total slots in galaxy map: ", galaxy_search_cell_dict.mem_length, flush=True)
+        print("Total slots in galaxy map:", 
+              galaxy_search_cell_dict.mem_length, 
+              flush=True)
         
-        print("Num gma indices: ", galaxy_map.num_gma_indices, flush=True)
+        print("Num gma indices:", galaxy_map.num_gma_indices, flush=True)
     
     
     if mask_mode == 2:
@@ -811,9 +806,12 @@ def _hole_finder(galaxy_coords,
         
         print("Num items in Galaxy Map:", num_in_galaxy_map, flush=True)
         
-        print("Total slots in galaxy map hash table:", galaxy_search_cell_dict.mem_length, flush=True)
+        print("Total slots in galaxy map hash table:", 
+              galaxy_search_cell_dict.mem_length, 
+              flush=True)
         
-        print("Num collisions in rebuild:", galaxy_search_cell_dict.num_collisions, 
+        print("Num collisions in rebuild:", 
+              galaxy_search_cell_dict.num_collisions, 
               flush=True)
     ############################################################################
 

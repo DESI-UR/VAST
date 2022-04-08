@@ -1513,12 +1513,12 @@ cdef class GalaxyMapCustomDict:
         
         cdef LOOKUPMEM_t[:] old_lookup_mem
         
-        ################################################################################
-        # There may be a better way, but for now, we're just going to make a copy
-        # of the 'old memory' since the key-value pairs it is storing need to be
-        # re-distributed into new locations.  There might be a way to do this in-place
-        # but that's an optimization for future-Steve to look into
-        ################################################################################
+        ########################################################################
+        # There may be a better way, but for now, we're just going to make a 
+        # copy of the 'old memory' since the key-value pairs it is storing need 
+        # to be re-distributed into new locations.  There might be a way to do 
+        # this in-place but that's an optimization for future-Steve to look into
+        ########################################################################
         old_elements = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
         
         old_elements = old_elements.copy()
@@ -1528,10 +1528,10 @@ cdef class GalaxyMapCustomDict:
         old_mem_length = self.mem_length
         
         
-        ################################################################################
+        ########################################################################
         # Resize our existing memory to the first prime number larger than the
         # requested value given by new_mem_length
-        ################################################################################
+        ########################################################################
         next_prime = find_next_prime(new_mem_length)
     
         self.mem_length = next_prime
@@ -1540,21 +1540,24 @@ cdef class GalaxyMapCustomDict:
         
         os.ftruncate(self.lookup_fd, lookup_buffer_length)
         
-        ################################################################################
-        # Close the old mmap and re-map it since we changed the size of our memory file
-        # pointed to by self.lookup_fd.  Then point our self.lookup_memory memoryview
-        # object to the extended version of where it was already pointing
-        ################################################################################
-        #self.lookup_buffer.close()
+        ########################################################################
+        # Close the old mmap and re-map it since we changed the size of our 
+        # memory file pointed to by self.lookup_fd.  Then point our 
+        # self.lookup_memory memoryviewobject to the extended version of where 
+        # it was already pointing
+        ########################################################################
+        curr_size = self.lookup_buffer.size()
+
+        self.lookup_buffer.close()
         
-        #self.lookup_buffer = mmap.mmap(self.lookup_fd, lookup_buffer_length)
-        self.lookup_buffer.resize(self.lookup_buffer.size()) #resize to full file length
+        self.lookup_buffer = mmap.mmap(self.lookup_fd, curr_size)#lookup_buffer_length)
+        #self.lookup_buffer.resize(self.lookup_buffer.size()) #resize to full file length
         
         self.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
         
-        ################################################################################
+        ########################################################################
         # Zero out the hash table before re-filling it
-        ################################################################################
+        ########################################################################
         curr_element.filled_flag = 0
         
         self.lookup_memory[:] = curr_element
@@ -1566,9 +1569,9 @@ cdef class GalaxyMapCustomDict:
         self.num_collisions = 0
         
         
-        ################################################################################
+        ########################################################################
         # Re-fill our hash table using the copy of the old one
-        ################################################################################
+        ########################################################################
         #num_filled = 0
         
         for idx in range(old_mem_length):
