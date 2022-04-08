@@ -69,7 +69,7 @@ galaxies_filename = 'vollim_dr7_cbp_102709.dat'
 # Note: These can be set to None, in which case VoidFinder will use the limits 
 # of the galaxy catalog.
 min_z = 0
-max_z = 0.107
+max_z = 0.1026
 
 
 # Cosmology (uncomment and change values to change cosmology)
