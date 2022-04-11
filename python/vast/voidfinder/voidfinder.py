@@ -600,33 +600,35 @@ def find_voids(galaxy_coords_xyz,
     ==========
     
     galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
-        coordinates of the galaxies in the survey, units of Mpc/h 
+        Coordinates of the galaxies in the survey, units of Mpc/h 
         (xyz space)
         
     survey_name : str
-        identifier for the survey running, may be prepended or appended to 
+        Identifier for the survey running, may be prepended or appended to 
         output filenames including the checkpoint filename
         
     mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
-        Determines the mode of mask checking to use and which mask parameters to use.  
+        Determines the mode of mask checking to use and which mask parameters to 
+        use.  
         
-        'ra_dec_z' means the mask, mask_resolution, and dist_limits parameters
-            must be provided.  The 'mask' represents an angular space in Right Ascension and 
-            Declination, the corresponding mask_resolution integer represents the scale needed
-            to index into the Right Ascension and Declination of the mask, and the dist_limits
-            represent the min and max redshift values (as radial distances in xyz space).
+        - 'ra_dec_z' : the mask, mask_resolution, and dist_limits parameters
+          must be provided.  The 'mask' represents an angular space in Right 
+          Ascension and Declination, the corresponding mask_resolution integer 
+          represents the scale needed to index into the Right Ascension and 
+          Declination of the mask, and the dist_limits represent the min and max 
+          redshift values (as radial distances in xyz space).
         
-        'xyz' means that the xyz_limits parameter must be provided which directly encodes
-            a bounding box for the survey in xyz space
+        - 'xyz' : the xyz_limits parameter must be provided which directly 
+          encodes a bounding box for the survey in xyz space
             
-        'periodic' means that the xyz_limits parameter must be provided, which directly
-            encodes a bounding box representing the periodic boundary of the survey, and
-            the survey will be treated as if its bounding box were tiled to infinity in
-            all directions.  Spheres will still only be grown starting from within the
-            original bounding box.
+        - 'periodic' : the xyz_limits parameter must be provided, which directly
+          encodes a bounding box representing the periodic boundary of the 
+          survey, and the survey will be treated as if its bounding box were 
+          tiled to infinity in all directions.  Spheres will still only be grown 
+          starting from within the original bounding box.
         
     mask : numpy.ndarray of shape (N,M) type bool
-        represents the survey footprint in scaled ra/dec space.  Value of True 
+        Represents the survey footprint in scaled ra/dec space.  Value of True 
         indicates that a location is within the survey
         (ra/dec space)
 
@@ -637,28 +639,28 @@ def find_voids(galaxy_coords_xyz,
         [min_dist, max_dist] in units of Mpc/h (xyz space)
         
     xyz_limits : numpy array of shape (2,3)
-        format [x_min, y_min, z_min]
-               [x_max, y_max, z_max]
-        to be used for checking against the mask when mask_type == 'xyz' or for
+        Format [x_min, y_min, z_min], [x_max, y_max, z_max]
+        
+        To be used for checking against the mask when mask_type == 'xyz' or for
         periodic conditions when mask_type == 'periodic'
         
     hole_grid_edge_length : float
-        size in Mpc/h of the edge of 1 cube in the search grid, or distance 
+        Size in Mpc/h of the edge of 1 cube in the search grid, or distance 
         between 2 grid cells
         (xyz space)
 
     min_maximal_radius : float
-        the minimum radius in units of distance for a hole to be considered
+        The minimum radius in units of distance for a hole to be considered
         for maximal status.  Default value is 10 Mpc/h.
         
     max_hole_mask_overlap : float in range (0, 0.5)
-        when the volume of a hole overlaps the mask by this fraction, discard 
+        When the volume of a hole overlaps the mask by this fraction, discard 
         that hole.  Maximum value of 0.5 because a value of 0.5 means that the 
         hole center will be outside the mask, but more importantly because the 
         numpy.roots() function used below won't return a valid polynomial root.
         
     galaxy_map_grid_edge_length : float or None
-        edge length in Mpc/h for the secondary grid for finding nearest neighbor 
+        Edge length in Mpc/h for the secondary grid for finding nearest neighbor 
         galaxies.  If None, will default to 3*hole_grid_edge_length (which 
         results in a cell volume of 3^3 = 27 times larger cube volume).  This 
         parameter yields a tradeoff between number of galaxies in a cell, and 
@@ -668,28 +670,28 @@ def find_voids(galaxy_coords_xyz,
         (xyz space)
         
     hole_center_iter_dist : float
-        distance to move the sphere center each iteration while growing a void
+        Distance to move the sphere center each iteration while growing a void
         sphere in units of Mpc/h
         (xyz space)
     
     maximal_spheres_filename : str
-        location to save maximal spheres file 
+        Location to save maximal spheres file 
     
     void_table_filename : str
-        location to save void table to
+        Location to save void table to
     
     potential_voids_filename : str
-        location to save potential voids file to
+        Location to save potential voids file to
     
     num_cpus : int or None
-        number of cpus to use while running the main algorithm.  None will 
+        Number of cpus to use while running the main algorithm.  None will 
         result in using number of physical cores on the machine.  Some speedup 
         benefit may be obtained from using additional logical cores via Intel 
         Hyperthreading but with diminishing returns.  This can safely be set 
         above the number of physical cores without issue if desired.
         
     save_after : int or None
-        save a VoidFinderCheckpoint.h5 file after *approximately* every 
+        Save a VoidFinderCheckpoint.h5 file after *approximately* every 
         save_after cells have been processed.  This will over-write this 
         checkpoint file every save_after cells, NOT append to it.  Also, saving 
         the checkpoint file forces the worker processes to pause and synchronize 
@@ -702,8 +704,9 @@ def find_voids(galaxy_coords_xyz,
         saving the checkpoint file.
 
     check_only_empty_cells : bool
-        whether or not to start growing a hole in a cell which has galaxies in
-        it, aka "non-empty".  If True (default), don't grow holes in these cells.
+        Whether or not to start growing a hole in a cell which has galaxies in
+        it, aka "non-empty".  If True (default), don't grow holes in these 
+        cells.
     
     use_start_checkpoint : bool
         Whether to attempt looking for a VoidFinderCheckpoint.h5 file which can 
@@ -711,18 +714,18 @@ def find_voids(galaxy_coords_xyz,
         from 0.
     
     batch_size : int
-        number of potential void cells to evaluate at a time.  Lower values may 
+        Number of potential void cells to evaluate at a time.  Lower values may 
         be a bit slower as it involves some memory allocation overhead, and 
         values which are too high may cause the status update printing to take 
         more than print_after seconds.  Default value 10,000
         
     verbose : int
-        level of verbosity to print during running, 0 indicates off, 1 indicates 
+        Level of verbosity to print during running, 0 indicates off, 1 indicates 
         to print after every 'print_after' cells have been processed, and 2 
         indicates to print all debugging statements
         
     print_after : float
-        number of seconds to wait before printing a status update
+        Number of seconds to wait before printing a status update
     
     
     Returns
