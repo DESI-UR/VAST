@@ -105,6 +105,47 @@ def inSphere(cs, r, coords):
     return np.sum((cs.reshape(3,1) - coords.T)**2., axis=0)<r**2.
 
 
+def getBuff(cin,idsin,cmin,cmax,buff,n):
+    """Identify tracers contained in buffer shell around periodic boundary.
+
+    Parameters
+    ----------
+    cin : ndarray
+        Array of tracer positions.
+    idsin : list
+        List of tracer IDs.
+    cmin : ndarray
+        Array of coordinate minima.
+    cmax : ndarray
+        Array of coordinate maxima.
+    buff : float
+        Width of buffer shell.
+    n : int
+        Number of buffer shell.
+
+    Returns
+    -------
+    cout : list
+        List of buffer tracer positions.
+    idsout : list
+        List of buffer tracer IDs in the original periodic box.
+    """
+    cout = []
+    idsout = idsin
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                if i==1 and j==1 and k==1:
+                    continue
+                c2 = cin+(np.array([i,j,k])-1)*(cmax-cmin)
+                c2d = np.amin(np.abs(c2-(cmax+cmin)/2.),axis=0)-(cmax+cmin)/2.
+                cut = c2d<buff*(n+1)
+                cut[c2d<=buff*n] = False
+                cout.extend(c2[cut].tolist())
+                idsout.extend(idsin[cut].tolist())
+    return cout,idsout
+
+
 def wCen(vols,coords):
     """Find the weighted center of tracers' Voronoi cells.
 

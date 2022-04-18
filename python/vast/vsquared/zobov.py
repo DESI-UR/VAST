@@ -32,7 +32,12 @@ class Zobov:
             print("Choose valid stages")
             return
 
-        self.visualize = visualize
+        if visualize*periodic:
+            print("Visualization not implemented for periodic boundary conditions: changing to false")
+            self.visualize = False
+        else:
+            self.visualize = visualize
+        self.periodic = periodic
 
         config = configparser.ConfigParser()
         config.read(configfile)
@@ -52,19 +57,22 @@ class Zobov:
         self.nside  = int(config['Settings']['nside'])
         self.maglim = config['Settings']['rabsmag_min']
         self.maglim = None if self.maglim=="None" else float(self.maglim)
+        self.cmin = np.array([float(config['Settings']['x_min']),float(config['Settings']['y_min']),float(config['Settings']['z_min'])])
+        self.cmax = np.array([float(config['Settings']['x_max']),float(config['Settings']['y_max']),float(config['Settings']['z_max'])])
+        self.buff = float(config['Settings']['buffer'])
 
 
         if start<4:
             if start<3:
                 if start<2:
                     if start<1:
-                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m)
+                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,cmin=self.cmin,cmax=self.cmax)
                         if save_intermediate:
                             pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
                         ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
                     if end>0:
-                        tess = Tesselation(ctlg,viz=visualize)
+                        tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,buff=self.buff)
                         if save_intermediate:
                             pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
                 else:

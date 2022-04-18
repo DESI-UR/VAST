@@ -7,13 +7,13 @@ import healpy as hp
 from astropy.io import fits
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, flatten
+from vast.vsquared.util import toCoord, getBuff, flatten
 
 class Catalog:
     """Catalog data for void calculation.
     """
 
-    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,maskfile=None):
+    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,periodic=False,cmin=None,cmax=None,maskfile=None):
         """Initialize catalog.
 
         Parameters
@@ -34,19 +34,30 @@ class Catalog:
             Matter density.
         maskfile : str or None
             Mask file giving HEALPixels with catalog objects.
+        periodic : bool
+            Use periodic boundary conditions.
+        cmin : ndarray or None
+            Array of coordinate minima.
+        cmax : ndarray or None
+            Array of coordinate maxima.
         """
         print("Extracting data...")
         hdulist = fits.open(catfile)
-        z    = hdulist[1].data['z']
-        ra   = hdulist[1].data['ra']
-        dec  = hdulist[1].data['dec']
-        zcut = np.logical_and(z>zmin,z<zmax)
-        if not zcut.any():
-            print("Choose valid redshift limits")
-            return
-        scut = zcut
-        c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
-        self.coord = np.array([c1,c2,c3]).T
+        if periodic:
+            self.coord = np.array(hdulist[1].data['x'],hdulist[1].data['y'],hdulist[1].data['z']).T
+            self.cmin = cmin
+            self.cmax = cmax
+        else:
+            z    = hdulist[1].data['z']
+            ra   = hdulist[1].data['ra']
+            dec  = hdulist[1].data['dec']
+            zcut = np.logical_and(z>zmin,z<zmax)
+            if not zcut.any():
+                print("Choose valid redshift limits")
+                return
+            scut = zcut
+            c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
+            self.coord = np.array([c1,c2,c3]).T
         nnls = np.arange(len(z))
         nnls[zcut<1] = -1
         if maglim is not None:
@@ -62,20 +73,21 @@ class Catalog:
             nnls[ncut] = lut[tree.query(self.coord[ncut])[1]]
             self.mcut = mcut
         self.nnls = nnls
-        if maskfile is None:
-            print("Generating mask...")
-            mask = np.zeros(hp.nside2npix(nside),dtype=bool)
-            pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True)
-            mask[pids] = True
-        self.mask = mask
-        pids = hp.ang2pix(nside,ra,dec,lonlat=True)
-        self.imsk = mask[pids]*zcut
+        if not periodic:
+            if maskfile is None:
+                print("Generating mask...")
+                mask = np.zeros(hp.nside2npix(nside),dtype=bool)
+                pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True)
+                mask[pids] = True
+            self.mask = mask
+            pids = hp.ang2pix(nside,ra,dec,lonlat=True)
+            self.imsk = mask[pids]*zcut
 
 class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.
     """
 
-    def __init__(self,cat,viz=False):
+    def __init__(self,cat,viz=False,periodic=False,buff=5.):
         """Initialize tesselation.
 
         Parameters
@@ -84,50 +96,91 @@ class Tesselation:
             Catalog of objects used to compute the Voronoi tesselation.
         viz : bool
             Compute visualization.
+        periodic : bool
+            Use periodic boundary conditions.
+        buff : float
+            Width of incremental buffer shells for periodic computation.
         """
         coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))]
-        print("Tesselating...")
-        Vor = Voronoi(coords)
-        ver = Vor.vertices
-        reg = np.array(Vor.regions)[Vor.point_region]
-        del Vor
-        ve2 = ver.T
-        vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2])
-        vph = np.arctan2(ve2[1],ve2[0])
-        vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
-        crh = np.array([np.sqrt((c**2.).sum()) for c in coords])
-        rmx = np.amax(crh)
-        rmn = np.amin(crh)
-        print("Computing volumes...")
-        vol = np.zeros(len(reg))
-        cu1 = np.array([-1 not in r for r in reg])
-        cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
-        msk = cat.mask
-        nsd = hp.npix2nside(len(msk))
-        pid = hp.ang2pix(nsd,vth,vph)
-        imk = msk[pid]
-        cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
-        cut = np.arange(len(vol))
-        cut = cut[cu1][cu2][cu3]
-        hul = []
-        for r in reg[cut]:
-            try:
-                ch = ConvexHull(ver[r])
-            except:
-                ch = ConvexHull(ver[r],qhull_options='QJ')
-            hul.append(ch)
-        #hul = [ConvexHull(ver[r]) for r in reg[cut]]
-        vol[cut] = np.array([h.volume for h in hul])
-        self.volumes = vol
-        if viz:
-            self.vertIDs = reg
-            vecut = np.zeros(len(vol),dtype=bool)
-            vecut[cut] = True
-            self.vecut = vecut
-            self.verts = ver
-        print("Triangulating...")
-        Del = Delaunay(coords,qhull_options='QJ')
-        sim = Del.simplices
+        if periodic:
+            print("Triangulating...")
+            Del = Delaunay(coords,incremental=True,qhull_options='QJ')
+            sim = Del.simplices
+            simlen = len(sim)
+            cids = np.arange(len(coords)).tolist()
+            print("Finding periodic neighbors...")
+            coords2,cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,0)
+            Del.add_points(coords2)
+            sim = Del.simplices
+            while np.amin(sim[simlen:])<len(coords):
+                simlen = len(sim)
+                coords2,cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,0)
+                Del.add_points(coords2)
+                sim = Del.simplices
+            cids = np.array(cids)
+            for i in range(len(sim)):
+                sim[i] = cids[sim[i]]
+            print("Tesselating...")
+            Vor = Voronoi(coords2)
+            ver = Vor.vertices
+            reg = np.array(Vor.regions)[Vor.point_region]
+            del Vor
+            print("Computing volumes...")
+            vol = np.zeros(len(reg))
+            cut = np.arange(len(coords))
+            hul = []
+            for r in reg[cut]:
+                try:
+                    ch = ConvexHull(ver[r])
+                except:
+                    ch = ConvexHull(ver[r],qhull_options='QJ')
+                hul.append(ch)
+            #hul = [ConvexHull(ver[r]) for r in reg[cut]]
+            vol[cut] = np.array([h.volume for h in hul])
+            self.volumes = vol
+        else:
+            print("Tesselating...")
+            Vor = Voronoi(coords)
+            ver = Vor.vertices
+            reg = np.array(Vor.regions)[Vor.point_region]
+            del Vor
+            ve2 = ver.T
+            vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2])
+            vph = np.arctan2(ve2[1],ve2[0])
+            vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
+            crh = np.array([np.sqrt((c**2.).sum()) for c in coords])
+            rmx = np.amax(crh)
+            rmn = np.amin(crh)
+            print("Computing volumes...")
+            vol = np.zeros(len(reg))
+            cu1 = np.array([-1 not in r for r in reg])
+            cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
+            msk = cat.mask
+            nsd = hp.npix2nside(len(msk))
+            pid = hp.ang2pix(nsd,vth,vph)
+            imk = msk[pid]
+            cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+            cut = np.arange(len(vol))
+            cut = cut[cu1][cu2][cu3]
+            hul = []
+            for r in reg[cut]:
+                try:
+                    ch = ConvexHull(ver[r])
+                except:
+                    ch = ConvexHull(ver[r],qhull_options='QJ')
+                hul.append(ch)
+            #hul = [ConvexHull(ver[r]) for r in reg[cut]]
+            vol[cut] = np.array([h.volume for h in hul])
+            self.volumes = vol
+            if viz:
+                self.vertIDs = reg
+                vecut = np.zeros(len(vol),dtype=bool)
+                vecut[cut] = True
+                self.vecut = vecut
+                self.verts = ver
+            print("Triangulating...")
+            Del = Delaunay(coords,qhull_options='QJ')
+            sim = Del.simplices
         nei = []
         lut = [[] for _ in range(len(vol))]
         print("Consolidating neighbors...")
