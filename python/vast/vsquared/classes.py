@@ -107,17 +107,21 @@ class Tesselation:
             Del = Delaunay(coords,incremental=True,qhull_options='QJ')
             sim = Del.simplices
             simlen = len(sim)
-            cids = np.arange(len(coords)).tolist()
+            cids = np.arange(len(coords))
             print("Finding periodic neighbors...")
-            coords2,cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,0)
+            n = 0
+            coords2,cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,n)
+            coords3 = coords.tolist()
+            coords3.extend(coords2)
             Del.add_points(coords2)
             sim = Del.simplices
             while np.amin(sim[simlen:])<len(coords):
+                n = n+1
                 simlen = len(sim)
-                coords2,cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,0)
+                coords2,cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,n)
+                coords3.extend(coords2)
                 Del.add_points(coords2)
                 sim = Del.simplices
-            cids = np.array(cids)
             for i in range(len(sim)):
                 sim[i] = cids[sim[i]]
             print("Tesselating...")

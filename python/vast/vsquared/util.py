@@ -112,8 +112,8 @@ def getBuff(cin,idsin,cmin,cmax,buff,n):
     ----------
     cin : ndarray
         Array of tracer positions.
-    idsin : list
-        List of tracer IDs.
+    idsin : ndarray
+        Array of tracer IDs.
     cmin : ndarray
         Array of coordinate minima.
     cmax : ndarray
@@ -127,23 +127,23 @@ def getBuff(cin,idsin,cmin,cmax,buff,n):
     -------
     cout : list
         List of buffer tracer positions.
-    idsout : list
-        List of buffer tracer IDs in the original periodic box.
+    idsout : ndarray
+        Array of tracer IDs in the original periodic box.
     """
     cout = []
-    idsout = idsin
+    idsout = idsin.tolist()
     for i in range(3):
         for j in range(3):
             for k in range(3):
                 if i==1 and j==1 and k==1:
                     continue
                 c2 = cin+(np.array([i,j,k])-1)*(cmax-cmin)
-                c2d = np.amin(np.abs(c2-(cmax+cmin)/2.),axis=0)-(cmax+cmin)/2.
+                c2d = np.amax(np.abs(c2-(cmax+cmin)/2.)-(cmax-cmin)/2.,axis=1)
                 cut = c2d<buff*(n+1)
                 cut[c2d<=buff*n] = False
                 cout.extend(c2[cut].tolist())
-                idsout.extend(idsin[cut].tolist())
-    return cout,idsout
+                idsout.extend(idsin[:len(cin)][cut].tolist())
+    return cout,np.array(idsout)
 
 
 def wCen(vols,coords):
