@@ -125,7 +125,7 @@ class Tesselation:
             for i in range(len(sim)):
                 sim[i] = cids[sim[i]]
             print("Tesselating...")
-            Vor = Voronoi(coords2)
+            Vor = Voronoi(coords3)
             ver = Vor.vertices
             reg = np.array(Vor.regions)[Vor.point_region]
             del Vor
