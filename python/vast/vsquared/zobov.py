@@ -12,8 +12,8 @@ from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
 
-    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False):
-        """Initialization of the ZOnes Borderong on Voids (ZOBOV) algorithm.
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False):
+        """Initialization of the ZOnes Bordering on Voids (ZOBOV) algorithm.
 
         Parameters
         ----------
@@ -27,6 +27,8 @@ class Zobov:
             If true, pickle and save intermediate outputs.
         visualize : bool
             Create visualization.
+        periodic : bool
+            Use periodic boundary conditions.
         """
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
