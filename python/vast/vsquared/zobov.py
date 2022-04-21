@@ -249,14 +249,19 @@ class Zobov:
         if not hasattr(self,'vcens'):
             print("Sort voids first")
             return
-        vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
         vcen = self.vcens.T
         vax1 = np.array([vx[0] for vx in self.vaxes]).T
         vax2 = np.array([vx[1] for vx in self.vaxes]).T
         vax3 = np.array([vx[2] for vx in self.vaxes]).T
 
-        vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+        if self.periodic:
+            vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+                    names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+        else:
+            vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
+            vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
                     names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+
         vT.write(self.outdir+self.catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
 
         vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],
