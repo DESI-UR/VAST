@@ -44,7 +44,7 @@ class Catalog:
         print("Extracting data...")
         hdulist = fits.open(catfile)
         if periodic:
-            self.coord = np.array(hdulist[1].data['x'],hdulist[1].data['y'],hdulist[1].data['z']).T
+            self.coord = np.array([hdulist[1].data['x'],hdulist[1].data['y'],hdulist[1].data['z']]).T
             self.cmin = cmin
             self.cmax = cmax
         else:
@@ -58,8 +58,9 @@ class Catalog:
             scut = zcut
             c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
             self.coord = np.array([c1,c2,c3]).T
-        nnls = np.arange(len(z))
-        nnls[zcut<1] = -1
+        nnls = np.arange(len(self.coord))
+        if not periodic:
+            nnls[zcut<1] = -1
         if maglim is not None:
             print("Applying magnitude cut...")
             mcut = np.logical_and(mag<maglim,zcut)
