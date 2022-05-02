@@ -16,8 +16,8 @@ import vast
 # -- Project information -----------------------------------------------------
 
 project = 'VAST'
-copyright = "2022, Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
-author = "Kelly A. Douglass, D. Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
+copyright = "2022, Kelly A. Douglass, Dahlia Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
+author = "Kelly A. Douglass, Dahlia Veyrat, Stephen W. O'Neill Jr., Segev BenZvi, Fatima Zaidouni, Michaela Guzzetti"
 
 # The short X.Y version
 version = re.match(r"v?(\d+\.\d+)", vast._version.__version__).group(1)

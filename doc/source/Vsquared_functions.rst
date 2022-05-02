@@ -64,6 +64,13 @@ V\ :sup:`2` API
 
 
 
+``util.getBuff``
+=============
+
+.. autofunction:: vast.vsquared.util.getBuff
+
+
+
 ``util.wCen``
 =============
 
