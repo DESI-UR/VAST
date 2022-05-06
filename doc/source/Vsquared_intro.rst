@@ -12,7 +12,8 @@ Introduction
 voids based on the ZOBOV (ZOnes Bordering On Voidness) algorithm by 
 `Neyrinck (2008) <https://arxiv.org/abs/0712.3049>`_, which uses the gradient of 
 the volume of adjacent voronoi cells to flow multiple cells into larger void 
-regions.
+regions. Voids can be found both in observational surveys and simulations with 
+periodic boundary conditions.
 
 **VAST** contains the package, as well as an example script for automatically 
 running all steps of the algorithm. To import the main void-finding class of 

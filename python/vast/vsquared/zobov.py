@@ -12,8 +12,8 @@ from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
 
-    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False):
-        """Initialization of the ZOnes Borderong on Voids (ZOBOV) algorithm.
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False):
+        """Initialization of the ZOnes Bordering on Voids (ZOBOV) algorithm.
 
         Parameters
         ----------
@@ -27,12 +27,19 @@ class Zobov:
             If true, pickle and save intermediate outputs.
         visualize : bool
             Create visualization.
+        periodic : bool
+            Use periodic boundary conditions.
         """
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
             return
 
-        self.visualize = visualize
+        if visualize*periodic:
+            print("Visualization not implemented for periodic boundary conditions: changing to false")
+            self.visualize = False
+        else:
+            self.visualize = visualize
+        self.periodic = periodic
 
         config = configparser.ConfigParser()
         config.read(configfile)
@@ -52,19 +59,22 @@ class Zobov:
         self.nside  = int(config['Settings']['nside'])
         self.maglim = config['Settings']['rabsmag_min']
         self.maglim = None if self.maglim=="None" else float(self.maglim)
+        self.cmin = np.array([float(config['Settings']['x_min']),float(config['Settings']['y_min']),float(config['Settings']['z_min'])])
+        self.cmax = np.array([float(config['Settings']['x_max']),float(config['Settings']['y_max']),float(config['Settings']['z_max'])])
+        self.buff = float(config['Settings']['buffer'])
 
 
         if start<4:
             if start<3:
                 if start<2:
                     if start<1:
-                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m)
+                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,cmin=self.cmin,cmax=self.cmax)
                         if save_intermediate:
                             pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
                         ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
                     if end>0:
-                        tess = Tesselation(ctlg,viz=visualize)
+                        tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,buff=self.buff)
                         if save_intermediate:
                             pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
                 else:
@@ -239,14 +249,19 @@ class Zobov:
         if not hasattr(self,'vcens'):
             print("Sort voids first")
             return
-        vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
         vcen = self.vcens.T
         vax1 = np.array([vx[0] for vx in self.vaxes]).T
         vax2 = np.array([vx[1] for vx in self.vaxes]).T
         vax3 = np.array([vx[2] for vx in self.vaxes]).T
 
-        vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+        if self.periodic:
+            vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+                    names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+        else:
+            vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
+            vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
                     names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+
         vT.write(self.outdir+self.catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
 
         vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],

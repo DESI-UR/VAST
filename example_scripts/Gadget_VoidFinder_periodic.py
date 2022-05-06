@@ -13,7 +13,7 @@
 #-------------------------------------------------------------------------------
 import numpy as np
 
-from vast.voidfinder import find_voids
+from vast.voidfinder import find_voids, wall_field_separation
 
 from vast.voidfinder.preprocessing import load_data_to_Table
 ################################################################################
@@ -54,20 +54,27 @@ num_cpus = 1
 # Read in data
 #-------------------------------------------------------------------------------
 # Read in the simulated data
-wall_coords_xyz = load_data_to_Table(sim_filename)
+coords_xyz = load_data_to_Table(sim_filename)
 
 #-------------------------------------------------------------------------------
 # Restructure the data for the find_voids function
 #-------------------------------------------------------------------------------
-x = wall_coords_xyz['x']
-y = wall_coords_xyz['y']
-z = wall_coords_xyz['z']
+x = coords_xyz['x']
+y = coords_xyz['y']
+z = coords_xyz['z']
 
 num_gal = x.shape[0]
 
-wall_coords_xyz = np.concatenate((x.reshape(num_gal,1),
-                                  y.reshape(num_gal,1),
-                                  z.reshape(num_gal,1)), axis=1)
+coords_xyz = np.concatenate((x.reshape(num_gal,1),
+                             y.reshape(num_gal,1),
+                             z.reshape(num_gal,1)), axis=1)
+#-------------------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------------
+# Remove isolated galaxies
+#-------------------------------------------------------------------------------
+wall_coords_xyz, field_coords_xyz = wall_field_separation(coords_xyz)
 #-------------------------------------------------------------------------------
 ################################################################################
 
