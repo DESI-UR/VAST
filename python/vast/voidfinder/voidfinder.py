@@ -59,14 +59,14 @@ def filter_galaxies(galaxy_table,
                     magnitude_limit=-20.09,
                     verbose=0):
     """
-    A hodge podge of miscellaneous tasks which need to be done to format the data into
-    something the main find_voids() function can use.
+    A hodge podge of miscellaneous tasks which need to be done to format the 
+    data into something the main find_voids() function can use.
     
     1) Optional magnitude cut
     2) Convert from ra-dec-redshift space into xyz space
     3) Calculate the hole search grid shape
-    4) Optional remove isolated galaxies by partitioning them into wall (non-isolated)
-       and field (isolated) groups
+    4) Optional remove isolated galaxies by partitioning them into wall 
+       (non-isolated) and field (isolated) groups
     5) Optionally write out the wall and field galaxies to disk
     
     
@@ -74,51 +74,53 @@ def filter_galaxies(galaxy_table,
     ==========
     
     galaxy_table : astropy.table of shape (N,?)
-        variable number of required columns.  If doing magnitude cut, must include
-        'rabsmag' column. If distance metric is 'comoving', must include 'Rgal'
-        column, otherwise must include 'redshift'.  Also must always include 'ra' 
-        and 'dec'
+        variable number of required columns.  If doing magnitude cut, must 
+        include 'rabsmag' column. If distance metric is 'comoving', must include 
+        'Rgal' column, otherwise must include 'redshift'.  Also must always 
+        include 'ra' and 'dec'
         
     survey_name : str
-        Name of the galxy catalog, string value to prepend or append to output names
+        Name of the galxy catalog, string value to prepend or append to output 
+        names
 
     out_directory : string
         Directory path for output files
         
     mag_cut : bool
-        whether or not to cut on magnitude, removing galaxies less than
+        whether or not to cut on magnitude, removing galaxies less than 
         magnitude_limit
 
     dist_limits : list of length 2
-        [Minimum distance, maximum distance] of galaxy sample (in units of Mpc/h)
+        [Minimum distance, maximum distance] of galaxy sample (in units of 
+        Mpc/h)
         
     magnitude_limit : float
         value at which to perform magnitude cut
-        
+
     rm_isolated : bool
-        whether or not to perform Nth neighbor distance calculation, and use it
+        whether or not to perform Nth neighbor distance calculation, and use it 
         to partition the input galaxies into wall and field galaxies
-        
+
     write_table : bool
-        use astropy.table.Table.write to write out the wall and field galaxies
+        use astropy.table.Table.write to write out the wall and field galaxies 
         to file
-        
+
     sep_neighbor : int, positive
-        if rm_isolated_flag is true, find the Nth galaxy neighbors based on this value
-        
+        if rm_isolated_flag is true, find the Nth galaxy neighbors based on this 
+        value
+
     dist_metric : str
         Distance metric to use in calculations.  Options are 'comoving' 
         (default; distance dependent on cosmology) and 'redshift' (distance 
         independent of cosmology).
 
     h : float
-        Fractional value of Hubble's constant.  Default value is 1 (where 
-        H0 = 100h).
+        Fractional value of Hubble's constant.  Default value is 1 (where H0 = 
+        100h).
         
         
     verbose : int
         values greater than zero indicate to print output
-        
         
     Returns
     =======
@@ -133,9 +135,8 @@ def filter_galaxies(galaxy_table,
         shape of the hole search grid
     
     coords_min : numpy.ndarray of shape (3,)
-        coordinates of the minimum of the survey used for converting from
-        xyz space into ijk space
-    
+        coordinates of the minimum of the survey used for converting from xyz 
+        space into ijk space
     """
     
     
@@ -259,8 +260,9 @@ def ra_dec_to_xyz(galaxy_table,
     ==========
     
     galaxy_table : astropy.table of shape (N,?)
-        must contain columns 'ra' and 'dec' in degrees, and either 'Rgal' in who knows
-        what unit if distance_metric is 'comoving' or 'redshift' for everything else
+        must contain columns 'ra' and 'dec' in degrees, and either 'Rgal' in who 
+        knows what unit if distance_metric is 'comoving' or 'redshift' for 
+        everything else
         
     distance_metric : str
         Distance metric to use in calculations.  Options are 'comoving' 
@@ -388,13 +390,13 @@ def wall_field_separation(galaxy_coords_xyz,
                           verbose=0):
     """
     Given a set of galaxy coordinates in xyz space, find all the galaxies whose
-    distance to their Nth nearest neighbor is above or below some limit.  Galaxies
-    whose Nth nearest neighbor is close (below), will become 'wall' galaxies, and
-    galaxies whose Nth nearest neighbor is far (above) will become field/void/isolated
-    galaxies.
+    distance to their Nth nearest neighbor is above or below some limit.  
+    Galaxies whose Nth nearest neighbor is close (below), will become 'wall' 
+    galaxies, and galaxies whose Nth nearest neighbor is far (above) will become 
+    field/void/isolated galaxies.
     
-    The distance limit used below is the mean distance to Nth nearest neighbor plus
-    1.5 times the standard deviation of the Nth nearest neighbor distance.
+    The distance limit used below is the mean distance to Nth nearest neighbor 
+    plus 1.5 times the standard deviation of the Nth nearest neighbor distance.
     
     
     Parameters
@@ -414,7 +416,8 @@ def wall_field_separation(galaxy_coords_xyz,
     =======
     
     wall_gals_xyz : ndarray of shape (K, 3)
-        xyz coordinate subset of the input corresponding to tightly packed galaxies
+        xyz coordinate subset of the input corresponding to tightly packed 
+        galaxies
         
     field_gals_xyz : ndarray of shape (L, 3)
         xyz coordinate subset of the input corresponding to isolated galaxies
@@ -604,28 +607,28 @@ def find_voids(galaxy_coords_xyz,
         (xyz space)
         
     survey_name : str
-        Identifier for the survey running, may be prepended or appended to 
+        identifier for the survey running, may be prepended or appended to 
         output filenames including the checkpoint filename
         
     mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
         Determines the mode of mask checking to use and which mask parameters to 
         use.  
         
-        - 'ra_dec_z' : the mask, mask_resolution, and dist_limits parameters
-          must be provided.  The 'mask' represents an angular space in Right 
-          Ascension and Declination, the corresponding mask_resolution integer 
-          represents the scale needed to index into the Right Ascension and 
-          Declination of the mask, and the dist_limits represent the min and max 
-          redshift values (as radial distances in xyz space).
+        'ra_dec_z' means the mask, mask_resolution, and dist_limits parameters
+            must be provided.  The 'mask' represents an angular space in Right 
+            Ascension and Declination, the corresponding mask_resolution integer 
+            represents the scale needed to index into the Right Ascension and 
+            Declination of the mask, and the dist_limits represent the min and 
+            max redshift values (as radial distances in xyz space).
         
-        - 'xyz' : the xyz_limits parameter must be provided which directly 
-          encodes a bounding box for the survey in xyz space
+        'xyz' means that the xyz_limits parameter must be provided which 
+            directly encodes a bounding box for the survey in xyz space
             
-        - 'periodic' : the xyz_limits parameter must be provided, which directly
-          encodes a bounding box representing the periodic boundary of the 
-          survey, and the survey will be treated as if its bounding box were 
-          tiled to infinity in all directions.  Spheres will still only be grown 
-          starting from within the original bounding box.
+        'periodic' means that the xyz_limits parameter must be provided, which 
+            directly encodes a bounding box representing the periodic boundary 
+            of the survey, and the survey will be treated as if its bounding box 
+            were tiled to infinity in all directions.  Spheres will still only 
+            be grown starting from within the original bounding box.
         
     mask : numpy.ndarray of shape (N,M) type bool
         Represents the survey footprint in scaled ra/dec space.  Value of True 
@@ -639,9 +642,9 @@ def find_voids(galaxy_coords_xyz,
         [min_dist, max_dist] in units of Mpc/h (xyz space)
         
     xyz_limits : numpy array of shape (2,3)
-        Format [x_min, y_min, z_min], [x_max, y_max, z_max]
-        
-        To be used for checking against the mask when mask_type == 'xyz' or for
+        format [x_min, y_min, z_min]
+               [x_max, y_max, z_max]
+        to be used for checking against the mask when mask_type == 'xyz' or for
         periodic conditions when mask_type == 'periodic'
         
     hole_grid_edge_length : float

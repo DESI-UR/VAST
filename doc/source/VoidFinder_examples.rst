@@ -214,7 +214,7 @@ for details on what is required for each version.
 
 .. list-table:: Input catalog options
    :width: 100%
-   :widths: 25 50 25
+   :widths: 25 25 25 50
    :header-rows: 1
 
    * - Input catalog coordinates
