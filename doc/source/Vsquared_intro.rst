@@ -45,69 +45,6 @@ ZOBOV implementations such as `VIDE <http://www.cosmicvoids.net/>`_ and
 
 
 
-
-
-.. _V2-install:
-
-Installation
-============
-
-Operation system requirements
------------------------------
-
-:raw-html:`<strong>V<sup>2</sup></strong>` is currently Unix-only.
-
-
-Building V\ :sup:`2`
---------------------
-
-:raw-html:`<strong>V<sup>2</sup></strong>` does not yet have any pre-built 
-wheels or distribution packages, so clone the repository from 
-https://github.com/DESI-UR/VAST.
-
-:raw-html:`<strong>V<sup>2</sup></strong>` will install like a normal python 
-package via the shell command::
-
-    python setup.py install
-    
-from ``VAST``.  It is important to remember that this will attempt to install 
-:raw-html:`<strong>V<sup>2</sup></strong>` into the ``site-packages`` directory 
-of whatever python environment that you are using.  To check on this, you can 
-type::
-
-    which python
-    
-into a normal unix shell and it will give you a path like ``/usr/bin/python`` or 
-``/opt/anaconda3/bin/python``, which lets you know which python binary your 
-``python`` command actually points to.
-
-Developing V\ :sup:`2`
-^^^^^^^^^^^^^^^^^^^^^^
-
-If you are actively developing :raw-html:`<strong>V<sup>2</sup></strong>`, you 
-can install the package via::
-
-    python setup.py develop
-    
-which installs a symlink into your python environment's ``site-packages`` 
-directory, and the symlink points back to wherever your local copy of the 
-:raw-html:`<strong>V<sup>2</sup></strong>` directory is.
-
-
-Installing V\ :sup:`2` without admin privileges
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-If you are working in an environment where you cannot install 
-:raw-html:`<strong>V<sup>2</sup></strong>`, or you do not have permissions to 
-install it into the python environment that you are using, add ``--user`` to 
-your choice of build from above.  For example:: 
-
-    python setup.py develop --user
-
-
-
-
-
-
 Citation
 ========
 
