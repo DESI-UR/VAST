@@ -53,7 +53,8 @@ environment includes the ``ffmpeg`` library.
 .. figure:: ../vsquared_viz.png
    :alt: V2 visualization of the output from SDSS DR7 with VoidRender
 
-   **Figure 2**. **V2** visualization of the output from `SDSS_DR7`_.
+   **Figure 2**. :raw-html:`<strong>V<sup>2</sup></strong>` visualization of the 
+   output from `SDSS_DR7`_.
 
 .. _SDSS_DR7: https://arxiv.org/abs/0812.0649
 
@@ -67,26 +68,6 @@ above.
 
 .. :ref:`fig-v2viz`.
 
-
-
-
-
-Installation
-============
-
-**VoidRender** requires OpenGL :math:`\geq` 1.2 and ``vispy`` (``pip install 
-vispy``).
-
-Also, on Ubuntu, you may need to install the following::
-
-    sudo apt-get install mesa-common-dev libgl1-mesa-dev libgl1-mesa-dev
-
-
-There is a version of **VoidRender** that corresponds to each void-finding 
-algorithm implemented in **VAST**.  As a result, **VoidRender** will be built 
-and installed when either **VoidFinder** or 
-:raw-html:`<strong>V<sup>2</sup></strong>` is built and installed.  Please see 
-:ref:`VF-install` and/or :ref:`V2-install` for installation details.
 
 
 

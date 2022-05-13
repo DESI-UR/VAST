@@ -18,9 +18,7 @@ A summary checklist for installing and running **VoidRender**.
     
     python setup.py install
     
-   See :ref:`VF-install` or :ref:`V2-install` for installation options.  NOTE: 
-   The version of **VoidRender** that corresponds to the void-finding algorithm 
-   of choice will be built and installed when **VAST** is built and installed.
+   See :ref:`VAST-install` for installation options.
    
  * Navigate to the ``example_scripts`` directory and modify 
    ``visualize_voids_[algorithm].py`` if appropriate.  Parameters to edit might 

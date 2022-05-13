@@ -14,6 +14,7 @@ of two popular classes of void-finding algorithms in galaxy catalogs:
 
 1. Void identification by growing spherical voids.
 2. Void identification using watershed algorithms.
+  
 
 Voids are expansive regions in the universe containing significantly fewer 
 galaxies than surrounding galaxy clusters and filaments.  They are a fundamental 
@@ -25,6 +26,23 @@ formulating a concrete definition to use in a void-finding algorithm is not
 trivial.  As a result, several different algorithms exist to identify these 
 cosmic underdensities.  VAST provides Python 3 implementations of two such 
 algorithms: **VoidFinder** and :raw-html:`<strong>V<sup>2</sup></strong>`.
+
+**VAST** also contains an implementation called **VoidRender** which utilizes OpenGL to
+create interactive 3D visualizations of the output of the void-finding algorithms
+overlaid on top of the reference galaxy survey.  Each of the void-finding algorithms
+in **VAST** provides its own visualization class.
+
+
+
+
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: VAST
+   
+   VAST_install
+   contributing
 
 .. toctree::
    :maxdepth: 2
@@ -50,11 +68,6 @@ algorithms: **VoidFinder** and :raw-html:`<strong>V<sup>2</sup></strong>`.
    VoidRender_examples
    VoidRender_functions
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contributing to VAST 
-
-   contributing
 
 Indices and tables
 ==================
