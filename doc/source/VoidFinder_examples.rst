@@ -14,7 +14,7 @@ A summary checklist for installing and running **VoidFinder**.
     
     python setup.py install
     
-   See :ref:`VF-install` for installation options.
+   See :ref:`VAST-install` for installation options.
    
  * Navigate to ``example_scripts`` and modify ``SDSS_VoidFinder_dr7.py`` if 
    appropriate.  Variables to edit might include:
@@ -214,7 +214,7 @@ for details on what is required for each version.
 
 .. list-table:: Input catalog options
    :width: 100%
-   :widths: 25 25 25 50
+   :widths: 25 25 50
    :header-rows: 1
 
    * - Input catalog coordinates

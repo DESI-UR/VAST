@@ -20,7 +20,7 @@ A summary checklist for installing and running
     
     python setup.py install
     
-   See :ref:`V2-install` for installation options.
+   See :ref:`VAST-install` for installation options.
    
  * Navigate to ``VAST/example_scripts/`` and modify ``DR7_config.ini`` if 
    appropriate.  Fields to edit might include:
