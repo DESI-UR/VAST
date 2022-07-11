@@ -13,7 +13,7 @@ class Catalog:
     """Catalog data for void calculation.
     """
 
-    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,periodic=False,cmin=None,cmax=None,maskfile=None):
+    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,periodic=False,xyz=False,cmin=None,cmax=None,maskfile=None):
         """Initialize catalog.
 
         Parameters
@@ -36,6 +36,8 @@ class Catalog:
             Mask file giving HEALPixels with catalog objects.
         periodic : bool
             Use periodic boundary conditions.
+        xyz : bool
+            Use cartesian coordinates.
         cmin : ndarray or None
             Array of coordinate minima.
         cmax : ndarray or None
@@ -43,7 +45,7 @@ class Catalog:
         """
         print("Extracting data...")
         hdulist = fits.open(catfile)
-        if periodic:
+        if periodic or xyz:
             self.coord = np.array([hdulist[1].data['x'],hdulist[1].data['y'],hdulist[1].data['z']]).T
             self.cmin = cmin
             self.cmax = cmax
@@ -88,7 +90,7 @@ class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.
     """
 
-    def __init__(self,cat,viz=False,periodic=False,buff=5.):
+    def __init__(self,cat,viz=False,periodic=False,xyz=False,buff=5.):
         """Initialize tesselation.
 
         Parameters
@@ -150,23 +152,30 @@ class Tesselation:
             reg = np.array(Vor.regions)[Vor.point_region]
             del Vor
             ve2 = ver.T
-            vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2])
-            vph = np.arctan2(ve2[1],ve2[0])
-            vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
-            crh = np.array([np.sqrt((c**2.).sum()) for c in coords])
-            rmx = np.amax(crh)
-            rmn = np.amin(crh)
+            if not xyz:
+                vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2])
+                vph = np.arctan2(ve2[1],ve2[0])
+                vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
+                crh = np.array([np.sqrt((c**2.).sum()) for c in coords])
+                rmx = np.amax(crh)
+                rmn = np.amin(crh)
             print("Computing volumes...")
             vol = np.zeros(len(reg))
-            cu1 = np.array([-1 not in r for r in reg])
-            cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
-            msk = cat.mask
-            nsd = hp.npix2nside(len(msk))
-            pid = hp.ang2pix(nsd,vth,vph)
-            imk = msk[pid]
-            cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
             cut = np.arange(len(vol))
-            cut = cut[cu1][cu2][cu3]
+            cu1 = np.array([-1 not in r for r in reg])
+            if xyz:
+                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cmin[0],ve2[0][r]<cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
+                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cmin[1],ve2[1][r]<cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cmin[2],ve2[2][r]<cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
+                cut = cut[cu1][cu2][cu3][cu4]
+            else:
+                cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
+                msk = cat.mask
+                nsd = hp.npix2nside(len(msk))
+                pid = hp.ang2pix(nsd,vth,vph)
+                imk = msk[pid]
+                cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+                cut = cut[cu1][cu2][cu3]
             hul = []
             for r in reg[cut]:
                 try:

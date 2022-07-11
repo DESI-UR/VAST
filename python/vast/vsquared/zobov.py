@@ -12,7 +12,7 @@ from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
 
-    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False):
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False,xyz=False):
         """Initialization of the ZOnes Bordering on Voids (ZOBOV) algorithm.
 
         Parameters
@@ -29,6 +29,8 @@ class Zobov:
             Create visualization.
         periodic : bool
             Use periodic boundary conditions.
+        xyz : bool
+            Use cartesian coordinates.
         """
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
@@ -37,8 +39,11 @@ class Zobov:
         if visualize*periodic:
             print("Visualization not implemented for periodic boundary conditions: changing to false")
             self.visualize = False
+        elif periodic*xyz:
+            self.xyz = False
         else:
             self.visualize = visualize
+            self.xyz = xyz
         self.periodic = periodic
 
         config = configparser.ConfigParser()
@@ -68,13 +73,13 @@ class Zobov:
             if start<3:
                 if start<2:
                     if start<1:
-                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,cmin=self.cmin,cmax=self.cmax)
+                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,xyz=self.xyz,cmin=self.cmin,cmax=self.cmax)
                         if save_intermediate:
                             pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
                         ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
                     if end>0:
-                        tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,buff=self.buff)
+                        tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,xyz=self.xyz,buff=self.buff)
                         if save_intermediate:
                             pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
                 else:
