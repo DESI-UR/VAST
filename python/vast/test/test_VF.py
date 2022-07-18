@@ -56,7 +56,9 @@ class TestVoidFinder(unittest.TestCase):
         self.gal[:,2] = self.galaxies_shuffled['Rgal']*np.sin(self.galaxies_shuffled['dec']*np.pi/180.)
 
     def test_1_file_preprocess(self):
-        """Take a galaxy data file and return a data table, compute the redshift range in comoving coordinates, and generate output filename.
+        """
+        Take a galaxy data file and return a data table, compute the redshift 
+        range in comoving coordinates, and generate output filename.
         """
         f_galaxy_table, f_dist_limits, f_out1_filename, f_out2_filename = \
             file_preprocess(self.galaxies_filename, '', '', dist_metric='redshift')
@@ -75,8 +77,13 @@ class TestVoidFinder(unittest.TestCase):
         # Check the second output file name
         self.assertEqual(f_out2_filename, 'test_galaxies_redshift_holes.txt')
 
+
+
+    
     def test_2_generate_mask(self):
-        """Take a table of galaxy coordinates and maximum redshift and return a boolean mask + resolution
+        """
+        Take a table of galaxy coordinates and maximum redshift and return a 
+        boolean mask + resolution
         """
         f_mask, f_mask_resolution = generate_mask(self.galaxies_shuffled, 
                                                   self.redshift_range[-1], 
@@ -91,14 +98,18 @@ class TestVoidFinder(unittest.TestCase):
 
         # Check the mask resolution
         self.assertTrue(np.isclose(f_mask_resolution, 1))
+    
 
+
+
+    
     def test_3_filter_galaxies(self):
-        """Filter galaxies.
+        """
+        Filter galaxies.
         
-        Update 3/14/2022 - filter_galaxies is no longer returning grid_shape
-        and coords_min parameters - instead they are calculated inside the
-        main body of find_voids() for consistency among the 3 mask_mode
-        types
+        Update 3/14/2022 - filter_galaxies is no longer returning grid_shape and
+        coords_min parameters - instead they are calculated inside the main body 
+        of find_voids() for consistency among the 3 mask_mode types
         
         """
         # Take a table of galaxy coordinates, the name of the survey, and the
@@ -133,9 +144,14 @@ class TestVoidFinder(unittest.TestCase):
 
         # Check the minimum coordinates
         #self.assertTrue(np.isclose(f_min, np.min(self.gal, axis=0)).all())
+    
 
+
+
+    
     def test_4_find_voids(self):
-        """Identify maximal spheres and holes in the galaxy distribution
+        """
+        Identify maximal spheres and holes in the galaxy distribution
         """
         maximals = Table()
         maximals['x'] = [25., 10.]
@@ -159,8 +175,6 @@ class TestVoidFinder(unittest.TestCase):
             remove_boolean = np.logical_or(remove_boolean, (d < holes['r'][i]))
 
         find_voids(TestVoidFinder.wall[~remove_boolean], 
-                   #np.min(self.gal, axis=0), 
-                   #TestVoidFinder.grid_shape, 
                    'test_', 
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
@@ -185,6 +199,7 @@ class TestVoidFinder(unittest.TestCase):
 #        holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
 #                                 format='ascii.commented_header')
 #        self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
+    
 
     def tearDown(self):
         """Delete files produced for the unit tests.
