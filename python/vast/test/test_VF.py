@@ -15,20 +15,26 @@ class TestVoidFinder(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # Set up some global variables available to all test cases.
+        '''
+        Set up some global variables available to all test cases.
+        '''
         TestVoidFinder.wall = None
         TestVoidFinder.dist_limits = None
         TestVoidFinder.mask = None
         TestVoidFinder.grid_shape = None
 
     def setUp(self):
-        # Set up a dummy survey that can be used to test I/O, preprocessing,
-        # and void finding.
+        '''
+        Set up a dummy survey that can be used to test I/O, preprocessing, and 
+        void-finding.
+        '''
         self.ra_range = np.arange(10, 30, 0.5)
         self.dec_range = np.arange(-10, 10, 0.5)
         self.redshift_range = np.arange(0, 0.011, 0.0005)
 
-        RA, DEC, REDSHIFT = np.meshgrid(self.ra_range, self.dec_range, self.redshift_range)
+        RA, DEC, REDSHIFT = np.meshgrid(self.ra_range, 
+                                        self.dec_range, 
+                                        self.redshift_range)
 
         self.galaxies_table = Table()
         self.galaxies_table['ra'] = np.ravel(RA)
@@ -172,7 +178,7 @@ class TestVoidFinder(unittest.TestCase):
         remove_boolean = np.zeros(len(TestVoidFinder.wall), dtype=bool)
         for i in range(len(holes)):
             d = (holes['x'][i] - TestVoidFinder.wall[:,0])**2 + (holes['y'][i] - TestVoidFinder.wall[:,1])**2 + (holes['z'][i] - TestVoidFinder.wall[:,2])**2
-            remove_boolean = np.logical_or(remove_boolean, (d < holes['r'][i]))
+            remove_boolean = remove_boolean | (d < holes['r'][i]**2)
 
         find_voids(TestVoidFinder.wall[~remove_boolean], 
                    'test_', 
@@ -187,18 +193,18 @@ class TestVoidFinder(unittest.TestCase):
                    maximal_spheres_filename='test_galaxies_redshift_maximal.txt')
 
         # Check maximal spheres
-#        f_maximals = Table.read('test_galaxies_redshift_maximal.txt', 
-#                                format='ascii.commented_header')
-#        maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
-#                                    format='ascii.commented_header')
-#        self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
+        f_maximals = Table.read('test_galaxies_redshift_maximal.txt', 
+                                format='ascii.commented_header')
+        maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
+                                    format='ascii.commented_header')
+        self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
-#        # Check holes
-#        f_holes = Table.read('test_galaxies_redshift_holes.txt', 
-#                             format='ascii.commented_header')
-#        holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
-#                                 format='ascii.commented_header')
-#        self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
+        # Check holes
+        f_holes = Table.read('test_galaxies_redshift_holes.txt', 
+                             format='ascii.commented_header')
+        holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
+                                 format='ascii.commented_header')
+        self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
     
 
     def tearDown(self):
@@ -208,8 +214,8 @@ class TestVoidFinder(unittest.TestCase):
             os.remove(self.galaxies_filename)
 
         files = [ 'test_field_gal_file.txt',
-                  'test_galaxies_redshift_maximal.txt', 
-                  'test_galaxies_redshift_holes.txt',
+                  #'test_galaxies_redshift_maximal.txt', 
+                  #'test_galaxies_redshift_holes.txt',
                   'test_wall_gal_file.txt' ]
 
         for f in files:
