@@ -145,26 +145,28 @@ def combine_holes(spheres_table, frac=0.1):
 
 
 def combine_holes_2(x_y_z_r_array,
+                    boundary_holes, 
                     dup_tol=0.1,
                     maximal_overlap_frac=0.1,
                     min_maximal_radius=10.0,
                     hole_join_frac=0.5
                     ):
     """
-    Description
-    ===========
-    
     Perform 3 steps to unionize the found holes into Voids.
     
     1).  Remove specific duplicate holes
     2).  Find holes which qualify as a Maximal
     3).  Join all other holes to the Maximals to form Voids.
     
-    Parameters
+
+    PARAMETERS
     ==========
     
     x_y_z_r_array : ndarray of shape (N,4)
         the xyz coordinates of the holes and their radii r
+
+    boundary_holes : ndarray of shape (N,)
+        whether or not the hole is on the survey boundary
         
     dup_tol : float 
         the tolerance in units of distance to check 2 hole centers
@@ -182,7 +184,18 @@ def combine_holes_2(x_y_z_r_array,
     hole_join_frac : float in [0,1.0)
         the fraction of the hole's volume required to overlap for a maximal
         for the hole to join that maximal's Void    
+    
 
+    RETURNS
+    =======
+
+    maximals_table : astropy table of length M
+        Table containing the holes from x_y_z_r_array that are identified 
+        maximal spheres
+
+    holes_table : astropy table of length P
+        Table containing the holes from x_y_z_r_array that are part of a void, 
+        including the maximal spheres.
     """
     
     print("Starting hole combine", flush=True)
@@ -198,6 +211,7 @@ def combine_holes_2(x_y_z_r_array,
           flush=True)
     
     x_y_z_r_array = x_y_z_r_array[unique_index]
+    boundary_holes = boundary_holes[unique_index]
     ############################################################################
 
 
@@ -246,6 +260,8 @@ def combine_holes_2(x_y_z_r_array,
     maximals_xyzr = x_y_z_r_array[maximal_spheres_indices]
     
     holes_xyzr = x_y_z_r_array[holes_index]
+
+    boundary_voids = boundary_holes[holes_index]
     ############################################################################
 
 
@@ -255,8 +271,27 @@ def combine_holes_2(x_y_z_r_array,
     #---------------------------------------------------------------------------
     maximals_table = Table(maximals_xyzr, names=('x','y','z','radius'))
     maximals_table["flag"] = np.arange(maximals_xyzr.shape[0])
+
     holes_table =  Table(holes_xyzr, names=('x','y','z','radius'))
     holes_table["flag"] = holes_flag_index
+    ############################################################################
+
+
+
+    ############################################################################
+    # Mark boundary voids
+    #---------------------------------------------------------------------------
+    maximals_table["edge"] = 0
+
+    for i in maximals_table["flag"]:
+
+        # Find all holes associated with this void
+        void_hole_indices = holes_table["flag"] == i
+
+        # Check to see if any of the holes are on the boundary
+        if np.any(boundary_voids[void_hole_indices]):
+
+            maximals_table["edge"] = 1
     ############################################################################
     
     return maximals_table, holes_table

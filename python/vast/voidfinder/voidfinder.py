@@ -835,6 +835,9 @@ def find_voids(galaxy_coords_xyz,
           time.time() - vol_cut_start, flush=True)
 
     x_y_z_r_array = x_y_z_r_array[valid_idx]
+
+    # Array that stores whether or not a hole falls outside the survey
+    boundary_hole = monte_index[valid_idx]
     ############################################################################
 
 
@@ -847,6 +850,7 @@ def find_voids(galaxy_coords_xyz,
     sort_order = x_y_z_r_array[:,3].argsort()[::-1]
     
     x_y_z_r_array = x_y_z_r_array[sort_order]
+    boundary_hole = boundary_hole[sort_order]
     ############################################################################
 
     
@@ -859,6 +863,7 @@ def find_voids(galaxy_coords_xyz,
     combine_start = time.time()
     
     maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array, 
+                                                           boundary_hole, 
                                                            min_maximal_radius=min_maximal_radius)
     
     print("Combine time:", time.time() - combine_start, flush=True)

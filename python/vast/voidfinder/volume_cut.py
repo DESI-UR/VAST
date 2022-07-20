@@ -238,8 +238,8 @@ def check_hole_bounds(x_y_z_r_array,
     Description
     ===========
     
-    Remove holes from the output of _hole_finder() whose volume falls outside 
-    of the mask by X % or more.  
+    Remove holes from the output of _hole_finder() whose volume falls outside of 
+    the mask by X % or more.  
     
     This is accomplished by a 2-phase approach, first, N points are distributed 
     on the surface of each sphere, and those N points are checked against the 
