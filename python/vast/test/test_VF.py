@@ -30,7 +30,7 @@ class TestVoidFinder(unittest.TestCase):
         '''
         self.ra_range = np.arange(10, 30, 0.5)
         self.dec_range = np.arange(-10, 10, 0.5)
-        self.redshift_range = np.arange(0, 0.011, 0.0005)
+        self.redshift_range = np.arange(0, 0.011, 0.0001)
 
         RA, DEC, REDSHIFT = np.meshgrid(self.ra_range, 
                                         self.dec_range, 
@@ -60,6 +60,9 @@ class TestVoidFinder(unittest.TestCase):
         self.gal[:,0] = self.galaxies_shuffled['Rgal']*np.cos(self.galaxies_shuffled['ra']*np.pi/180.)*np.cos(self.galaxies_shuffled['dec']*np.pi/180.)
         self.gal[:,1] = self.galaxies_shuffled['Rgal']*np.sin(self.galaxies_shuffled['ra']*np.pi/180.)*np.cos(self.galaxies_shuffled['dec']*np.pi/180.)
         self.gal[:,2] = self.galaxies_shuffled['Rgal']*np.sin(self.galaxies_shuffled['dec']*np.pi/180.)
+
+        # Minimum maximal sphere radius
+        self.min_maximal_radius = 1. # Mpc/h
 
     def test_1_file_preprocess(self):
         """
@@ -93,7 +96,8 @@ class TestVoidFinder(unittest.TestCase):
         """
         f_mask, f_mask_resolution = generate_mask(self.galaxies_shuffled, 
                                                   self.redshift_range[-1], 
-                                                  dist_metric='redshift')
+                                                  dist_metric='redshift', 
+                                                  min_maximal_radius=self.min_maximal_radius)
 
         # Check the mask
         TestVoidFinder.mask = np.zeros((360,180), dtype=bool)
@@ -187,7 +191,7 @@ class TestVoidFinder(unittest.TestCase):
                    dist_limits=TestVoidFinder.dist_limits,
                    hole_grid_edge_length=1.0,
                    hole_center_iter_dist=0.2, 
-                   min_maximal_radius=1.0, 
+                   min_maximal_radius=self.min_maximal_radius, 
                    num_cpus=1, 
                    void_table_filename='test_galaxies_redshift_holes.txt', 
                    maximal_spheres_filename='test_galaxies_redshift_maximal.txt')
