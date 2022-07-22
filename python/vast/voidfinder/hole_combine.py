@@ -283,15 +283,15 @@ def combine_holes_2(x_y_z_r_array,
     #---------------------------------------------------------------------------
     maximals_table["edge"] = 0
 
-    for i in maximals_table["flag"]:
+    for i,void in enumerate(maximals_table["flag"]):
 
         # Find all holes associated with this void
-        void_hole_indices = holes_table["flag"] == i
+        void_hole_indices = holes_table["flag"] == void
 
         # Check to see if any of the holes are on the boundary
         if np.any(boundary_voids[void_hole_indices]):
 
-            maximals_table["edge"] = 1
+            maximals_table["edge"][i] = 1
     ############################################################################
     
     return maximals_table, holes_table
