@@ -504,6 +504,7 @@ def find_voids(galaxy_coords_xyz,
                min_maximal_radius=10.0,
                galaxy_map_grid_edge_length=None,
                hole_center_iter_dist=1.0,
+               pts_per_unit_volume=0.01,
                maximal_spheres_filename="maximal_spheres.txt",
                void_table_filename="voids_table.txt",
                potential_voids_filename="potential_voids_list.txt",
@@ -676,6 +677,11 @@ def find_voids(galaxy_coords_xyz,
         Distance to move the sphere center each iteration while growing a void
         sphere in units of Mpc/h
         (xyz space)
+
+    pts_per_unit_volume : float
+        Number of points per unit volume that are distributed within the holes 
+        to calculate the fraction of the hole's volume that falls outside the 
+        survey bounds.  Default is 0.01.
     
     maximal_spheres_filename : str
         Location to save maximal spheres file 
@@ -762,12 +768,10 @@ def find_voids(galaxy_coords_xyz,
     
     
     
-    print('Growing holes', flush=True)
-        
     ############################################################################
     # GROW HOLES
     #---------------------------------------------------------------------------
-    
+    print('Growing holes', flush=True)
 
     tot_hole_start = time.time()
 
@@ -799,18 +803,20 @@ def find_voids(galaxy_coords_xyz,
 
 
 
-    if mask_mode == 0:
+    ############################################################################
+    # Initialize mask object
+    #---------------------------------------------------------------------------
+    if mask_mode == 0: # sky mask
         mask_checker = MaskChecker(mask_mode,
                                    survey_mask_ra_dec=mask.astype(np.uint8),
                                    n=mask_resolution,
                                    rmin=min_dist,
-                                   rmax=max_dist,
-                                   )
+                                   rmax=max_dist)
         
-    elif mask_mode in [1,2]:
+    elif mask_mode in [1,2]: # Cartesian mask
         mask_checker = MaskChecker(mask_mode,
                                    xyz_limits=xyz_limits)
-
+    ############################################################################
 
 
 
@@ -826,7 +832,7 @@ def find_voids(galaxy_coords_xyz,
     valid_idx, monte_index = check_hole_bounds(x_y_z_r_array, 
                                                mask_checker,
                                                cut_pct=0.1,
-                                               pts_per_unit_volume=.01,
+                                               pts_per_unit_volume=pts_per_unit_volume,
                                                num_surf_pts=20,
                                                num_cpus=num_cpus,
                                                verbose=verbose)
