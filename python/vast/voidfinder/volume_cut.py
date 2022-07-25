@@ -542,7 +542,7 @@ def oob_cut_single(x_y_z_r_array,
             pass
     '''
 
-    return valid_index.astype(np.bool), monte_index.astype(np.bool)
+    return valid_index.astype(np.bool_), monte_index.astype(np.bool_)
 
 
 
