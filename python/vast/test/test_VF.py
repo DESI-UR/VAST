@@ -30,7 +30,7 @@ class TestVoidFinder(unittest.TestCase):
         '''
         self.ra_range = np.arange(10, 30, 0.5)
         self.dec_range = np.arange(-10, 10, 0.5)
-        self.redshift_range = np.arange(0, 0.011, 0.0001)
+        self.redshift_range = np.arange(0, 0.011, 0.0005) # 0.0001
 
         RA, DEC, REDSHIFT = np.meshgrid(self.ra_range, 
                                         self.dec_range, 
@@ -184,7 +184,7 @@ class TestVoidFinder(unittest.TestCase):
             d = (holes['x'][i] - TestVoidFinder.wall[:,0])**2 + (holes['y'][i] - TestVoidFinder.wall[:,1])**2 + (holes['z'][i] - TestVoidFinder.wall[:,2])**2
             remove_boolean = remove_boolean | (d < holes['r'][i]**2)
 
-        find_voids(TestVoidFinder.wall[~remove_boolean], 
+        find_voids([TestVoidFinder.wall[~remove_boolean], TestVoidFinder.wall[remove_boolean]], 
                    'test_', 
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
@@ -193,6 +193,7 @@ class TestVoidFinder(unittest.TestCase):
                    hole_center_iter_dist=0.2, 
                    min_maximal_radius=self.min_maximal_radius, 
                    num_cpus=1, 
+                   pts_per_unit_volume=0.01, # 5
                    void_table_filename='test_galaxies_redshift_holes.txt', 
                    maximal_spheres_filename='test_galaxies_redshift_maximal.txt')
 

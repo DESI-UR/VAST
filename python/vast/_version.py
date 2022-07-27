@@ -17,4 +17,4 @@ Also when we hit something like 1.9.x we dont have to go to 2.0.0, we can go to 
 just in case anyone wondered about that like I used to.
 """
 
-__version__ = '1.2.0'
+__version__ = '1.3.0'
