@@ -33,17 +33,13 @@ class Catalog:
         Om_m : float
             Matter density.
         maskfile : str or None
-<<<<<<< HEAD:Vsquared/vast/vsquared/classes.py
             Mask file giving HEALPixels with catalog objects (FITS format).
-=======
-            Mask file giving HEALPixels with catalog objects.
         periodic : bool
             Use periodic boundary conditions.
         cmin : ndarray or None
             Array of coordinate minima.
         cmax : ndarray or None
             Array of coordinate maxima.
->>>>>>> master:python/vast/vsquared/classes.py
         """
         print("Extracting data...")
         hdulist = fits.open(catfile)
