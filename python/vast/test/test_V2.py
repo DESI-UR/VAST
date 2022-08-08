@@ -70,7 +70,7 @@ class TestV2(unittest.TestCase):
 
         # Test zone links
         self.assertTrue(np.isclose(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]), 9.617021276595745))
-        self.assertTrue(np.isclose(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][-1]]), 3285.6313303024826))
+        self.assertTrue(np.isclose(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][:-1]]), 3285.6313303024826))
 
     def test_zobov_3_voids(self):
         """Test ZOBOV void creation
