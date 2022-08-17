@@ -40,11 +40,14 @@ import mmap
 
 
 
+#DEBUGGING IMPORTS
+from sklearn.neighbors import KDTree
 
 
 cdef DTYPE_F64_t RtoD = 180./np.pi
 cdef DTYPE_F64_t DtoR = np.pi/180.
 cdef DTYPE_F64_t dec_offset = -90
+
 
 
 
@@ -70,9 +73,6 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                         ):          
 
     '''
-    Description:
-    ============
-    
     Function to locate the next nearest galaxy during hole center propagation 
     along direction defined by unit_vector_memview.
 
@@ -87,9 +87,9 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     For galaxies 3 and 4, the distance ratios are calculated with respect to the 
     previous galaxies, so this code uses an if-block to detect whether we're 
     calculating for galaxy 2/B, 3/C, or 4/D, and runs slightly different 
-    distance ratio calculations.  The if block looks for the number of elements 
-    in the input nearest_gal_index_list, when its 1 it assumes we're finding for 
-    galaxy 2 and when its not 1 it assumes we have the first 2 galaxies and 
+    distance ratio calculations.  The if-block looks for the number of elements 
+    in the input nearest_gal_index_list, when it's 1 it assumes we're looking 
+    for galaxy 2 and when it's not 1 it assumes we have the first 2 galaxies and 
     we're looking for galaxy 3 or 4.
 
 
@@ -308,7 +308,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
         
         
         ########################################################################
-        # use GalaxyMap to find the galaxies within our target sphere
+        # Use GalaxyMap to find the galaxies within our target sphere
         #
         # _query_shell_radius() fills in index values into the 
         # neighbor_mem.i_nearest array corresponding to the neighbors it finds 
@@ -524,7 +524,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                 
                 final_level = True
                 
-                return retval
+                #return retval
                 
             elif any_valid and final_level:
                 
@@ -591,7 +591,7 @@ cdef class MaskChecker:
             self.xyz_limits = xyz_limits
         
         
-    cdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates):
+    cpdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates):
         
         if self.mode == 0:
             
@@ -1764,6 +1764,9 @@ cdef class GalaxyMap:
         
         
         
+        #DEBUGGING
+        self.kdtree = KDTree(self.wall_galaxy_coords)
+
         
         
     @cython.boundscheck(False)
