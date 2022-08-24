@@ -184,7 +184,9 @@ class TestVoidFinder(unittest.TestCase):
             d = (holes['x'][i] - TestVoidFinder.wall[:,0])**2 + (holes['y'][i] - TestVoidFinder.wall[:,1])**2 + (holes['z'][i] - TestVoidFinder.wall[:,2])**2
             remove_boolean = remove_boolean | (d < holes['r'][i]**2)
 
-        find_voids([TestVoidFinder.wall[~remove_boolean], TestVoidFinder.wall[remove_boolean]], 
+        find_voids([TestVoidFinder.wall[~remove_boolean], 
+                    np.concatenate([TestVoidFinder.field, 
+                                    TestVoidFinder.wall[remove_boolean]])], 
                    'test_', 
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
