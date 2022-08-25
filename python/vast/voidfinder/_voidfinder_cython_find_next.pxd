@@ -33,7 +33,7 @@ cdef class MaskChecker:
     
     cdef DTYPE_F64_t[:,:] xyz_limits
     
-    cdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates)
+    cpdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates)
 
 
 
@@ -220,6 +220,9 @@ cdef class GalaxyMap:
     cdef public DTYPE_INT64_t num_gma_indices
     
     cdef public DTYPE_INT64_t gma_fd
+
+    #DEBUGGING
+    cdef public object kdtree
     
     
     cpdef public DTYPE_B_t contains(self,

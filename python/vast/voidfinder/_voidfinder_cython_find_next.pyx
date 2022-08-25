@@ -2628,34 +2628,49 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
     
     Finds first nearest neighbor for the given reference point
     
-    NOTE:  This function is OK as a "find first only" setup because
-    we're only ever going to give it data points which are Cell centers
-    and not data points from w_coord, if we gave it a point from w_coord
-    it would always just return that same point which would be dumb, but
-    we're ok cause we're not gonna do that.
+    NOTE: This function is OK as a "find first only" setup because we're only 
+    ever going to give it data points which are Cell centers and not data points 
+    from w_coord, if we gave it a point from w_coord it would always just return 
+    that same point which would be dumb, but we're ok cause we're not gonna do 
+    that.
     
     
     Parameters
     ==========
     
+    reference_point_ijk : 
+
+    coord_min : 
+
+    dl : float
+
+    shell_boundaries_xyz : 
+
+    cell_center_xyz : 
+
+    galaxy_map : 
+
+    cell_ID_mem : 
+
     reference_point_xyz : ndarray of shape (1,3)
-        the point in xyz coordinates of whom we would like to find
-        the nearest neighbors for
-        
+        The point in xyz coordinates of whom we would like to find the nearest 
+        neighbor for
     """
     
     
-    ################################################################################
+    ############################################################################
     # Convert our query point from xyz to pqr space
-    ################################################################################
-    
+    #---------------------------------------------------------------------------
     reference_point_ijk[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
     reference_point_ijk[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
     reference_point_ijk[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
+    ############################################################################
+
+
     
-    ################################################################################
+    ############################################################################
     # All the variables we need cdef'd
-    ################################################################################
+    #---------------------------------------------------------------------------
     cdef DTYPE_INT32_t current_shell = -1
     
     cdef DTYPE_B_t check_next_shell = True
@@ -2695,11 +2710,14 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
     cdef DTYPE_INT64_t cell_start_row, cell_end_row
     
     cdef CELL_ID_t id1, id2, id3
+    ############################################################################
+
+
     
-    ################################################################################
-    # Iterate through the grid cells shell-by-shell growing outwards until we find
-    # the nearest neighbor to our reference_point_xyz
-    ################################################################################
+    ############################################################################
+    # Iterate through the grid cells shell-by-shell growing outwards until we 
+    # find the nearest neighbor to our reference_point_xyz
+    #---------------------------------------------------------------------------
     while check_next_shell:
         
         current_shell += 1
@@ -2719,26 +2737,29 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                                                   cell_ID_mem,
                                                   galaxy_map)
         
-        ################################################################################
-        # When we iterate through the cell IDs below, we won't get any non-existent
-        # ones because the cell_ID_mem object has already checked the cell IDs against
-        # the galaxy map to confirm they are populated with galaxies
-        ################################################################################
+        ########################################################################
+        # When we iterate through the cell IDs below, we won't get any 
+        # non-existent ones because the cell_ID_mem object has already checked 
+        # the cell IDs against the galaxy map to confirm they are populated with 
+        # galaxies
+        #-----------------------------------------------------------------------
         for cell_ID_idx in range(<ITYPE_t>cell_start_row, <ITYPE_t>cell_end_row):
             
             id1 = cell_ID_mem.data[3*cell_ID_idx]
-            id2 = cell_ID_mem.data[3*cell_ID_idx+1]
-            id3 = cell_ID_mem.data[3*cell_ID_idx+2]
+            id2 = cell_ID_mem.data[3*cell_ID_idx + 1]
+            id3 = cell_ID_mem.data[3*cell_ID_idx + 2]
             
             curr_offset_num_pair = galaxy_map.getitem(id1, id2, id3)
             
             offset = curr_offset_num_pair.offset
             
             num_elements = curr_offset_num_pair.num_elements
+
+            #print(cell_ID_idx, num_elements)
             
             for idx in range(num_elements):
                 
-                potential_neighbor_idx = <ITYPE_t>(galaxy_map.galaxy_map_array[offset+idx])
+                potential_neighbor_idx = <ITYPE_t>(galaxy_map.galaxy_map_array[offset + idx])
                 
                 potential_neighbor_xyz = galaxy_map.wall_galaxy_coords[potential_neighbor_idx]
                 
@@ -2756,16 +2777,19 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                     
                     neighbor_dist_xyz = sqrt(dist_sq)
                     
-                    ################################################################################
-                    # Don't need to check against the min_containing_radius here because we want to 
-                    # check everybody in this shell, since even if this guy matches our criteria
-                    # for the min_containing_radius_xyz, someone else in this batch could be closer
-                    # and therefore be the true result
-                    ################################################################################
-                            
+                    ############################################################
+                    # Don't need to check against the min_containing_radius here 
+                    # because we want to check everybody in this shell, since 
+                    # even if this guy matches our criteria for the 
+                    # min_containing_radius_xyz, someone else in this batch 
+                    # could be closer and therefore be the true result
+                    ############################################################
+        ########################################################################
+
         if neighbor_dist_xyz < min_containing_radius_xyz:
             
             check_next_shell = False
+    ############################################################################
 
     return_vals.idx = neighbor_idx
     

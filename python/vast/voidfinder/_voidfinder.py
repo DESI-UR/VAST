@@ -1826,9 +1826,6 @@ def _hole_finder_worker_profile(worker_idx, ijk_start, write_start, config):
 
 def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     """
-    Description
-    ===========
-    
     Worker process for the _hole_finder_multi_process function above.
     
     

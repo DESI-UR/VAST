@@ -1087,6 +1087,7 @@ def find_voids(galaxy_coords_xyz,
     
     maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array, 
                                                            boundary_hole, 
+                                                           mask_checker,
                                                            min_maximal_radius=min_maximal_radius)
     
     print("Combine time:", time.time() - combine_start, flush=True)

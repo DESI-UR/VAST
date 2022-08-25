@@ -125,9 +125,9 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
         
         curr_hole_radius = x_y_z_r_array[idx,3]
         
-        ################################################################################
+        ########################################################################
         # First check shell points
-        ################################################################################
+        #-----------------------------------------------------------------------
         require_monte_carlo = False
         
         for jdx in range(num_shell_pts):
@@ -145,6 +145,8 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
                 require_monte_carlo = True
                 
                 break
+        ########################################################################
+        
             
         ################################################################################
         # Check the monte carlo points if any of the shell points failed

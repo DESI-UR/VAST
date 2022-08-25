@@ -254,16 +254,7 @@ def check_hole_bounds(x_y_z_r_array,
     x_y_z_r_array : numpy.ndarray of shape (N,4)
         x,y,z locations of the holes, and radius, in that order
         
-    mask : numpy.ndarray of shape (K,L) dtype np.uint8
-        the mask used, mask[ra_integer,dec_integer] returns True if that ra,dec 
-        position is within the survey, and false if it is not.  Note ra,dec must 
-        be converted into integer values depending on the mask_resolution.  For 
-        mask_resolution of 1, ra is in [0,359] and dec in [-90,90], for 
-        mask_resolution of 2, ra is in [0,719], dec in [-180,180] etc.
-        
-    mask_resolution : int
-        value of 1 indicates each entry in the mask accounts for 1 degree, value 
-        of 2 means half-degree, 4 means quarter-degree increments, etc
+    mask_checker : 
         
     r_limits : 2-tuple (min_r, max_r)
         min and max radius limits of the survey
@@ -485,10 +476,10 @@ def oob_cut_single(x_y_z_r_array,
         
         curr_hole_radius = curr_hole[3]
         
-        ################################################################################
+        ########################################################################
         # First, check the shell points to see if we need to do the monte carlo
         # volume
-        ################################################################################
+        ########################################################################
         curr_sphere_pts = curr_hole_radius*unit_sphere_pts + curr_hole_position
         
         require_monte_carlo = False
@@ -503,9 +494,9 @@ def oob_cut_single(x_y_z_r_array,
                 
                 break
 
-        ################################################################################
+        ########################################################################
         # Do the monte carlo if any of the shell points failed
-        ################################################################################
+        ########################################################################
         if require_monte_carlo:
             
             #print("REQ MONT")
