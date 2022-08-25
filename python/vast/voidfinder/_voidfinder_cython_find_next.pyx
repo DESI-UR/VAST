@@ -2608,7 +2608,7 @@ cdef class Cell_ID_Memory:
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
+cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_pqr,
                               DTYPE_F64_t[:,:] coord_min,
                               DTYPE_F64_t dl,
                               DTYPE_F64_t[:,:] shell_boundaries_xyz,
@@ -2618,12 +2618,6 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                               DTYPE_F64_t[:,:] reference_point_xyz
                               ):
     """
-    
-    TODO: update names from ijk to pqr
-    
-    Description
-    ===========
-    
     Only called once in _voidfinder_cython.main_algorithm()
     
     Finds first nearest neighbor for the given reference point
@@ -2638,7 +2632,7 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
     Parameters
     ==========
     
-    reference_point_ijk : 
+    reference_point_pqr : 
 
     coord_min : 
 
@@ -2661,9 +2655,9 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
     ############################################################################
     # Convert our query point from xyz to pqr space
     #---------------------------------------------------------------------------
-    reference_point_ijk[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
-    reference_point_ijk[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
-    reference_point_ijk[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
+    reference_point_pqr[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
+    reference_point_pqr[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
+    reference_point_pqr[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
     ############################################################################
 
 
@@ -2726,13 +2720,13 @@ cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk,
                               cell_center_xyz,
                               coord_min,
                               dl,
-                              reference_point_ijk,
+                              reference_point_pqr,
                               current_shell)
         
         min_containing_radius_xyz = _min_contain_radius(shell_boundaries_xyz, 
                                                         reference_point_xyz)
         
-        cell_start_row, cell_end_row = _gen_shell(reference_point_ijk, 
+        cell_start_row, cell_end_row = _gen_shell(reference_point_pqr, 
                                                   current_shell,
                                                   cell_ID_mem,
                                                   galaxy_map)
