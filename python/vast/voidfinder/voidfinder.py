@@ -7,34 +7,19 @@ from astropy.table import Table
 
 import time
 
-from .hole_combine import combine_holes, combine_holes_2
+from .hole_combine import combine_holes_2
 
-from .voidfinder_functions import mesh_galaxies, \
-                                  in_mask, \
-                                  not_in_mask, \
-                                  in_survey, \
-                                  save_maximals, \
-                                  mesh_galaxies_dict
-                                  #build_mask, \
+from .voidfinder_functions import mesh_galaxies, save_maximals
 
-from .table_functions import add_row, \
-                             subtract_row, \
-                             to_vector, \
-                             to_array, \
-                             table_dtype_cast, \
-                             table_divide
-
-from .volume_cut import volume_cut, check_hole_bounds
+from .volume_cut import check_hole_bounds
 
 from .avsepcalc import av_sep_calc
 
-from .mag_cutoff_function import mag_cut, field_gal_cut
+#from .mag_cutoff_function import field_gal_cut
 
 from ._voidfinder import _hole_finder
 
 from .constants import c
-
-from ._voidfinder_cython import check_mask_overlap
 
 from ._voidfinder_cython_find_next import MaskChecker
 

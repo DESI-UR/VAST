@@ -4,7 +4,6 @@
 
 import os
 import stat
-import sys
 import mmap
 import struct
 import socket
@@ -13,7 +12,7 @@ import atexit
 import tempfile
 import multiprocessing
 import h5py
-import pickle
+#import pickle
 import time
 from psutil import cpu_count
 
@@ -21,10 +20,8 @@ import cProfile
 
 import numpy as np
 
-from .voidfinder_functions import not_in_mask
-
 from ._voidfinder_cython import main_algorithm, \
-                                fill_ijk, \
+                                #fill_ijk, \
                                 fill_ijk_zig_zag
 
 from ._voidfinder_cython_find_next import GalaxyMap, \
@@ -32,12 +29,11 @@ from ._voidfinder_cython_find_next import GalaxyMap, \
                                           GalaxyMapCustomDict, \
                                           HoleGridCustomDict, \
                                           NeighborMemory, \
-                                          MaskChecker, \
-                                          find_next_prime
+                                          MaskChecker
 
-from multiprocessing import Queue, Process, RLock, Value, Array
+from multiprocessing import Process, Value
 
-from ctypes import c_int64, c_double, c_float
+from ctypes import c_int64
 
 #import matplotlib
 #matplotlib.use('TkAgg')
@@ -45,7 +41,7 @@ from ctypes import c_int64, c_double, c_float
 
 
 
-from .viz import VoidRender
+#from .viz import VoidRender
 
     
     

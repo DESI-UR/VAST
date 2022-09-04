@@ -259,8 +259,8 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
             #curr_pqr[idx] = <CELL_ID_t>((temp_hole_center_memview[0,0] - galaxy_tree.coord_min[0,0])/galaxy_tree.dl)
         
         
-        #Note if we keep this code, potential bug whereby the dr *= 1.1
-        #makes us jump more than 1 level at a time
+        # Note if we keep this code, potential bug whereby the dr *= 1.1
+        # makes us jump more than 1 level at a time
         #if curr_pqr[0] != last_pqr[0] or \
         #   curr_pqr[1] != last_pqr[1] or \
         #   curr_pqr[2] != last_pqr[2]:
@@ -2608,7 +2608,7 @@ cdef class Cell_ID_Memory:
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_pqr,
+cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_pqr,
                               DTYPE_F64_t[:,:] coord_min,
                               DTYPE_F64_t dl,
                               DTYPE_F64_t[:,:] shell_boundaries_xyz,
@@ -3049,33 +3049,36 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
     Description
     ===========
     
-    Generate all the possible locations in the "shell" defined by the level parameter.
+    Generate all the possible locations in the "shell" defined by the level 
+    parameter.
     
-    Given a cubic grid structure, level 0 is a single cell, level 1 is a shell of
-    3x3x3 cells minus the 1 interior, level 2 is 5x5x5 minus the 3x3x3 interior, etc.
+    Given a cubic grid structure, level 0 is a single cell, level 1 is a shell 
+    of 3x3x3 cells minus the 1 interior, level 2 is 5x5x5 minus the 3x3x3 
+    interior, etc.
     
     
     Notes
     =====
     
-    Only called once in _query_first() (_voidfinder_cython_find_next) in main_algorithm()
-    (_voidfinder_cython), and now also by _gen_cube() in _query_shell_radius()
+    Only called once in _query_first() (_voidfinder_cython_find_next) in 
+    main_algorithm() (_voidfinder_cython), and now also by _gen_cube() 
+    in _query_shell_radius()
     
-    This means in main_algorithm, we come upon an ijk cell.  We call _query_first on that ijk
-    cell, and within _query_first we stay on that ijk cell and grow outward shells until we find
-    the first neighbor.  Then _gen_shell won't be called again until the next _ijk shell, and instead
-    we will use _gen_cube to find the 2nd 3rd and 4a/b-th neighbors
+    This means in main_algorithm, we come upon an ijk cell.  We call 
+    _query_first on that ijk cell, and within _query_first we stay on that ijk 
+    cell and grow outward shells until we find the first neighbor.  Then 
+    _gen_shell won't be called again until the next _ijk shell, and instead we 
+    will use _gen_cube to find the 2nd 3rd and 4a/b-th neighbors
     
-    ASSUMES THIS WILL ONLY BE CALLED SEQUENTIALLY AND IN-ORDER FOR A SINGLE IJK, WHICH BASED ON ABOVE
-    USAGE WOULD SEEM TO BE TRUE (except for level 0, which should never be called, level 1, then 2, 3, 
-    4,5, etc).  VIOLATING THIS WILL RESULT IN THE cell_ID_mem.max_level_available possibly being 
-    set incorrectly
-    
+    ASSUMES THIS WILL ONLY BE CALLED SEQUENTIALLY AND IN-ORDER FOR A SINGLE IJK, 
+    WHICH BASED ON ABOVE USAGE WOULD SEEM TO BE TRUE (except for level 0, which 
+    should never be called, level 1, then 2, 3, 4,5, etc).  VIOLATING THIS WILL 
+    RESULT IN THE cell_ID_mem.max_level_available possibly being set incorrectly
     """
     
-    ################################################################################
+    ############################################################################
     # variable declarations
-    ################################################################################
+    ############################################################################
     cdef ITYPE_t out_idx = 0
     
     cdef DTYPE_INT32_t i, j, k, temp
@@ -3092,17 +3095,17 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
     
     
     
-    ################################################################################
+    ############################################################################
     # We can precompute the maximum number of rows we might need for this shell 
-    # generation to be successful, so if necessary resize the cell_ID_mem to be big 
-    # enough to hold the data.
+    # generation to be successful, so if necessary resize the cell_ID_mem to be  
+    # big enough to hold the data.
     #
     # Note that we may use less than this number of rows due to the
     # galaxy_map.contains() filtering out some grid cells
     #
     # Also - cool trick, turns out PyMem_Realloc PRESERVES THE EXISTING DATA!
     # So gonna use this to optimize the cell_ID_mem cell generation
-    ################################################################################
+    ############################################################################
     
     if cell_ID_mem.max_level_mem < <DTYPE_INT64_t>level:
         
@@ -3110,19 +3113,19 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
     
     
     
-    ################################################################################
+    ############################################################################
     # Next, use the cell_ID_mem object to check if we're still working from the
     # same p-q-r grid cell as the last time this function was called.
     #
-    # If we match on the p-q-r location from last time, we're working from the same 
-    # pqr cell as last time this was called, so check the level parameter against
-    # the maximum shell level already stored.  If the stored one is greater, we've
-    # already got all the cell IDs stored that we need.
+    # If we match on the p-q-r location from last time, we're working from the  
+    # same pqr cell as last time this was called, so check the level parameter 
+    # against the maximum shell level already stored.  If the stored one is 
+    # greater, we've already got all the cell IDs stored that we need.
     #
     # If we matched on p-q-r but the current query is asking for a higher level
-    # than what we have stored, we need to calculate that level, but not the levels
-    # prior, so we start from the cell_ID_mem.next_unused_row_idx 
-    ################################################################################
+    # than what we have stored, we need to calculate that level, but not the 
+    # levels prior, so we start from the cell_ID_mem.next_unused_row_idx 
+    ############################################################################
     if center_ijk[0,0] == cell_ID_mem.curr_ijk[0] and \
        center_ijk[0,1] == cell_ID_mem.curr_ijk[1] and \
        center_ijk[0,2] == cell_ID_mem.curr_ijk[2]:
@@ -3144,9 +3147,9 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
             
     else:
         
-        ################################################################################
+        ########################################################################
         # If we didn't match on the p-q-r check, we have to start over from 0
-        ################################################################################
+        ########################################################################
         
         cell_ID_mem.max_level_available = <DTYPE_INT64_t>level
         
@@ -3161,14 +3164,14 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
     
     
     
-    ################################################################################
+    ############################################################################
     # For level 0, the algorithm below actually would write out the original
     # cell ijk twice, but we only want to write it once so have a special block
     # here to handle that single special case and return early
     #
     # Kind of annoying - maybe we can think up a better shell filling algorithm
     # that doesn't need special handling for level 0
-    ################################################################################
+    ############################################################################
     if level == 0:
         
         if galaxy_map.contains(center_ijk[0,0], center_ijk[0,1], center_ijk[0,2]):
@@ -3192,20 +3195,21 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
         
         return cell_ID_mem.level_start_idx[level], cell_ID_mem.level_stop_idx[level]
     
-    ################################################################################
+    ############################################################################
     # Technically not necessary but made the code below look a tad cleaner
-    ################################################################################
+    ############################################################################
     center_i = center_ijk[0,0]
     center_j = center_ijk[0,1]
     center_k = center_ijk[0,2]
     
     
-    ################################################################################
+    ############################################################################
     # i dimension first
-    # Iterate through the possible shell locations, starting with the i dimension
+    # Iterate through the possible shell locations, starting with the i 
+    # dimension
     # this iteration does all the cells in the 2 "planes" at the "i +/- level"
     # grid coordinate 
-    ################################################################################
+    ############################################################################
     for j in range(-level, level+1):
         
         for k in range(-level, level+1):
@@ -3234,12 +3238,13 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 out_idx += 3
                 num_written += 1
                 
-    ################################################################################
+    ############################################################################
     # j dimension
-    # Next do the 2 "planes" at the "j +/- level" coordinates, except for the edges
-    # which have already been done by doing the "i +/- level" planes, so the i
-    # parameter below runs from (-level+1, level) instead of (-level, level+1)
-    ################################################################################
+    # Next do the 2 "planes" at the "j +/- level" coordinates, except for the 
+    # edges which have already been done by doing the "i +/- level" planes, so 
+    # the i parameter below runs from (-level+1, level) instead of 
+    # (-level, level+1)
+    ############################################################################
     for i in range(-level+1, level):
         for k in range(-level, level+1):
             
@@ -3268,13 +3273,13 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
                 num_written += 1
                 
     
-    ################################################################################
+    ############################################################################
     # k dimension
-    # Lastly do the 2 "planes" at the "k +/- level" coordinates, noting that since
-    # we are in 3D and have already done i and j, the border cells around the
-    # positive and negative k planes have already been checked, so both i and j
-    # run from (-level+1, level) instead of (-level, level+1)
-    ################################################################################
+    # Lastly do the 2 "planes" at the "k +/- level" coordinates, noting that 
+    # since we are in 3D and have already done i and j, the border cells around 
+    # the positive and negative k planes have already been checked, so both i 
+    # and j run from (-level+1, level) instead of (-level, level+1)
+    ############################################################################
     for i in range(-level+1, level):
         for j in range(-level+1, level):
             
@@ -3330,11 +3335,11 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
     Description
     ===========
     
-    Only called once in _query_shell_radius() (this file) which is only called once in
-    find_next_galaxy() (also this file)
+    Only called once in _query_shell_radius() (this file) which is only called 
+    once in find_next_galaxy() (also this file)
     
-    Take advantage of the optimizations in _gen_shell() - this function is really
-    just a wrapper to sequentially call _gen_shell()
+    Take advantage of the optimizations in _gen_shell() - this function is 
+    really just a wrapper to sequentially call _gen_shell()
     
     
     Parameters
@@ -3378,13 +3383,13 @@ cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value):
     Description
     ===========
     
-    Given an input integer threshold_value, find the next prime number
-    greater than threshold_value.  This is used as a helper in creating
-    the memory backing array for the galaxy map, because taking an index
-    modulus a prime number is a nice way to hash an integer.
+    Given an input integer threshold_value, find the next prime number greater 
+    than threshold_value.  This is used as a helper in creating the memory 
+    backing array for the galaxy map, because taking an index modulus a prime 
+    number is a nice way to hash an integer.
     
-    Uses Bertrams(?) theorem that for every n > 1 there is a prime number
-    p such that n < p < 2n
+    Uses Bertrams(?) theorem that for every n > 1 there is a prime number p such 
+    that n < p < 2n
     
     
     Parameters

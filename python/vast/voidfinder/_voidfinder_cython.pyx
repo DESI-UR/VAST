@@ -404,7 +404,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     # re-used helper index variables
     # re-used helper computation variables
     #---------------------------------------------------------------------------
-    DEBUG_OUTFILE = open("VF_DEBUG.txt", 'a')
+    #DEBUG_OUTFILE = open("VF_DEBUG.txt", 'a')
     
     
     cdef ITYPE_t working_idx
@@ -698,7 +698,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
+        """
         ########################################################################
         # Start Debugging Section
         ########################################################################
@@ -741,7 +741,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ########################################################################
         # End Debugging Section
         ########################################################################
-
+        """
 
 
 
@@ -770,11 +770,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         # Using direction_mod = -1.0 since the unit_vector points TOWARDS k1g
         # as per the above calculation
         #-----------------------------------------------------------------------
+        """
         if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
             
             print("nearest_gal_index_list before Galaxy #2 search:", 
                   np.array(nearest_gal_index_list))
-
+        """
         find_next_retval = find_next_galaxy(hole_center_memview,
                                             hole_center_2_3_memview, 
                                             hole_radius, 
@@ -917,7 +918,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ########################################################################
 
 
-
+        """
         ########################################################################
         # Start Debugging Section For Bounding Galaxy 2
         ########################################################################
@@ -961,7 +962,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ########################################################################
         # End Debugging Section
         ########################################################################
-
+        """
 
 
         ########################################################################
@@ -1149,7 +1150,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ########################################################################
 
 
-
+        """
         ########################################################################
         # Start Debugging Section for Bounding Galaxy 3
         ########################################################################
@@ -1193,7 +1194,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ########################################################################
         # End Debugging Section
         ########################################################################
-
+        """
 
 
 
@@ -1562,7 +1563,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         
         
 
-
+        """
         ########################################################################
         # Start Debugging Section
         ########################################################################
@@ -1596,7 +1597,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ########################################################################
         # End Debugging Section
         ########################################################################
-
+        
 
         
         out_str = "Cell coordinates: ["
@@ -1648,11 +1649,13 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         out_str += ")\n"
 
         DEBUG_OUTFILE.write(out_str)
+        """
         
     ############################################################################
 
 
-    DEBUG_OUTFILE.close()
+    #DEBUG_OUTFILE.close()
+
         
     return
 

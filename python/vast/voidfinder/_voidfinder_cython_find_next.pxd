@@ -302,7 +302,7 @@ cdef class Cell_ID_Memory:
     cdef DTYPE_INT64_t max_level_available
     
               
-cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
+cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
                               DTYPE_F64_t[:,:] coord_min, \
                               DTYPE_F64_t dl, \
                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \

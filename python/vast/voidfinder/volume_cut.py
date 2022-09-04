@@ -2,27 +2,24 @@
 
 import numpy as np
 import os
-import sys
 import mmap
 import struct
 import socket
 import select
-import atexit
-import signal
 import tempfile
 import multiprocessing
 from psutil import cpu_count
 from astropy.table import Table
 
 
-from multiprocessing import Queue, Process, RLock, Value, Array
-from ctypes import c_int64, c_double, c_float
+from multiprocessing import Process, Value
+from ctypes import c_int64
 
 
-from .voidfinder_functions import in_mask, not_in_mask
+from .voidfinder_functions import in_mask#, not_in_mask
 from .hole_combine import spherical_cap_volume
 from ._voidfinder_cython_find_next import not_in_mask2 as nim_cython
-from ._vol_cut_cython import _check_holes_mask_overlap, _check_holes_mask_overlap_2
+from ._vol_cut_cython import _check_holes_mask_overlap#, _check_holes_mask_overlap_2
 from ._voidfinder import process_message_buffer
 
 import time
