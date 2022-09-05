@@ -1164,6 +1164,12 @@ cdef class HoleGridCustomDict:
 
     def close(self):
         
+        self.lookup_memory = self.dummy_arr #Point this to the dummy array so hopefully it
+                                            #releases the actual mmap'd memory
+                                            # BufferError: cannot close exported pointers exist.
+                                            # https://stackoverflow.com/questions/53339931/properly-discarding-ctypes-pointers-to-mmap-memory-in-python
+                                            # https://github.com/ercius/openNCEM/issues/39
+        
         self.hole_lookup_buffer.close()
         
         #print("Closing file descriptor: ", self.lookup_fd, flush=True)
@@ -1617,6 +1623,12 @@ cdef class GalaxyMapCustomDict:
 
 
     def close(self):
+        
+        self.lookup_memory = self.dummy_arr #Point this to the dummy array so hopefully it
+                                            #releases the actual mmap'd memory
+                                            # BufferError: cannot close exported pointers exist.
+                                            # https://stackoverflow.com/questions/53339931/properly-discarding-ctypes-pointers-to-mmap-memory-in-python
+                                            # https://github.com/ercius/openNCEM/issues/39
         
         self.lookup_buffer.close()
         
