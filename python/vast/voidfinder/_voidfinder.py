@@ -1699,7 +1699,11 @@ def _hole_finder(galaxy_coords,
     #
     # Also close all our other mem-maps.
     #---------------------------------------------------------------------------
-    result_buffer.close()
+    #result_buffer.close()
+    # Commented this out due to:
+    # BufferError: cannot close exported pointers exist.
+    # https://stackoverflow.com/questions/53339931/properly-discarding-ctypes-pointers-to-mmap-memory-in-python
+    # https://github.com/ercius/openNCEM/issues/39
     
     # Since the worker function closes this stuff too, we only have to close
     # our parent copies if we're running multi-processed
