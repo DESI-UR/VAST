@@ -895,6 +895,9 @@ cdef class HoleGridCustomDict:
         
         self.lookup_memory = np.frombuffer(self.hole_lookup_buffer, dtype=self.numpy_dtype)
         
+        self.dummy_arr = np.empty(3, dtype=self.numpy_dtype) #Just a dummy array to trick self.lookup_memory into releasing the 
+                                                             #real mmap'd array during a call to resize()
+        
         ################################################################################
         # Writing a bunch of 0's directly to the self.hole_lookup_buffer did not work
         # I do not know why, but instead we must use the array broadcasting with
@@ -1111,6 +1114,13 @@ cdef class HoleGridCustomDict:
         # pointed to by self.lookup_fd.  Then point our self.lookup_memory memoryview
         # object to the extended version of where it was already pointing
         ################################################################################
+        #self.lookup_memory.__dealloc__()
+        self.lookup_memory = self.dummy_arr #Point this to the dummy array so hopefully it
+                                            #releases the actual mmap'd memory
+                                            # BufferError: cannot close exported pointers exist.
+                                            # https://stackoverflow.com/questions/53339931/properly-discarding-ctypes-pointers-to-mmap-memory-in-python
+                                            # https://github.com/ercius/openNCEM/issues/39
+        
         self.hole_lookup_buffer.close()
         
         self.hole_lookup_buffer = mmap.mmap(self.lookup_fd, hole_lookup_buffer_length)
@@ -1247,6 +1257,9 @@ cdef class GalaxyMapCustomDict:
         self.numpy_dtype = np.dtype(lookup_dtype, align=False)
         
         self.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
+        
+        self.dummy_arr = np.empty(3, dtype=self.numpy_dtype) #Just a dummy array to trick self.lookup_memory into releasing the 
+                                                             #real mmap'd array during a call to resize()
         
         ################################################################################
         # Writing a bunch of 0's directly to the self.hole_lookup_buffer did not work
@@ -1546,6 +1559,13 @@ cdef class GalaxyMapCustomDict:
         # self.lookup_memory memoryviewobject to the extended version of where 
         # it was already pointing
         ########################################################################
+        #self.lookup_memory.__dealloc__()
+        self.lookup_memory = self.dummy_arr #Point this to the dummy array so hopefully it
+                                            #releases the actual mmap'd memory
+                                            # BufferError: cannot close exported pointers exist.
+                                            # https://stackoverflow.com/questions/53339931/properly-discarding-ctypes-pointers-to-mmap-memory-in-python
+                                            # https://github.com/ercius/openNCEM/issues/39
+        
         curr_size = self.lookup_buffer.size()
 
         self.lookup_buffer.close()

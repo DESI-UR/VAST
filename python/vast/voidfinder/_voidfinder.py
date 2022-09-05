@@ -431,9 +431,9 @@ def _hole_finder(galaxy_coords,
         
             galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
         
-        coords_max = np.max(galaxy_coords, axis=0)
+        coords_max = np.max(np.concatenate(galaxy_coords), axis=0)
     
-        coords_min = np.min(galaxy_coords, axis=0)
+        coords_min = np.min(np.concatenate(galaxy_coords), axis=0)
         
         box = coords_max - coords_min
     
@@ -528,6 +528,7 @@ def _hole_finder(galaxy_coords,
         
     coords_min = coords_min.reshape(1,3).astype(np.float64)
     
+    galaxy_coords = galaxy_coords[0] #Only use wall galaxies from here on out
     
     if verbose > 0:
         
