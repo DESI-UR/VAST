@@ -2206,11 +2206,11 @@ cdef class GalaxyMap:
         
     def close(self):
         
-        self.wall_galaxy_buffer.close()
+        #self.wall_galaxy_buffer.close()
         
         os.close(self.wall_galaxies_coords_fd)
         
-        self.galaxy_map_array_buffer.close()
+        #self.galaxy_map_array_buffer.close()
         
         os.close(self.gma_fd)
         
