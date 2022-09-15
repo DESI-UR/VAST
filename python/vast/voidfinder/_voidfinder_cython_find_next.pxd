@@ -115,6 +115,8 @@ cdef class HoleGridCustomDict:
     
     cdef public HOLE_LOOKUPMEM_t[:] lookup_memory
     
+    cdef public object dummy_arr
+    
     cdef public DTYPE_INT64_t num_collisions
     
     cdef public DTYPE_INT64_t mem_length
@@ -149,6 +151,8 @@ cdef class GalaxyMapCustomDict:
     cdef DTYPE_INT64_t i_dim, j_dim, k_dim, jk_mod, lookup_fd, process_local_num_elements
     
     cdef public LOOKUPMEM_t[:] lookup_memory
+    
+    cdef public object dummy_arr
     
     cdef public DTYPE_INT64_t num_collisions
     

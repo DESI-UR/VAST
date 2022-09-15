@@ -27,7 +27,7 @@ args = p.parse_args()
 
 newZobov = Zobov(args.config_file, 0, 3,
                  save_intermediate=args.save_intermediate,
-                 visualize=args.visualize
+                 visualize=args.visualize,
                  periodic=args.periodic)
 
 newZobov.sortVoids(method=args.method)

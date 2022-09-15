@@ -60,13 +60,13 @@ analysis using different void definitions.
 # Statement of Need
 
 Analyzing the next generation of cosmological surveys will require the ability 
-to process large volumes of data (for example, at least 30 million galaxies and 
-quasars from the Dark Energy Spectroscopic Instrument [@DESI]).  To more 
+to process large volumes of data [for example, at least 30 million galaxies and 
+quasars from the Dark Energy Spectroscopic Instrument, @DESI].  To more 
 efficiently process such large datasets, this Python 3 implementation of 
 **VoidFinder** includes a Cythonized [@Cython] version of the algorithm which 
 also allows for multi-process void-finding.  When run on the 7th Data Release of 
-the main galaxy sample of the Sloan Digital Sky Survey (SDSS DR7, 
-[@Abazajian:2009]) on a single thread, `vast.voidfinder` requires less than 20 
+the main galaxy sample of the Sloan Digital Sky Survey [SDSS DR7, 
+@Abazajian:2009] on a single thread, `vast.voidfinder` requires less than 20 
 seconds to run, compared to the ~3 hours needed to run the original Fortran 
 version of **VoidFinder** (both run on an Intel Core i7-6700K @ 4GHz).  The 
 void-finding algorithm in **V<sup>2</sup>** uses the `scipy.spatial` [@SciPy] 
@@ -103,7 +103,7 @@ a void region.
 
 
 
-# V<sup>2</sup>
+# V2
 
 `vast.Vsquared` is a software package for finding voids based on the ZOBOV 
 (ZOnes Bordering On Voidness) algorithm [@Neyrinck:2007], which grows voids from 
@@ -114,7 +114,7 @@ from density minima in the distribution of cells using a watershed transform,
 where each cell is linked to its least dense neighbor.  Finally, voids are 
 formed from these by identifying low-density boundaries between adjacent zones 
 and using them to grow unions of weakly divided zones.  This list of voids is 
-then typically pruned to remove void candidates unlikely to be true voids.  
+then typically pruned to remove void candidates unlikely to be true voids.
 `Vsquared` includes several of the different void-pruning methods that exist, 
 including methods from other ZOBOV implementations such as VIDE [@VIDE:2012] and 
 REVOLVER [@REVOLVER:2018].  The VIDE method, for example, sets a maximum density 
@@ -125,13 +125,6 @@ from unions of zones with denser boundaries are removed from the catalog.
 
 
 # VoidRender: a 3D Visualization of voids
-
-![VoidRender visualization of the output from SDSS DR7 [@Abazajian:2009].  Void 
-regions are shown as the shaded colorful regions; each different color 
-corresponds to a different void.  Black points are the non-isolated (wall) 
-galaxies used to define the void regions, and red points show the field 
-galaxies.  Any two wall galaxies that are closer than the maximum distance used 
-to separate wall and field galaxies are connected by a black line.\label{fig:vfviz}](voidfinder_viz.png)
 
 In order to aid in assessing the quality of the VoidFinder algorithm, the 
 `vast.voidfinder.viz` package includes a `VoidRender` class 
@@ -162,9 +155,6 @@ another VoidRender option plots a thin black line between a galaxy and its K
 nearest neighbors, yielding a denser spider-web look for those galaxies which 
 cluster together, as can be seen in \autoref{fig:vfviz}.
 
-![`Vsquared` visualization of the output from SDSS DR7.  Void regions are the 
-large shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
-
 An animated example of the VoidRender visualization can be found on 
 [YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  VoidRender can be 
 utilized to produce screenshots or videos such as this example if a user's 
@@ -175,7 +165,15 @@ exactly in 3D.  Controls for movement and production of screenshots and videos
 are identical to those of VoidRender.  An example of the `Vsquared` 
 visualization is shown in \autoref{fig:v2viz}.
 
+![VoidRender visualization of the output from SDSS DR7 [@Abazajian:2009].  Void 
+regions are shown as the shaded colorful regions; each different color 
+corresponds to a different void.  Black points are the non-isolated (wall) 
+galaxies used to define the void regions, and red points show the field 
+galaxies.  Any two wall galaxies that are closer than the maximum distance used 
+to separate wall and field galaxies are connected by a black line.\label{fig:vfviz}](voidfinder_viz.png)
 
+![`Vsquared` visualization of the output from SDSS DR7.  Void regions are the 
+large shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
 
 # Acknowledgements
 

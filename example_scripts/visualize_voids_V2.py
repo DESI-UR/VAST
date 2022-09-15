@@ -16,10 +16,10 @@ from vispy.color import Colormap
 ################################################################################
 # Load data
 #-------------------------------------------------------------------------------
-voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data("../data/DR7_triangles.dat", 
-                                                                                               "../data/DR7_galviz.dat")
+voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data("DR7_triangles.dat", 
+                                                                                               "DR7_galviz.dat")
 
-galaxy_data = load_galaxy_data("../data/vollim_dr7_cbp_102709.fits")
+galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.fits")
 
 print("Galaxies: ", galaxy_data.shape)
 print("Voids: ", voids_tri_x.shape, voids_tri_y.shape, voids_tri_z.shape, voids_norm.shape, voids_id.shape)
