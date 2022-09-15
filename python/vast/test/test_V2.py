@@ -63,14 +63,14 @@ class TestV2(unittest.TestCase):
         TestV2.zones = classes.Zones(TestV2.tess)
 
         # Test zone cells
-        self.assertTrue(np.isclose(np.mean([len(zc) for zc in self.zones.zcell]), 82.82828282828282))
+        self.assertTrue(np.isclose(np.mean([len(zc) for zc in self.zones.zcell]), 87.23404255319149))
 
         # Test zone volumes
-        self.assertTrue(np.isclose(np.mean(self.zones.zvols), 6549.395680389604))
+        self.assertTrue(np.isclose(np.mean(self.zones.zvols), 6897.767791048626))
 
         # Test zone links
-        self.assertTrue(np.isclose(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]), 12.626262626262626))
-        self.assertTrue(np.isclose(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1]]), 2345.915247204872))
+        self.assertTrue(np.isclose(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]), 9.617021276595745))
+        self.assertTrue(np.isclose(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][:-1]]), 3285.6313303024826))
 
     def test_zobov_3_voids(self):
         """Test ZOBOV void creation
@@ -78,14 +78,14 @@ class TestV2(unittest.TestCase):
         TestV2.voids = classes.Voids(TestV2.zones)
 
         # Test voids
-        self.assertTrue(np.isclose(np.mean([len(v) for v in self.voids.voids]), 1.9191919191919191))
-        self.assertTrue(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]), 1.0578692450350204))
+        self.assertTrue(np.isclose(np.mean([len(v) for v in self.voids.voids]), 1.978494623655914))
+        self.assertTrue(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]), 1.060548559599793))
 
         # Test mvols
-        self.assertTrue(np.isclose(np.mean(self.voids.mvols), 6549.3956803896035))
+        self.assertTrue(np.isclose(np.mean(self.voids.mvols), 6971.937337188934))
 
         # Test ovols
-        self.assertTrue(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]), 5519.078018084154))
+        self.assertTrue(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]), 5875.14756763797))
 
     def test_zobov_4_zobov(self):
         """Test full ZOBOV algorithm
@@ -97,15 +97,18 @@ class TestV2(unittest.TestCase):
 
         zobov1 = copy.deepcopy(TestV2.zobov)
         zobov2 = copy.deepcopy(TestV2.zobov)
+        zobov3 = copy.deepcopy(TestV2.zobov)
         zobov4 = copy.deepcopy(TestV2.zobov)
         TestV2.zobov.sortVoids()
         zobov1.sortVoids(1)
         zobov2.sortVoids(2)
+        zobov3.sortVoids(3)
         zobov4.sortVoids(4)
         self.assertEqual(len(TestV2.zobov.vrads), 62)
         self.assertEqual(len(zobov1.vrads), 87)
         self.assertEqual(len(zobov2.vrads), 14)
-        self.assertEqual(len(zobov4.vrads), 49)
+        self.assertEqual(len(zobov3.vrads), 87)
+        self.assertEqual(len(zobov4.vrads), 47)
 
         # Save voids.
         self.assertTrue(hasattr(TestV2.zobov, 'vrads')) # after sortVoids
