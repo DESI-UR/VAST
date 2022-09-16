@@ -135,8 +135,8 @@ In order to aid in assessing the quality of the **VoidFinder** algorithm, the
 of the **VoidFinder** algorithm output.  This 3D visualization allows the user to 
 explore 3D space in a video-game-esque manner, where the w-a-s-d-style keyboard 
 controls function to give the user a full range of motion: 
-forward/backward/left/right/up/down translation and pitch/yaw/roll rotation.  
-Each void hole of the **VoidFinder** output is rendered to the screen using the 
+forward/backward/left/right/up/down translation and pitch/yaw/roll rotation.  Each 
+void hole of the **VoidFinder** output is rendered to the screen using the 
 icosadehral sphere approximation, where the depth of the approximation is 
 configurable and higher approximation depths yield a finer and finer grained 
 triangularization of each sphere.  In addition, **VoidRender** includes an option 
