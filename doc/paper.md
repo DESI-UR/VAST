@@ -54,9 +54,9 @@ void is vague and formulating a concrete definition to use in a void-finding
 algorithm is not trivial.  As a result, several different algorithms exist to 
 identify these cosmic underdensities.  Our Void Analysis Software Toolkit, or 
 VAST, provides Python 3 implementations of two such algorithms: **VoidFinder** 
-and **V<sup>2</sup>**.  This consolidation of two popular void-finding 
-algorithms allows the user to, for example, easily compare the results of their 
-analysis using different void definitions.
+and **V$^2$**.  This consolidation of two popular void-finding algorithms allows 
+the user to, for example, easily compare the results of their analysis using 
+different void definitions.
 
 
 # Statement of Need
@@ -71,11 +71,11 @@ the main galaxy sample of the Sloan Digital Sky Survey [SDSS DR7,
 @Abazajian:2009] on a single thread, `vast.voidfinder` requires less than 20 
 seconds to run, compared to the ~3 hours needed to run the original Fortran 
 version of **VoidFinder** (both run on an Intel Core i7-6700K @ 4GHz).  The 
-void-finding algorithm in **V<sup>2</sup>** uses the `scipy.spatial` [@SciPy] 
-submodule for fast computation of the Voronoi tessellation and convex hulls 
-involved in the algorithm.  In addition, `vast.Vsquared` consolidates a large 
-number of void-pruning methods (many currently available in separate programming 
-packages and different languages) into a single package.
+void-finding algorithm in **V$^2$** uses the `scipy.spatial` [@SciPy] submodule 
+for fast computation of the Voronoi tessellation and convex hulls involved in the 
+algorithm.  In addition, `vast.Vsquared` consolidates a large number of 
+void-pruning methods (many currently available in separate programming packages 
+and different languages) into a single package.
 
 
 
@@ -105,7 +105,7 @@ a void region.
 
 
 
-# V<sup>2</sup>
+# V$^2$
 
 `vast.Vsquared` is a software package for finding voids based on the ZOBOV 
 (ZOnes Bordering On Voidness) algorithm [@Neyrinck:2007], which grows voids from 
@@ -160,12 +160,12 @@ cluster together, as can be seen in \autoref{fig:vfviz}.
 An animated example of the **VoidRender** visualization can be found on 
 [YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  **VoidRender** can be 
 utilized to produce screenshots or videos such as this example if a user's 
-environment includes the `ffmpeg` library.  **V<sup>2</sup>** also includes an 
-`OpenGL`- and `vispy`-based visualization for its output.  The surfaces of voids 
-found by the ZOBOV algorithm are made up of convex polygons, and are rendered 
-exactly in 3D.  Controls for movement and production of screenshots and videos 
-are identical to those of **VoidRender**.  An example of the **V<sup>2</sup>** 
-visualization is shown in \autoref{fig:v2viz}.
+environment includes the `ffmpeg` library.  **V$^2$** also includes an `OpenGL`- 
+and `vispy`-based visualization for its output.  The surfaces of voids found by 
+the ZOBOV algorithm are made up of convex polygons, and are rendered exactly in 
+3D.  Controls for movement and production of screenshots and videos are identical 
+to those of **VoidRender**.  An example of the **V$^2$** visualization is shown in 
+\autoref{fig:v2viz}.
 
 ![**VoidRender** visualization of the output from SDSS DR7 [@Abazajian:2009].  
 Void regions are shown as the shaded colorful regions; each different color 
@@ -174,8 +174,8 @@ galaxies used to define the void regions, and red points show the field
 galaxies.  Any two wall galaxies that are closer than the maximum distance used 
 to separate wall and field galaxies are connected by a black line.\label{fig:vfviz}](voidfinder_viz.png)
 
-![**V<sup>2</sup>** visualization of the output from SDSS DR7.  Void regions are 
-the large shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
+![**V$^2$** visualization of the output from SDSS DR7.  Void regions are the large 
+shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
 
 # Acknowledgements
 
