@@ -13,7 +13,7 @@ authors:
   - name: Dahlia Veyrat
     orcid: 0000-0001-8101-2836
     affiliation: 1
-  - name: Stephen W. O'Neill, Jr.
+  - name: Stephen W. O'Neill Jr.
     orcid: 0000-0003-1366-7325
     affiliation: 2
   - name: Segev BenZvi
@@ -21,7 +21,7 @@ authors:
     affiliation: 1
   - name: Fatima Zaidouni
     orcid: 0000-0003-0931-0868
-    affiliation: 1
+    affiliation: "1, 5"
   - name: Michaela Guzzetti
     orcid: 0000-0001-6866-8291
     affiliation: "1, 3, 4"
@@ -34,7 +34,9 @@ affiliations:
     index: 3
   - name: University of Washington
     index: 4
-date: February 2022
+  - name: Massachusetts Institute of Technology
+    index: 5
+date: September 2022
 bibliography: paper.bib
 ---
 
@@ -103,7 +105,7 @@ a void region.
 
 
 
-# V2
+# V<sup>2</sup>
 
 `vast.Vsquared` is a software package for finding voids based on the ZOBOV 
 (ZOnes Bordering On Voidness) algorithm [@Neyrinck:2007], which grows voids from 
@@ -126,54 +128,54 @@ from unions of zones with denser boundaries are removed from the catalog.
 
 # VoidRender: a 3D Visualization of voids
 
-In order to aid in assessing the quality of the VoidFinder algorithm, the 
+In order to aid in assessing the quality of the **VoidFinder** algorithm, the 
 `vast.voidfinder.viz` package includes a `VoidRender` class 
 (`from vast.voidfinder.viz import VoidRender`) which utilizes a combination of 
-`OpenGL` and the python `vispy` package to enable real-time 3D rendering of the 
-VoidFinder algorithm output.  This 3D visualization allows the user to explore 
-3D space in a video-game-esque manner, where the w-a-s-d-style keyboard controls 
-function to give the user a full range of motion: 
+`OpenGL` and the python `vispy` package [@vispy] to enable real-time 3D rendering 
+of the **VoidFinder** algorithm output.  This 3D visualization allows the user to 
+explore 3D space in a video-game-esque manner, where the w-a-s-d-style keyboard 
+controls function to give the user a full range of motion: 
 forward/backward/left/right/up/down translation and pitch/yaw/roll rotation.  
-Each void hole of the VoidFinder output is rendered to the screen using the 
+Each void hole of the **VoidFinder** output is rendered to the screen using the 
 icosadehral sphere approximation, where the depth of the approximation is 
 configurable and higher approximation depths yield a finer and finer grained 
-triangularization of each sphere.  In addition, VoidRender includes an option to 
-remove the interior walls of each void, which is approximated by removing the 
+triangularization of each sphere.  In addition, **VoidRender** includes an option 
+to remove the interior walls of each void, which is approximated by removing the 
 triangles from the triangluarization where all three vertices of a given 
 triangle fall within the radius of an intersecting sphere.  This option aids in 
 visually inspecting the properties of joining spheres.
 
 The galaxy survey upon which the output voids are based may also be included 
-within the visualization, where each galaxy is represented by a small dot since 
+within the visualization, where each galaxy is represented by a small dot, as 
 the radius of even the largest galaxy is negligibly small compared to the radius 
 of the smallest void.  For visual purposes, the mouse scroll wheel may be used 
 to enlarge or shrink the galaxy dot size.  By passing the appropriate portions 
-of the galaxy survey to different parts of the VoidRender keyword parameters, 
+of the galaxy survey to different parts of the **VoidRender** keyword parameters, 
 wall galaxies may be displayed in black and void galaxies may be displayed in 
 red.  Additionally, in order to help visualize the clustering of wall galaxies, 
-another VoidRender option plots a thin black line between a galaxy and its K 
-nearest neighbors, yielding a denser spider-web look for those galaxies which 
+another **VoidRender** option plots a thin black line between a galaxy and its 
+$k$ nearest neighbors, yielding a denser spider-web look for those galaxies which 
 cluster together, as can be seen in \autoref{fig:vfviz}.
 
-An animated example of the VoidRender visualization can be found on 
-[YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  VoidRender can be 
+An animated example of the **VoidRender** visualization can be found on 
+[YouTube](https://www.youtube.com/watch?v=PmyoUAt4Qa8).  **VoidRender** can be 
 utilized to produce screenshots or videos such as this example if a user's 
-environment includes the `ffmpeg` library.  `Vsquared` also includes an 
-`OpenGL` and `vispy` based visualization for its output.  The surfaces of voids 
+environment includes the `ffmpeg` library.  **V<sup>2</sup>** also includes an 
+`OpenGL`- and `vispy`-based visualization for its output.  The surfaces of voids 
 found by the ZOBOV algorithm are made up of convex polygons, and are rendered 
 exactly in 3D.  Controls for movement and production of screenshots and videos 
-are identical to those of VoidRender.  An example of the `Vsquared` 
+are identical to those of **VoidRender**.  An example of the **V<sup>2</sup>** 
 visualization is shown in \autoref{fig:v2viz}.
 
-![VoidRender visualization of the output from SDSS DR7 [@Abazajian:2009].  Void 
-regions are shown as the shaded colorful regions; each different color 
+![**VoidRender** visualization of the output from SDSS DR7 [@Abazajian:2009].  
+Void regions are shown as the shaded colorful regions; each different color 
 corresponds to a different void.  Black points are the non-isolated (wall) 
 galaxies used to define the void regions, and red points show the field 
 galaxies.  Any two wall galaxies that are closer than the maximum distance used 
 to separate wall and field galaxies are connected by a black line.\label{fig:vfviz}](voidfinder_viz.png)
 
-![`Vsquared` visualization of the output from SDSS DR7.  Void regions are the 
-large shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
+![**V<sup>2</sup>** visualization of the output from SDSS DR7.  Void regions are 
+the large shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
 
 # Acknowledgements
 
