@@ -167,15 +167,17 @@ the ZOBOV algorithm are made up of convex polygons, and are rendered exactly in
 to those of **VoidRender**.  An example of the **V$^2$** visualization is shown in 
 \autoref{fig:v2viz}.
 
-![**VoidRender** visualization of the output from SDSS DR7 [@Abazajian:2009].  
-Void regions are shown as the shaded colorful regions; each different color 
-corresponds to a different void.  Black points are the non-isolated (wall) 
-galaxies used to define the void regions, and red points show the field 
+![**VoidRender** visualization of the **VoidFinder** output from SDSS DR7 
+[@Abazajian:2009].  Void regions are shown as the shaded colorful regions; each 
+different color corresponds to a different void.  Black points are the non-isolated 
+(wall) galaxies used to define the void regions, and red points show the field 
 galaxies.  Any two wall galaxies that are closer than the maximum distance used 
-to separate wall and field galaxies are connected by a black line.\label{fig:vfviz}](voidfinder_viz.png)
+to separate wall and field galaxies are connected by a black 
+line.\label{fig:vfviz}](voidfinder_viz.png)
 
-![**V$^2$** visualization of the output from SDSS DR7.  Void regions are the large 
-shaded polyhedra, and the galaxies are shown as red points.\label{fig:v2viz}](vsquared_viz.png)
+![**VoidRender** visualization of the **V$^2$** output from SDSS DR7.  Void 
+regions are the large shaded polyhedra, and the galaxies are shown as red 
+points.\label{fig:v2viz}](vsquared_viz.png)
 
 # Acknowledgements
 
