@@ -1036,12 +1036,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #-----------------------------------------------------------------------
         # Set neighbor 2 in the list
         nearest_gal_index_list[1] = k2g
-
+        """
         if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
 
             print("nearest_gal_index_list before Galaxy #3 search:", 
                   np.array(nearest_gal_index_list))
-    
+        """
         find_next_retval = find_next_galaxy(hole_center_memview,
                                             hole_center_2_3_memview, 
                                             hole_radius, 
@@ -1296,12 +1296,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         #nearest_gal_index_list[1] = k2g
         
         nearest_gal_index_list[2] = k3g
-
+        """
         if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
 
             print("nearest_gal_index_list before Galaxy #4a search:", 
                   np.array(nearest_gal_index_list))
-    
+        """
         find_next_retval = find_next_galaxy(hole_center_memview,
                                             hole_center_41_memview, 
                                             hole_radius, 
@@ -1326,14 +1326,14 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         minx41 = find_next_retval.min_x_ratio
         
         in_mask_41 = find_next_retval.in_mask
-
+        """
         if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
 
             if in_mask_41:
                 print("Galaxy #4a:", k4g1, np.array(galaxy_map.wall_galaxy_coords[k4g1]))
             else:
                 print("No galaxy #4a found.")
-    
+        """
         # Calculate potential new hole center
         if in_mask_41:
     
@@ -1403,7 +1403,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             minx42 = find_next_retval.min_x_ratio
             
             in_mask_42 = find_next_retval.in_mask
-
+            """
             if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
 
                 if in_mask_42:
@@ -1413,7 +1413,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
 
                 else:
                     print("No galaxy #4b found.")
-            
+            """
             # Calculate potential new hole center
             if in_mask_42:
         
