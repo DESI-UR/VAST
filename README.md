@@ -1,6 +1,6 @@
 # VAST: Void Analysis Software Toolkit
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4135702.svg)](https://zenodo.org/record/4135702)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7086886.svg)](https://doi.org/10.5281/zenodo.7086886)
 ![tests](https://github.com/DESI-UR/VAST/actions/workflows/tests.yml/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/vast/badge/?version=latest)](https://vast.readthedocs.io/en/latest/?badge=latest)
 
