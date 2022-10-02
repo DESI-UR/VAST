@@ -36,7 +36,7 @@ cpdef void union_vertex_selection(neighbor_index, #need int64 types
     -----------
     
     Given a list of neighbor void spheres which may possibly intersect, remove all the
-    interior triangles from the sphere triangularizations of this voids.  Alternately
+    interior triangles from the sphere triangularizations of these voids.  Alternately
     described: create a union triangularization by removing intersections.
     
     Given the list of all triangle vertices in the sphere_coord_data input, fill in the
@@ -533,7 +533,6 @@ cpdef void seam_vertex_adjustment(neighbor_index, #need int64 types
                         temp5 = temp1*temp1 + temp2*temp2 + temp3*temp3 - hole_radius_sq
                         
                         
-                        
                         ######################################################################
                         #  POSSIBLE ERROR - If triangle orientation is bad, number inside
                         # SQRT could be negative and we segfault here?
@@ -541,7 +540,6 @@ cpdef void seam_vertex_adjustment(neighbor_index, #need int64 types
                         
                         if temp4*temp4 - 4.0*temp5 < 0.0:
                             print("BAD PROPERTY")
-                        
                         
                         temp1 = -2.0*temp4 + sqrt(temp4*temp4 - 4.0*temp5)
                         temp2 = -2.0*temp4 - sqrt(temp4*temp4 - 4.0*temp5)
@@ -554,8 +552,6 @@ cpdef void seam_vertex_adjustment(neighbor_index, #need int64 types
                             
                         else:
                             
-                            
-            
                             sphere_coord_data[vertex_idx_0, 0] = sphere_coord_data[vertex_idx_0, 0] + temp1*proj_dir[0]
                             sphere_coord_data[vertex_idx_0, 1] = sphere_coord_data[vertex_idx_0, 1] + temp1*proj_dir[1]
                             sphere_coord_data[vertex_idx_0, 2] = sphere_coord_data[vertex_idx_0, 2] + temp1*proj_dir[2]
@@ -572,12 +568,12 @@ cpdef void seam_vertex_adjustment(neighbor_index, #need int64 types
                 
                 
                 
-cdef void placeholer_code(smooth_seams, num_valid) except *:
-                
-    if smooth_seams and (num_valid > 0 and num_valid < 3):
-     
-     
-        pass
+#cdef void placeholer_code(smooth_seams, num_valid) except *:
+#                
+#    if smooth_seams and (num_valid > 0 and num_valid < 3):
+#     
+#     
+#        pass
     '''   
         if num_valid == 1:
             pass
