@@ -7,34 +7,19 @@ from astropy.table import Table
 
 import time
 
-from .hole_combine import combine_holes, combine_holes_2
+from .hole_combine import combine_holes_2
 
-from .voidfinder_functions import mesh_galaxies, \
-                                  in_mask, \
-                                  not_in_mask, \
-                                  in_survey, \
-                                  save_maximals, \
-                                  mesh_galaxies_dict
-                                  #build_mask, \
+from .voidfinder_functions import mesh_galaxies, save_maximals
 
-from .table_functions import add_row, \
-                             subtract_row, \
-                             to_vector, \
-                             to_array, \
-                             table_dtype_cast, \
-                             table_divide
-
-from .volume_cut import volume_cut, check_hole_bounds
+from .volume_cut import check_hole_bounds
 
 from .avsepcalc import av_sep_calc
 
-from .mag_cutoff_function import mag_cut, field_gal_cut
+#from .mag_cutoff_function import field_gal_cut
 
 from ._voidfinder import _hole_finder
 
 from .constants import c
-
-from ._voidfinder_cython import check_mask_overlap
 
 from ._voidfinder_cython_find_next import MaskChecker
 
@@ -323,8 +308,12 @@ def ra_dec_to_xyz(galaxy_table,
 
 
 
-def calculate_grid(galaxy_coords_xyz,
-                   hole_grid_edge_length):
+def calculate_grid(galaxy_coords,
+                   mask_type='ra_dec_z',
+                   xyz_limits=None,
+                   hole_grid_edge_length=5.0, 
+                   galaxy_map_grid_edge_length=None, 
+                   verbose=0):
     """
     Given a galaxy survey in xyz/Cartesian coordinates and the length of a 
     cubical grid cell, calculate the cubical grid shape which will contain the 
@@ -344,11 +333,52 @@ def calculate_grid(galaxy_coords_xyz,
     Parameters
     ==========
     
-    galaxy_coords_xyz : numpy.ndarray of shape (N,3)
-        coordinates of survey galaxies in xyz space
+    galaxy_coords : astropy Table or numpy.ndarray of shape (N,3)
+        coordinates of survey galaxies in either sky coordinates or xyz space
+
+    mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
+        Determines the mode of mask checking to use and which mask parameters to 
+        use.  
+        
+        'ra_dec_z' means the mask, mask_resolution, and dist_limits parameters
+            must be provided.  The 'mask' represents an angular space in Right 
+            Ascension and Declination, the corresponding mask_resolution integer 
+            represents the scale needed to index into the Right Ascension and 
+            Declination of the mask, and the dist_limits represent the min and 
+            max redshift values (as radial distances in xyz space).
+        
+        'xyz' means that the xyz_limits parameter must be provided which 
+            directly encodes a bounding box for the survey in xyz space
+            
+        'periodic' means that the xyz_limits parameter must be provided, which 
+            directly encodes a bounding box representing the periodic boundary 
+            of the survey, and the survey will be treated as if its bounding box 
+            were tiled to infinity in all directions.  Spheres will still only 
+            be grown starting from within the original bounding box.
+
+    xyz_limits : numpy array of shape (2,3)
+        format [x_min, y_min, z_min]
+               [x_max, y_max, z_max]
+        to be used for checking against the mask when mask_type == 'xyz' or for
+        periodic conditions when mask_type == 'periodic'
         
     hole_grid_edge_length : float
-        length in xyz space of the edge of 1 cubical cell in the grid
+        Length in xyz space of the edge of 1 cubical cell in the grid.  Default 
+        value is 5 Mpc/h.
+
+    galaxy_map_grid_edge_length : float or None
+        Edge length in Mpc/h for the secondary grid for finding nearest neighbor 
+        galaxies.  If None, will default to 3*hole_grid_edge_length (which 
+        results in a cell volume of 3^3 = 27 times larger cube volume).  This 
+        parameter yields a tradeoff between number of galaxies in a cell, and 
+        number of cells to search when growing a sphere.  Too large and many 
+        redundant galaxies may be searched, too small and too many cells will 
+        need to be searched.
+
+    verbose : int
+        Level of verbosity to print during running, 0 indicates off, 1 indicates 
+        to print after every 'print_after' cells have been processed, and 2 
+        indicates to print all debugging statements.  Default is 0.
         
         
     Returns
@@ -356,15 +386,186 @@ def calculate_grid(galaxy_coords_xyz,
     
     hole_grid_shape : tuple of ints (i,j,k)
         number of grid cells in each dimension
+
+    galaxy_map_grid_shape : tuple of ints (i,j,k)
+        number of galaxy map grid cells in each dimension
         
     coords_min : numpy.ndarray of shape (3,)
         the (min_x, min_y, min_z) point which is the (0,0,0) of the grid
-
-    coords_max : numpy.ndarray of shape (3,)
-        the (max_x, max_y, max_z) point of the galaxies
     """
+
+    ############################################################################
+    # Do some sanity checking on the mask modes and various inputs since we have 
+    # a lot of None type optional inputs
+    #---------------------------------------------------------------------------
+    if (mask_type in ['xyz', 'periodic']) and (xyz_limits is None):
+        raise ValueError("Mask type is %s but required mask parameter xyz_limits is None" % (mask_type))
+    ############################################################################
+
+
+    ############################################################################
+    # Depending on the mask mode, calculate the transform origin and grid cell
+    # parameters for our Hole grid and our Galaxy Map grids.
+    #
+    # For 'ra-dec-z' - just use the min and max of the provided coordinates of 
+    #     the survey for the transform
+    #
+    # For 'xyz' mode - use the required/provided xyz_limits
+    #
+    # For 'periodic' mode - use the required/provided xyz_limits, but we also 
+    #     have to ensure the GalaxyMap cells align with the xyz_limits 
+    #     boundaries, so that VoidFinder doesn't accidentally introduce dead 
+    #     space into cells because of misalignment.  
+    #
+    # The important values calculated below are:
+    #    'coords_min' - origin for transforming between real and index spaces
+    #    'hole_grid_shape' - grid cells for the hole growing grid
+    #    'galaxy_map_grid_shape' - grid cells for the galaxy finding grid
+    #---------------------------------------------------------------------------
+    if mask_type == 'ra_dec_z': #ra-dec-redshift
+
+        # Convert galaxy coords to Cartesian
+        galaxy_coords = ra_dec_to_xyz(galaxy_coords)
+        
+        # Find the maximum coordinate in each direction
+        coords_max = np.max(galaxy_coords, axis=0)
+        
+        # Find the minimum coordinate in each direction
+        coords_min = np.min(galaxy_coords, axis=0)
+        
+        # Size of the grid in each direction
+        box = coords_max - coords_min
+        
+        # Number of grid cells in each direction
+        ngrid = box/hole_grid_edge_length
+        
+        # Shape of the grid
+        hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+
+        # Calculate the size of a galaxy map grid cell
+        if galaxy_map_grid_edge_length is None:
+            galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+
+        # Number of galaxy map grid cells in each direction
+        ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+        # Shape of the galaxy map grid
+        galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+
+        
+    elif mask_type == 'xyz': #xyz
+        
+        # Size of the grid in each direction
+        box = xyz_limits[1,:] - xyz_limits[0,:]
+        
+        # Number of grid cells in each direction
+        ngrid = box/hole_grid_edge_length
+        
+        # Shape of the grid
+        hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+        
+        # Origin of the grid
+        coords_min = xyz_limits[0,:]
+
+        # Calculate the size of a galaxy map grid cell
+        if galaxy_map_grid_edge_length is None:
+            galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
+        
+        # Number of galaxy map grid cells in each direction
+        ngrid_galaxymap = box/galaxy_map_grid_edge_length
+        
+        # Shape of the galaxy map grid
+        galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+        
+        
+    elif mask_type == 'periodic': #periodic
+        
+        # Size of the grid in each direction
+        box = xyz_limits[1,:] - xyz_limits[0,:]
+        
+        # Number of grid cells in each direction
+        ngrid = box/hole_grid_edge_length
+        
+        # Shape of the grid
+        hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
+        
+        # Origin of the grid
+        coords_min = xyz_limits[0,:]
+        
+        # Calculate the size of a galaxy map grid cell
+        if galaxy_map_grid_edge_length is None:
+            
+            desired_length = 3.0*hole_grid_edge_length
+            
+            # Find the common integer divisors of the length dimensions of the 
+            # survey limits
+            common_divisors = get_common_divisors(box)
+            
+            if len(common_divisors) == 0 or \
+               (len(common_divisors) == 1 and common_divisors[0] == 1):
+                
+                error_str = """Could not automatically determine meaningful 
+                galaxy_map_grid_edge_length from the provided xyz_limits.  In 
+                mask_mode==periodic, the survey limits provided by the 
+                xyz_limits variable must be divisible by a common integer in all 
+                dimensions"""
+                
+                raise ValueError(error_str)
+            
+            common_divisors = np.array(common_divisors)
+            
+            argmin = np.abs(common_divisors - desired_length).argmin()
+            
+            galaxy_map_grid_edge_length = float(common_divisors[argmin])
+            
+            # Number of galaxy map grid cells in each direction
+            ngrid_galaxymap = box/galaxy_map_grid_edge_length
+
+            # Shape of the galaxy map grid
+            galaxy_map_grid_shape = tuple(np.ceil(ngrid_galaxymap).astype(int))
+            
+        else:
+            
+            # Number of galaxy map grid cells in each direction
+            ngrid_galaxymap = box/galaxy_map_grid_edge_length
+            
+            rounded = np.rint(ngrid_galaxymap)
+            
+            print(rounded)
+            
+            close_to_round = np.isclose(ngrid_galaxymap, rounded)
+            
+            print(close_to_round)
+            
+            if np.all(close_to_round):
+                # Vals are good, just proceed with given
+                galaxy_map_grid_shape = tuple(np.rint(ngrid_galaxymap).astype(int))
+            else:
+                # Attempt to adjust galaxy_map_grid_edge_length
+                error_str = """The provided combination of xyz_limits and 
+                galaxy_map_grid_edge length will not work.  In 
+                mask_mode==periodic, the edge length must be an integer divisor 
+                of all dimensions of the survey as provided by the xyz_limits 
+                input."""
+    
+                raise ValueError(error_str)
+        
+    # Recast coords_min
+    coords_min = coords_min.reshape(1,3).astype(np.float64)
     
     
+    if verbose > 0:
+        
+        print("Hole-growing Grid:", hole_grid_shape, flush=True)
+        
+        print("Galaxy-searching Grid:", galaxy_map_grid_shape, flush=True)
+        
+        print("Galaxy-searching edge length:", galaxy_map_grid_edge_length, 
+              flush=True)
+        
+    ############################################################################
+    
+    '''
     coords_max = np.max(galaxy_coords_xyz, axis=0)
     
     coords_min = np.min(galaxy_coords_xyz, axis=0)
@@ -376,8 +577,8 @@ def calculate_grid(galaxy_coords_xyz,
     #print("Ngrid: ", ngrid)
     
     hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
-    
-    return hole_grid_shape, coords_min, coords_max
+    '''
+    return hole_grid_shape, galaxy_map_grid_shape, coords_min#, coords_max
     
     
 
@@ -504,6 +705,7 @@ def find_voids(galaxy_coords_xyz,
                min_maximal_radius=10.0,
                galaxy_map_grid_edge_length=None,
                hole_center_iter_dist=1.0,
+               pts_per_unit_volume=0.01,
                maximal_spheres_filename="maximal_spheres.txt",
                void_table_filename="voids_table.txt",
                potential_voids_filename="potential_voids_list.txt",
@@ -602,9 +804,10 @@ def find_voids(galaxy_coords_xyz,
     Parameters
     ==========
     
-    galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
-        Coordinates of the galaxies in the survey, units of Mpc/h 
-        (xyz space)
+    galaxy_coords_xyz : length-2 list of numpy.ndarrays of shape (num_galaxies, 3)
+        Cartesian coordinates of the galaxies in the survey, units of Mpc/h.  
+        The first element of the list is the wall galaxies, the second are the 
+        field galaxies.
         
     survey_name : str
         identifier for the survey running, may be prepended or appended to 
@@ -676,6 +879,11 @@ def find_voids(galaxy_coords_xyz,
         Distance to move the sphere center each iteration while growing a void
         sphere in units of Mpc/h
         (xyz space)
+
+    pts_per_unit_volume : float
+        Number of points per unit volume that are distributed within the holes 
+        to calculate the fraction of the hole's volume that falls outside the 
+        survey bounds.  Default is 0.01.
     
     maximal_spheres_filename : str
         Location to save maximal spheres file 
@@ -762,12 +970,10 @@ def find_voids(galaxy_coords_xyz,
     
     
     
-    print('Growing holes', flush=True)
-        
     ############################################################################
     # GROW HOLES
     #---------------------------------------------------------------------------
-    
+    print('Growing holes', flush=True)
 
     tot_hole_start = time.time()
 
@@ -799,18 +1005,20 @@ def find_voids(galaxy_coords_xyz,
 
 
 
-    if mask_mode == 0:
+    ############################################################################
+    # Initialize mask object
+    #---------------------------------------------------------------------------
+    if mask_mode == 0: # sky mask
         mask_checker = MaskChecker(mask_mode,
                                    survey_mask_ra_dec=mask.astype(np.uint8),
                                    n=mask_resolution,
                                    rmin=min_dist,
-                                   rmax=max_dist,
-                                   )
+                                   rmax=max_dist)
         
-    elif mask_mode in [1,2]:
+    elif mask_mode in [1,2]: # Cartesian mask
         mask_checker = MaskChecker(mask_mode,
                                    xyz_limits=xyz_limits)
-
+    ############################################################################
 
 
 
@@ -826,15 +1034,18 @@ def find_voids(galaxy_coords_xyz,
     valid_idx, monte_index = check_hole_bounds(x_y_z_r_array, 
                                                mask_checker,
                                                cut_pct=0.1,
-                                               pts_per_unit_volume=.01,
+                                               pts_per_unit_volume=pts_per_unit_volume,
                                                num_surf_pts=20,
                                                num_cpus=num_cpus,
                                                verbose=verbose)
     
-    print("Found ", np.sum(np.logical_not(valid_idx)), "holes to cut", 
+    print("Found", np.sum(np.logical_not(valid_idx)), "holes to cut", 
           time.time() - vol_cut_start, flush=True)
 
     x_y_z_r_array = x_y_z_r_array[valid_idx]
+
+    # Array that stores whether or not any part of holes fall outside survey
+    boundary_hole = monte_index[valid_idx]
     ############################################################################
 
 
@@ -847,6 +1058,7 @@ def find_voids(galaxy_coords_xyz,
     sort_order = x_y_z_r_array[:,3].argsort()[::-1]
     
     x_y_z_r_array = x_y_z_r_array[sort_order]
+    boundary_hole = boundary_hole[sort_order]
     ############################################################################
 
     
@@ -859,6 +1071,8 @@ def find_voids(galaxy_coords_xyz,
     combine_start = time.time()
     
     maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array, 
+                                                           boundary_hole, 
+                                                           mask_checker,
                                                            min_maximal_radius=min_maximal_radius)
     
     print("Combine time:", time.time() - combine_start, flush=True)
@@ -880,13 +1094,6 @@ def find_voids(galaxy_coords_xyz,
 
     ############################################################################
     # Compute volume of each void
-    #---------------------------------------------------------------------------
-    ############################################################################
-
-
-    
-    ############################################################################
-    # Identify void galaxies
     #---------------------------------------------------------------------------
     ############################################################################
 

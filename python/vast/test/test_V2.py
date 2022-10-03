@@ -14,8 +14,8 @@ class TestV2(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Set up global varaibles for tests.
-        TestV2.inifile = 'python/vast/vsquared/data/test_config.ini'
-        TestV2.catfile = 'python/vast/vsquared/data/test_data.fits'
+        TestV2.inifile = 'python/vast/vsquared/tests/test_config.ini'
+        TestV2.catfile = 'python/vast/vsquared/tests/test_data.fits'
 
         TestV2.cat = None
         TestV2.tess = None

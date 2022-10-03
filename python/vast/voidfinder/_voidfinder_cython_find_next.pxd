@@ -33,7 +33,7 @@ cdef class MaskChecker:
     
     cdef DTYPE_F64_t[:,:] xyz_limits
     
-    cdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates)
+    cpdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates)
 
 
 
@@ -224,6 +224,9 @@ cdef class GalaxyMap:
     cdef public DTYPE_INT64_t num_gma_indices
     
     cdef public DTYPE_INT64_t gma_fd
+
+    #DEBUGGING
+    cdef public object kdtree
     
     
     cpdef public DTYPE_B_t contains(self,
@@ -303,7 +306,7 @@ cdef class Cell_ID_Memory:
     cdef DTYPE_INT64_t max_level_available
     
               
-cdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
+cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
                               DTYPE_F64_t[:,:] coord_min, \
                               DTYPE_F64_t dl, \
                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \

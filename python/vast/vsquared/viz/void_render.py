@@ -346,7 +346,7 @@ class VoidRender(app.Canvas):
                  gal_viz=None,
                  gal_opp=None,
                  canvas_size=(800,600),
-                 title="VoidFinder Results",
+                 title="V2 Results",
                  camera_start_location=None,
                  camera_start_orientation=None,
                  start_translation_sensitivity=1.0,
@@ -798,80 +798,17 @@ class VoidRender(app.Canvas):
         # Initialize some space to hold all the vertices (and w coordinate)
         # for all the vertices of all the spheres for all the void holes
         ######################################################################
-        
-        #print("Creating sphere memory")
-        
-        #num_sphere_verts = self.vert_per_sphere*self.holes_xyz.shape[0]
-        
-        #num_sphere_triangles = num_sphere_verts//3
-        
-        #self.void_coord_data = np.ones((num_sphere_verts,4), dtype=np.float32)
 
         self.void_coord_data = np.array([self.voids_tri_x.reshape(3*len(self.voids_tri_x)),self.voids_tri_y.reshape(3*len(self.voids_tri_y)),self.voids_tri_z.reshape(3*len(self.voids_tri_z))]).tolist()
         self.void_coord_data.append(np.ones(len(self.void_coord_data[0]), dtype=np.float32).tolist())
         self.void_coord_data = np.array(self.void_coord_data, dtype=np.float32).T
         
         self.void_coord_map = np.repeat(self.voids_id, 3)
-        
-        #self.void_normals_data = np.zeros((num_sphere_verts,4), dtype=np.float32)
 
         self.void_normals_data = np.repeat(self.voids_norm,3,axis=0).T.tolist()
         self.void_normals_data.append(np.ones(len(self.void_normals_data[0]), dtype=np.float32).tolist())
         self.void_normals_data = np.array(self.void_normals_data, dtype=np.float32).T        
         
-        ######################################################################
-        # Calculate all the sphere vertex positions and add them to the
-        # vertex array, and the centroid of each triangle
-        # ERRRT - don't need centroids, they're close enough to the vertices
-        # themselves, just use the vertex positions, and a 
-        # a copy of the normals!
-        ######################################################################
-        
-        #print("Calculating sphere positions")
-        '''
-        for idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
-            
-            #curr_sphere = (self.unit_sphere * hole_radius) + hole_xyz
-            
-            start_idx = idx*self.vert_per_sphere
-            
-            end_idx = (idx+1)*self.vert_per_sphere
-            
-            #self.void_sphere_coord_data[start_idx:end_idx, 0:3] = curr_sphere
-            
-            self.void_sphere_coord_data[start_idx:end_idx, 0:3] = (self.unit_sphere * hole_radius) + hole_xyz
-            
-            self.void_sphere_coord_map[start_idx:end_idx] = idx
-            
-            self.void_sphere_normals_data[start_idx:end_idx, 0:3] = self.unit_sphere_normals
-            
-            #for jdx in range(num_sphere_triangles):
-                
-                #self.void_sphere_centroid_data[kdx] = np.mean(curr_sphere[jdx:(jdx+3)], axis=0)
-                
-            #gc.collect()
-                
-        '''   
-        ######################################################################
-        # Given there will be a lot of overlap internal to the spheres, 
-        # remove the overlap for better viewing quality
-        ######################################################################
-        '''
-        if self.remove_void_intersects > 0:
-            
-            print("Pre intersect-remove vertices: ", self.void_sphere_coord_data.shape[0])
-            
-            start_time = time.time()
-            
-            self.remove_hole_intersect_data()
-            
-            remove_time = time.time() - start_time
-            
-            num_sphere_verts = self.void_sphere_coord_data.shape[0]
-            
-            print("Post intersect-remove vertices: ", num_sphere_verts, "time: ", remove_time)
-            
-        '''
         ######################################################################
         #
         ######################################################################
@@ -927,8 +864,6 @@ class VoidRender(app.Canvas):
         self.void_sphere_program = gloo.Program(vert_sphere, frag_sphere)
         
         self.void_sphere_program.bind(self.void_VB)
-        
-        #self.void_sphere_program['u_view'] = self.view
         
         self.enabled_programs.append((self.void_sphere_program, "triangles"))
         
@@ -1441,32 +1376,6 @@ class VoidRender(app.Canvas):
             self.current_void_VB.set_data(self.current_void_vertex_data)
 
             self.current_state = void_idx
-
-        '''        
-        hole_radius = self.holes_radii[hole_idx]
-        
-        hole_xyz = self.holes_xyz[hole_idx]
-        
-        component_dists = hole_xyz - curr_camera_location
-        
-        currently_inside_hole = np.sum(component_dists*component_dists) < hole_radius*hole_radius
-        
-        if self.highlight_state != hole_idx and currently_inside_hole:
-            
-            self.highlight_sphere_vertex_data["position"][:,0:3] = 0.99*hole_radius*self.unit_sphere + hole_xyz
-            
-            self.highlight_sphere_vertex_data["color"][:,3] = self.void_highlight_alpha
-            
-            self.highlight_sphere_VB.set_data(self.highlight_sphere_vertex_data)
-            
-            self.highlight_state = hole_idx
-            
-        elif self.highlight_state == hole_idx and not currently_inside_hole:
-            
-            self.highlight_sphere_vertex_data["color"][:,3] = 0.0
-            
-            self.highlight_state = -1
-        '''
             
         
     def read_front_buffer(self):
@@ -1526,8 +1435,6 @@ class VoidRender(app.Canvas):
         self.view[3,idx] += plus_minus*self.translation_sensitivity
         
         #self.galaxy_point_program['u_view'] = self.view
-        
-        #self.void_sphere_program["u_view"] = self.view
 
         if self.enable_void_highlight:
             
@@ -1568,8 +1475,6 @@ class VoidRender(app.Canvas):
         self.view = np.matmul(self.view, curr_rotation)
         
         #self.galaxy_point_program['u_view'] = self.view
-        
-        #self.void_sphere_program["u_view"] = self.view
         
         
         if self.enable_void_highlight:

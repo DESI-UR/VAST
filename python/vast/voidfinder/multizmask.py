@@ -18,6 +18,7 @@ def generate_mask(gal_data,
                   z_max, 
                   dist_metric='comoving',
                   smooth_mask=True,
+                  min_maximal_radius=10.0,
                   Omega_M=0.3,
                   h=1.0):
     """
@@ -56,6 +57,10 @@ def generate_mask(gal_data,
         If smooth_mask is set to True (default), small holes in the mask (single 
         cells without any galaxy in them that are surrounded by at least 3 cells 
         which have galaxies in them) are unmasked.
+
+    min_maximal_radius : float
+        Minimum radius of the maximal spheres.  Default is 10 Mpc/h.  The mask 
+        resolution depends on this value.
 
     Omega_M : float
         Cosmological matter normalized energy density.  Default is 0.3.
@@ -125,10 +130,9 @@ def generate_mask(gal_data,
     # shape (360xN, 180xN), in increments of 1/N degrees
     #
     # Mask resolution (inverse of the angular radius of the minimum void at the 
-    # maximum distance).  The hardcoded value of 10.0 here represents the 
-    # minimum radius for a maximal sphere
+    # maximum distance).
     #---------------------------------------------------------------------------
-    mask_resolution = 1 + int(D2R*r_max/10) # scalar value despite value of r_max
+    mask_resolution = 1 + int(D2R*r_max/min_maximal_radius) # scalar value despite value of r_max
     ############################################################################
 
     
@@ -197,6 +201,7 @@ def generate_mask(gal_data,
         for (idx, jdx) in correct_idxs:
             
             mask[idx,jdx] = 1
+    ############################################################################
 
     return mask, mask_resolution
 
