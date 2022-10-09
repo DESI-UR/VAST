@@ -1016,6 +1016,18 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
 
             print("Unit vector for hole propagation is null for Galaxy #3 search.", 
                   flush=True)
+            
+            #If k1g, k2g and the hole center are co-linear, then choose any arbitrary 
+            #vector in the plane perpendicular to the colinear direction.  For now we 
+            #choose this arbitrary vector using the simple formula for the 3d vector dot
+            #product:  a*b + b*(-a) + c*0 = 0  where v1 = (a,b,c) and
+            #v2 = (b, -a, 0)
+            
+            unit_vector_memview[0] = galaxy_map.wall_galaxy_coords[k1g,1] - galaxy_map.wall_galaxy_coords[k1g,1] #put b in a spot
+            unit_vector_memview[1] = -1.0*(galaxy_map.wall_galaxy_coords[k1g,0] - galaxy_map.wall_galaxy_coords[k2g,0])
+            unit_vector_memview[2] = 0.0
+            
+            
         #-----------------------------------------------------------------------
 
 
@@ -1200,12 +1212,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
         ########################################################################
-        # Start Galaxy 4/D-1 (galaxy 4/D takes 2 attempts)
+        # Start Galaxy 4/D-1 
+        # (galaxy 4/D takes 2 attempts only in the very rare case that the 3
+        # bounding galaxies k1g k2g and k3g are co-planar with the hole center)
         #
-        # Process is very similar as before, except we do not know if we have to 
-        # move above or below the plane.  Therefore, we will find the next 
-        # closest if we move above the plane, and the next closest if we move 
-        # below the plane.
+        # 
         #-----------------------------------------------------------------------
         # The vector along which to move the hole center is defined by the cross 
         # product of the vectors pointing between the three nearest galaxies.
@@ -1374,11 +1385,12 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             #
             # nearest_neighbor_gal_list already updated from galaxy 4/D-1
             #-------------------------------------------------------------------
+            """
             if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
 
                 print("nearest_gal_index_list before Galaxy #4b search:", 
                       np.array(nearest_gal_index_list))
-
+            """
             find_next_retval = find_next_galaxy(hole_center_memview,
                                                 hole_center_42_memview, 
                                                 hole_radius, 

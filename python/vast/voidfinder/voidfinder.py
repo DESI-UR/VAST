@@ -24,6 +24,14 @@ from .constants import c
 from ._voidfinder_cython_find_next import MaskChecker
 
 
+
+################################################################################
+# Debugging imports
+################################################################################
+#from sklearn.neighbors import KDTree
+
+
+
 ################################################################################
 DtoR = np.pi/180.
 RtoD = 180./np.pi
@@ -1001,6 +1009,47 @@ def find_voids(galaxy_coords_xyz,
 
     print('Time to grow all holes:', time.time() - tot_hole_start, flush=True)
     ############################################################################
+
+
+
+
+    ############################################################################
+    # Debug Section
+    ############################################################################
+    """
+    #print(galaxy_coords_xyz[0].shape)
+    #print(x_y_z_r_array.shape)
+    
+    galaxy_tree = KDTree(galaxy_coords_xyz[0])
+    distances, indices = galaxy_tree.query(x_y_z_r_array[:,0:3], k=1)
+    #print(distances.shape, indices.shape)
+    
+    has_bad_hole = False
+    
+    for row in x_y_z_r_array:
+    
+        curr_pos = row[0:3].reshape(1,3)
+        curr_rad = row[3]
+        
+        ind, dist = galaxy_tree.query_radius(curr_pos, 0.99*curr_rad, return_distance=True)
+    
+        ind = ind[0]
+        
+        if ind.shape[0] > 0:
+        
+            print("Bad Hole, num galaxies inside: ", ind.shape)
+            
+            has_bad_hole = True
+            
+    if has_bad_hole:
+        print("ERROR: DEBUG SECTION FOUND HOLE WITH ONE OR MORE GALAXIES INSIDE")
+    """
+    ############################################################################
+    # End Debug Section
+    ############################################################################
+
+
+
 
 
 
