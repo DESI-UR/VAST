@@ -365,6 +365,9 @@ class TestVoidFinder(unittest.TestCase):
 
         neighbor_mem = NeighborMemory(50)
 
+        # Number of points to test
+        N_test = 10
+
         # Convert hole centers to numpy arrays
         hole_centers = to_array(self.holes)
 
@@ -373,7 +376,7 @@ class TestVoidFinder(unittest.TestCase):
         n_cells = (self.coords_max - self.galaxy_map.coord_min)/self.hole_grid_edge_length
         i_j_k_array = self.rng.integers([0, 0, 0], 
                                         high=n_cells.astype(int), 
-                                        size=(100,3), 
+                                        size=(N_test,3), 
                                         dtype=np.int64)
 
         # Define the mask_checker object
@@ -385,8 +388,8 @@ class TestVoidFinder(unittest.TestCase):
                                    )
 
         # Initialize the return_arrays
-        f_return_array = np.empty((100,4), dtype=np.float64)
-        return_array = np.empty((100,4), dtype=np.float64)
+        f_return_array = np.empty((N_test,4), dtype=np.float64)
+        return_array = np.empty((N_test,4), dtype=np.float64)
 
         # Run main_algorithm
         main_algorithm(i_j_k_array, 
@@ -403,12 +406,13 @@ class TestVoidFinder(unittest.TestCase):
         # Find first galaxy for each cell center
         cell_centers = (i_j_k_array + 0.5)*self.hole_grid_edge_length + self.galaxy_map.coord_min
         r1, idx1 = self.wall_tree.query(cell_centers, 1)
+        idx1 = idx1[0]
 
         # Calculate unit vector (pointing from initial center to first galaxy)
         A_minusCenter = TestVoidFinder.wall[idx1] - cell_centers
-        A_unit = A_minusCenter/r1
+        unit = A_minusCenter/r1
 
-        for i in range(100):
+        for i in range(N_test):
 
             galaxies_to_search = np.ones(TestVoidFinder.wall.shape[0], 
                                          dtype=bool)
@@ -421,14 +425,151 @@ class TestVoidFinder(unittest.TestCase):
             candidate_minusA = TestVoidFinder.wall[galaxies_to_search] - TestVoidFinder.wall[idx1[i]]
             candidate_minusCenter = TestVoidFinder.wall[galaxies_to_search] - cell_centers[i]
 
-            bottom = 2*np.dot(-candidate_minusA, A_unit[i])
-            top = np.dot(candidate_minusA, candidate_minusA)
+            bottom = 2*np.dot(-candidate_minusA, unit[i])
+            top = np.linalg.norm(candidate_minusA, axis=1)
+
+            x = top**2/bottom
+
+            # Galaxy #2 is that with the smallest positive value of x
+            idx2 = np.where(x > 0, x, np.nan).nanargmin()
+            x_min = x[idx2]
+            ####################################################################
+
+
+            ####################################################################
+            # Move center based on location of second galaxy
+            #-------------------------------------------------------------------
+            new_center = cell_centers[i] + x_min*unit[i]
+
+            # Check that the new center is still within the mask
+            if mask_checker.not_in_mask(new_center):
+                return_array[i,:] = np.nan
+                continue
+            else:
+                if idx2 >= idx1[i]:
+                    idx2 += 1
+                
+                galaxies_to_search[idx2] = False
+
+                AB_midpoint = 0.5*(TestVoidFinder.wall[idx1[i]] + TestVoidFinder.wall[idx2])
+                unit = (new_center - AB_midpoint)/np.linalg.norm(new_center - AB_midpoint)
+
+                B_minusCenter = TestVoidFinder.wall[idx2] - new_center
+            ####################################################################
+
+
+            ####################################################################
+            # Find third galaxy
+            #-------------------------------------------------------------------
+            candidate_minusA = TestVoidFinder.wall[galaxies_to_search] - TestVoidFinder.wall[idx1[i]]
+            candidate_minusCenter = TestVoidFinder.wall[galaxies_to_search] - new_center
+
+            bottom = 2*np.dot(candidate_minusA, unit)
+            top = np.linalg.norm(candidate_minusCenter, axis=1)**2 - np.linalg.norm(B_minusCenter, axis=1)**2
 
             x = top/bottom
 
-            # Galaxy #2 is that with the smallest positive value of x
-            x_min = np.min(x[x > 0])
+            # Galaxy #3 is that with the smallest positive value of x
+            idx3 = np.where(x > 0, x, np.nan).nanargmin()
+            x_min = x[idx3]
             ####################################################################
+
+
+            ####################################################################
+            # Move center based on location of third galaxy
+            #-------------------------------------------------------------------
+            new_center = new_center + x_min*unit
+            B_minusCenter = TestVoidFinder.wall[idx2] - new_center
+
+            # Check that the new center is still within the mask
+            if mask_checker.not_in_mask(new_center):
+                return_array[i,:] = np.nan
+                continue
+            else:
+                if idx3 >= idx1[i]:
+                    idx3 += 1
+                if idx3 >= idx2:
+                    idx3 += 1
+
+                galaxies_to_search[idx3] = False
+
+                AB = TestVoidFinder.wall[idx1[i]] - TestVoidFinder.wall[idx2]
+                BC = TestVoidFinder.wall[idx2] - TestVoidFinder.wall[idx3]
+
+                ABcrossBC = np.cross(AB, BC)
+                unit = ABcrossBC/np.norm(ABcrossBC)
+
+                center_minusA = new_center - TestVoidFinder.wall[idx1[i]]
+                if np.dot(center_minusA, unit) < 0:
+                    unit *= -1
+
+                check_both = False
+                if np.dot(center_minusA, unit) == 0:
+                    check_both = True
+            ####################################################################
+
+
+            ####################################################################
+            # Find fourth galaxy
+            #-------------------------------------------------------------------
+            candidate_minusA = TestVoidFinder.wall[galaxies_to_search] - TestVoidFinder.wall[idx1[i]]
+            candidate_minusCenter = TestVoidFinder.wall[galaxies_to_search] - new_center
+
+            bottom = 2*np.dot(candidate_minusA, unit)
+            top = np.linalg.norm(candidate_minusCenter, axis=1)**2 - np.linalg.norm(B_minusCenter, axis=1)**2
+
+            x = top/bottom
+
+            # Galaxy #4 is that with the smallest positive value of x
+            idx4 = np.where(x > 0, x, np.nan).nanargmin()
+            x_min = x[idx4]
+
+            if check_both:
+                # We need to flip the unit vector and check the other direction
+                bottom = 2*np.dot(candidate_minusA, -unit)
+
+                x = top/bottom
+
+                idx4b = np.where(x > 0, x, np.nan).nanargmin()
+                x_min_4b = x[idx4b]
+
+                closer_4b = x_min_4b < x_min
+            ####################################################################
+
+
+            ####################################################################
+            # Calculate the final center
+            #-------------------------------------------------------------------
+            final_center = new_center + x_min*unit
+            if check_both:
+                final_center_4b = new_center - x_min_4b*unit
+
+            # Check that the center is within the mask
+            if check_both and not mask_checker.not_in_mask(final_center) and not closer_4b:
+                return_array[i,0] = final_center[0]
+                return_array[i,1] = final_center[1]
+                return_array[i,2] = final_center[2]
+                return_array[i,3] = np.norm(final_center - TestVoidFinder.wall[idx1[i]])
+            elif check_both and not mask_checker.not_in_mask(final_center_4b):
+                return_array[i,0] = final_center_4b[0]
+                return_array[i,1] = final_center_4b[1]
+                return_array[i,2] = final_center_4b[2]
+                return_array[i,3] = np.norm(final_center_4b - TestVoidFinder.wall[idx1[i]])
+            elif not mask_checker.not_in_mask(final_center):
+                return_array[i,0] = final_center[0]
+                return_array[i,1] = final_center[1]
+                return_array[i,2] = final_center[2]
+                return_array[i,3] = np.norm(final_center - TestVoidFinder.wall[idx1[i]])
+            else:
+                return_array[i,:] = np.nan
+            ####################################################################
+
+            break
+
+        #self.assertTrue(np.isclose(f_return_array, return_array).all())
+
+
+
 
 
 
@@ -487,4 +628,30 @@ class TestVoidFinder(unittest.TestCase):
         for f in files:
             if os.path.exists(f):
                 os.remove(f)
+
+
+
+
+
+if __name__ == '__main__':
+
+    my_run = TestVoidFinder()
+
+    my_run.setUp()
+
+    print('Testing file_preprocess')
+    my_run.test_1_file_preprocess()
+
+    print('Testing generate_mask')
+    my_run.test_2_generate_mask()
+
+    print('Testing query_first')
+    my_run.test_4_query_first()
+
+    print('Testing main_algorithm')
+    my_run.test_5_main_algorithm()
+
+
+
+
 

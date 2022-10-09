@@ -20,9 +20,9 @@ import cProfile
 
 import numpy as np
 
-from ._voidfinder_cython import main_algorithm, \
-                                #fill_ijk, \
-                                fill_ijk_zig_zag
+from ._voidfinder_cython import main_algorithm, fill_ijk_zig_zag
+#from ._voidfinder_cython import fill_ijk
+                                
 
 from ._voidfinder_cython_find_next import GalaxyMap, \
                                           Cell_ID_Memory, \
