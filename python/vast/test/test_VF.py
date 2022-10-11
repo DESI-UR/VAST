@@ -635,6 +635,9 @@ class TestVoidFinder(unittest.TestCase):
                                 format='ascii.commented_header')
         maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
                                     format='ascii.commented_header')
+
+        if len(setdiff(f_maximals, maximals_truth)) > 0:
+            print(setdiff(f_maximals, maximals_truth))
         self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
         # Check holes
