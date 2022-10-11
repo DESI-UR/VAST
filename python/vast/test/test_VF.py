@@ -653,11 +653,12 @@ class TestVoidFinder(unittest.TestCase):
         # Sort both tables by flag, radius, x, y, z columns
         f_holes.sort(['flag', 'radius', 'x', 'y', 'z'])
         holes_truth.sort(['flag', 'radius', 'x', 'y', 'z'])
-
+        '''
         for name in f_holes.dtype.names:
             if not np.allclose(f_holes[name], holes_truth[name]):
                 diffs = np.isclose(f_holes[name], holes_truth[name])
                 print(f_holes[name][~diffs], holes_truth[name][~diffs])
+        '''
         self.assertTrue(all([np.allclose(f_holes[name], holes_truth[name]) for name in f_holes.dtype.names]))
         #self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
         
