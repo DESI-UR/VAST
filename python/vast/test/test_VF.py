@@ -629,7 +629,7 @@ class TestVoidFinder(unittest.TestCase):
         """
 
 
-        '''
+        
         # Check maximal spheres
         f_maximals = Table.read('test_galaxies_redshift_maximal.txt', 
                                 format='ascii.commented_header')
@@ -643,19 +643,20 @@ class TestVoidFinder(unittest.TestCase):
         holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                                  format='ascii.commented_header')
         self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
-        '''
+        
 
 
 
     def tearDown(self):
-        """Delete files produced for the unit tests.
+        """
+        Delete files produced for the unit tests.
         """
         if os.path.exists(self.galaxies_filename):
             os.remove(self.galaxies_filename)
 
         files = [ 'test_field_gal_file.txt',
-                  #'test_galaxies_redshift_maximal.txt', 
-                  #'test_galaxies_redshift_holes.txt',
+                  'test_galaxies_redshift_maximal.txt', 
+                  'test_galaxies_redshift_holes.txt',
                   'test_wall_gal_file.txt' ]
 
         for f in files:
