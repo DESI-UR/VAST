@@ -650,7 +650,11 @@ class TestVoidFinder(unittest.TestCase):
         holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                                  format='ascii.commented_header')
 
-        self.assertTrue(all([np.allclose(holes_truth[name], f_holes[name]) for name in f_holes.dtype.names]))
+        for name in f_holes.dtype.names:
+            if not np.allclose(f_holes[name], holes_truth[name]):
+                print(f_holes[name])
+                print(holes_truth[name])
+        self.assertTrue(all([np.allclose(f_holes[name], holes_truth[name]) for name in f_holes.dtype.names]))
         #self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
         
 
