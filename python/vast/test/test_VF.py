@@ -635,11 +635,12 @@ class TestVoidFinder(unittest.TestCase):
                                 format='ascii.commented_header')
         maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
                                     format='ascii.commented_header')
-
+        '''
         for name in f_maximals.dtype.names:
             if not np.allclose(f_maximals[name], maximals_truth[name]):
                 print(f_maximals[name])
                 print(maximals_truth[name])
+        '''
         self.assertTrue(all([np.allclose(f_maximals[name], maximals_truth[name]) for name in f_maximals.dtype.names]))
         #self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
