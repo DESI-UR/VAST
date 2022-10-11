@@ -185,7 +185,7 @@ temp_outfile.close()
 
 
 
-find_voids(wall_coords_xyz, 
+find_voids([wall_coords_xyz, field_coords_xyz], 
            survey_name,
            mask_type='ra_dec_z',
            mask=mask, 

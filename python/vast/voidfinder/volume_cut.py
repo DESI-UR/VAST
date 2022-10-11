@@ -2,27 +2,24 @@
 
 import numpy as np
 import os
-import sys
 import mmap
 import struct
 import socket
 import select
-import atexit
-import signal
 import tempfile
 import multiprocessing
 from psutil import cpu_count
 from astropy.table import Table
 
 
-from multiprocessing import Queue, Process, RLock, Value, Array
-from ctypes import c_int64, c_double, c_float
+from multiprocessing import Process, Value
+from ctypes import c_int64
 
 
-from .voidfinder_functions import in_mask, not_in_mask
+from .voidfinder_functions import in_mask#, not_in_mask
 from .hole_combine import spherical_cap_volume
 from ._voidfinder_cython_find_next import not_in_mask2 as nim_cython
-from ._vol_cut_cython import _check_holes_mask_overlap, _check_holes_mask_overlap_2
+from ._vol_cut_cython import _check_holes_mask_overlap#, _check_holes_mask_overlap_2
 from ._voidfinder import process_message_buffer
 
 import time
@@ -235,13 +232,10 @@ def check_hole_bounds(x_y_z_r_array,
                       num_cpus=1,
                       verbose=0):
     """
-    Description
-    ===========
+    Remove holes from the output of _hole_finder() whose volume falls outside of 
+    the mask by X % or more.  
     
-    Remove holes from the output of _hole_finder() whose volume falls outside 
-    of the mask by X % or more.  
-    
-    This is accomplished by a 2-phase approach, first, N points are distributed 
+    This is accomplished by a 2-phase approach.  First, N points are distributed 
     on the surface of each sphere, and those N points are checked against the 
     mask.  If any of those N points fall outside the mask, the percentage of the
     volume of the sphere which falls outside the mask is calculated by using a
@@ -250,22 +244,14 @@ def check_hole_bounds(x_y_z_r_array,
     The percentage of volume outside the mask is then approximated as the 
     percentage of those points which fall outside the mask.
     
+
     Parameters
     ==========
     
     x_y_z_r_array : numpy.ndarray of shape (N,4)
         x,y,z locations of the holes, and radius, in that order
         
-    mask : numpy.ndarray of shape (K,L) dtype np.uint8
-        the mask used, mask[ra_integer,dec_integer] returns True if that ra,dec 
-        position is within the survey, and false if it is not.  Note ra,dec must 
-        be converted into integer values depending on the mask_resolution.  For 
-        mask_resolution of 1, ra is in [0,359] and dec in [-90,90], for 
-        mask_resolution of 2, ra is in [0,719], dec in [-180,180] etc.
-        
-    mask_resolution : int
-        value of 1 indicates each entry in the mask accounts for 1 degree, value 
-        of 2 means half-degree, 4 means quarter-degree increments, etc
+    mask_checker : 
         
     r_limits : 2-tuple (min_r, max_r)
         min and max radius limits of the survey
@@ -323,6 +309,113 @@ def check_hole_bounds(x_y_z_r_array,
 
 
 
+def build_unit_sphere_points(num_surf_pts):
+    '''
+    Distribute N points on a unit sphere.
+
+    Reference algorithm "Golden Spiral" method: 
+    https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
+
+
+    PARAMETERS
+    ==========
+
+    num_surf_pts : int
+        Number of points to distribute on the surface of the sphere
+
+
+    RETURNS
+    =======
+
+    unit_sphere_pts : ndarray of shape (num_surf_pts, 3)
+        Cartesian coordinates of the surface points
+    '''
+
+    indices = np.arange(0, num_surf_pts, dtype=float) + 0.5
+    
+    phi = np.arccos(1 - 2*indices/num_surf_pts)
+    
+    theta = np.pi * (1 + 5**0.5) * indices
+    
+    x = np.cos(theta) * np.sin(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(phi)
+    
+    unit_sphere_pts = np.empty((num_surf_pts, 3), dtype=np.float64)
+    unit_sphere_pts[:,0] = x
+    unit_sphere_pts[:,1] = y
+    unit_sphere_pts[:,2] = z
+
+    return unit_sphere_pts
+
+
+
+
+
+def generate_mesh(radius, pts_per_unit_volume):
+    '''
+    Generate a mesh of constant density such that a sphere will fit in this 
+    mesh.
+
+    Cut the extraneous points, and sort all of the points in order of smallest 
+    radius to largest radius, so that when we iterate later for the smaller 
+    holes we can stop early at the largest necessary radius - the cythonized 
+    code critically depends on this sort.
+
+
+    PARAMETERS
+    ==========
+
+    radius : float
+        Radius of sphere around which to define the mesh grid.
+
+    pts_per_unit_volume : int
+        Number of points per unit volume in the mesh grid.
+
+
+    RETURNS
+    =======
+
+    mesh_points : ndarray of shape (N,3)
+        Cartesian coordinates of all points in mesh
+
+    mesh_points_radii : ndarray of shape (N,)
+        Distance from center to each point in mesh_points
+    '''
+
+    gen_radius = radius*1.05 # add a bit of margin for the mesh
+    
+    step = 1.0/np.power(pts_per_unit_volume, 0.33)
+    
+    mesh_pts = np.arange(-1.0*gen_radius, gen_radius, step)
+    
+    n_pts = mesh_pts.shape[0]
+    
+    mesh_x, mesh_y, mesh_z = np.meshgrid(mesh_pts, mesh_pts, mesh_pts)
+    
+    mesh_points = np.concatenate((mesh_x.ravel().reshape(n_pts**3, 1),
+                                  mesh_y.ravel().reshape(n_pts**3, 1),
+                                  mesh_z.ravel().reshape(n_pts**3, 1)), axis=1)
+    
+    mesh_point_radii = np.linalg.norm(mesh_points, axis=1)
+    
+    keep_idx = mesh_point_radii < radius
+    
+    mesh_points = mesh_points[keep_idx]
+    
+    mesh_point_radii = mesh_point_radii[keep_idx]
+    
+    sort_order = mesh_point_radii.argsort()
+    
+    mesh_points = mesh_points[sort_order]
+    
+    mesh_points_radii = mesh_point_radii[sort_order]
+
+    return mesh_points, mesh_points_radii
+
+
+
+
         
 def oob_cut_single(x_y_z_r_array, 
                    mask_checker,
@@ -339,23 +432,8 @@ def oob_cut_single(x_y_z_r_array,
     
     ############################################################################
     # Distrubute N points on a unit sphere
-    # Reference algorithm "Golden Spiral" method:
-    # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
     #---------------------------------------------------------------------------
-    indices = np.arange(0, num_surf_pts, dtype=float) + 0.5
-    
-    phi = np.arccos(1 - 2*indices/num_surf_pts)
-    
-    theta = np.pi * (1 + 5**0.5) * indices
-    
-    x = np.cos(theta) * np.sin(phi)
-    y = np.sin(theta) * np.sin(phi)
-    z = np.cos(phi)
-    
-    unit_sphere_pts = np.empty((num_surf_pts, 3), dtype=np.float64)
-    unit_sphere_pts[:,0] = x
-    unit_sphere_pts[:,1] = y
-    unit_sphere_pts[:,2] = z
+    unit_sphere_pts = build_unit_sphere_points(num_surf_pts)
     ############################################################################
 
     
@@ -363,41 +441,9 @@ def oob_cut_single(x_y_z_r_array,
     ############################################################################
     # Find the largest radius hole in the results, and generate a mesh of
     # constant density such that the largest hole will fit in this mesh
-    #
-    # Cut the extraneous points, and sort all the points in order of smallest
-    # radius to largest radius so when we iterate later for the smaller holes we 
-    # can stop early at the largest necessary radius - the cythonized code 
-    # critically depends on this sort
     #---------------------------------------------------------------------------
-    largest_radius = x_y_z_r_array[:,3].max()
-    
-    gen_radius = largest_radius*1.05 #add a bit of margin for the mesh
-    
-    step = 1.0/np.power(pts_per_unit_volume, .33)
-    
-    mesh_pts = np.arange(-1.0*gen_radius, gen_radius, step)
-    
-    n_pts = mesh_pts.shape[0]
-    
-    mesh_x, mesh_y, mesh_z = np.meshgrid(mesh_pts, mesh_pts, mesh_pts)
-    
-    mesh_points = np.concatenate((mesh_x.ravel().reshape(n_pts**3, 1),
-                                  mesh_y.ravel().reshape(n_pts**3, 1),
-                                  mesh_z.ravel().reshape(n_pts**3, 1)), axis=1)
-    
-    mesh_point_radii = np.linalg.norm(mesh_points, axis=1)
-    
-    keep_idx = mesh_point_radii < largest_radius
-    
-    mesh_points = mesh_points[keep_idx]
-    
-    mesh_point_radii = mesh_point_radii[keep_idx]
-    
-    sort_order = mesh_point_radii.argsort()
-    
-    mesh_points = mesh_points[sort_order]
-    
-    mesh_points_radii = mesh_point_radii[sort_order]
+    mesh_points, mesh_points_radii = generate_mesh(x_y_z_r_array[:,3].max(), 
+                                                   pts_per_unit_volume)
     ############################################################################
 
 
@@ -427,10 +473,10 @@ def oob_cut_single(x_y_z_r_array,
         
         curr_hole_radius = curr_hole[3]
         
-        ################################################################################
+        ########################################################################
         # First, check the shell points to see if we need to do the monte carlo
         # volume
-        ################################################################################
+        ########################################################################
         curr_sphere_pts = curr_hole_radius*unit_sphere_pts + curr_hole_position
         
         require_monte_carlo = False
@@ -445,9 +491,9 @@ def oob_cut_single(x_y_z_r_array,
                 
                 break
 
-        ################################################################################
+        ########################################################################
         # Do the monte carlo if any of the shell points failed
-        ################################################################################
+        ########################################################################
         if require_monte_carlo:
             
             #print("REQ MONT")
@@ -484,7 +530,7 @@ def oob_cut_single(x_y_z_r_array,
             pass
     '''
 
-    return valid_index.astype(np.bool), monte_index.astype(np.bool)
+    return valid_index.astype(np.bool_), monte_index.astype(np.bool_)
 
 
 
@@ -512,109 +558,65 @@ def oob_cut_multi(x_y_z_r_array,
     
     ############################################################################
     # Distrubute N points on a unit sphere
-    # Reference algorithm "Golden Spiral" method:
-    # https://stackoverflow.com/questions/9600801/evenly-distributing-n-points-on-a-sphere
+    #---------------------------------------------------------------------------
+    unit_sphere_pts = build_unit_sphere_points(num_surf_pts)
     ############################################################################
-    
-        
-    indices = np.arange(0, num_surf_pts, dtype=float) + 0.5
-    
-    phi = np.arccos(1 - 2*indices/num_surf_pts)
-    
-    theta = np.pi * (1 + 5**0.5) * indices
-    
-    x = np.cos(theta) * np.sin(phi)
-    y = np.sin(theta) * np.sin(phi)
-    z = np.cos(phi)
-    
-    unit_sphere_pts = np.empty((num_surf_pts, 3), dtype=np.float64)
-    unit_sphere_pts[:,0] = x
-    unit_sphere_pts[:,1] = y
-    unit_sphere_pts[:,2] = z
     
     
     ############################################################################
     # Find the largest radius hole in the results, and generate a mesh of
     # constant density such that the largest hole will fit in this mesh
-    #
-    # Cut the extraneous points, and sort all the points in order of smallest
-    # radius to largest radius so when we iterate later for the smaller holes
-    # we can stop early at the largest necessary radius
-    ############################################################################
-    
-    largest_radius = x_y_z_r_array[:,3].max()
-    
-    gen_radius = largest_radius*1.05 #add a bit of margin for the mesh
-    
-    step = 1.0/np.power(pts_per_unit_volume, .33)
-    
-    mesh_pts = np.arange(-1.0*gen_radius, gen_radius, step)
-    
-    n_pts = mesh_pts.shape[0]
-    
-    mesh_x, mesh_y, mesh_z = np.meshgrid(mesh_pts, mesh_pts, mesh_pts)
-    
-    mesh_points = np.concatenate((mesh_x.ravel().reshape(n_pts**3, 1),
-                                  mesh_y.ravel().reshape(n_pts**3, 1),
-                                  mesh_z.ravel().reshape(n_pts**3, 1)), axis=1)
-    
-    mesh_points_radii = np.linalg.norm(mesh_points, axis=1)
-    
-    keep_idx = mesh_points_radii < largest_radius
-    
-    mesh_points = mesh_points[keep_idx]
-    mesh_points_radii = mesh_points_radii[keep_idx]
-    
-    sort_order = mesh_points_radii.argsort()
-    
-    mesh_points = mesh_points[sort_order]
-    mesh_points_radii = mesh_points_radii[sort_order]
-    
+    #---------------------------------------------------------------------------
+    mesh_points, mesh_points_radii = generate_mesh(x_y_z_r_array[:,3].max(), 
+                                                   pts_per_unit_volume)
+
     mesh_points = mesh_points.astype(np.float64)
     mesh_points_radii = mesh_points_radii.astype(np.float64)
     
     num_mesh_points = mesh_points.shape[0]
+    ############################################################################
+    
 
     ############################################################################
     # If /dev/shm is not available, use /tmp as the shared resource filesystem
     # location instead.  Since on Linux /dev/shm is guaranteed to be a mounted
     # RAMdisk, I don't know if /tmp will be as fast or not, probably depends on
     # kernel settings.
-    ############################################################################
+    #---------------------------------------------------------------------------
     if not os.path.isdir(RESOURCE_DIR):
         
         print("WARNING: RESOURCE DIR ", RESOURCE_DIR, "does not exist.  Falling back to /tmp but could be slow", flush=True)
         
         RESOURCE_DIR = "/tmp"
+    ############################################################################
         
     
     ############################################################################
     # Start by converting the num_cpus argument into the real value we will use
-    # by making sure its reasonable, or if it was none use the max val available
-    #
-    # Maybe should use psutil.cpu_count(logical=False) instead of the
-    # multiprocessing version?
-    ############################################################################
-    if (num_cpus is None):
+    # by making sure it's reasonable, or if it was None use the max val 
+    # available.
+    #---------------------------------------------------------------------------
+    if num_cpus is None:
           
         num_cpus = cpu_count(logical=False)
         
     if verbose > 0:
         
-        print("Running hole cut in multi-process mode,", str(num_cpus), "cpus", flush=True)
-        
-    
-    
+        print("Running hole cut in multi-process mode,", str(num_cpus), "cpus", 
+              flush=True)
+    ############################################################################
     
     
     ############################################################################
-    #
-    ############################################################################
-    xyzr_fd, XYZR_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    # Set up memmap for x_y_z_r_array
+    #---------------------------------------------------------------------------
+    xyzr_fd, XYZR_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                 dir=RESOURCE_DIR, 
+                                                 text=False)
     
     if verbose > 1:
         
-        print("XYZR MEMMAP PATH: ", XYZR_BUFFER_PATH, xyzr_fd, flush=True)
+        print("XYZR MEMMAP PATH:", XYZR_BUFFER_PATH, xyzr_fd, flush=True)
     
     xyzr_buffer_length = num_holes*4*8 # n by 4 by 8 per float64
     
@@ -631,20 +633,20 @@ def oob_cut_multi(x_y_z_r_array,
     x_y_z_r_array.shape = (num_holes,4)
     
     os.unlink(XYZR_BUFFER_PATH)
+    ############################################################################
     
     
     ############################################################################
-    #
-    # Memmaps for valid_idx, monte_idx, unit_sphere_pts, mesh_points, mesh_points_radii
-    #     and x_y_z_r_array
-    #
-    #
-    ############################################################################
-    valid_idx_fd, VALID_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    # Set up memmap for valid_idx
+    #---------------------------------------------------------------------------
+    valid_idx_fd, VALID_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                           dir=RESOURCE_DIR, 
+                                                           text=False)
     
     if verbose > 1:
         
-        print("VALID_IDX MEMMAP PATH: ", VALID_IDX_BUFFER_PATH, valid_idx_fd, flush=True)
+        print("VALID_IDX MEMMAP PATH:", VALID_IDX_BUFFER_PATH, valid_idx_fd, 
+              flush=True)
     
     valid_idx_buffer_length = num_holes*1 # 1 per uint8
     
@@ -661,15 +663,20 @@ def oob_cut_multi(x_y_z_r_array,
     valid_index.shape = (num_holes,)
     
     os.unlink(VALID_IDX_BUFFER_PATH)
+    ############################################################################
+
     
     ############################################################################
-    #
-    ############################################################################
-    monte_idx_fd, MONTE_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    # Set up memmap for monte_idx
+    #---------------------------------------------------------------------------
+    monte_idx_fd, MONTE_IDX_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                           dir=RESOURCE_DIR, 
+                                                           text=False)
     
     if verbose > 1:
         
-        print("MONTE_IDX MEMMAP PATH: ", MONTE_IDX_BUFFER_PATH, monte_idx_fd, flush=True)
+        print("MONTE_IDX MEMMAP PATH:", MONTE_IDX_BUFFER_PATH, monte_idx_fd, 
+              flush=True)
     
     monte_idx_buffer_length = num_holes*1 # 1 per uint8
     
@@ -686,15 +693,20 @@ def oob_cut_multi(x_y_z_r_array,
     monte_index.shape = (num_holes,)
     
     os.unlink(MONTE_IDX_BUFFER_PATH)
+    ############################################################################
+
     
     ############################################################################
-    #
-    ############################################################################
-    unit_sphere_fd, UNIT_SHELL_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    # Set up memmap for unit_sphere_pts
+    #---------------------------------------------------------------------------
+    unit_sphere_fd, UNIT_SHELL_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                              dir=RESOURCE_DIR, 
+                                                              text=False)
     
     if verbose > 1:
         
-        print("UNIT SHELL MEMMAP PATH: ", UNIT_SHELL_BUFFER_PATH, unit_sphere_fd, flush=True)
+        print("UNIT SHELL MEMMAP PATH:", UNIT_SHELL_BUFFER_PATH, unit_sphere_fd, 
+              flush=True)
     
     unit_sphere_buffer_length = num_surf_pts*3*8 # n by 3 by 8 per float64
     
@@ -711,15 +723,20 @@ def oob_cut_multi(x_y_z_r_array,
     unit_sphere_pts.shape = (num_surf_pts, 3)
     
     os.unlink(UNIT_SHELL_BUFFER_PATH)
+    ############################################################################
+
     
     ############################################################################
-    #
-    ############################################################################
-    mesh_pts_fd, MESH_PTS_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    # Set up memmap for mesh_pts
+    #---------------------------------------------------------------------------
+    mesh_pts_fd, MESH_PTS_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                         dir=RESOURCE_DIR, 
+                                                         text=False)
     
     if verbose > 1:
         
-        print("MESH PTS MEMMAP PATH: ", MESH_PTS_BUFFER_PATH, mesh_pts_fd, flush=True)
+        print("MESH PTS MEMMAP PATH:", MESH_PTS_BUFFER_PATH, mesh_pts_fd, 
+              flush=True)
     
     mesh_pts_buffer_length = num_mesh_points*3*8 # n by 3 by 8 per float64
     
@@ -736,15 +753,20 @@ def oob_cut_multi(x_y_z_r_array,
     mesh_points.shape = (num_mesh_points, 3)
     
     os.unlink(MESH_PTS_BUFFER_PATH)
+    ############################################################################
+
     
     ############################################################################
-    #
-    ############################################################################
-    mesh_radii_fd, MESH_RADII_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", dir=RESOURCE_DIR, text=False)
+    # Set up memmap for mesh_points_radii
+    #---------------------------------------------------------------------------
+    mesh_radii_fd, MESH_RADII_BUFFER_PATH = tempfile.mkstemp(prefix="voidfinder", 
+                                                             dir=RESOURCE_DIR, 
+                                                             text=False)
     
     if verbose > 1:
         
-        print("MESH RADII MEMMAP PATH: ", MESH_RADII_BUFFER_PATH, mesh_radii_fd, flush=True)
+        print("MESH RADII MEMMAP PATH:", MESH_RADII_BUFFER_PATH, mesh_radii_fd, 
+              flush=True)
     
     mesh_radii_buffer_length = num_mesh_points*8 # n by 3 by 8 per float64
     
@@ -754,7 +776,8 @@ def oob_cut_multi(x_y_z_r_array,
     
     if verbose > 1:
         
-        print(mesh_radii_buffer_length, len(mesh_points_radii.tobytes()), flush=True)
+        print(mesh_radii_buffer_length, len(mesh_points_radii.tobytes()), 
+              flush=True)
     
     mesh_radii_buffer.write(mesh_points_radii.tobytes())
     
@@ -765,6 +788,7 @@ def oob_cut_multi(x_y_z_r_array,
     mesh_points_radii.shape = (num_mesh_points,)
     
     os.unlink(MESH_RADII_BUFFER_PATH)
+    ############################################################################
     
     
     ############################################################################

@@ -21,8 +21,8 @@ voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = 
 
 galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.fits")
 
-print("Galaxies: ", galaxy_data.shape)
-print("Voids: ", voids_tri_x.shape, voids_tri_y.shape, voids_tri_z.shape, voids_norm.shape, voids_id.shape)
+print("Galaxies:", galaxy_data.shape)
+print("Voids:", voids_tri_x.shape, voids_tri_y.shape, voids_tri_z.shape, voids_norm.shape, voids_id.shape)
 ################################################################################
 
 
@@ -47,9 +47,7 @@ void_colors = np.empty((num_voids,4), dtype=np.float32)
 
 for idx in range(void_colors.shape[0]):
     
-    void_id = idx 
-    
-    #print(hole_group)
+    void_id = idx
     
     void_colors[idx,:] = void_color_vals[void_id]
 ################################################################################
@@ -68,7 +66,6 @@ viz = VoidRender(voids_tri_x=voids_tri_x,
                  galaxy_display_radius=4,
                  gal_viz = gal_viz,
                  gal_opp = gal_opp,
-                 #void_hole_color=np.array([0.0, 0.0, 1.0, 1.0], dtype=np.float32),
                  void_color=void_colors,
                  canvas_size=(1600,1200))
 
