@@ -637,7 +637,8 @@ class TestVoidFinder(unittest.TestCase):
                                     format='ascii.commented_header')
 
         if len(setdiff(f_maximals, maximals_truth)) > 0:
-            print(setdiff(f_maximals, maximals_truth))
+            f_maximals.pprint()
+            maximals_truth.pprint()
         self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
         # Check holes
