@@ -636,17 +636,17 @@ class TestVoidFinder(unittest.TestCase):
         maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
                                     format='ascii.commented_header')
 
-        if len(setdiff(f_maximals, maximals_truth)) > 0:
-            f_maximals.pprint()
-            maximals_truth.pprint()
-        self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
+        self.assertTrue(all([np.allclose(f_maximals[name], maximals_truth[name]) for name in f_maximals.dtype.names]))
+        #self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
         # Check holes
         f_holes = Table.read('test_galaxies_redshift_holes.txt', 
                              format='ascii.commented_header')
         holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                                  format='ascii.commented_header')
-        self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
+
+        self.assertTrue(all([np.allclose(holes_truth[name], f_holes[name]) for name in f_holes.dtype.names]))
+        #self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
         
 
 
@@ -659,8 +659,8 @@ class TestVoidFinder(unittest.TestCase):
             os.remove(self.galaxies_filename)
 
         files = [ 'test_field_gal_file.txt',
-                  'test_galaxies_redshift_maximal.txt', 
-                  'test_galaxies_redshift_holes.txt',
+                  #'test_galaxies_redshift_maximal.txt', 
+                  #'test_galaxies_redshift_holes.txt',
                   'test_wall_gal_file.txt' ]
 
         for f in files:
