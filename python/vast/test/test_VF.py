@@ -652,8 +652,8 @@ class TestVoidFinder(unittest.TestCase):
 
         for name in f_holes.dtype.names:
             if not np.allclose(f_holes[name], holes_truth[name]):
-                print(f_holes[name])
-                print(holes_truth[name])
+                diffs = np.isclose(f_holes[name], holes_truth[name])
+                print(f_holes[name][~diffs], holes_truth[name][~diffs])
         self.assertTrue(all([np.allclose(f_holes[name], holes_truth[name]) for name in f_holes.dtype.names]))
         #self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
         
