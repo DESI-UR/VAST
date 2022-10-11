@@ -57,7 +57,7 @@ class TestVoidFinder(unittest.TestCase):
         '''
         self.ra_range = np.arange(10, 30, 0.5)
         self.dec_range = np.arange(-10, 10, 0.5)
-        self.redshift_range = np.arange(0.0005, 0.011, 0.0005) # 0.0001
+        self.redshift_range = np.arange(0.0005, 0.011, 0.0001) # 0.0005
 
         RA, DEC, REDSHIFT = np.meshgrid(self.ra_range, 
                                         self.dec_range, 
@@ -649,6 +649,10 @@ class TestVoidFinder(unittest.TestCase):
                              format='ascii.commented_header')
         holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                                  format='ascii.commented_header')
+
+        # Sort both tables by flag, radius, x, y, z columns
+        f_holes.sort(['flag', 'radius', 'x', 'y', 'z'])
+        holes_truth.sort(['flag', 'radius', 'x', 'y', 'z'])
 
         for name in f_holes.dtype.names:
             if not np.allclose(f_holes[name], holes_truth[name]):
