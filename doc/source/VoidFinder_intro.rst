@@ -41,7 +41,8 @@ maximal sphere by at least 50% of its volume.  The union of a set of spheres
 Citation
 ========
 
-Please cite `Hoyle & Vogeley (2002) <https://arxiv.org/abs/astro-ph/0109357>`_ 
+Please cite `Douglass et al. (2022) <https://doi.org/10.21105/joss.04033>`_ 
+<!--`Hoyle & Vogeley (2002) <https://arxiv.org/abs/astro-ph/0109357>`_--> 
 and `El-Ad & Piran (1997) <https://arxiv.org/abs/astro-ph/9702135>`_ when using 
 this algorithm.
 

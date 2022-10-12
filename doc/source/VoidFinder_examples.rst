@@ -389,6 +389,11 @@ after any redshift and/or magnitude cuts are applied.
      - 
      - Unique number associated to each void.  With only one maximal sphere per 
        void, this means that each maximal sphere has a different ``flag`` value.
+   * - edge
+     - integer
+     - 
+     - Documents whether or not the void is on the edge of the survey, defined 
+       when any part of any of this void's holes extend beyond the survey mask.
    * - r
      - float
      - Mpc/h

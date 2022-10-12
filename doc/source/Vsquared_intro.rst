@@ -48,8 +48,8 @@ ZOBOV implementations such as `VIDE <http://www.cosmicvoids.net/>`_ and
 Citation
 ========
 
-Please cite `Neyrinck (2008) <https://arxiv.org/abs/0712.3049>`_ when using this 
-algorithm.
+Please cite `Douglass et al. (2022) <https://doi.org/10.21105/joss.04033>`_ and 
+`Neyrinck (2008) <https://arxiv.org/abs/0712.3049>`_ when using this algorithm.
 
 
 
