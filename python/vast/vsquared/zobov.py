@@ -242,6 +242,20 @@ class Zobov:
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
 
+        if self.visualize:
+            varea_0 = [np.sum(self.zones.zarea_0[voi]) for voi in voids]
+            varea_t = [np.sum(self.zones.zarea_t[voi]) for voi in voids]
+            varea_s = np.zeros(len(voids))
+            for i in range(len(voids)):
+                if len(voids[i])==1:
+                    continue
+                for j in range(len(voids[i])-1):
+                    z1 = voids[i][j]
+                    for k in range(j+1,len(voids[i])):
+                        z2 = voids[i][k]
+                        l  = np.where(self.zones.zlinks[0][z1] == z2)[0][0]
+                        varea_s[i] += self.zones.zarea_s[z1][l]
+
         # Identify eigenvectors of best-fit ellipsoid for each void.
         print("Calculating ellipsoid axes...")
 
@@ -264,6 +278,9 @@ class Zobov:
         self.vcens = vcens
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
+        if self.visualize:
+            self.varea_0 = np.array(varea_0)
+            self.varea_t = np.array(varea_t)-varea_s
 
 
     def saveVoids(self):
@@ -277,13 +294,22 @@ class Zobov:
         vax2 = np.array([vx[1] for vx in self.vaxes]).T
         vax3 = np.array([vx[2] for vx in self.vaxes]).T
 
-        if self.periodic:
-            vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+        if self.visualize:
+            if self.periodic:
+                vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2],varea_t,varea_0],
+                        names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3','area','edge'))
+            else:
+                vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
+                vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2],varea_t,varea_0],
+                        names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3','area','edge'))
         else:
-            vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
-            vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+            if self.periodic:
+                vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+                        names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+            else:
+                vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
+                vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+                        names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
 
         vT.write(self.outdir+self.catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
 
