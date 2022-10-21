@@ -323,7 +323,6 @@ class Zones:
                             vcs = rotate(tess.verts[vts])
                             chv = ConvexHull(vcs).volume
                             zarea_t[z1] += chv
-                            j = np.where(zlinks[0][z1] == z2)[0][0]
                             zarea_s[z1][j] += chv
                             try:
                                 vcs = (tess.verts[vts].T[0:2]).T

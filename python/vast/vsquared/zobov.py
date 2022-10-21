@@ -253,8 +253,9 @@ class Zobov:
                     z1 = voids[i][j]
                     for k in range(j+1,len(voids[i])):
                         z2 = voids[i][k]
-                        l  = np.where(self.zones.zlinks[0][z1] == z2)[0][0]
-                        varea_s[i] += self.zones.zarea_s[z1][l]
+                        if z2 in self.zones.zlinks[0][z1]:
+                            l  = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
+                            varea_s[i] += self.zones.zarea_s[z1][l]
 
         # Identify eigenvectors of best-fit ellipsoid for each void.
         print("Calculating ellipsoid axes...")
