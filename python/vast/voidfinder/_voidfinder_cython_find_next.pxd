@@ -33,14 +33,14 @@ cdef class MaskChecker:
     
     cdef DTYPE_F64_t[:,:] xyz_limits
     
-    cpdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates)
+    cpdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:] coordinates)
 
 
 
 cdef struct FindNextReturnVal:
     ITYPE_t nearest_neighbor_index
-    DTYPE_F64_t min_x_ratio
-    DTYPE_B_t in_mask
+    DTYPE_F64_t min_x_val
+    DTYPE_B_t failed
     
     
 cdef struct DistIdxPair:
@@ -75,7 +75,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         DTYPE_F64_t dr, \
                                         DTYPE_F64_t direction_mod,\
                                         DTYPE_F64_t[:] unit_vector_memview, \
-                                        GalaxyMap galaxy_tree, \
+                                        SpatialMap galaxy_tree, \
                                         DTYPE_INT64_t[:] nearest_gal_index_list, \
                                         ITYPE_t num_neighbors, \
                                         MaskChecker mask_checker, \
@@ -83,9 +83,9 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         Cell_ID_Memory cell_ID_mem, \
                                         NeighborMemory neighbor_mem, \
                                         )
-                            
 
-cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
+
+cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates, \
                   DTYPE_B_t[:,:] survey_mask_ra_dec, \
                   DTYPE_INT32_t n, \
                   DTYPE_F64_t rmin, \
@@ -185,19 +185,25 @@ cdef class GalaxyMapCustomDict:
     cdef public void resize(self, DTYPE_INT64_t new_mem_length)
 
 
-cdef class GalaxyMap:
+cdef class SpatialMap:
+
+    cdef public Cell_ID_Memory cell_ID_mem
+    
+    cdef public NeighborMemory neighbor_mem
 
     cdef public object update_lock
     
     cdef public DTYPE_INT32_t mask_mode
     
-    cdef public DTYPE_F64_t[:,:] wall_galaxy_coords
+    cdef public DTYPE_F64_t[:,:] points_xyz
     
-    cdef public object wall_galaxy_buffer
+    cdef public object points_buffer
     
-    cdef public DTYPE_INT64_t num_wall_galaxies, wall_galaxies_coords_fd
+    cdef public DTYPE_INT64_t num_points, points_xyz_fd
     
-    cdef public DTYPE_F64_t[:,:] coord_min
+    cdef public DTYPE_F64_t[:] coord_min
+    
+    cdef public DTYPE_F64_t hole_grid_edge_length
     
     cdef public DTYPE_F64_t dl
     
@@ -225,6 +231,16 @@ cdef class GalaxyMap:
     
     cdef public DTYPE_INT64_t gma_fd
 
+
+
+    cdef public DTYPE_F64_t[:] temp_vector
+    
+    cdef public DTYPE_F64_t temp_f64_accum, temp_f64_val
+    
+    cdef public DTYPE_F64_t[:] temp_hole_center
+
+
+
     #DEBUGGING
     cdef public object kdtree
     
@@ -232,29 +248,38 @@ cdef class GalaxyMap:
     cpdef public DTYPE_B_t contains(self,
                                    CELL_ID_t i, 
                                    CELL_ID_t j, 
-                                   CELL_ID_t k)
+                                   CELL_ID_t k) except *
     
     cdef public OffsetNumPair getitem(self,
                                       CELL_ID_t i, 
                                       CELL_ID_t j, 
-                                      CELL_ID_t k)
+                                      CELL_ID_t k) except *
     
     cdef public void setitem(self, 
                              CELL_ID_t i,
                              CELL_ID_t j,
                              CELL_ID_t k, 
                              DTYPE_INT64_t offset,
-                             DTYPE_INT64_t num_elements)
+                             DTYPE_INT64_t num_elements) except *
 
 
-    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k)
+    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k) except *
     
     cdef void add_cell_periodic(self,
                                 CELL_ID_t i,
                                 CELL_ID_t j,
-                                CELL_ID_t k)
+                                CELL_ID_t k) except *
  
-    cpdef void refresh(self)
+    cpdef void refresh(self) except *
+    
+    cdef public ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:]) except *
+    
+    cpdef public FindNextReturnVal find_next_bounding_point(self, 
+                                                            DTYPE_F64_t[:] start_hole_center,
+                                                            DTYPE_F64_t[:] search_unit_vector,
+                                                            ITYPE_t[:] existing_bounding_idxs,
+                                                            ITYPE_t num_neighbors,
+                                                            MaskChecker mask_checker)
  
 
 
@@ -266,19 +291,17 @@ cdef class NeighborMemory:
     
     cdef DTYPE_INT64_t* i_nearest
     
-    cdef DTYPE_B_t* boolean_nearest
-    
-    cdef ITYPE_t* i_nearest_reduced
-    
     cdef DTYPE_F64_t* candidate_minus_A
     
     cdef DTYPE_F64_t* candidate_minus_center
+    
+    cdef DTYPE_F64_t* A_minus_center
     
     cdef DTYPE_F64_t* bot_ratio
     
     cdef DTYPE_F64_t* top_ratio
     
-    cdef DTYPE_F64_t* x_ratio
+    cdef DTYPE_F64_t* x_vals
     
     cdef void resize(self, size_t max_num_neighbors)
     
@@ -305,15 +328,65 @@ cdef class Cell_ID_Memory:
     
     cdef DTYPE_INT64_t max_level_available
     
+    
+    
+
+cdef class SphereGrower:
+
+    cdef public DTYPE_F64_t[:] sphere_center_xyz
+        
+    cdef public DTYPE_F64_t[:] search_unit_vector
+    
+    cdef public ITYPE_t[:] existing_bounding_idxs
+        
+    cdef public DTYPE_F64_t[:] midpoint_memview
+        
+    cdef public DTYPE_F64_t[:] AB_memview
+        
+    cdef public DTYPE_F64_t[:] BC_memview
+        
+    cdef public DTYPE_F64_t[:] v3_memview
+        
+    cdef public DTYPE_F64_t[:] hole_center_to_3plane_memview
+    
+    
+    cdef public DTYPE_F64_t[:] hole_center_k4g1
+    
+    cdef public DTYPE_F64_t[:] hole_center_k4g2
+    
+    
+    cdef public DTYPE_F64_t[:] temp_vector
+    
+    cdef public DTYPE_F64_t vector_modulus, temp_f64_val, temp_f64_accum
+    
+    cdef public ITYPE_t idx, jdx
+    
+    
+    cdef public void update_hole_center(self, DTYPE_F64_t x_val)
+    
+    cdef public void calculate_search_unit_vector_after_k1g(self, DTYPE_F64_t[:] k1g_xyz)
+    
+    cdef public void calculate_search_unit_vector_after_k2g(self, 
+                                                            DTYPE_F64_t[:] k1g_xyz, 
+                                                            DTYPE_F64_t[:] k2g_xyz)
+    
+    cdef public DTYPE_B_t calculate_search_unit_vector_after_k3g(self, 
+                                                                 DTYPE_F64_t[:] k1g_xyz, 
+                                                                 DTYPE_F64_t[:] k2g_xyz, 
+                                                                 DTYPE_F64_t[:] k3g_xyz)
+    
+    
+    
+    
               
 cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
-                              DTYPE_F64_t[:,:] coord_min, \
-                              DTYPE_F64_t dl, \
-                              DTYPE_F64_t[:,:] shell_boundaries_xyz, \
-                              DTYPE_F64_t[:,:] cell_center_xyz, \
-                              GalaxyMap galaxy_map, \
-                              Cell_ID_Memory cell_ID_mem, \
-                              DTYPE_F64_t[:,:] reference_point_xyz)
+                               DTYPE_F64_t[:] coord_min, \
+                               DTYPE_F64_t dl, \
+                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
+                               DTYPE_F64_t[:,:] cell_center_xyz, \
+                               SpatialMap galaxy_map, \
+                               Cell_ID_Memory cell_ID_mem, \
+                               DTYPE_F64_t[:] reference_point_xyz) except *
                                          
                                          
                                          
@@ -322,10 +395,10 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
 cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, \
                              DTYPE_INT32_t level, \
                              Cell_ID_Memory cell_ID_mem, \
-                             GalaxyMap galaxy_map)
+                             SpatialMap galaxy_map) except *
                                          
                                          
                                          
                                          
-cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value)     
+cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value) except *
                                          

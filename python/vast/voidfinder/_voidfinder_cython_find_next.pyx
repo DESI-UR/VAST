@@ -42,6 +42,8 @@ import mmap
 
 #DEBUGGING IMPORTS
 from sklearn.neighbors import KDTree
+#Debugging
+from .viz import VoidRender
 
 
 cdef DTYPE_F64_t RtoD = 180./np.pi
@@ -63,15 +65,17 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
                                         DTYPE_F64_t dr, 
                                         DTYPE_F64_t direction_mod,
                                         DTYPE_F64_t[:] unit_vector_memview, 
-                                        GalaxyMap galaxy_tree, 
+                                        SpatialMap galaxy_tree, 
                                         DTYPE_INT64_t[:] nearest_gal_index_list, 
                                         ITYPE_t num_neighbors,
                                         MaskChecker mask_checker,
                                         DTYPE_F64_t[:] Bcenter_memview,
                                         Cell_ID_Memory cell_ID_mem,
                                         NeighborMemory neighbor_mem,
-                                        ):          
-
+                                        ):
+    cdef FindNextReturnVal retval
+    return retval
+"""
     '''
     Function to locate the next nearest galaxy during hole center propagation 
     along direction defined by unit_vector_memview.
@@ -551,7 +555,7 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview,
     ############################################################################
 
     return retval
-
+"""
 
 
 
@@ -591,7 +595,7 @@ cdef class MaskChecker:
             self.xyz_limits = xyz_limits
         
         
-    cpdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:,:] coordinates):
+    cpdef DTYPE_B_t not_in_mask(self, DTYPE_F64_t[:] coordinates):
         
         if self.mode == 0:
             
@@ -618,7 +622,7 @@ cdef class MaskChecker:
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cdef DTYPE_B_t not_in_mask_xyz(DTYPE_F64_t[:,:] coordinates, 
+cdef DTYPE_B_t not_in_mask_xyz(DTYPE_F64_t[:] coordinates, 
                                DTYPE_F64_t[:,:] xyz_limits):
     """
     Parameters
@@ -636,9 +640,9 @@ cdef DTYPE_B_t not_in_mask_xyz(DTYPE_F64_t[:,:] coordinates,
     cdef DTYPE_F64_t coord_y
     cdef DTYPE_F64_t coord_z
     
-    coord_x = coordinates[0,0]
-    coord_y = coordinates[0,1]
-    coord_z = coordinates[0,2]
+    coord_x = coordinates[0]
+    coord_y = coordinates[1]
+    coord_z = coordinates[2]
     
     if coord_x < xyz_limits[0,0]:
         return True
@@ -671,7 +675,7 @@ cdef DTYPE_B_t not_in_mask_xyz(DTYPE_F64_t[:,:] coordinates,
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, 
+cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates, 
                            DTYPE_B_t[:,:] survey_mask_ra_dec, 
                            DTYPE_INT32_t n,
                            DTYPE_F64_t rmin, 
@@ -742,9 +746,9 @@ cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates,
     # Unpack our target coordinate into the cdef variables and check in x,y,z 
     # space if we've exceeded rmin or rmax
     #---------------------------------------------------------------------------
-    coord_x = coordinates[0,0]
-    coord_y = coordinates[0,1]
-    coord_z = coordinates[0,2]
+    coord_x = coordinates[0]
+    coord_y = coordinates[1]
+    coord_z = coordinates[2]
     
     r_sq = coord_x*coord_x + coord_y*coord_y + coord_z*coord_z
 
@@ -824,7 +828,7 @@ little workaround so we can keep not_in_mask cdef'd to work with
 the typedef stuff 
 """
 
-cpdef DTYPE_B_t not_in_mask2(DTYPE_F64_t[:,:] coordinates, 
+cpdef DTYPE_B_t not_in_mask2(DTYPE_F64_t[:] coordinates, 
                                DTYPE_B_t[:,:] survey_mask_ra_dec, 
                                DTYPE_INT32_t n,
                                DTYPE_F64_t rmin, 
@@ -1659,10 +1663,8 @@ cdef class GalaxyMapCustomDict:
     
     
     
-cdef class GalaxyMap:
+cdef class SpatialMap:
     '''
-    Right now this is a glorified container class for passing around a handful of
-    object references in memory.
     
     Changing this so that it implements the logic for regular mode versus
     periodic mode where we need to be able to resize our arrays in shared 
@@ -1680,7 +1682,8 @@ cdef class GalaxyMap:
     def __init__(self,
                  resource_dir,
                  mask_mode,
-                 galaxy_coords, 
+                 galaxy_coords,
+                 hole_grid_edge_length,
                  coord_min, 
                  dl,
                  galaxy_map,
@@ -1695,6 +1698,8 @@ cdef class GalaxyMap:
         
         self.coord_min = coord_min
         
+        self.hole_grid_edge_length = hole_grid_edge_length
+        
         #This value is the galaxy_map_grid_edge_length, not hole_grid_edge_length
         self.dl = dl
         
@@ -1707,6 +1712,12 @@ cdef class GalaxyMap:
         self.cell_center_xyz = np.empty((1,3), dtype=np.float64)
         
         self.update_lock = RLock()
+        
+        
+        self.cell_ID_mem = Cell_ID_Memory(10)
+    
+        self.neighbor_mem = NeighborMemory(50)
+        
         
         ################################################################################
         # First, memmap the galaxy coordinate array
@@ -1734,13 +1745,13 @@ cdef class GalaxyMap:
         
         os.unlink(WCOORD_BUFFER_PATH)
         
-        self.wall_galaxy_coords = galaxy_coords
+        self.points_xyz = galaxy_coords
         
-        self.wall_galaxy_buffer = w_coord_buffer
+        self.points_buffer = w_coord_buffer
         
-        self.num_wall_galaxies = num_galaxies
+        self.num_points = num_galaxies
         
-        self.wall_galaxies_coords_fd = wall_galaxies_coords_fd
+        self.points_xyz_fd = wall_galaxies_coords_fd
         
         
         
@@ -1796,9 +1807,31 @@ cdef class GalaxyMap:
         
         
         
+        
+        ################################################################################
+        # Memory for some computations
+        ################################################################################
+        self.temp_vector = np.empty(3, order='C', dtype=np.float64)
+        
+        self.temp_hole_center = np.empty(3, order='C', dtype=np.float64)
+        
+        
         #DEBUGGING
-        self.kdtree = KDTree(self.wall_galaxy_coords)
+        self.kdtree = KDTree(self.points_xyz)
 
+        
+        
+        
+        
+    def ijk_to_xyz(self, 
+                   DTYPE_INT64_t[:] ijk_location, 
+                   DTYPE_F64_t[:] output_xyz):
+        
+        for idx in range(3):
+        
+            output_xyz[idx] = ((<DTYPE_F64_t>ijk_location[idx]) + 0.5)*self.hole_grid_edge_length + self.coord_min[idx]
+        
+        return None
         
         
     @cython.boundscheck(False)
@@ -1807,7 +1840,7 @@ cdef class GalaxyMap:
     cpdef DTYPE_B_t contains(self,
                              CELL_ID_t i, 
                              CELL_ID_t j, 
-                             CELL_ID_t k):
+                             CELL_ID_t k) except *:
         """
         Return True when a cell actually contains galaxies.
         Mostly for periodic mode - a cell will always exist
@@ -1901,7 +1934,7 @@ cdef class GalaxyMap:
     cdef OffsetNumPair getitem(self,
                                CELL_ID_t i, 
                                CELL_ID_t j, 
-                               CELL_ID_t k):
+                               CELL_ID_t k) except *:
                                
         """
         I believe we will always call contains() on a cell
@@ -1963,7 +1996,7 @@ cdef class GalaxyMap:
                       CELL_ID_t j,
                       CELL_ID_t k, 
                       DTYPE_INT64_t offset,
-                      DTYPE_INT64_t num_elements):
+                      DTYPE_INT64_t num_elements) except *:
                        
         # Right now we don't have any multiprocessing synchronization
         # on setitem() because its only being used in single-threaded
@@ -1975,7 +2008,7 @@ cdef class GalaxyMap:
     @cython.boundscheck(False)
     @cython.wraparound(False)
     @cython.cdivision(True)
-    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k):
+    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k) except *:
         """
         Return True if the cell is in the xyz_limits and false if its
         just part of the periodic infinity
@@ -1998,7 +2031,7 @@ cdef class GalaxyMap:
     cdef void add_cell_periodic(self,
                                 CELL_ID_t i,
                                 CELL_ID_t j,
-                                CELL_ID_t k):
+                                CELL_ID_t k) except *:
         """
         This method is assumed to be called within the context
         of the update_lock for synchronization purposes.
@@ -2075,7 +2108,7 @@ cdef class GalaxyMap:
         ################################################################################
         new_offset = self.num_gma_indices
         
-        old_num_gals = self.wall_galaxy_coords.shape[0]
+        old_num_gals = self.points_xyz.shape[0]
         
         if in_bounds == 1:
             
@@ -2118,15 +2151,15 @@ cdef class GalaxyMap:
                     
                     # Extend our shared memory, these guys are basically being "appended" to
                     
-                    self.wall_galaxy_buffer.resize(self.wall_galaxy_buffer.size()+wall_gal_nbytes)
+                    self.points_buffer.resize(self.points_buffer.size()+wall_gal_nbytes)
             
-                    galaxy_coords = np.frombuffer(self.wall_galaxy_buffer, dtype=np.float64)
+                    galaxy_coords = np.frombuffer(self.points_buffer, dtype=np.float64)
                     
-                    self.num_wall_galaxies = self.wall_galaxy_buffer.size()/(3*8)
+                    self.num_points = self.points_buffer.size()/(3*8)
                     
-                    galaxy_coords.shape = (self.num_wall_galaxies, 3)
+                    galaxy_coords.shape = (self.num_points, 3)
                     
-                    self.wall_galaxy_coords = galaxy_coords
+                    self.points_xyz = galaxy_coords
                     
                     
                     
@@ -2151,13 +2184,13 @@ cdef class GalaxyMap:
                     
                     
                     
-                    source_center_xyz[0] = (<DTYPE_F64_t>source_i + 0.5)*self.dl + self.coord_min[0,0]
-                    source_center_xyz[1] = (<DTYPE_F64_t>source_j + 0.5)*self.dl + self.coord_min[0,1]
-                    source_center_xyz[2] = (<DTYPE_F64_t>source_k + 0.5)*self.dl + self.coord_min[0,2]
+                    source_center_xyz[0] = (<DTYPE_F64_t>source_i + 0.5)*self.dl + self.coord_min[0]
+                    source_center_xyz[1] = (<DTYPE_F64_t>source_j + 0.5)*self.dl + self.coord_min[1]
+                    source_center_xyz[2] = (<DTYPE_F64_t>source_k + 0.5)*self.dl + self.coord_min[2]
                     
-                    curr_center_xyz[0] = (<DTYPE_F64_t>i + 0.5)*self.dl + self.coord_min[0,0]
-                    curr_center_xyz[1] = (<DTYPE_F64_t>j + 0.5)*self.dl + self.coord_min[0,1]
-                    curr_center_xyz[2] = (<DTYPE_F64_t>k + 0.5)*self.dl + self.coord_min[0,2]
+                    curr_center_xyz[0] = (<DTYPE_F64_t>i + 0.5)*self.dl + self.coord_min[0]
+                    curr_center_xyz[1] = (<DTYPE_F64_t>j + 0.5)*self.dl + self.coord_min[1]
+                    curr_center_xyz[2] = (<DTYPE_F64_t>k + 0.5)*self.dl + self.coord_min[2]
                     
                     
                     
@@ -2178,7 +2211,7 @@ cdef class GalaxyMap:
                         
                         for kdx in range(3):
                         
-                            self.wall_galaxy_coords[out_gma_idx,kdx] = self.wall_galaxy_coords[curr_gal_idx,kdx] + shift_xyz[kdx] # PLUS SHIFT
+                            self.points_xyz[out_gma_idx,kdx] = self.points_xyz[curr_gal_idx,kdx] + shift_xyz[kdx] # PLUS SHIFT
                         
                         self.galaxy_map_array[out_gma_idx] = out_gma_idx
                         
@@ -2190,23 +2223,23 @@ cdef class GalaxyMap:
         
         
         
-    cpdef void refresh(self):
+    cpdef void refresh(self) except *:
         """
         Resize the shared memory for our wall galaxy buffer and
         galaxy map array
         """
         
-        n_bytes = self.wall_galaxy_buffer.size()
+        n_bytes = self.points_buffer.size()
         
-        self.wall_galaxy_buffer.resize(n_bytes)
+        self.points_buffer.resize(n_bytes)
         
-        galaxy_coords = np.frombuffer(self.wall_galaxy_buffer, dtype=np.float64)
+        galaxy_coords = np.frombuffer(self.points_buffer, dtype=np.float64)
         
-        self.num_wall_galaxies = n_bytes/(3*8)
+        self.num_points = n_bytes/(3*8)
         
-        galaxy_coords.shape = (self.num_wall_galaxies, 3)
+        galaxy_coords.shape = (self.num_points, 3)
         
-        self.wall_galaxy_coords = galaxy_coords
+        self.points_xyz = galaxy_coords
         
         
         
@@ -2225,6 +2258,295 @@ cdef class GalaxyMap:
         
         
         
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:] query_location_xyz) except *:
+        '''
+        Description
+        ===========
+        
+        Given a query location, find the nearest neighbor.
+        '''
+        query_vals = _query_first(self.reference_point_ijk,
+                                  self.coord_min,
+                                  self.dl,
+                                  self.shell_boundaries_xyz,
+                                  self.cell_center_xyz,
+                                  self,
+                                  self.cell_ID_mem,
+                                  query_location_xyz)
+        
+        k1g = query_vals.idx
+        
+        vector_modulus = query_vals.dist
+        
+        return k1g
+    
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cpdef FindNextReturnVal find_next_bounding_point(self, 
+                                                     DTYPE_F64_t[:] start_hole_center,
+                                                     DTYPE_F64_t[:] search_unit_vector,
+                                                     ITYPE_t[:] existing_bounding_idxs,
+                                                     ITYPE_t num_neighbors,
+                                                     MaskChecker mask_checker):
+        """
+        Description
+        ===========
+        
+        Find the 2nd, 3rd, or 4th bounding point when growing a sphere.  One of the primary
+        workhorse methods of VoidFinder.
+        
+        
+        Parameters
+        ==========
+        
+        start_hole_center : array length 3
+            xyz location of current sphere center
+            
+        search_unit_vector : array length 3
+            direction in which the hole center must propagate
+            
+        existing_bounding_idxs :
+            indexes of existing bounding points 
+            
+        num_neighbors : int
+            number of already found neighbors, and therefore number
+            of valid entries in existing_bounding_idxs
+            
+        mask_checker : MaskChecker
+            class to aid in determining when a sphere is invalid because
+            it left the valid region of space
+        
+        
+        Notes
+        =====
+        
+        This function will only be called after we used a different function
+        to find the first bounding point, so we can always assume the 0th
+        entry in existing_neighbor_idxs exists.
+        
+        In contrast to previous versions of VoidFinder, this implementation uses the 
+        algorithm to find points 3 and 4 to find point 2 as well for simplicity.
+        Additionally, there is no longer an iteration over a 'dr' parameter,
+        which has been replaced by 'dl' which is the length of 1 cell in the
+        point search grid, so each iteration will increase the shell of search
+        cubes retrieved by 1, hopefully eliminating cases where iterating over 
+        'dr' would not actually result in significantly more points being
+        returned.
+        
+        """
+        
+        
+        cdef FindNextReturnVal retval
+        
+        cdef ITYPE_t idx, jdx, k1g_idx, temp_idx, num_nearest, valid_min_idx
+        
+        cdef DTYPE_F64_t[:] k1g_xyz
+        
+        cdef DTYPE_F64_t search_radius, valid_min_val
+        
+        cdef DTYPE_B_t searching = True
+        
+        cdef DTYPE_B_t any_valid
+        
+        retval.nearest_neighbor_index = -1
+        retval.min_x_val = -1.0
+        retval.failed = 0
+        
+        ####################################################################
+        # Calculate the starting radius of the existing sphere, and init
+        # a sphere center we can temporarily move while searching for our
+        # next bounding point
+        ####################################################################
+        k1g_idx = existing_bounding_idxs[0]
+        
+        k1g_xyz = self.points_xyz[k1g_idx]
+        
+        self.temp_f64_accum = 0.0
+        
+        for idx in range(3):
+            
+            self.temp_f64_val = start_hole_center[idx] - k1g_xyz[idx]
+            
+            self.temp_f64_accum += self.temp_f64_val*self.temp_f64_val
+            
+        search_radius = sqrt(self.temp_f64_accum)
+        
+        for idx in range(3):
+            
+            self.temp_hole_center[idx] = start_hole_center[idx]
+        
+        
+        ####################################################################
+        # Begin the process of searching for the bounding point, moving the
+        # temp sphere center by the length of 1 grid cell each iteration
+        ####################################################################
+        while searching:
+            
+            search_radius += self.dl
+            
+            for idx in range(3):
+                self.temp_hole_center[idx] += self.dl*search_unit_vector[idx]
+            
+            self.neighbor_mem.next_neigh_idx = 0
+        
+            #_query_shell_radius now excludes existing neighbors
+            _query_shell_radius(self.reference_point_ijk,
+                                self.coord_min,
+                                self.dl, 
+                                self,
+                                self.cell_ID_mem,
+                                self.neighbor_mem,
+                                self.temp_hole_center, 
+                                search_radius, 
+                                existing_bounding_idxs,
+                                num_neighbors)
+            
+            num_nearest = <ITYPE_t>(self.neighbor_mem.next_neigh_idx)
+            
+            if num_nearest > 0:
+                
+                ####################################################################
+                # Calculate vectors pointing from hole center and galaxy 1/A to next 
+                # nearest candidate galaxy
+                #-------------------------------------------------------------------
+                for idx in range(num_nearest):
+    
+                    #temp_idx = self.neighbor_mem.i_nearest_reduced[idx]
+                    temp_idx = <ITYPE_t>(self.neighbor_mem.i_nearest[idx])
+
+                    for jdx in range(3):
+                        
+                        self.neighbor_mem.candidate_minus_A[3*idx+jdx] = self.points_xyz[temp_idx, jdx] - self.points_xyz[k1g_idx, jdx]
+                            
+                        self.neighbor_mem.candidate_minus_center[3*idx+jdx] = self.points_xyz[temp_idx, jdx] - start_hole_center[jdx]
+                        
+                        self.neighbor_mem.A_minus_center[3*idx+jdx] = self.points_xyz[k1g_idx, jdx] - start_hole_center[jdx]
+                ####################################################################
+    
+    
+                ####################################################################
+                # Calculate bottom of ratio to be minimized
+                # 2*dot(candidate_minus_A, unit_vector)
+                #-------------------------------------------------------------------
+                for idx in range(num_nearest):
+                    
+                    self.temp_f64_accum = 0.0
+                    
+                    for jdx in range(3):
+                        
+                        self.temp_f64_accum += self.neighbor_mem.candidate_minus_A[3*idx+jdx]*search_unit_vector[jdx]
+                        
+                    self.neighbor_mem.bot_ratio[idx] = 2.0*self.temp_f64_accum
+                ####################################################################
+    
+                
+                ####################################################################
+                # Calculate the distance the hole center will move, x
+                # Calculate |P - C|^2 which is just dot((P-C),(P-C))
+                # Calculate |A - C|^2 which is just dot((A-C),(A-C))
+                #
+                # x = [|P - C|^2 - |A - C|^2] / [2*(P-A).u] where P is the candidate
+                # point, A is neighbor k1g, C is the starting hole center, and u is
+                # the unit vector in the search direction.  Once x is calculated, 
+                # the new hole center C_hat will just be:
+                # C_hat = C + x*u
+                #
+                # This formula can be derived using the Law of Cosines
+                #-------------------------------------------------------------------
+            
+                for idx in range(num_nearest):
+                
+                    self.temp_f64_accum = 0.0
+                
+                    for jdx in range(3):
+                        
+                        self.temp_f64_accum += self.neighbor_mem.candidate_minus_center[3*idx+jdx]*self.neighbor_mem.candidate_minus_center[3*idx+jdx]
+                        
+                    self.temp_f64_val = self.temp_f64_accum
+            
+                    self.temp_f64_accum = 0.0
+                
+                    for jdx in range(3):
+                        
+                        self.temp_f64_accum += self.neighbor_mem.A_minus_center[3*idx+jdx]*self.neighbor_mem.A_minus_center[3*idx+jdx]
+                        
+                    self.neighbor_mem.top_ratio[idx] = self.temp_f64_val - self.temp_f64_accum
+                    
+                    
+                    if self.neighbor_mem.bot_ratio[idx] == 0.0:
+                        #Only way for this to happen is for the candidate to be in the hyperplane
+                        #perpendicular to the search vector (which includes if it is an existing
+                        #neighbor or a duplicate galaxy, either way exclude these guys
+                        self.neighbor_mem.x_vals[idx] = -1.0
+                    
+                    else:
+                    
+                        self.neighbor_mem.x_vals[idx] = self.neighbor_mem.top_ratio[idx]/self.neighbor_mem.bot_ratio[idx]
+                ####################################################################
+    
+    
+    
+                ####################################################################
+                # Locate positive values of x_ratio
+                #-------------------------------------------------------------------
+                any_valid = 0
+                
+                valid_min_idx = 0
+                
+                valid_min_val = INFINITY
+                
+                for idx in range(num_nearest):
+                    
+                    self.temp_f64_val = self.neighbor_mem.x_vals[idx]
+                    
+                    if self.temp_f64_val > 0.0:
+                        
+                        any_valid = 1
+                        
+                        if self.temp_f64_val < valid_min_val:
+                            
+                            valid_min_idx = idx
+                            
+                            valid_min_val = self.temp_f64_val
+                ####################################################################
+                            
+    
+                ####################################################################
+                # If we found any positive values, we have a result
+                #-------------------------------------------------------------------
+                if any_valid:
+                    
+                    searching = False
+                    
+                    retval.nearest_neighbor_index = self.neighbor_mem.i_nearest[valid_min_idx]
+                    
+                    retval.min_x_val = self.neighbor_mem.x_vals[valid_min_idx]
+                    
+                    retval.failed = 0
+                    
+                
+            # If we aren't searching anymore (aka have found a result) we dont want
+            # to accidentally eliminate it with a bad mask check because we jumped
+            # by 'dl' instead of checking the actual location that corresponds to
+            # the minx projection along the search unit vector
+            if searching:
+                # If we dont have a valid one, check the mask
+                # to see if we've grown outside the survey
+                
+                if mask_checker.not_in_mask(self.temp_hole_center):
+                    
+                    searching = False
+                    
+                    retval.failed = 1
+        
+        return retval
+        
+        
         
     def close(self):
         
@@ -2234,7 +2556,7 @@ cdef class GalaxyMap:
         # https://stackoverflow.com/questions/53339931/properly-discarding-ctypes-pointers-to-mmap-memory-in-python
         # https://github.com/ercius/openNCEM/issues/39
         
-        os.close(self.wall_galaxies_coords_fd)
+        os.close(self.points_xyz_fd)
         
         #self.galaxy_map_array_buffer.close()
         # Commented this out due to:
@@ -2294,25 +2616,6 @@ cdef class NeighborMemory:
         ################################################################################
         # 2
         ################################################################################
-        self.boolean_nearest = <DTYPE_B_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_B_t))
-        
-        if not self.boolean_nearest:
-            
-            raise MemoryError()
-        
-        
-        ################################################################################
-        # 3
-        ################################################################################
-        self.i_nearest_reduced = <ITYPE_t*> PyMem_Malloc(max_num_neighbors * sizeof(ITYPE_t))
-        
-        if not self.i_nearest_reduced:
-            
-            raise MemoryError()
-        
-        ################################################################################
-        # 4
-        ################################################################################
         self.candidate_minus_A = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
         
         if not self.candidate_minus_A:
@@ -2321,7 +2624,7 @@ cdef class NeighborMemory:
         
         
         ################################################################################
-        # 5
+        # 3
         ################################################################################
         self.candidate_minus_center = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
         
@@ -2331,7 +2634,17 @@ cdef class NeighborMemory:
         
         
         ################################################################################
-        # 6
+        # 4
+        ################################################################################
+        self.A_minus_center = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
+        
+        if not self.A_minus_center:
+            
+            raise MemoryError()
+        
+        
+        ################################################################################
+        # 5
         ################################################################################
         self.bot_ratio = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_F64_t))
         
@@ -2340,7 +2653,7 @@ cdef class NeighborMemory:
             raise MemoryError()
         
         ################################################################################
-        # 7
+        # 6
         ################################################################################
         self.top_ratio = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_F64_t))
         
@@ -2349,11 +2662,11 @@ cdef class NeighborMemory:
             raise MemoryError()
         
         ################################################################################
-        # 8
+        # 7
         ################################################################################
-        self.x_ratio = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_F64_t))
+        self.x_vals = <DTYPE_F64_t*> PyMem_Malloc(max_num_neighbors * sizeof(DTYPE_F64_t))
         
-        if not self.x_ratio:
+        if not self.x_vals:
             
             raise MemoryError()
 
@@ -2383,82 +2696,73 @@ cdef class NeighborMemory:
         ################################################################################
         # 2
         ################################################################################
-        mem2 = <DTYPE_B_t*> PyMem_Realloc(self.boolean_nearest, max_num_neighbors * sizeof(DTYPE_B_t))
+        mem2 = <DTYPE_F64_t*> PyMem_Realloc(self.candidate_minus_A, max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
             
         if not mem2:
             
             raise MemoryError()
         
-        self.boolean_nearest = mem2
-    
-    
+        self.candidate_minus_A = mem2
+        
+        
         ################################################################################
         # 3
         ################################################################################
-        mem3 = <ITYPE_t*> PyMem_Realloc(self.i_nearest_reduced, max_num_neighbors * sizeof(ITYPE_t))
+        mem3 = <DTYPE_F64_t*> PyMem_Realloc(self.candidate_minus_center, max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
             
         if not mem3:
             
             raise MemoryError()
         
-        self.i_nearest_reduced = mem3
+        self.candidate_minus_center = mem3
+        
         
         ################################################################################
         # 4
         ################################################################################
-        mem4 = <DTYPE_F64_t*> PyMem_Realloc(self.candidate_minus_A, max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
+        mem4 = <DTYPE_F64_t*> PyMem_Realloc(self.A_minus_center, max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
             
         if not mem4:
             
             raise MemoryError()
         
-        self.candidate_minus_A = mem4
+        self.A_minus_center = mem4
+        
+        
         
         
         ################################################################################
         # 5
         ################################################################################
-        mem5 = <DTYPE_F64_t*> PyMem_Realloc(self.candidate_minus_center, max_num_neighbors * 3 * sizeof(DTYPE_F64_t))
+        mem5 = <DTYPE_F64_t*> PyMem_Realloc(self.bot_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
             
         if not mem5:
             
             raise MemoryError()
         
-        self.candidate_minus_center = mem5
-        
+        self.bot_ratio = mem5
         
         ################################################################################
         # 6
         ################################################################################
-        mem6 = <DTYPE_F64_t*> PyMem_Realloc(self.bot_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
+        mem6 = <DTYPE_F64_t*> PyMem_Realloc(self.top_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
             
         if not mem6:
             
             raise MemoryError()
         
-        self.bot_ratio = mem6
+        self.top_ratio = mem6
         
         ################################################################################
         # 7
         ################################################################################
-        mem7 = <DTYPE_F64_t*> PyMem_Realloc(self.top_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
+        mem7 = <DTYPE_F64_t*> PyMem_Realloc(self.x_vals, max_num_neighbors * sizeof(DTYPE_F64_t))
             
         if not mem7:
             
             raise MemoryError()
         
-        self.top_ratio = mem7
-        
-        ################################################################################
-        # 8
-        ################################################################################
-        mem8 = <DTYPE_F64_t*> PyMem_Realloc(self.x_ratio, max_num_neighbors * sizeof(DTYPE_F64_t))
-            
-        if not mem8:
-            
-            raise MemoryError()
-        
-        self.x_ratio = mem8
+        self.x_vals = mem7
     
     
     cdef void append(self, DTYPE_INT64_t neigh_idx_val):
@@ -2642,6 +2946,274 @@ cdef class Cell_ID_Memory:
 
 
 
+cdef class SphereGrower:
+    """
+    This class is a stateful object which encapsulates the various processes of growing 
+    a single sphere within a point cloud until it is bounded by 4 points
+    """
+    def __init__(self):
+        
+        self.sphere_center_xyz = np.zeros(3, dtype=np.float64)
+        
+        self.search_unit_vector = np.zeros(3, dtype=np.float64)
+    
+        self.existing_bounding_idxs = np.zeros(4, dtype=np.intp)
+        
+        self.midpoint_memview = np.zeros(3, dtype=np.float64)
+        
+        self.AB_memview = np.zeros(3, dtype=np.float64)
+        
+        self.BC_memview = np.zeros(3, dtype=np.float64)
+        
+        self.v3_memview = np.zeros(3, dtype=np.float64)
+        
+        self.hole_center_to_3plane_memview = np.zeros(3, dtype=np.float64)
+        
+        self.hole_center_k4g1 = np.zeros(3, dtype=np.float64)
+        
+        self.hole_center_k4g2 = np.zeros(3, dtype=np.float64)
+        
+        
+        self.temp_vector = np.zeros(3, dtype=np.float64)
+        
+        
+        
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void update_hole_center(self, DTYPE_F64_t x_val):
+        
+        cdef ITYPE_t idx
+        
+        for idx in range(3):
+        
+            self.sphere_center_xyz[idx] += x_val*self.search_unit_vector[idx]
+
+        return
+        
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void calculate_search_unit_vector_after_k1g(self, DTYPE_F64_t[:] k1g_xyz):
+        """
+        Description
+        ===========
+        
+        Update self.search_unit_vector
+        
+        
+        Notes
+        =====
+        
+        We now have 1 bounding point and the existing sphere center.  The new search
+        unit vector is just the vector that points from the bounding point through
+        the sphere center, so since (A - B) points from B to A we just do
+        (center - k1g) and normalize by the modulus.  Check for edge case of the
+        center being on top of the point somehow, and choose a random direction
+        if that's the case since we have no good information to choose a good
+        deterministic direction.
+        """
+        
+        self.temp_f64_accum = 0.0
+        
+        for self.idx in range(3):
+            
+            self.temp_vector[self.idx] = self.sphere_center_xyz[self.idx] - k1g_xyz[self.idx]
+        
+            self.temp_f64_accum += self.temp_vector[self.idx]*self.temp_vector[self.idx]
+        
+        self.vector_modulus = sqrt(self.temp_f64_accum)
+            
+        #If the points happened to be perfectly on top of each other, we will just
+        #choose a random direction to search instead for now
+        if self.vector_modulus == 0.0:
+            
+            #values between 0 and 1 so subtract 0.5 to allow negative directions
+            self.temp_vector[:] = np.random.rand(3).astype(np.float64) - 0.5
+            
+            self.temp_f64_accum = 0.0
+            
+            for self.idx in range(3):
+            
+                self.temp_f64_accum += self.temp_vector[self.idx]*self.temp_vector[self.idx]
+            
+            self.vector_modulus = sqrt(self.temp_f64_accum)
+        
+        
+        for self.idx in range(3):
+        
+            self.search_unit_vector[self.idx] = self.temp_vector[self.idx]/self.vector_modulus
+        
+        
+        return
+
+
+
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef void calculate_search_unit_vector_after_k2g(self, 
+                                                     DTYPE_F64_t[:] k1g_xyz, 
+                                                     DTYPE_F64_t[:] k2g_xyz):
+        """
+        Description
+        ===========
+        
+        Update self.search_unit_vector
+        
+        
+        Notes
+        =====
+        
+        We now have 2 bounding points and our hole center.  These three points
+        will always form an isosceles triangle, where we can easily use the midpoint
+        between k1g and k2g to orient the new search vector, which will point from this
+        midpoint through the hole center (away from the hyperplane formed by the boundary
+        points).
+        
+        If k1g, the center, and k2g are co-linear, the midpoint will be perfectly on top 
+        of the center so we check for this case and if its found, re-orient the search vector
+        in the plane perpendicular to these three points.  In this case we're just
+        using a dot product trick to pick a vector instead of invoking np.random
+        for more deterministic behavior.  Could use np.random instead to be more consistent?
+        """
+        
+        for self.idx in range(3):
+            
+            self.midpoint_memview[self.idx] = 0.5*(k1g_xyz[self.idx] + k2g_xyz[self.idx])
+        
+        
+        self.temp_f64_accum = 0.0
+        
+        for self.idx in range(3):
+            
+            self.search_unit_vector[self.idx] = self.sphere_center_xyz[self.idx] - self.midpoint_memview[self.idx]
+            
+            self.temp_f64_accum += self.search_unit_vector[self.idx]*self.search_unit_vector[self.idx]
+        
+        self.vector_modulus = sqrt(self.temp_f64_accum)
+        
+        
+        if self.vector_modulus == 0.0:
+
+            #If k1g, k2g and the hole center are co-linear, then choose any arbitrary 
+            #vector in the plane perpendicular to the colinear direction.  For now we 
+            #choose this arbitrary vector using the simple formula for the 3d vector dot
+            #product:  a*b + b*(-a) + c*0 = 0  where v1 = (a,b,c) and
+            #v2 = (b, -a, 0)
+            
+            self.search_unit_vector[0] = k1g_xyz[1] - k2g_xyz[1] #put b in a spot
+            self.search_unit_vector[1] = -1.0*(k1g_xyz[0] - k2g_xyz[0])
+            self.search_unit_vector[2] = 0.0
+            
+        else:
+            for self.idx in range(3):
+        
+                self.search_unit_vector[self.idx] /= self.vector_modulus
+            
+        return
+    
+    
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    @cython.cdivision(True)
+    cdef DTYPE_B_t calculate_search_unit_vector_after_k3g(self, 
+                                                          DTYPE_F64_t[:] k1g_xyz, 
+                                                          DTYPE_F64_t[:] k2g_xyz, 
+                                                          DTYPE_F64_t[:] k3g_xyz):
+        """
+        Description
+        ===========
+        
+        Update self.search_unit_vector
+        
+        
+        Notes
+        =====
+        
+        Since we have 3 bounding points now, we can simply calculate the direction of the
+        next search unit vector by taking the cross product of (k1g-k2g) and (k3g-k2g) and
+        flipping it if necessary so that it points in the direction of the sphere center.
+        
+        In the very rare case that the sphere center is coplanar with its trio of bounding
+        points, return a boolean value which indicates this so that finding the 4th
+        bounding galaxy can search in both directions away from this plane.
+        
+        """
+        cdef DTYPE_B_t coplanar = False
+        
+        
+        
+        for self.idx in range(3):
+    
+            self.AB_memview[self.idx] = k1g_xyz[self.idx] - k2g_xyz[self.idx]
+    
+            self.BC_memview[self.idx] = k3g_xyz[self.idx] - k2g_xyz[self.idx]
+    
+    
+        self.v3_memview[0] = self.AB_memview[1]*self.BC_memview[2] - self.AB_memview[2]*self.BC_memview[1]
+    
+        self.v3_memview[1] = self.AB_memview[2]*self.BC_memview[0] - self.AB_memview[0]*self.BC_memview[2]
+    
+        self.v3_memview[2] = self.AB_memview[0]*self.BC_memview[1] - self.AB_memview[1]*self.BC_memview[0]
+    
+    
+        self.temp_f64_accum = 0.0
+    
+        for self.idx in range(3):
+    
+            self.temp_f64_accum += self.v3_memview[self.idx]*self.v3_memview[self.idx]
+    
+        self.vector_modulus = sqrt(self.temp_f64_accum)
+    
+    
+        for self.idx in range(3):
+    
+            self.search_unit_vector[self.idx] = self.v3_memview[self.idx]/self.vector_modulus
+        #-----------------------------------------------------------------------
+
+
+        #-----------------------------------------------------------------------
+        # Determine which side of the plane formed by galaxies 1/A, 2/B, and 3/C 
+        # the new hole center is on.  If it is coplanar, then we need to check 
+        # both directions from the plane (as originally done).  If not, then we 
+        # only need to move the center in the direction away from the plane.
+        #-----------------------------------------------------------------------
+        for self.idx in range(3):
+
+            self.hole_center_to_3plane_memview[self.idx] = self.sphere_center_xyz[self.idx] - k1g_xyz[self.idx]
+
+
+        self.temp_f64_accum = 0.0
+
+        for self.idx in range(3):
+
+            self.temp_f64_accum += self.hole_center_to_3plane_memview[self.idx]*self.search_unit_vector[self.idx]
+
+
+        # Flip the unit vector if it is pointing away from the hole center
+        if self.temp_f64_accum < 0.0:
+
+            for self.idx in range(3):
+
+                self.search_unit_vector[self.idx] *= -1.0
+
+        # Search both sides if the center point is on the plane
+        elif self.temp_f64_accum == 0.0:
+
+            coplanar = True
+        
+        
+        
+        
+        return coplanar
+
+
+
+
+
 
 
 @cython.boundscheck(False)
@@ -2649,14 +3221,14 @@ cdef class Cell_ID_Memory:
 @cython.cdivision(True)
 @cython.profile(False)
 cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_pqr,
-                              DTYPE_F64_t[:,:] coord_min,
-                              DTYPE_F64_t dl,
-                              DTYPE_F64_t[:,:] shell_boundaries_xyz,
-                              DTYPE_F64_t[:,:] cell_center_xyz,
-                              GalaxyMap galaxy_map,
-                              Cell_ID_Memory cell_ID_mem,
-                              DTYPE_F64_t[:,:] reference_point_xyz
-                              ):
+                               DTYPE_F64_t[:] coord_min,
+                               DTYPE_F64_t dl,
+                               DTYPE_F64_t[:,:] shell_boundaries_xyz,
+                               DTYPE_F64_t[:,:] cell_center_xyz,
+                               SpatialMap galaxy_map,
+                               Cell_ID_Memory cell_ID_mem,
+                               DTYPE_F64_t[:] reference_point_xyz
+                               ) except *:
     """
     Only called once in _voidfinder_cython.main_algorithm()
     
@@ -2695,9 +3267,9 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_pqr,
     ############################################################################
     # Convert our query point from xyz to pqr space
     #---------------------------------------------------------------------------
-    reference_point_pqr[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
-    reference_point_pqr[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
-    reference_point_pqr[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
+    reference_point_pqr[0,0] = <CELL_ID_t>((reference_point_xyz[0] - coord_min[0])/dl)
+    reference_point_pqr[0,1] = <CELL_ID_t>((reference_point_xyz[1] - coord_min[1])/dl)
+    reference_point_pqr[0,2] = <CELL_ID_t>((reference_point_xyz[2] - coord_min[2])/dl)
     ############################################################################
 
 
@@ -2795,11 +3367,11 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_pqr,
                 
                 potential_neighbor_idx = <ITYPE_t>(galaxy_map.galaxy_map_array[offset + idx])
                 
-                potential_neighbor_xyz = galaxy_map.wall_galaxy_coords[potential_neighbor_idx]
+                potential_neighbor_xyz = galaxy_map.points_xyz[potential_neighbor_idx]
                 
-                temp1 = potential_neighbor_xyz[0] - reference_point_xyz[0,0]
-                temp2 = potential_neighbor_xyz[1] - reference_point_xyz[0,1]
-                temp3 = potential_neighbor_xyz[2] - reference_point_xyz[0,2]
+                temp1 = potential_neighbor_xyz[0] - reference_point_xyz[0]
+                temp2 = potential_neighbor_xyz[1] - reference_point_xyz[1]
+                temp3 = potential_neighbor_xyz[2] - reference_point_xyz[2]
                 
                 dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
                 
@@ -2842,14 +3414,16 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_pqr,
 @cython.cdivision(True)
 @cython.profile(False)
 cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
-                              DTYPE_F64_t[:,:] coord_min, 
+                              DTYPE_F64_t[:] coord_min, 
                               DTYPE_F64_t dl,
-                              GalaxyMap galaxy_map,
+                              SpatialMap galaxy_map,
                               Cell_ID_Memory cell_ID_mem,
                               NeighborMemory neighbor_mem,
-                              DTYPE_F64_t[:,:] reference_point_xyz, 
-                              DTYPE_F64_t search_radius_xyz
-                              ):
+                              DTYPE_F64_t[:] reference_point_xyz, 
+                              DTYPE_F64_t search_radius_xyz,
+                              ITYPE_t[:] exclude_array,
+                              ITYPE_t num_exclude,
+                              ) except *:
     """
     
     TODO: update names from ijk to pqr
@@ -2880,9 +3454,9 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
     ################################################################################
     # Convert from xyz space to pqr space
     ################################################################################
-    reference_point_ijk[0,0] = <CELL_ID_t>((reference_point_xyz[0,0] - coord_min[0,0])/dl)
-    reference_point_ijk[0,1] = <CELL_ID_t>((reference_point_xyz[0,1] - coord_min[0,1])/dl)
-    reference_point_ijk[0,2] = <CELL_ID_t>((reference_point_xyz[0,2] - coord_min[0,2])/dl)
+    reference_point_ijk[0,0] = <CELL_ID_t>((reference_point_xyz[0] - coord_min[0])/dl)
+    reference_point_ijk[0,1] = <CELL_ID_t>((reference_point_xyz[1] - coord_min[1])/dl)
+    reference_point_ijk[0,2] = <CELL_ID_t>((reference_point_xyz[2] - coord_min[2])/dl)
          
     ################################################################################
     # declare our working variables
@@ -2891,7 +3465,7 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
     
     cdef ITYPE_t cell_ID_idx
     
-    cdef ITYPE_t idx
+    cdef ITYPE_t idx, jdx
     
     cdef ITYPE_t curr_galaxy_idx
     
@@ -2915,21 +3489,23 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
     
     cdef DTYPE_F64_t[3] cell_ijk_in_xyz
     
+    cdef DTYPE_B_t found_existing
+    
     ################################################################################
     # Calculate the max shell needed to search
     # fill in implementation details here, using component-wise max for something
     ################################################################################
-    cell_ijk_in_xyz[0] = (<DTYPE_F64_t>reference_point_ijk[0,0] + 0.5)*dl + coord_min[0,0]
-    cell_ijk_in_xyz[1] = (<DTYPE_F64_t>reference_point_ijk[0,1] + 0.5)*dl + coord_min[0,1]
-    cell_ijk_in_xyz[2] = (<DTYPE_F64_t>reference_point_ijk[0,2] + 0.5)*dl + coord_min[0,2]
+    cell_ijk_in_xyz[0] = (<DTYPE_F64_t>reference_point_ijk[0,0] + 0.5)*dl + coord_min[0]
+    cell_ijk_in_xyz[1] = (<DTYPE_F64_t>reference_point_ijk[0,1] + 0.5)*dl + coord_min[1]
+    cell_ijk_in_xyz[2] = (<DTYPE_F64_t>reference_point_ijk[0,2] + 0.5)*dl + coord_min[2]
     
     
-    temp1 = fabs((cell_ijk_in_xyz[0] - reference_point_xyz[0,0])/dl)
+    temp1 = fabs((cell_ijk_in_xyz[0] - reference_point_xyz[0])/dl)
     temp4 = temp1
-    temp2 = fabs((cell_ijk_in_xyz[1] - reference_point_xyz[0,1])/dl)
+    temp2 = fabs((cell_ijk_in_xyz[1] - reference_point_xyz[1])/dl)
     if temp2 > temp4:
         temp4 = temp2
-    temp3 = fabs((cell_ijk_in_xyz[2] - reference_point_xyz[0,2])/dl)
+    temp3 = fabs((cell_ijk_in_xyz[2] - reference_point_xyz[2])/dl)
     if temp3 > temp4:
         temp4 = temp3
     
@@ -2965,11 +3541,20 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
             
             curr_galaxy_idx = <ITYPE_t>galaxy_map.galaxy_map_array[offset+idx]
             
-            galaxy_xyz = galaxy_map.wall_galaxy_coords[curr_galaxy_idx]
+            found_existing = 0
             
-            temp1 = galaxy_xyz[0] - reference_point_xyz[0,0]
-            temp2 = galaxy_xyz[1] - reference_point_xyz[0,1]
-            temp3 = galaxy_xyz[2] - reference_point_xyz[0,2]
+            for jdx in range(num_exclude):
+                if curr_galaxy_idx == exclude_array[jdx]:
+                    found_existing = 1
+                    break
+            if found_existing:
+                continue
+            
+            galaxy_xyz = galaxy_map.points_xyz[curr_galaxy_idx]
+            
+            temp1 = galaxy_xyz[0] - reference_point_xyz[0]
+            temp2 = galaxy_xyz[1] - reference_point_xyz[1]
+            temp3 = galaxy_xyz[2] - reference_point_xyz[2]
             
             dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
             
@@ -2991,11 +3576,11 @@ cdef void _query_shell_radius(CELL_ID_t[:,:] reference_point_ijk,
 @cython.profile(False)
 cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz, 
                                 DTYPE_F64_t[:,:] cell_center_xyz,
-                                DTYPE_F64_t[:,:] coord_min,
+                                DTYPE_F64_t[:] coord_min,
                                 DTYPE_F64_t dl,
                                 CELL_ID_t[:,:] center_ijk, 
                                 DTYPE_INT64_t level
-                                ):
+                                ) except *:
     """
     TODO: update names from ijk to pqr
     
@@ -3007,9 +3592,9 @@ cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz,
     a pair of maximal and minimal bounding points for comparison
     """
     
-    cell_center_xyz[0,0] = (<DTYPE_F64_t>center_ijk[0,0] + 0.5)*dl + coord_min[0,0]
-    cell_center_xyz[0,1] = (<DTYPE_F64_t>center_ijk[0,1] + 0.5)*dl + coord_min[0,1]
-    cell_center_xyz[0,2] = (<DTYPE_F64_t>center_ijk[0,2] + 0.5)*dl + coord_min[0,2]
+    cell_center_xyz[0,0] = (<DTYPE_F64_t>center_ijk[0,0] + 0.5)*dl + coord_min[0]
+    cell_center_xyz[0,1] = (<DTYPE_F64_t>center_ijk[0,1] + 0.5)*dl + coord_min[1]
+    cell_center_xyz[0,2] = (<DTYPE_F64_t>center_ijk[0,2] + 0.5)*dl + coord_min[2]
     
     cdef DTYPE_F64_t temp1 = 0.5*dl + <DTYPE_F64_t>level*dl
     
@@ -3031,7 +3616,7 @@ cdef void _gen_shell_boundaries(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 @cython.cdivision(True)
 @cython.profile(False)
 cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz, 
-                                     DTYPE_F64_t[:,:] reference_point_xyz
+                                     DTYPE_F64_t[:] reference_point_xyz
                                      ) except *:
     """
     Description
@@ -3044,25 +3629,25 @@ cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz,
     cdef DTYPE_F64_t running_min = INFINITY
     cdef DTYPE_F64_t temp
     
-    running_min = fabs(shell_boundaries_xyz[0,0] - reference_point_xyz[0,0])
+    running_min = fabs(shell_boundaries_xyz[0,0] - reference_point_xyz[0])
     
-    temp = fabs(shell_boundaries_xyz[0,1] - reference_point_xyz[0,1])
+    temp = fabs(shell_boundaries_xyz[0,1] - reference_point_xyz[1])
     if temp < running_min:
         running_min = temp
         
-    temp = fabs(shell_boundaries_xyz[0,2] - reference_point_xyz[0,2])
+    temp = fabs(shell_boundaries_xyz[0,2] - reference_point_xyz[2])
     if temp < running_min:
         running_min = temp
         
-    temp = fabs(shell_boundaries_xyz[1,0] - reference_point_xyz[0,0])
+    temp = fabs(shell_boundaries_xyz[1,0] - reference_point_xyz[0])
     if temp < running_min:
         running_min = temp
         
-    temp = fabs(shell_boundaries_xyz[1,1] - reference_point_xyz[0,1])
+    temp = fabs(shell_boundaries_xyz[1,1] - reference_point_xyz[1])
     if temp < running_min:
         running_min = temp
         
-    temp = fabs(shell_boundaries_xyz[1,2] - reference_point_xyz[0,2])
+    temp = fabs(shell_boundaries_xyz[1,2] - reference_point_xyz[2])
     if temp < running_min:
         running_min = temp
         
@@ -3081,8 +3666,8 @@ cdef DTYPE_F64_t _min_contain_radius(DTYPE_F64_t[:,:] shell_boundaries_xyz,
 cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk, 
                                                DTYPE_INT32_t level,
                                                Cell_ID_Memory cell_ID_mem,
-                                               GalaxyMap galaxy_map,
-                                               ):
+                                               SpatialMap galaxy_map,
+                                               ) except *:
     """
     TODO: update names from ijk to pqr
     
@@ -3369,8 +3954,8 @@ cdef (DTYPE_INT64_t, DTYPE_INT64_t) _gen_shell(CELL_ID_t[:,:] center_ijk,
 cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, 
                              DTYPE_INT32_t level,
                              Cell_ID_Memory cell_ID_mem,
-                             GalaxyMap galaxy_map
-                             ):
+                             SpatialMap galaxy_map
+                             ) except *:
     """
     Description
     ===========
@@ -3418,7 +4003,7 @@ cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk,
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value):
+cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value) except *:
     """
     Description
     ===========

@@ -343,7 +343,7 @@ def combine_holes_2(x_y_z_r_array,
                 # Check to see if any of these are outside the survey
                 for k in range(6):
 
-                    if mask_checker.not_in_mask(extreme_coords[:,k].reshape(1,3)):
+                    if mask_checker.not_in_mask(extreme_coords[:,k]):
 
                         # Hole center is within 10 Mpc/h of the survey edge
                         maximals_table["edge"][i] = 2

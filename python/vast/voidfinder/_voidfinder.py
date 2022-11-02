@@ -20,16 +20,17 @@ import cProfile
 
 import numpy as np
 
-from ._voidfinder_cython import main_algorithm, fill_ijk_zig_zag
+from ._voidfinder_cython import fill_ijk_zig_zag, grow_spheres
 #from ._voidfinder_cython import fill_ijk
                                 
 
-from ._voidfinder_cython_find_next import GalaxyMap, \
+from ._voidfinder_cython_find_next import SpatialMap, \
                                           Cell_ID_Memory, \
                                           GalaxyMapCustomDict, \
                                           HoleGridCustomDict, \
                                           NeighborMemory, \
-                                          MaskChecker
+                                          MaskChecker, \
+                                          SphereGrower
 
 from multiprocessing import Process, Value
 
@@ -739,13 +740,14 @@ def _hole_finder(galaxy_coords,
     
     
     
-    galaxy_map = GalaxyMap(RESOURCE_DIR,
-                           mask_mode,
-                           galaxy_coords[0], 
-                           coords_min, 
-                           galaxy_map_grid_edge_length,
-                           galaxy_search_cell_dict,
-                           galaxy_map_array)
+    galaxy_map = SpatialMap(RESOURCE_DIR,
+                            mask_mode,
+                            galaxy_coords[0],
+                            hole_grid_edge_length,
+                            coords_min[0,:], 
+                            galaxy_map_grid_edge_length,
+                            galaxy_search_cell_dict,
+                            galaxy_map_array)
     
     
     
@@ -2110,7 +2112,9 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     ############################################################################
 
 
-
+    #We need an instance of this class basically for memory efficiency, the call
+    # to grow_spheres uses this guy and its arrays to loop over sphere growing
+    sphere_grower = SphereGrower()
 
     ############################################################################
     # Build class to help process mask checks
@@ -2314,32 +2318,20 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                                       batch_size, 
                                                       i_j_k_array)
             
-            num_cells_to_process = num_write
-            
-            if num_cells_to_process > 0:
+            if num_write > 0:
                 
-                if return_array.shape[0] != num_cells_to_process:
+                if return_array.shape[0] != num_write:
     
-                    return_array = np.empty((num_cells_to_process, 4), 
-                                            dtype=np.float64)
+                    return_array = np.empty((num_write, 4), 
+                                             dtype=np.float64)
+                
                     
-                main_algorithm(i_j_k_array[0:num_write],
-                               galaxy_map,
-                               dl, 
-                               dr,
-                               coords_min,
-                               mask_checker,
-                               #mask,
-                               #mask_resolution,
-                               #min_dist,
-                               #max_dist,
-                               #hole_radial_mask_check_dist,
-                               return_array,
-                               cell_ID_mem,
-                               neighbor_mem,
-                               0,  #verbose level
-                               #PROFILE_array
-                               )
+                grow_spheres(i_j_k_array[0:num_write],
+                             num_write,
+                             return_array,
+                             galaxy_map,
+                             sphere_grower,
+                             mask_checker)
                 
                 num_cells_processed += num_write
                 
@@ -2462,6 +2454,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                 out_msg += struct.pack("b", 2) #1 byte - number of 8 byte fields
                 out_msg += struct.pack("=q", 0) #8 byte field - message type 0
                 out_msg += struct.pack("=q", num_write) #8 byte field - payload for num-write
+                
                 
                 try:
                     worker_socket.send(out_msg)

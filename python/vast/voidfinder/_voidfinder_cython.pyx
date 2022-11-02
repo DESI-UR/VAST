@@ -1,7 +1,6 @@
 #cython: language_level=3
 
 
-
 from __future__ import print_function
 
 cimport cython
@@ -11,7 +10,6 @@ import numpy as np
 cimport numpy as np
 
 np.import_array()  # required in order to use C-API
-
 
 from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_CP64_t, \
@@ -37,31 +35,16 @@ from ._voidfinder_cython_find_next cimport find_next_galaxy, \
                                            FindNextReturnVal, \
                                            NeighborMemory, \
                                            MaskChecker, \
-                                           GalaxyMap
+                                           SphereGrower, \
+                                           SpatialMap
                                           
 
 import time
 
-
 #Debugging
 from .viz import VoidRender
 
-#Create a typedef for the type of pointer which can point
-#to the mask check function
-#ctypedef DTYPE_B_t (*MASK_CHECK_FUNCTION_t)(DTYPE_F64_t[:,:], DTYPE_B_t[:,:], DTYPE_INT32_t, DTYPE_F64_t, DTYPE_F64_t)
 
-
-
-
-'''
-cdef DTYPE_B_t test_function_woo(DTYPE_F64_t[:,:] a, 
-                                 DTYPE_B_t[:,:] b, 
-                                 DTYPE_INT32_t c,  
-                                 DTYPE_F64_t d, 
-                                 DTYPE_F64_t e):
-
-    return <DTYPE_B_t>0
-'''
 
 
 @cython.boundscheck(False)
@@ -82,13 +65,14 @@ cpdef DTYPE_INT64_t fill_ijk_zig_zag(DTYPE_INT64_t[:,:] i_j_k_array,
     Given a starting index and a batch size, generate and fill in the (i,j,k) coordinates
     into the provided i_j_k_array.
     
-    This version of fill_ijk goes in zigzag/snake order in an attempt to preserve spatial locality of
-    the array data while processing.  That is to say, on a 3x3 grid, this functions goes:
+    This version of fill_ijk is preferred because it goes in zigzag/snake order in an 
+    attempt to preserve the spatial locality of the array data while processing.  That 
+    is to say, on a 3x3 grid, this functions goes:
     (0,0,0), (0,0,1), (0,0,2), (0,1,2), (0,1,1), (0,1,0), (0,2,0), ...
     whaeras a normal ordering would be:
     (0,0,0), (0,0,1), (0,0,2), (0,1,0), (0,1,1), (0,1,2), (0,2,0)
     so that the next cell grid returned is always adjacent to both its predecessor and
-    its antecedent
+    its antecedent.
     
     Also filter out cell IDs which we don't want to grow a hole in (since there are galaxies
     there) using the cell_ID_dict.
@@ -294,1501 +278,371 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-
-
-
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
 @cython.profile(False)
-cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
-                          GalaxyMap galaxy_map,
-                          DTYPE_F64_t dl, 
-                          DTYPE_F64_t dr,
-                          DTYPE_F64_t[:,:] coord_min, 
-                          MaskChecker mask_checker,
-                          DTYPE_F64_t[:,:] return_array,
-                          Cell_ID_Memory cell_ID_mem,
-                          NeighborMemory neighbor_mem,
-                          int verbose,
-                          ):
-    '''
-    Given a potential void cell center denoted by i,j,k, find the 4 bounding 
-    galaxies that maximize the interior dimensions of the hole sphere at this 
-    location.
-    
-    There are some really weird particulars to this algorithm that need to be 
-    laid out in better detail.
-
-    The code below will utilize the naming scheme galaxy A, B, C, and D to 
-    denote the 1st, 2nd, 3rd, and 4th "neighbor" bounding galaxies found during 
-    the running of this algorithm.  I tried to use 1/A, 2/B, 3/C and 4/D to be 
-    clear on the numbers and letters that are together.
-    
-    The distance metrics are somewhat special.  Galaxy A is found by normal 
-    minimzation of Euclidean distance between the cell center and itself and the 
-    other neighbors.  Galaxies B, C, and D are found by propogating a hole 
-    center in specific directions and minimizing the distance the center needs 
-    to move to be bounded by each set of galaxies.
-    
-    
-    Parameters:
+cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
+                        DTYPE_INT64_t batch_size,
+                        DTYPE_F64_t[:,:] return_array,
+                        SpatialMap galaxy_map,
+                        SphereGrower sphere_grower,
+                        MaskChecker mask_checker):
+    """
+    Description
     ===========
+    Given a set of locations in the cubic-grid ijk paradigm, attempt to grow
+    a sphere at each location and write the results to output memory.
     
-    i_j_k_array : memoryview of (N,3) numpy array
-        a batch of N cell IDs on which to run the VoidFinder hole-growing 
-        algorithm
-      
-    galaxy_map : _voidfinder_cython_find_next.GalaxyMap
-        An interface to searching, accessing, and retrieving the galaxies
-        in the survey efficiently.  Handles logic like regular vs. periodic
-        access, and memory mapping the arrays for the workers
+    
+    Parameters
+    ==========
+    
+    ijk_array : array of shape (N, 3)
+        ijk descriptors of grid cell locations in which to grow a sphere
         
-    dl : float
-        edge length in Mpc/h of the hole grid cell size
+    return_array : array of shape (N, 4)
+        memory in which to write results of either [NAN, NAN, NAN, NAN] for invalid
+        spheres or [x,y,z,radius] for valid spheres
         
-    dr : float
-        Step-size for moving the hole center used while searching for the next 
-        nearest galaxy. 
+    galaxy_map : _voidfinder_cython_find_next.SpatialMap
+        class which handles the operations on the point clouds 
+    
+    sphere_grower : _voidfinder_cython_find_next.SphereGrower
+        helper class which has methods to grow a single sphere by tracking
+        the center of that sphere, updating that center location, and calculating
+        the new unit vector to search along at each stage of the growing process
+    
+    mask_checker : _voidfinder_cython_find_next.MaskChecker
+        class which can be used to determine if a spatial location has left
+        the valid areas of space
+    
+    
+    Returns
+    =======
+    
+    Writes x,y,z,radius values into the return_array value.
+    Will write a value of NAN into the x-location of a row if that starting cell
+    resulted in an invalid sphere (aka leaving the valid mask area).
+    
+    """
+    
+    
+    #start_time = time.time()
+    
+    cdef ITYPE_t working_idx, idx
+    
+    cdef ITYPE_t k1g, k2g, k3g, k4g, k4g1, k4g2
+    
+    cdef DTYPE_F64_t min_x_2, min_x_3, min_x_4, minx41, minx42
+    
+    cdef DTYPE_B_t failed_2, failed_3, failed_4, failed_41, failed_42
+    
+    cdef FindNextReturnVal result
+    
+    cdef DTYPE_F64_t temp_f64_accum, temp_f64_val
+    
+    cdef DTYPE_B_t k4g1_is_valid, k4g2_is_valid
+    
+    
+    for working_idx in range(batch_size):
         
-    coord_min : memoryview to (1,3) numpy array
-        xyz-space coordinates of the (0,0,0) origin location of the hole grid 
-        and galaxy map grids 
-    
-    mask : memoryview into (?,?) numpy array
-        True when a location is inside the survey, False when a location is 
-        outside the survey
+        #print("Working index: ", working_idx, time.time() - start_time, flush=True)
         
-    mask_resolution : int
-        The length of the mask binning used to generate the survey mask, in 
-        units of degrees. 
+        ################################################################################
+        # Initial Setup
+        #-------------------------------------------------------------------------------
         
-    min_dist : float
-        Minimum distance of the galaxy distribution.
-        
-    max_dist : float
-        Maximum distance of the galaxy distribution.
-        
-    DEPRECATED hole_radial_mask_check_dist : float
-        fraction of hole radius at which to check the 6 directions +/- x,y,z to see
-        if too much of the hole is outside the mask, and if so, discard the hole
-        
-    return_array : memoryview into (N,4) numpy array
-        memory for results, each row is (x,y,z,r)
-        
-    cell_ID_mem : _voidfinder_cython_find_next.Cell_ID_Memory
-        object which coordinates access to cell ID grid locations when seaching 
-        for neighbor galaxies
-        
-    neighbor_mem : _voidfinder_cython_find_next.NeighborMemory
-        object which coordinates access to a handful of arrays which may need to 
-        be dynamically resized during nearest neighbor calculations
-        
-    verbose : int
-        values >= 1 indicate to make a lot more print statements
+        galaxy_map.ijk_to_xyz(ijk_array[working_idx, :], sphere_grower.sphere_center_xyz)
     
-
-    Returns:
-    ========
-    
-    NAN or (x,y,z,r) rows filled into the return_array parameter.
-    
-    '''
-    
-    
-    #cdef MASK_CHECK_FUNCTION_t mask_check_function = not_in_mask
-    
-    
-    ############################################################################
-    # re-used helper index variables
-    # re-used helper computation variables
-    #---------------------------------------------------------------------------
-    #DEBUG_OUTFILE = open("VF_DEBUG.txt", 'a')
-    
-    
-    cdef ITYPE_t working_idx
-    
-    cdef ITYPE_t idx
-    
-    cdef ITYPE_t jdx
-    
-    cdef ITYPE_t temp_idx
-    
-    
-    cdef DTYPE_F64_t temp_f64_accum
-    
-    cdef DTYPE_F64_t temp_f64_accum2
-    
-    cdef DTYPE_F64_t temp_f64_val
-    ############################################################################
-
-
-    
-    ############################################################################
-    # Hole center vector and propogate hole center memory.  We can re-use the 
-    # same memory for finding galaxies 2/B and 3/C but not for galaxy 4/D
-    #---------------------------------------------------------------------------
-    cdef DTYPE_F64_t[:,:] hole_center_memview = np.empty((1,3), 
-                                                         dtype=np.float64, 
-                                                         order='C')
-    
-    cdef DTYPE_F64_t[:,:] hole_center_2_3_memview = np.empty((1,3), 
-                                                             dtype=np.float64, 
-                                                             order='C')
-    
-    cdef DTYPE_F64_t[:,:] hole_center_41_memview = np.empty((1,3), 
-                                                            dtype=np.float64, 
-                                                            order='C')
-    
-    cdef DTYPE_F64_t[:,:] hole_center_42_memview = np.empty((1,3), 
-                                                            dtype=np.float64, 
-                                                            order='C')
-    ############################################################################
-
-
-    
-    ############################################################################
-    # The nearest_gal_index_list variable stores 2 things - the sentinel value 
-    # -1 meaning 'no value here' or the index of the found galaxies A,B,C (but 
-    # not D since it is the last one)
-    #---------------------------------------------------------------------------
-    cdef DTYPE_INT64_t[:] nearest_gal_index_list = np.empty(3, 
-                                                            dtype=np.int64, 
-                                                            order='C')
-    ############################################################################
-    
-
-
-    ############################################################################
-    # vector_modulus is re-used each time the new unit vector is calculated
-    # unit_vector_memview is re-used each time the new unit vector is calculated
-    # v3_memview is used in calculating the cross product for galaxy 4/D
-    # hole_radius is used in some hole update calculations
-    #---------------------------------------------------------------------------
-    cdef DTYPE_F64_t vector_modulus
-    
-    cdef DTYPE_F64_t[:] unit_vector_memview = np.empty(3, 
-                                                       dtype=np.float64, 
-                                                       order='C')
-    
-    cdef DTYPE_F64_t[:] v3_memview = np.empty(3, dtype=np.float64, order='C')
-
-    cdef DTYPE_F64_t[:] hole_center_to_3plane_memview = np.empty(3, 
-                                                                 dtype=np.float64, 
-                                                                 order='C')
-    
-    cdef DTYPE_F64_t hole_radius
-
-    cdef DTYPE_B_t zero_unit_vector
-
-    cdef DTYPE_B_t check_both_4 = False
-    ############################################################################
-    
-    
-    
-    ############################################################################
-    # Variables for the 4 galaxy searches whether the hole center is in the mask
-    #---------------------------------------------------------------------------
-    cdef DTYPE_B_t in_mask_2
-    
-    cdef DTYPE_B_t in_mask_3
-    
-    cdef DTYPE_B_t in_mask_41
-    
-    cdef DTYPE_B_t in_mask_42
-    
-    cdef DTYPE_B_t discard_mask_overlap
-    ############################################################################
-    
-
-    
-    ############################################################################
-    # variables for the 4 bounding galaxies (gal 4/D gets 3 variables because it 
-    # uses 2 searches and then picks one of the two based on some criteria)
-    #---------------------------------------------------------------------------
-    cdef ITYPE_t k1g
-    
-    cdef ITYPE_t k2g
-    
-    cdef ITYPE_t k3g
-    
-    cdef ITYPE_t k4g1
-    
-    cdef ITYPE_t k4g2
-    
-    cdef ITYPE_t k4g
-    ############################################################################
-
-
-    
-    ############################################################################
-    # minx3 is used in updating a hole center and minx41-42 are used in 
-    # comparing to find galaxy 4/D
-    #---------------------------------------------------------------------------
-    cdef DTYPE_F64_t minx3
-    
-    cdef DTYPE_F64_t minx41
-    
-    cdef DTYPE_F64_t minx42
-    ############################################################################
-
-
-    
-    ############################################################################
-    # These are used in calcuating the unit vector for galaxy 4/D
-    #---------------------------------------------------------------------------
-    cdef DTYPE_F64_t[:] midpoint_memview = np.empty(3, 
-                                                    dtype=np.float64, 
-                                                    order='C')
-    
-    #cdef DTYPE_F64_t[:] Acenter_memview = np.empty(3, dtype=np.float64, order='C')
-    
-    cdef DTYPE_F64_t[:] AB_memview = np.empty(3, dtype=np.float64, order='C')
-    
-    cdef DTYPE_F64_t[:] BC_memview = np.empty(3, dtype=np.float64, order='C')
-    ############################################################################
-
-    
-    
-    ############################################################################
-    # Computation memory to pass into find_next_galaxy()
-    #
-    # NOTE: This memory is currently unused because I need to figure out how to 
-    #       reallocate it if it is not big enough without leaking memory and 
-    #       causing a segfault
-    #---------------------------------------------------------------------------
-    cdef DTYPE_F64_t[:] Bcenter_memview = np.empty(3, 
-                                                   dtype=np.float64, 
-                                                   order='C')
-    ############################################################################
-    
-    
-
-    ############################################################################
-    #---------------------------------------------------------------------------
-    cdef DistIdxPair query_vals
-    
-    cdef ITYPE_t num_cells = i_j_k_array.shape[0]
-    
-    cdef FindNextReturnVal find_next_retval
-    ############################################################################
-
-
-    
-    
-    ############################################################################
-    # Main Loop - grow a hole in each of the N hole grid cell locations
-    #---------------------------------------------------------------------------
-    for working_idx in range(num_cells):
-        
-        
-        ########################################################################
-        # Re-init nearest gal index list on new cell
-        #-----------------------------------------------------------------------
-        for idx in range(3):
-        
-            nearest_gal_index_list[idx] = -1
-        ########################################################################
-    
-
-        
-        ########################################################################
-        # Initialize the starting hole center based on the given i,j,k and grid 
-        # spacing parameters, and then check to make sure it is in the survey
-        #-----------------------------------------------------------------------
-        hole_center_memview[0,0] = i_j_k_array[working_idx, 0]
-        
-        hole_center_memview[0,1] = i_j_k_array[working_idx, 1]
-        
-        hole_center_memview[0,2] = i_j_k_array[working_idx, 2]
-        
-        #print("Working ijk: "+str(i_j_k_array[working_idx, 0])+","+str(i_j_k_array[working_idx, 1])+","+str(i_j_k_array[working_idx, 2]), flush=True)
-    
-        #print('dl:', dl, flush=True)
-        #print('coord_min:', np.array(coord_min), flush=True)
-
-        for idx in range(3):
-            
-            hole_center_memview[0,idx] = (hole_center_memview[0,idx] + 0.5)*dl + coord_min[0,idx]
-            
-            
-        #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
-        #if mask_check_function(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
-        if mask_checker.not_in_mask(hole_center_memview):
-            
-            '''
-            out_str = ""
-            out_str += str(i_j_k_array[working_idx, 0])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 1])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 2])
-            out_str += " "
-            out_str += "nim1"
-            out_str += "\n"
-            DEBUG_OUTFILE.write(out_str)
-            '''
+        if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
             return_array[working_idx, 0] = NAN
             
-            return_array[working_idx, 1] = NAN
-            
-            return_array[working_idx, 2] = NAN
-            
-            return_array[working_idx, 3] = NAN
-            
             continue
-        ########################################################################
-
-        '''
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([6,1,5])):
-            print('-----------------------------------------------------------')
-            
-            print('galaxy_map reference_point_ijk:', np.array(galaxy_map.reference_point_ijk))
-            print('galaxy_map coord_min:', np.array(galaxy_map.coord_min))
-            print('galaxy_map dl:', galaxy_map.dl)
-            print('galaxy_map shell_boundaries_xyz:', np.array(galaxy_map.shell_boundaries_xyz))
-            print('galaxy_map cell_center_xyz:', np.array(galaxy_map.cell_center_xyz))
-            #print('cell_ID_mem:', cell_ID_mem)
-            print('hole_center_memview:', np.array(hole_center_memview))
-
-            exit()
-        '''
         
-        ########################################################################
-        # Find Galaxy 1/A - super easy using _query_first
-        #-----------------------------------------------------------------------
-        query_vals = _query_first(galaxy_map.reference_point_ijk,
-                                  galaxy_map.coord_min,
-                                  galaxy_map.dl,
-                                  galaxy_map.shell_boundaries_xyz,
-                                  galaxy_map.cell_center_xyz,
-                                  galaxy_map,
-                                  cell_ID_mem,
-                                  hole_center_memview)
-        '''
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([6,1,5])):
-            exit()
-        '''
-        k1g = query_vals.idx
-        
-        vector_modulus = query_vals.dist
-        ########################################################################
-
-
-
-        
-        ########################################################################
-        # Start Galaxy 2/B
+        ################################################################################
+        # Find first bounding point (k1g) and setup to find second
         #
-        # unit_vector_memview - unit vector hole propagation direction.  It 
-        #     actually points TOWARDS the k1g galaxy right now since we are 
-        #     doing k1g - hole_center in the calculation below
+        # Finding k1g is easy and unique - we literally just do a k=1 neighbor search
+        # on the starting hole center.  After we find k1g, we don't need to update
+        # the hole center because it doesn't move based on the new neighbor, and since
+        # the hole center didn't move, we don't need to check the mask again since we
+        # already did that above.
+        #-------------------------------------------------------------------------------
+        k1g = galaxy_map.find_first_neighbor(sphere_grower.sphere_center_xyz)
+
+        # This function accounts for the Zero Vector/point on top of each other case
+        sphere_grower.calculate_search_unit_vector_after_k1g(galaxy_map.points_xyz[k1g])
+        
+        sphere_grower.existing_bounding_idxs[0] = k1g
+        
+        ################################################################################
+        # Find second bounding point (k2g) and setup to find 3rd
         #
-        # modv1 - l2 norm modulus of v1_unit
-        #-----------------------------------------------------------------------
-        for idx in range(3):
-            
-            unit_vector_memview[idx] = (galaxy_map.wall_galaxy_coords[k1g,idx] - hole_center_memview[0,idx])/vector_modulus
-            
-        hole_radius = vector_modulus
-        
-
-
-
-
-        """
-        ########################################################################
-        # Start Debugging Section
-        ########################################################################
-        '''
-        ind, dist = galaxy_map.kdtree.query_radius(return_array[working_idx:working_idx+1, 0:3],
-                                                   hole_radius,
-                                                   count_only=False, 
-                                                   return_distance=True)
-
-        display_hole = False
-        for curr_dist in dist[0]:
-            if curr_dist < .99*hole_radius:
-                display_hole = True
-                break
-
-        if display_hole:
-        '''
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-
-            ind, dist = galaxy_map.kdtree.query_radius(hole_center_memview[0:1, 0:3],
-                                                   hole_radius,
-                                                   count_only=False, 
-                                                   return_distance=True)
-
-
-            print("Found hole, any galaxies inside?: ", ind)
-
-            print(hole_radius, dist)
-
-            viz = VoidRender(np.array(hole_center_memview[0:1, 0:3]),
-                             np.array([hole_radius]),
-                             np.array([0]),
-                             wall_galaxy_xyz=galaxy_map.wall_galaxy_coords,
-                             wall_distance=None,
-                             galaxy_display_radius=15.0,
-                             filter_for_degenerate=False)
-            viz.run()
-        
-        ########################################################################
-        # End Debugging Section
-        ########################################################################
-        """
-
-
-
-
-
-        #-----------------------------------------------------------------------
-        # Make a copy of the hole center for propagation during the galaxy 
-        # finding and set the nearest_gal_index_list first neighbor index since 
-        # we have a neighbor now
+        # Since find_next_bounding_point steps the hole center in steps 
+        # of dl, the final step could result in a hole which actually has
+        # a valid center within the mask based on the value of minx2, but
+        # will fail the final mask check because we overstepped due to 
+        # the jumps of size dl, so we need find_next_bounding_point to
+        # check the real result at the final stage, and if it does, then 
+        # the 2nd check below on the real updated hole center below will
+        # become unnecessary since find_next_bounding_point has already
+        # checked it.
         #
-        # Also fill in neighbor 1/A into the existing neighbor idx list
-        #-----------------------------------------------------------------------
-        for idx in range(3):
-            
-            hole_center_2_3_memview[0,idx] = hole_center_memview[0,idx]
-
-        nearest_gal_index_list[0] = k1g
-        #-----------------------------------------------------------------------
-
-
-    
-        #-----------------------------------------------------------------------
-        # Find galaxy 2/B
+        # Sike - find_next now only checks the mask when it HASNT found
+        # a valid result at all as a way to not grow to infinity, so we 
+        # need to both check that the result was valid and then update
+        # the hole center and check that location as well
         #
-        # Set the nearest neighbor 1 index in the list and init the in_mask to 1
-        # Using direction_mod = -1.0 since the unit_vector points TOWARDS k1g
-        # as per the above calculation
-        #-----------------------------------------------------------------------
-        """
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-            
-            print("nearest_gal_index_list before Galaxy #2 search:", 
-                  np.array(nearest_gal_index_list))
-        """
-        find_next_retval = find_next_galaxy(hole_center_memview,
-                                            hole_center_2_3_memview, 
-                                            hole_radius, 
-                                            dr, 
-                                            -1.0,
-                                            unit_vector_memview, 
-                                            galaxy_map, 
-                                            nearest_gal_index_list, 
-                                            1,
-                                            #galaxy_map.wall_galaxy_coords, 
-                                            mask_checker,
-                                            #mask, 
-                                            #mask_resolution,
-                                            #min_dist, 
-                                            #max_dist,
-                                            Bcenter_memview,
-                                            cell_ID_mem,
-                                            neighbor_mem)
-    
-        k2g = find_next_retval.nearest_neighbor_index
+        # This check is still necessary with the new iterative version of
+        # find_next_bounding_point to communicate that it failed by way of
+        # leaving the mask
+        #-------------------------------------------------------------------------------
+        result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+                                                     sphere_grower.search_unit_vector,
+                                                     sphere_grower.existing_bounding_idxs,
+                                                     1,
+                                                     mask_checker)
         
-        in_mask_2 = find_next_retval.in_mask
+        k2g = result.nearest_neighbor_index
+        min_x_2 = result.min_x_val
+        failed_2 = result.failed
         
-        if not in_mask_2:
-            
-            '''
-            out_str = ""
-            out_str += str(i_j_k_array[working_idx, 0])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 1])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 2])
-            out_str += " "
-            out_str += "nim2"
-            out_str += "\n"
-            DEBUG_OUTFILE.write(out_str)
-            '''
-            
-        
-            return_array[working_idx, 0] = NAN
-            
-            return_array[working_idx, 1] = NAN
-            
-            return_array[working_idx, 2] = NAN
-            
-            return_array[working_idx, 3] = NAN
-            
-            continue
-        #-----------------------------------------------------------------------
-
-
-        #-----------------------------------------------------------------------
-        # When we found Galaxy 2/B, we only found the next closest neighbor as 
-        # we iterated away from Galaxy 1/A.  Since we iterated by jumps of dr, 
-        # we may not have found the exact center of the sphere formed by the 
-        # points k1g, k2g, and the unit vector.  So reinitialize the hole center 
-        # by calculating the exact position of the center of the sphere, and 
-        # then check that that location is still within the mask.
-        #
-        # Since we know k1g and k2g are both distance R from the center of this 
-        # circle, we can use the triangle formed by k1g, k2g and the center C of 
-        # the circle, to first determine the value of R.  Then, we know the hole 
-        # center C is going to be along the unit_vector direction a distance of 
-        # R plus the k1g location (it is actually going to be 
-        # k1g - R*unit_vector below because unit_vector is pointing in the 
-        # opposite direction than we want).
-        #
-        # The triangle formed by k1g, k2g and C has sides, R, R, and |k1g-k2g|.  
-        # If we allow the side of length R formed by k1g and C to be divided 
-        # into 2 parts, we end up with 2 triangles:  (k1g, k2g, x) and (C,k2g,x) 
-        # who share the edge (k2g, x) which is perpendicular to the line 
-        # (k1g, C).  In triangle 1, call the line (k1g,x) to have length b, and 
-        # b = the projection of k1g-k2g in the unit vector direction, or 
-        # b = dot((k1g-k2g), unit_vector)
-        #
-        #          k2g
-        #          /|-__
-        # k1g-k2g / |   -__R
-        #        /  |      -__
-        #       /___|_________-_ C
-        #   k1g   b
-        #             R
-        # By pythagorean theorem:  |k1g-k2g|^2 - b^2 = R^2 - (R-b)^2
-        # We get:
-        # 
-        #     R = (|k1g-k2g|^2)/(2b) = (|k1g-k2g|^2)/(2(k1g-k2g).u)
-        #
-        # temp_f64_accum calculates |k1g-k2g|^2
-        # temp_f64_accum2 calculates dot((k1g-k2g), unit_vector)
-        #-----------------------------------------------------------------------
-        temp_f64_accum = 0.0
-        
-        temp_f64_accum2 = 0.0
-        
-        for idx in range(3):
-        
-            temp_f64_val = galaxy_map.wall_galaxy_coords[k1g,idx] - galaxy_map.wall_galaxy_coords[k2g, idx]
-            
-            temp_f64_accum += temp_f64_val*temp_f64_val
-            
-            temp_f64_accum2 += temp_f64_val*unit_vector_memview[idx]
-        
-        hole_radius = 0.5*temp_f64_accum/temp_f64_accum2
-    
-        
-        for idx in range(3):
-            
-            hole_center_memview[0,idx] = galaxy_map.wall_galaxy_coords[k1g,idx] - hole_radius*unit_vector_memview[idx]
-        
-        
-        #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
-        #if mask_check_function(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
-        if mask_checker.not_in_mask(hole_center_memview):
-            
-            '''
-            out_str = ""
-            out_str += str(i_j_k_array[working_idx, 0])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 1])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 2])
-            out_str += " "
-            out_str += "nim3"
-            out_str += "\n"
-            DEBUG_OUTFILE.write(out_str)
-            '''
-            
-            
+        if failed_2:
             
             return_array[working_idx, 0] = NAN
             
-            return_array[working_idx, 1] = NAN
-            
-            return_array[working_idx, 2] = NAN
-            
-            return_array[working_idx, 3] = NAN
-            
             continue
-        #-----------------------------------------------------------------------
-        ########################################################################
-
-
-        """
-        ########################################################################
-        # Start Debugging Section For Bounding Galaxy 2
-        ########################################################################
-        '''
-        ind, dist = galaxy_map.kdtree.query_radius(return_array[working_idx:working_idx+1, 0:3],
-                                                   hole_radius,
-                                                   count_only=False, 
-                                                   return_distance=True)
-
-        display_hole = False
-        for curr_dist in dist[0]:
-            if curr_dist < .99*hole_radius:
-                display_hole = True
-                break
-
-        if display_hole:
-        '''
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-            print("Galaxy #2:", k2g, np.array(galaxy_map.wall_galaxy_coords[k2g]))
-
-            ind, dist = galaxy_map.kdtree.query_radius(hole_center_memview[0:1, 0:3],
-                                                   hole_radius,
-                                                   count_only=False, 
-                                                   return_distance=True)
-
-
-            print("Found hole, any galaxies inside?:", ind)
-
-            print(hole_radius, dist)
-
-            viz = VoidRender(np.array(hole_center_memview[0:1, 0:3]),
-                             np.array([hole_radius]),
-                             np.array([0]),
-                             wall_galaxy_xyz=galaxy_map.wall_galaxy_coords,
-                             wall_distance=None,
-                             galaxy_display_radius=15.0,
-                             filter_for_degenerate=False)
-            viz.run()
         
-        ########################################################################
-        # End Debugging Section
-        ########################################################################
-        """
-
-
-        ########################################################################
-        # Start Galaxy 3/C
-        #
-        # Define the new unit vector along which to move the hole center.
-        #
-        # Use the line which runs through the midpoint of k1g and k2g, and the
-        # center of the new circle we defined to define the new unit vector
-        # direction.
-        #
-        # This time, the unit vector is pointing AWAY from the existing 
-        # neighbors.
-        #-----------------------------------------------------------------------
-        for idx in range(3):
+        sphere_grower.update_hole_center(min_x_2)
+        
+        if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
-            midpoint_memview[idx] = 0.5*(galaxy_map.wall_galaxy_coords[k1g,idx] + galaxy_map.wall_galaxy_coords[k2g,idx])
-        
-        
-        temp_f64_accum = 0.0
-        
-        for idx in range(3):
-            
-            temp_f64_val = hole_center_memview[0,idx] - midpoint_memview[idx]
-            
-            temp_f64_accum += temp_f64_val*temp_f64_val
-        
-        vector_modulus = sqrt(temp_f64_accum)
-        
-        
-        for idx in range(3):
-        
-            unit_vector_memview[idx] = (hole_center_memview[0,idx] - midpoint_memview[idx])/vector_modulus
-        
-
-        #-----------------------------------------------------------------------
-        # Check the unit vector to make sure that k1g, k2g, and the new hole 
-        # center are not colinear.  If they are (very unlikely), then we need to 
-        # move the hole center in a number of different directions to find 
-        # Galaxy 3/C.
-        #-----------------------------------------------------------------------
-        zero_unit_vector = False
-
-        if vector_modulus == 0.:
-
-            zero_unit_vector = True
-
-        # No idea how to change the unit vector to make this search work, so for 
-        # now, just print out when this unit vector is zero
-        if zero_unit_vector:
-
-            print("Unit vector for hole propagation is null for Galaxy #3 search.", 
-                  flush=True)
-            
-            #If k1g, k2g and the hole center are co-linear, then choose any arbitrary 
-            #vector in the plane perpendicular to the colinear direction.  For now we 
-            #choose this arbitrary vector using the simple formula for the 3d vector dot
-            #product:  a*b + b*(-a) + c*0 = 0  where v1 = (a,b,c) and
-            #v2 = (b, -a, 0)
-            
-            unit_vector_memview[0] = galaxy_map.wall_galaxy_coords[k1g,1] - galaxy_map.wall_galaxy_coords[k1g,1] #put b in a spot
-            unit_vector_memview[1] = -1.0*(galaxy_map.wall_galaxy_coords[k1g,0] - galaxy_map.wall_galaxy_coords[k2g,0])
-            unit_vector_memview[2] = 0.0
-            
-            
-        #-----------------------------------------------------------------------
-
-
-        
-        #-----------------------------------------------------------------------
-        # Copy the center of the circle formed by k1g and k2g that we found just 
-        # a bit ago into the other memory, this will be our starting location 
-        # for finding galaxy 3/C
-        #-----------------------------------------------------------------------
-        for idx in range(3):
-            
-            hole_center_2_3_memview[0,idx] = hole_center_memview[0,idx]
-        #-----------------------------------------------------------------------
-        
-    
-        #-----------------------------------------------------------------------
-        # Find galaxy 3/C
-        #-----------------------------------------------------------------------
-        # Set neighbor 2 in the list
-        nearest_gal_index_list[1] = k2g
-        """
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-            print("nearest_gal_index_list before Galaxy #3 search:", 
-                  np.array(nearest_gal_index_list))
-        """
-        find_next_retval = find_next_galaxy(hole_center_memview,
-                                            hole_center_2_3_memview, 
-                                            hole_radius, 
-                                            dr, 
-                                            1.0,
-                                            unit_vector_memview, 
-                                            galaxy_map, 
-                                            nearest_gal_index_list, 
-                                            2,
-                                            #galaxy_map.wall_galaxy_coords, 
-                                            mask_checker,
-                                            #mask, 
-                                            #mask_resolution, 
-                                            #min_dist, 
-                                            #max_dist,
-                                            Bcenter_memview,
-                                            cell_ID_mem,
-                                            neighbor_mem)
-    
-        k3g = find_next_retval.nearest_neighbor_index
-        
-        minx3 = find_next_retval.min_x_ratio
-        
-        in_mask_3 = find_next_retval.in_mask
-        
-        if not in_mask_3:
-            
-            
-            '''
-            out_str = ""
-            out_str += str(i_j_k_array[working_idx, 0])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 1])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 2])
-            out_str += " "
-            out_str += "nim4"
-            out_str += "\n"
-            DEBUG_OUTFILE.write(out_str)
-            '''
-            
-        
             return_array[working_idx, 0] = NAN
             
-            return_array[working_idx, 1] = NAN
-            
-            return_array[working_idx, 2] = NAN
-            
-            return_array[working_idx, 3] = NAN
-            
             continue
-        #-----------------------------------------------------------------------
+        
+        # This function accounts for the Co-linear case
+        sphere_grower.calculate_search_unit_vector_after_k2g(galaxy_map.points_xyz[k1g],
+                                                             galaxy_map.points_xyz[k2g])
+
+        sphere_grower.existing_bounding_idxs[1] = k2g
 
 
-
-        #-----------------------------------------------------------------------
-        # Update hole center
-        # 
-        # Update hole radius
-        # 
-        # Check to make sure that the updated hole center is still inside the 
-        # survey
-        #-----------------------------------------------------------------------
-        for idx in range(3):
+        ################################################################################
+        # Find third bounding point (k3g) and setup to find 4th
+        #-------------------------------------------------------------------------------
         
-            hole_center_memview[0,idx] += minx3*unit_vector_memview[idx]
-    
-    
-        temp_f64_accum = 0.0
-    
-        for idx in range(3):
-    
-            temp_f64_val = hole_center_memview[0,idx] - galaxy_map.wall_galaxy_coords[k1g,idx]
-    
-            temp_f64_accum += temp_f64_val*temp_f64_val
-    
-        hole_radius = sqrt(temp_f64_accum)
+        result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+                                                     sphere_grower.search_unit_vector,
+                                                     sphere_grower.existing_bounding_idxs,
+                                                     2,
+                                                     mask_checker)
         
-    
-        #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
-        if mask_checker.not_in_mask(hole_center_memview):
+        k3g = result.nearest_neighbor_index
+        min_x_3 = result.min_x_val
+        failed_3 = result.failed
         
-            '''
-            out_str = ""
-            out_str += str(i_j_k_array[working_idx, 0])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 1])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 2])
-            out_str += " "
-            out_str += "nim5"
-            out_str += "\n"
-            DEBUG_OUTFILE.write(out_str)
-            '''
-        
+        if failed_3:
+            
             return_array[working_idx, 0] = NAN
             
-            return_array[working_idx, 1] = NAN
+            continue
+        
+        sphere_grower.update_hole_center(min_x_3)
+        
+        
+        if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
-            return_array[working_idx, 2] = NAN
-            
-            return_array[working_idx, 3] = NAN
+            return_array[working_idx, 0] = NAN
             
             continue
-        #-----------------------------------------------------------------------
-        ########################################################################
-
-
-        """
-        ########################################################################
-        # Start Debugging Section for Bounding Galaxy 3
-        ########################################################################
-        '''
-        ind, dist = galaxy_map.kdtree.query_radius(return_array[working_idx:working_idx+1, 0:3],
-                                                   hole_radius,
-                                                   count_only=False, 
-                                                   return_distance=True)
-
-        display_hole = False
-        for curr_dist in dist[0]:
-            if curr_dist < .99*hole_radius:
-                display_hole = True
-                break
-
-        if display_hole:
-        '''
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-            print("Galaxy #3:", k3g, np.array(galaxy_map.wall_galaxy_coords[k3g]))
-
-            ind, dist = galaxy_map.kdtree.query_radius(hole_center_memview[0:1, 0:3],
-                                                   hole_radius,
-                                                   count_only=False, 
-                                                   return_distance=True)
-
-
-            print("Found hole, any galaxies inside?:", ind)
-
-            print(hole_radius, dist)
-
-            viz = VoidRender(np.array(hole_center_memview[0:1, 0:3]),
-                             np.array([hole_radius]),
-                             np.array([0]),
-                             wall_galaxy_xyz=galaxy_map.wall_galaxy_coords,
-                             wall_distance=None,
-                             galaxy_display_radius=15.0,
-                             filter_for_degenerate=False)
-            viz.run()
         
-        ########################################################################
-        # End Debugging Section
-        ########################################################################
-        """
-
-
-
-
-        ########################################################################
-        # Start Galaxy 4/D-1 
-        # (galaxy 4/D takes 2 attempts only in the very rare case that the 3
-        # bounding galaxies k1g k2g and k3g are co-planar with the hole center)
-        #
-        # 
-        #-----------------------------------------------------------------------
-        # The vector along which to move the hole center is defined by the cross 
-        # product of the vectors pointing between the three nearest galaxies.
-        #
-        # Calculate the cross product of the difference vectors, calculate the 
-        # modulus of that vector and normalize to a unit vector.
-        #-----------------------------------------------------------------------
-        for idx in range(3):
-    
-            AB_memview[idx] = galaxy_map.wall_galaxy_coords[k1g, idx] - galaxy_map.wall_galaxy_coords[k2g, idx]
-    
-            BC_memview[idx] = galaxy_map.wall_galaxy_coords[k3g, idx] - galaxy_map.wall_galaxy_coords[k2g, idx]
-    
-    
-        v3_memview[0] = AB_memview[1]*BC_memview[2] - AB_memview[2]*BC_memview[1]
-    
-        v3_memview[1] = AB_memview[2]*BC_memview[0] - AB_memview[0]*BC_memview[2]
-    
-        v3_memview[2] = AB_memview[0]*BC_memview[1] - AB_memview[1]*BC_memview[0]
-    
-    
-        temp_f64_accum = 0.0
-    
-        for idx in range(3):
-    
-            temp_f64_accum += v3_memview[idx]*v3_memview[idx]
-    
-        vector_modulus = sqrt(temp_f64_accum)
-    
-    
-        for idx in range(3):
-    
-            unit_vector_memview[idx] = v3_memview[idx]/vector_modulus
-        #-----------------------------------------------------------------------
-
-
-        #-----------------------------------------------------------------------
-        # Determine which side of the plane formed by galaxies 1/A, 2/B, and 3/C 
-        # the new hole center is on.  If it is coplanar, then we need to check 
-        # both directions from the plane (as originally done).  If not, then we 
-        # only need to move the center in the direction away from the plane.
-        #-----------------------------------------------------------------------
-        for idx in range(3):
-
-            hole_center_to_3plane_memview[idx] = hole_center_memview[0, idx] - galaxy_map.wall_galaxy_coords[k1g, idx]
-
-
-        temp_f64_accum = 0.0
-
-        for idx in range(3):
-
-            temp_f64_accum += hole_center_to_3plane_memview[idx]*unit_vector_memview[idx]
-
-
-        # Flip the unit vector if it is pointing away from the hole center
-        if temp_f64_accum < 0.:
-
-            for idx in range(3):
-
-                unit_vector_memview[idx] *= -1.0
-
-        # Search both sides if the center point is on the plane
-        elif temp_f64_accum == 0.:
-
-            check_both_4 = True
-        #-----------------------------------------------------------------------
-
-    
-        #-----------------------------------------------------------------------
-        # Calculate vector pointing from the hole center to the neighbor 1/A
-        # Calculate vector pointing from the hole center to the neighbor 2/B
-        # Update new hole center for propagation
-        #-----------------------------------------------------------------------
-        for idx in range(3):
-    
-            hole_center_41_memview[0, idx] = hole_center_memview[0, idx]
-        #-----------------------------------------------------------------------
+        # This function accounts for the Co-Planar case
+        is_coplanar = sphere_grower.calculate_search_unit_vector_after_k3g(galaxy_map.points_xyz[k1g],
+                                                                           galaxy_map.points_xyz[k2g],
+                                                                           galaxy_map.points_xyz[k3g])
+        
+        sphere_grower.existing_bounding_idxs[2] = k3g
+        
+        
+        ################################################################################
+        # Find 4th and final bounding point
+        #-------------------------------------------------------------------------------
+        if is_coplanar:
             
-    
-        #-----------------------------------------------------------------------
-        # Find galaxy 4/D-1
-        #
-        # update the exiting neighbors 1/A, 2/B and 3/C in the 
-        # nearest_gal_index_list
-        #-----------------------------------------------------------------------
-        #nearest_gal_index_list[0] = k1g
-        
-        #nearest_gal_index_list[1] = k2g
-        
-        nearest_gal_index_list[2] = k3g
-        """
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-            print("nearest_gal_index_list before Galaxy #4a search:", 
-                  np.array(nearest_gal_index_list))
-        """
-        find_next_retval = find_next_galaxy(hole_center_memview,
-                                            hole_center_41_memview, 
-                                            hole_radius, 
-                                            dr, 
-                                            1.0,
-                                            unit_vector_memview, 
-                                            galaxy_map, 
-                                            nearest_gal_index_list, 
-                                            3,
-                                            #galaxy_map.wall_galaxy_coords, 
-                                            mask_checker,
-                                            #mask, 
-                                            #mask_resolution,
-                                            #min_dist, 
-                                            #max_dist,
-                                            Bcenter_memview,
-                                            cell_ID_mem,
-                                            neighbor_mem)
-    
-        k4g1 = find_next_retval.nearest_neighbor_index
-        
-        minx41 = find_next_retval.min_x_ratio
-        
-        in_mask_41 = find_next_retval.in_mask
-        """
-        if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-            if in_mask_41:
-                print("Galaxy #4a:", k4g1, np.array(galaxy_map.wall_galaxy_coords[k4g1]))
+            k4g1_is_valid = True
+            k4g2_is_valid = True
+            
+            
+            ################################################################################
+            # Start on the side we calculated with the search unit vector
+            #-------------------------------------------------------------------------------
+            
+            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+                                                         sphere_grower.search_unit_vector,
+                                                         sphere_grower.existing_bounding_idxs,
+                                                         3,
+                                                         mask_checker)
+            
+            k4g1 = result.nearest_neighbor_index
+            minx41 = result.min_x_val
+            failed_41 = result.failed
+            
+            if failed_41:
+                k4g1_is_valid = False
             else:
-                print("No galaxy #4a found.")
-        """
-        # Calculate potential new hole center
-        if in_mask_41:
-    
-            for idx in range(3):
-    
-                hole_center_41_memview[0, idx] = hole_center_memview[0, idx] + minx41*unit_vector_memview[idx]
-        #-----------------------------------------------------------------------
-        ########################################################################
-
-
-
-        ########################################################################
-        # Start galaxy 4/D-2
-        #
-        # Note: This direction only needs to be searched when the center is 
-        # coplanar.
-        #
-        # Repeat same search, but shift the hole center in the other direction 
-        # this time, so flip the v3_unit_memview in other direction.
-        #-----------------------------------------------------------------------
-        if check_both_4:
-            for idx in range(3):
-        
-                unit_vector_memview[idx] *= -1.0
-        
-        
-            minx42 = INFINITY
-        
-        
-            for idx in range(3):
-        
-                hole_center_42_memview[0, idx] = hole_center_memview[0, idx]
-            #-------------------------------------------------------------------
-        
-            
-            #-------------------------------------------------------------------
-            # Find galaxy 4/D-2
-            #
-            # nearest_neighbor_gal_list already updated from galaxy 4/D-1
-            #-------------------------------------------------------------------
-            """
-            if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-                print("nearest_gal_index_list before Galaxy #4b search:", 
-                      np.array(nearest_gal_index_list))
-            """
-            find_next_retval = find_next_galaxy(hole_center_memview,
-                                                hole_center_42_memview, 
-                                                hole_radius, 
-                                                dr, 
-                                                1.0,
-                                                unit_vector_memview, 
-                                                galaxy_map, 
-                                                nearest_gal_index_list, 
-                                                3,
-                                                #galaxy_map.wall_galaxy_coords, 
-                                                mask_checker,
-                                                #mask, 
-                                                #mask_resolution,
-                                                #min_dist, 
-                                                #max_dist,
-                                                Bcenter_memview,
-                                                cell_ID_mem,
-                                                neighbor_mem)
-        
-            k4g2 = find_next_retval.nearest_neighbor_index
-            
-            minx42 = find_next_retval.min_x_ratio
-            
-            in_mask_42 = find_next_retval.in_mask
-            """
-            if np.all(np.array(i_j_k_array[working_idx]) == np.array([19,3,1])):
-
-                if in_mask_42:
-
-                    print("Galaxy #4b:", k4g2, 
-                          np.array(galaxy_map.wall_galaxy_coords[k4g2]))
-
-                else:
-                    print("No galaxy #4b found.")
-            """
-            # Calculate potential new hole center
-            if in_mask_42:
-        
+                
                 for idx in range(3):
-        
-                    hole_center_42_memview[0, idx] = hole_center_memview[0, idx] + minx42*unit_vector_memview[idx]
-            #-------------------------------------------------------------------
-        ########################################################################
-        
-        
-
-        ########################################################################
-        # Figure out whether galaxy 4/D is 4/D-1 or 4/D-2
-        #
-        # Use the minx41 and minx42 variables to figure out which one is closer?
-        # Then set the 4th galaxy index based on that and update the output hole 
-        # center based on that.  Or, if the conditions are not filled because we 
-        # left the survey, return NAN output
-        #-----------------------------------------------------------------------
-        #not_in_mask_41 = not_in_mask(hole_center_41_memview, mask, mask_resolution, min_dist, max_dist)
-        not_in_mask_41 = mask_checker.not_in_mask(hole_center_41_memview)
-    
-        if check_both_4 and not not_in_mask_41 and minx41 <= minx42:
-    
+                    sphere_grower.hole_center_k4g1[idx] = sphere_grower.sphere_center_xyz[idx] + minx41*sphere_grower.search_unit_vector[idx]
+                
+                not_in_mask_k4g1 = mask_checker.not_in_mask(sphere_grower.hole_center_k4g1)
+                
+                if not_in_mask_k4g1:
+                    k4g1_is_valid = False
+                
+            ################################################################################
+            # Flip the unit vector and search other side
+            #-------------------------------------------------------------------------------
             for idx in range(3):
-    
-                hole_center_memview[0, idx] = hole_center_41_memview[0, idx]
-    
-            k4g = k4g1
-    
-        #elif not not_in_mask(hole_center_42_memview, mask, mask_resolution, min_dist, max_dist):
-        elif check_both_4 and not mask_checker.not_in_mask(hole_center_42_memview):
+                sphere_grower.search_unit_vector[idx] *= -1.0
             
-            for idx in range(3):
-    
-                hole_center_memview[0, idx] = hole_center_42_memview[0, idx]
-    
-            k4g = k4g2
-    
-        elif not not_in_mask_41:
-    
-            for idx in range(3):
-    
-                hole_center_memview[0, idx] = hole_center_41_memview[0, idx]
-    
-            k4g = k4g1
+            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+                                                         sphere_grower.search_unit_vector,
+                                                         sphere_grower.existing_bounding_idxs,
+                                                         3,
+                                                         mask_checker)
             
+            k4g2 = result.nearest_neighbor_index
+            minx42 = result.min_x_val
+            failed_42 = result.failed
+            
+            if failed_42:
+                k4g2_is_valid = False
+            else:
+                
+                for idx in range(3):
+                    sphere_grower.hole_center_k4g2[idx] = sphere_grower.sphere_center_xyz[idx] + minx42*sphere_grower.search_unit_vector[idx]
+                
+                not_in_mask_k4g2 = mask_checker.not_in_mask(sphere_grower.hole_center_k4g2)
+                
+                if not_in_mask_k4g2:
+                    k4g2_is_valid = False
+                
+            ################################################################################
+            # Select one of the two possible holes we have grown
+            #-------------------------------------------------------------------------------
+            if k4g1_is_valid and k4g2_is_valid:
+                #If both valid, pick the smaller one
+                if minx41 <= minx42:
+                    #select k4g1
+                    
+                    k4g = k4g1
+                    min_x_4 = minx41
+                    #flip unit vector back
+                    for idx in range(3):
+                        sphere_grower.search_unit_vector[idx] *= -1.0
+                else:
+                    k4g = k4g2
+                    min_x_4 = minx42
+                
+                
+            elif k4g1_is_valid:
+                #select k4g2
+                
+                k4g = k4g1
+                min_x_4 = minx41
+                #flip unit vector back
+                for idx in range(3):
+                    sphere_grower.search_unit_vector[idx] *= -1.0
+                
+            elif k4g2_is_valid:
+                #select k4g2
+                k4g = k4g2
+                min_x_4 = minx42
+                
+                    
+            else:
+                
+                return_array[working_idx, 0] = NAN
+                
+                continue
+            
+        ########################################################################
+        # In the non-coplanar majority case, just do the same process to get
+        # k4g
+        ########################################################################
         else:
+        
+            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+                                                         sphere_grower.search_unit_vector,
+                                                         sphere_grower.existing_bounding_idxs,
+                                                         3,
+                                                         mask_checker)
             
+            k4g = result.nearest_neighbor_index
+            min_x_4 = result.min_x_val
+            failed_4 = result.failed
             
+            if failed_4:
+                
+                return_array[working_idx, 0] = NAN
             
-            '''
-            out_str = ""
-            out_str += str(i_j_k_array[working_idx, 0])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 1])
-            out_str += ","
-            out_str += str(i_j_k_array[working_idx, 2])
-            out_str += " "
-            out_str += "nim6"
-            out_str += "\n"
-            DEBUG_OUTFILE.write(out_str)
-            '''
-            
-            
+                continue
+        
+        sphere_grower.update_hole_center(min_x_4)
+        
+        #Check against mask
+        if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
             return_array[working_idx, 0] = NAN
             
-            return_array[working_idx, 1] = NAN
-            
-            return_array[working_idx, 2] = NAN
-            
-            return_array[working_idx, 3] = NAN
-            
             continue
-        ########################################################################
-    
-        
 
         ########################################################################
-        # Now that we have all 4 bounding galaxies, calculate the hole radius
+        # Passed all checks, calculate sphere radius and write the valid 
+        # (x,y,z,r) values!
         #-----------------------------------------------------------------------
+        
         temp_f64_accum = 0.0
-    
+        
         for idx in range(3):
-    
-            temp_f64_val = hole_center_memview[0, idx] - galaxy_map.wall_galaxy_coords[k1g, idx]
-    
+            
+            temp_f64_val = sphere_grower.sphere_center_xyz[idx] - galaxy_map.points_xyz[k1g, idx]
+            
             temp_f64_accum += temp_f64_val*temp_f64_val
-    
-        hole_radius = sqrt(temp_f64_accum)
+        
+        
+        return_array[working_idx, 0] = sphere_grower.sphere_center_xyz[0]
+        
+        return_array[working_idx, 1] = sphere_grower.sphere_center_xyz[1]
+        
+        return_array[working_idx, 2] = sphere_grower.sphere_center_xyz[2]
+        
+        return_array[working_idx, 3] = sqrt(temp_f64_accum)
         ########################################################################
-    
-    
-    
-    
-        ########################################################################
-        # 
-        # DEPRECATED
-        #
-        # Finally, check 6 directions: +/- x,y,z with a proportion of the
-        # radius to see if too much of this hole falls outside the mask
-        # (This implements the "If 10% falls outside the mask, discard hole"
-        # check)
-        #
-        # re-using hole_center_42_memview as empty memory
-        #
-        # We are removing this function and making a new implementation
-        # outside of the _voidfinder_cython.main_algorithm 
-        #
-        ########################################################################
-        '''
-        discard_mask_overlap = check_mask_overlap(hole_center_memview,
-                                                  hole_center_42_memview,
-                                                   hole_radial_mask_check_dist,
-                                                   hole_radius,
-                                                   mask, 
-                                                   mask_resolution, 
-                                                   min_dist, 
-                                                   max_dist)
-        
-        if discard_mask_overlap:
-            
-            return_array[working_idx, 0] = NAN
-            
-            return_array[working_idx, 1] = NAN
-            
-            return_array[working_idx, 2] = NAN
-            
-            return_array[working_idx, 3] = NAN
-            
-            continue
-        '''
-        
-    
-        ########################################################################
-        # Passed all checks, write the valid (x,y,z,r) values!
-        #-----------------------------------------------------------------------
-        return_array[working_idx, 0] = hole_center_memview[0, 0]
-        
-        return_array[working_idx, 1] = hole_center_memview[0, 1]
-        
-        return_array[working_idx, 2] = hole_center_memview[0, 2]
-        
-        return_array[working_idx, 3] = hole_radius
-        ########################################################################
-        
-        
-
-        """
-        ########################################################################
-        # Start Debugging Section
-        ########################################################################
-        ind, dist = galaxy_map.kdtree.query_radius(return_array[working_idx:working_idx+1, 0:3],
-                                                   hole_radius,
-                                                   count_only=False, 
-                                                   return_distance=True)
-
-        display_hole = False
-        for curr_dist in dist[0]:
-            if curr_dist < .99*hole_radius:
-                display_hole = True
-                break
-
-        if display_hole:
-
-            print("Found hole, any galaxies inside?:", ind)
-
-            print("This cell is:", np.array(i_j_k_array[working_idx]))
-
-            print(hole_radius, dist)
-
-            viz = VoidRender(np.array(return_array[working_idx:working_idx+1, 0:3]),
-                             np.array(return_array[working_idx:working_idx+1, 3]),
-                             np.array([0]),
-                             wall_galaxy_xyz=galaxy_map.wall_galaxy_coords,
-                             wall_distance=None,
-                             galaxy_display_radius=15.0)
-            viz.run()
-
-        ########################################################################
-        # End Debugging Section
-        ########################################################################
-        
-
-        
-        out_str = "Cell coordinates: ["
-        out_str += str(i_j_k_array[working_idx, 0])
-        out_str += ", "
-        out_str += str(i_j_k_array[working_idx, 1])
-        out_str += ", "
-        out_str += str(i_j_k_array[working_idx, 2])
-        out_str += "]\n"
-        out_str += "Hole center: ("
-        #out_str += " "
-        out_str += str(hole_center_memview[0, 0])
-        out_str += ", "
-        out_str += str(hole_center_memview[0, 1])
-        out_str += ", "
-        out_str += str(hole_center_memview[0, 2])
-        out_str += ")\n"
-        out_str += "Hole radius: "
-        out_str += str(hole_radius)
-        out_str += "\n"
-        
-        out_str += "Galaxy #1: ("
-        out_str += str(galaxy_map.wall_galaxy_coords[k1g, 0])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k1g, 1])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k1g, 2])
-        out_str += ")\n"
-        out_str += "Galaxy #2: ("
-        out_str += str(galaxy_map.wall_galaxy_coords[k2g, 0])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k2g, 1])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k2g, 2])
-        out_str += ")\n"
-        out_str += "Galaxy #3: ("
-        out_str += str(galaxy_map.wall_galaxy_coords[k3g, 0])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k3g, 1])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k3g, 2])
-        out_str += ")\n"
-        out_str += "Galaxy #4: ("
-        out_str += str(galaxy_map.wall_galaxy_coords[k4g, 0])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k4g, 1])
-        out_str += ", "
-        out_str += str(galaxy_map.wall_galaxy_coords[k4g, 2])
-        out_str += ")\n"
-
-        DEBUG_OUTFILE.write(out_str)
-        """
-        
-    ############################################################################
 
 
-    #DEBUG_OUTFILE.close()
-
-        
     return
 
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
-@cython.profile(False)
-cpdef DTYPE_B_t check_mask_overlap(DTYPE_F64_t[:,:] coordinates,
-                                  DTYPE_F64_t[:,:] temp_coordinates,
-                                  DTYPE_F64_t hole_radial_mask_check_dist,
-                                  DTYPE_F64_t hole_radius,
-                                  DTYPE_B_t[:,:] mask, 
-                                  DTYPE_INT32_t mask_resolution,
-                                  DTYPE_F64_t min_dist, 
-                                  DTYPE_F64_t max_dist):
-                                   
-    cdef DTYPE_B_t discard
-    cdef DTYPE_F64_t check_dist = hole_radius*hole_radial_mask_check_dist
-    
-    #Positive X direction
-    temp_coordinates[0,0] = coordinates[0,0] + check_dist
-    temp_coordinates[0,1] = coordinates[0,1]
-    temp_coordinates[0,2] = coordinates[0,2]
 
-    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
-    
-    if discard:
-        
-        return discard
-    
-    #Negative X direction
-    temp_coordinates[0,0] = coordinates[0,0] - check_dist
-
-    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
-    
-    if discard:
-        
-        return discard
-    
-    #Positive Y direction
-    temp_coordinates[0,0] = coordinates[0,0] #reset X
-    temp_coordinates[0,1] = coordinates[0,1] + check_dist
-
-    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
-    
-    if discard:
-        
-        return discard
-    
-    #Negative Y direction
-    temp_coordinates[0,1] = coordinates[0,1] - check_dist
-
-    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
-    
-    if discard:
-        
-        return discard
-    
-    #Positive Z direction
-    temp_coordinates[0,1] = coordinates[0,1] #reset Y
-    temp_coordinates[0,2] = coordinates[0,2] + check_dist
-
-    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
-    
-    if discard:
-        
-        return discard
-    
-    #Negative Z direction
-    temp_coordinates[0,2] = coordinates[0,2] - check_dist
-
-    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
-    
-    if discard:
-        
-        return discard
-    
-    return False
-    
-
-
-
-
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
-cpdef void main_algorithm_geometric(DTYPE_INT64_t[:,:] i_j_k_array,
-                                    galaxy_tree,
-                                    DTYPE_F64_t[:,:] w_coord,
-                                    DTYPE_F64_t dl, 
-                                    DTYPE_F64_t dr,
-                                    DTYPE_F64_t[:,:] coord_min, 
-                                    DTYPE_B_t[:,:] mask,
-                                    DTYPE_INT32_t mask_resolution,
-                                    DTYPE_F64_t min_dist,
-                                    DTYPE_F64_t max_dist,
-                                    DTYPE_F64_t[:,:] return_array,
-                                    int verbose,
-                                    DTYPE_F32_t[:,:] PROFILE_ARRAY
-                                    ):
-
+def placeholder():
     """
-    Like to attempt writing a new main_algorithm which is based around finding
-    the neighbors without a bunch of successive radius queries
-    
-    Find neighbor 1 same way - nearest neighbor query.  Now you have a
-    Line of Motion from neighbor 1, through the cell center with an orientation
-    
-    Find 2 arbitrary vectors in the plane to define the plane, then find the first
-    neighbor on the cell center's side of the the plane (hard part, maybe a bunch of k=50 queries)
-     now do 1 radius query using the calculated center on line of motion so that the sphere
-     passes through both the Line of Motion and the neighbor 1 and the new potential neighbor 2
-     to verify that it actually is neighbor 2, and repeat the plane-search process to finde neighbor 3 and 4
-     
-    One way to find which side of a plane a point is on is here:
-    https://math.stackexchange.com/questions/214187/point-on-the-left-or-right-side-of-a-plane-in-3d-space
-    """                                    
+    Literally a placeholder for the Eclipse Outline
+    """
     pass
+
+
+
+
+
+
+
+
+
 
 
 

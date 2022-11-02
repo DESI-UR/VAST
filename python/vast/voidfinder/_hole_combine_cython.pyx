@@ -29,7 +29,7 @@ from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 #from ._voidfinder import find_next_prime
 
 from ._voidfinder_cython_find_next cimport GalaxyMapCustomDict, \
-                                           GalaxyMap, \
+                                           SpatialMap, \
                                            Cell_ID_Memory, \
                                            _gen_cube, \
                                            OffsetNumPair, \
@@ -559,14 +559,15 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
     # GalaxyMap interface instead of the GalaxyMapCustomDict directly,
     # so instantiate the interface with some dummy variables here
     # and the real galaxy map custom dict we were using before
-    new_galaxy_map = GalaxyMap(RESOURCE_DIR,
-                               0, #mask mode 0 or 1 should be good
-                               np.empty((2,3), dtype=np.float64),
-                               np.empty((1,3), dtype=np.float64),
-                               1.0,
-                               cust_galaxy_map,
-                               np.empty(5, dtype=np.int64)
-                               )
+    new_galaxy_map = SpatialMap(RESOURCE_DIR,
+                                0, #mask mode 0 or 1 should be good
+                                np.empty((2,3), dtype=np.float64),
+                                1.0,
+                                np.empty(3, dtype=np.float64),
+                                1.0,
+                                cust_galaxy_map,
+                                np.empty(5, dtype=np.int64)
+                                )
         
     
     
@@ -956,7 +957,7 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_F64_t twice_largest_radius = maximals_info["twice_largest_radius"]
     
-    cdef GalaxyMap maximals_map = maximals_info["maximals_map"]
+    cdef SpatialMap maximals_map = maximals_info["maximals_map"]
     
     cdef DTYPE_INT64_t[:] maximals_map_array = maximals_info["maximals_cell_array"]
     '''

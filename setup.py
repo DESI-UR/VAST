@@ -66,7 +66,7 @@ class build_ext(_build_ext):
 ext_modules = []
 extfiles = glob('python/vast/voidfinder/*.pyx') + glob('python/vast/voidfinder/*/*.pyx')
 for extfile in extfiles:
-    name = name = extfile.replace('python/', '').replace('/', '.').replace('.pyx', '')
+    name = extfile.replace('python/', '').replace('/', '.').replace('.pyx', '')
     
     curr_ext = Extension(name, 
                          [extfile], 

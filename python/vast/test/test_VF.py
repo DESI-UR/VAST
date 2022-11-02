@@ -11,8 +11,8 @@ from vast.voidfinder import find_voids, filter_galaxies
 from vast.voidfinder.table_functions import to_array
 from vast.voidfinder.multizmask import generate_mask
 from vast.voidfinder.preprocessing import file_preprocess
-from vast.voidfinder._voidfinder_cython import main_algorithm
-from vast.voidfinder._voidfinder_cython_find_next import GalaxyMap, \
+from vast.voidfinder._voidfinder_cython import grow_spheres
+from vast.voidfinder._voidfinder_cython_find_next import SpatialMap, \
                                                          Cell_ID_Memory, \
                                                          GalaxyMapCustomDict, \
                                                          HoleGridCustomDict, \
@@ -298,13 +298,14 @@ class TestVoidFinder(unittest.TestCase):
 
         num_galaxy_map_elements = len(galaxy_search_cell_dict)
 
-        TestVoidFinder.galaxy_map = GalaxyMap(self.RESOURCE_DIR,
-                                              self.mask_mode,
-                                              TestVoidFinder.wall, 
-                                              self.coords_min.reshape(1,3), 
-                                              galaxy_map_grid_edge_length,
-                                              galaxy_search_cell_dict,
-                                              galaxy_map_array)
+        TestVoidFinder.galaxy_map = SpatialMap(self.RESOURCE_DIR,
+                                               self.mask_mode,
+                                               TestVoidFinder.wall,
+                                               self.hole_grid_edge_length,
+                                               self.coords_min, 
+                                               galaxy_map_grid_edge_length,
+                                               galaxy_search_cell_dict,
+                                               galaxy_map_array)
         ########################################################################
 
 
@@ -346,7 +347,7 @@ class TestVoidFinder(unittest.TestCase):
                                        TestVoidFinder.galaxy_map.cell_center_xyz,
                                        TestVoidFinder.galaxy_map,
                                        self.cell_ID_mem,
-                                       curr_point.astype(np.float64)
+                                       curr_point[0,:].astype(np.float64)
                                        )
             
 
