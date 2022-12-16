@@ -137,7 +137,7 @@ class Tesselation:
             reg = np.array(Vor.regions)[Vor.point_region]
             del Vor
             print("Computing volumes...")
-            vol = np.zeros(len(reg))
+            vol = np.zeros(len(coords))
             cut = np.arange(len(coords))
             hul = []
             for r in reg[cut]:
