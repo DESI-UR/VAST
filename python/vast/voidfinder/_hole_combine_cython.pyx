@@ -111,7 +111,7 @@ cpdef np.ndarray remove_duplicates_2(DTYPE_F64_t[:,:] x_y_z_r_array,
             
             last_idx = idx
             
-    return out_index.astype(np.bool)
+    return out_index.astype(np.bool_)
 
 
 
@@ -907,14 +907,10 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
                                         dict maximals_info,
                                         ):
     """
-    
-    
-    
     We have found the maximals, so intuitively one might think the 'holes' would
     just be all the remaining rows in the table.  However, some may be discarded 
-    still because they are completely contained within another hole.  Also,
-    the maximals themselves are also holes, so they get included in the 
-    holes index.
+    still because they are completely contained within another hole.  Also, the 
+    maximals themselves are also holes, so they get included in the holes index.
     """
 
     cdef ITYPE_t idx, jdx, kdx, maximal_idx, num_holes, num_maximals, num_out_holes, num_matches, last_maximal_idx
@@ -936,9 +932,9 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_INT64_t[:] flag_column_memview = flag_column
     
-    ################################################################################
+    ############################################################################
     # Set up some mappings for convenience
-    ################################################################################
+    #---------------------------------------------------------------------------
     cdef DTYPE_B_t[:] is_maximal_col = np.zeros(num_holes, dtype=np.uint8)
     
     cdef DTYPE_INT64_t[:] maximal_IDs = np.zeros(num_holes, dtype=np.int64)
@@ -948,17 +944,12 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
         is_maximal_col[maximals_index[idx]] = 1
         
         maximal_IDs[maximals_index[idx]] = idx
+    ############################################################################
     
     
-    
-    
-    
-    
-    ################################################################################
+    ############################################################################
     # Boop Boop a shoop
-    ################################################################################
-    
-    
+    #---------------------------------------------------------------------------
     cdef DTYPE_F64_t min_x = maximals_info["min_x"]
     cdef DTYPE_F64_t min_y = maximals_info["min_y"]
     cdef DTYPE_F64_t min_z = maximals_info["min_z"]
@@ -990,14 +981,15 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_INT64_t offset, num_elements
     
-    
     reference_cell_ijk = np.zeros((1,3), dtype=np.int16)
     
     cdef CELL_ID_t[:,:] reference_cell_ijk_memview = reference_cell_ijk
+    ############################################################################
+
     
-    ################################################################################
+    ############################################################################
     # Iterate through all the holes
-    ################################################################################
+    #---------------------------------------------------------------------------
     #start_time = time.time()
     
     num_out_holes = 0
@@ -1008,11 +1000,8 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     for idx in range(num_holes):
         
-        
-        
         #if idx%10000 == 0:
         #    print("Working: ", idx, "at time: ", time.time() - start_time, flush=True)
-        
         
         if is_maximal_col[idx]:
             
@@ -1031,23 +1020,15 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
         
         num_matches = 0
         
-        
-        
-        
-        
-        
-        
-        
-        
         reference_cell_ijk_memview[0,0] = <CELL_ID_t>((x_y_z_r_array[idx,0] - min_x)/twice_largest_radius)
         reference_cell_ijk_memview[0,1] = <CELL_ID_t>((x_y_z_r_array[idx,1] - min_y)/twice_largest_radius)
         reference_cell_ijk_memview[0,2] = <CELL_ID_t>((x_y_z_r_array[idx,2] - min_z)/twice_largest_radius)
         
         
-        ################################################################################
+        ########################################################################
         # Generate all the grid cell IDs that could potentially hold conflicting
         # maximals
-        ################################################################################
+        #-----------------------------------------------------------------------
         num_cell_IDs = _gen_cube(reference_cell_ijk_memview, 
                                  1,
                                  cell_ID_mem,
@@ -1060,17 +1041,13 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
             id3 = cell_ID_mem.data[3*cell_ID_idx+2]
             
             if not maximals_map.contains(id1, id2, id3):
-                
                 continue
-            
-            
             
             curr_offset_num_pair = maximals_map.getitem(id1, id2, id3)
                 
             offset = curr_offset_num_pair.offset
             
             num_elements = curr_offset_num_pair.num_elements
-            
             
             for kdx in range(num_elements):
                 
@@ -1082,13 +1059,11 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
                 
                 curr_maximal_radius = x_y_z_r_array[maximal_idx,3]
     
-    
                 separation = sqrt(diffs[0]*diffs[0] + diffs[1]*diffs[1] + diffs[2]*diffs[2])
                 
-                
                 if (curr_maximal_radius - curr_radius) >= separation:
-                    #current sphere is completely contained within another,
-                    #throw it away
+                    # current sphere is completely contained within another,
+                    # throw it away
                     break
                 
                 elif (curr_maximal_radius + curr_radius) >= separation:
@@ -1098,19 +1073,21 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
                     maximal_cap_height = cap_height(curr_maximal_radius, curr_radius, separation)
                 
                     overlap_volume = spherical_cap_volume(curr_radius, curr_cap_height) + spherical_cap_volume(curr_maximal_radius, maximal_cap_height)
-                
     
                     if overlap_volume > curr_sphere_volume_thresh:
                         
                         num_matches += 1
                         
                         last_maximal_idx = maximal_idx
+        ########################################################################
+
             
-        ################################################################################
+        ########################################################################
         # To match reference implementation, we need to only attach holes who
-        # match up with exactly 1 maximal.  Future schemes may include assigning a hole
-        # who matches more than 1 maximal based on the larger volume overlap
-        ################################################################################
+        # match up with exactly 1 maximal.  Future schemes may include assigning 
+        # a hole who matches more than 1 maximal based on the larger volume 
+        # overlap.
+        #-----------------------------------------------------------------------
         if num_matches == 1:
             
             holes_index_memview[num_out_holes] = idx
@@ -1118,17 +1095,20 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
             flag_column_memview[num_out_holes] = maximal_IDs[last_maximal_idx]
             
             num_out_holes += 1
+        ########################################################################
+    ############################################################################
     
-    ################################################################################
+    ############################################################################
     # Cython complained about returning a type (np.ndarray, np.ndarray). instead
     # return an (N,2) array since we're lucky that both return items have the
     # same dtype.
-    ################################################################################
+    #---------------------------------------------------------------------------
     out = np.zeros((num_out_holes,2), dtype=np.int64)
     
     out[:,0] = holes_index[0:num_out_holes]
     
     out[:,1] = flag_column[0:num_out_holes]
+    ############################################################################
     
     return out
 
