@@ -18,7 +18,7 @@ from ctypes import c_int64
 
 from .voidfinder_functions import in_mask#, not_in_mask
 from .hole_combine import spherical_cap_volume
-from ._voidfinder_cython_find_next import not_in_mask2 as nim_cython
+from ._voidfinder_cython_find_next import not_in_mask as nim_cython
 from ._vol_cut_cython import _check_holes_mask_overlap#, _check_holes_mask_overlap_2
 from ._voidfinder import process_message_buffer
 

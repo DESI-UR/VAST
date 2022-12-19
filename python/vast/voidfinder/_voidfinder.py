@@ -712,9 +712,17 @@ def _hole_finder(galaxy_coords,
     # galaxy_map_array belong to this p-q-r cell.  The values in 
     # galaxy_map_array tell us the rows in the main galaxy_coords array where 
     # the galaxies in our p-q-r cell of interest are.
+    #
+    # Now going to re-order the galaxies in galaxy_coords for better
+    # memory layout alignment to their cell IDs
+    #
+    #
+    #
     #---------------------------------------------------------------------------
     galaxy_search_cell_dict = GalaxyMapCustomDict(galaxy_map_grid_shape,
                                                   RESOURCE_DIR)
+    
+    aligned_galaxy_coords = np.empty(galaxy_coords[0].shape, dtype=galaxy_coords[0].dtype)
     
     offset = 0
     
@@ -726,7 +734,12 @@ def _hole_finder(galaxy_coords,
         
         num_elements = indices.shape[0]
         
-        galaxy_map_list.append(indices)
+        new_indices = np.arange(offset, (offset+num_elements))
+        
+        aligned_galaxy_coords[new_indices] = galaxy_coords[0][indices]
+        
+        #galaxy_map_list.append(indices)
+        galaxy_map_list.append(new_indices)
         
         galaxy_search_cell_dict.setitem(*key, offset, num_elements)
         
@@ -742,7 +755,7 @@ def _hole_finder(galaxy_coords,
     
     galaxy_map = SpatialMap(RESOURCE_DIR,
                             mask_mode,
-                            galaxy_coords[0],
+                            aligned_galaxy_coords,
                             hole_grid_edge_length,
                             coords_min[0,:], 
                             galaxy_map_grid_edge_length,
@@ -1232,10 +1245,13 @@ def _hole_finder(galaxy_coords,
         main_task_start_time = time.time()
         
         #Single process mode
+        
         _hole_finder_worker(0, 
                             ijk_start, 
                             write_start, 
                             config_object)
+        
+        #_hole_finder_worker_profile(0, ijk_start, write_start, config_object)
         
         if verbose > 0:
             print("Main task finish time:", time.time() - main_task_start_time, 
@@ -1590,8 +1606,8 @@ def _hole_finder(galaxy_coords,
     if verbose > 0:
         
         if num_cpus > 1:
-            print("Main task finish time:", time.time() - main_task_start_time, 
-                  flush=True)
+            #This is printed separately above in the single-process worker case
+            print("Main task finish time:", time.time() - main_task_start_time, flush=True)
     
     
     if num_cpus > 1:

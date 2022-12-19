@@ -68,7 +68,7 @@ cdef struct OffsetNumPair:
     DTYPE_INT64_t offset, num_elements      
     
     
-
+'''
 cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         DTYPE_F64_t[:,:] moving_hole_center_memview, \
                                         DTYPE_F64_t hole_radius, \
@@ -83,9 +83,9 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         Cell_ID_Memory cell_ID_mem, \
                                         NeighborMemory neighbor_mem, \
                                         )
+'''
 
-
-cdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates, \
+cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates, \
                   DTYPE_B_t[:,:] survey_mask_ra_dec, \
                   DTYPE_INT32_t n, \
                   DTYPE_F64_t rmin, \
@@ -173,7 +173,7 @@ cdef class GalaxyMapCustomDict:
     cpdef public OffsetNumPair getitem(self,
                                        CELL_ID_t i, 
                                        CELL_ID_t j, 
-                                       CELL_ID_t k) except *
+                                       CELL_ID_t k)
 
     cpdef public void setitem(self, 
                               CELL_ID_t i,
@@ -207,7 +207,7 @@ cdef class SpatialMap:
     
     cdef public DTYPE_F64_t dl
     
-    cdef public CELL_ID_t[:,:] reference_point_ijk
+    cdef public CELL_ID_t[:] reference_point_ijk
     
     cdef public DTYPE_F64_t[:,:] shell_boundaries_xyz
     
@@ -248,31 +248,31 @@ cdef class SpatialMap:
     cpdef public DTYPE_B_t contains(self,
                                    CELL_ID_t i, 
                                    CELL_ID_t j, 
-                                   CELL_ID_t k) except *
+                                   CELL_ID_t k)
     
     cdef public OffsetNumPair getitem(self,
                                       CELL_ID_t i, 
                                       CELL_ID_t j, 
-                                      CELL_ID_t k) except *
+                                      CELL_ID_t k)
     
     cdef public void setitem(self, 
                              CELL_ID_t i,
                              CELL_ID_t j,
                              CELL_ID_t k, 
                              DTYPE_INT64_t offset,
-                             DTYPE_INT64_t num_elements) except *
+                             DTYPE_INT64_t num_elements)
 
 
-    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k) except *
+    cdef DTYPE_B_t cell_in_source(self, CELL_ID_t i, CELL_ID_t j, CELL_ID_t k)
     
     cdef void add_cell_periodic(self,
                                 CELL_ID_t i,
                                 CELL_ID_t j,
-                                CELL_ID_t k) except *
+                                CELL_ID_t k)
  
-    cpdef void refresh(self) except *
+    cpdef void refresh(self)
     
-    cdef public ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:]) except *
+    cdef public ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:])
     
     cpdef public FindNextReturnVal find_next_bounding_point(self, 
                                                             DTYPE_F64_t[:] start_hole_center,
@@ -280,6 +280,28 @@ cdef class SpatialMap:
                                                             ITYPE_t[:] existing_bounding_idxs,
                                                             ITYPE_t num_neighbors,
                                                             MaskChecker mask_checker)
+    
+    cpdef public FindNextReturnVal find_next_bounding_point_2(SpatialMap self, 
+                                                            DTYPE_F64_t[:] start_hole_center,
+                                                            DTYPE_F64_t[:] search_unit_vector,
+                                                            ITYPE_t[:] existing_bounding_idxs,
+                                                            ITYPE_t num_neighbors,
+                                                            MaskChecker mask_checker)
+    
+    
+    cdef public DTYPE_F64_t calculate_x_val(self, 
+                                            ITYPE_t gal_idx, 
+                                            ITYPE_t k1g_idx, 
+                                            DTYPE_F64_t[:] start_hole_center, 
+                                            DTYPE_F64_t[:] search_unit_vector)
+    
+    cdef public void ijk_to_xyz(self, 
+                                DTYPE_INT64_t[:] ijk_location, 
+                                DTYPE_F64_t[:] output_xyz)
+    
+    cdef public void xyz_to_pqr(self,
+                                DTYPE_F64_t[:] input_xyz,
+                                CELL_ID_t[:] output_pqr)
  
 
 
@@ -379,26 +401,26 @@ cdef class SphereGrower:
     
     
               
-cpdef DistIdxPair _query_first(CELL_ID_t[:,:] reference_point_ijk, \
+cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_ijk, \
                                DTYPE_F64_t[:] coord_min, \
                                DTYPE_F64_t dl, \
                                DTYPE_F64_t[:,:] shell_boundaries_xyz, \
                                DTYPE_F64_t[:,:] cell_center_xyz, \
                                SpatialMap galaxy_map, \
                                Cell_ID_Memory cell_ID_mem, \
-                               DTYPE_F64_t[:] reference_point_xyz) except *
+                               DTYPE_F64_t[:] reference_point_xyz)
                                          
                                          
                                          
                                          
                                          
-cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:,:] center_ijk, \
+cdef DTYPE_INT64_t _gen_cube(CELL_ID_t[:] center_ijk, \
                              DTYPE_INT32_t level, \
                              Cell_ID_Memory cell_ID_mem, \
-                             SpatialMap galaxy_map) except *
+                             SpatialMap galaxy_map)
                                          
                                          
                                          
                                          
-cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value) except *
+cpdef DTYPE_INT64_t find_next_prime(DTYPE_INT64_t threshold_value)
                                          

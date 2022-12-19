@@ -1,5 +1,10 @@
 #cython: language_level=3
-
+#cython: initializedcheck=False
+#cython: boundscheck=False
+#cython: wraparound=False
+#cython: cdivision=True
+#cython: nonecheck=False
+#cython: profile=False
 
 from __future__ import print_function
 
@@ -19,14 +24,14 @@ from .typedefs cimport DTYPE_CP128_t, \
                       ITYPE_t, \
                       DTYPE_INT32_t, \
                       DTYPE_INT64_t, \
-                      DTYPE_INT8_t
+                      DTYPE_INT8_t, \
+                      CELL_ID_t
 
 from numpy.math cimport NAN, INFINITY
 
 from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
-from ._voidfinder_cython_find_next cimport find_next_galaxy, \
-                                           not_in_mask, \
+from ._voidfinder_cython_find_next cimport not_in_mask, \
                                            _query_first, \
                                            DistIdxPair, \
                                            Cell_ID_Memory, \
@@ -278,10 +283,6 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
-@cython.profile(False)
 cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                         DTYPE_INT64_t batch_size,
                         DTYPE_F64_t[:,:] return_array,
@@ -329,6 +330,9 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
     
     
     #start_time = time.time()
+    
+    #cdef CELL_ID_t[:] DEBUG_starting_pqr = np.empty(3, dtype=np.int16)
+    
     
     cdef ITYPE_t working_idx, idx
     
@@ -399,11 +403,18 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         # find_next_bounding_point to communicate that it failed by way of
         # leaving the mask
         #-------------------------------------------------------------------------------
-        result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+        result = galaxy_map.find_next_bounding_point_2(sphere_grower.sphere_center_xyz,
                                                      sphere_grower.search_unit_vector,
                                                      sphere_grower.existing_bounding_idxs,
                                                      1,
                                                      mask_checker)
+        
+        
+        
+        #galaxy_map.xyz_to_pqr(sphere_grower.sphere_center_xyz, DEBUG_starting_pqr)
+        #print("Finished k2g at cell center: "+str(np.array(DEBUG_starting_pqr)), flush=True)
+            
+        
         
         k2g = result.nearest_neighbor_index
         min_x_2 = result.min_x_val
@@ -434,11 +445,18 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         # Find third bounding point (k3g) and setup to find 4th
         #-------------------------------------------------------------------------------
         
-        result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+        result = galaxy_map.find_next_bounding_point_2(sphere_grower.sphere_center_xyz,
                                                      sphere_grower.search_unit_vector,
                                                      sphere_grower.existing_bounding_idxs,
                                                      2,
                                                      mask_checker)
+        
+        
+        
+        #galaxy_map.xyz_to_pqr(sphere_grower.sphere_center_xyz, DEBUG_starting_pqr)
+        #print("Finished k3g at cell center: "+str(np.array(DEBUG_starting_pqr)), flush=True)
+        
+        
         
         k3g = result.nearest_neighbor_index
         min_x_3 = result.min_x_val
@@ -480,11 +498,17 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
             # Start on the side we calculated with the search unit vector
             #-------------------------------------------------------------------------------
             
-            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+            result = galaxy_map.find_next_bounding_point_2(sphere_grower.sphere_center_xyz,
                                                          sphere_grower.search_unit_vector,
                                                          sphere_grower.existing_bounding_idxs,
                                                          3,
                                                          mask_checker)
+            
+            #galaxy_map.xyz_to_pqr(sphere_grower.sphere_center_xyz, DEBUG_starting_pqr)
+            #print("Finished k4g1 at cell center: "+str(np.array(DEBUG_starting_pqr)), flush=True)
+            
+            
+            
             
             k4g1 = result.nearest_neighbor_index
             minx41 = result.min_x_val
@@ -508,11 +532,17 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
             for idx in range(3):
                 sphere_grower.search_unit_vector[idx] *= -1.0
             
-            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+            result = galaxy_map.find_next_bounding_point_2(sphere_grower.sphere_center_xyz,
                                                          sphere_grower.search_unit_vector,
                                                          sphere_grower.existing_bounding_idxs,
                                                          3,
                                                          mask_checker)
+            
+            
+            #galaxy_map.xyz_to_pqr(sphere_grower.sphere_center_xyz, DEBUG_starting_pqr)
+            #print("Finished k4g2 at cell center: "+str(np.array(DEBUG_starting_pqr)), flush=True)
+            
+            
             
             k4g2 = result.nearest_neighbor_index
             minx42 = result.min_x_val
@@ -575,11 +605,17 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         ########################################################################
         else:
         
-            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+            result = galaxy_map.find_next_bounding_point_2(sphere_grower.sphere_center_xyz,
                                                          sphere_grower.search_unit_vector,
                                                          sphere_grower.existing_bounding_idxs,
                                                          3,
                                                          mask_checker)
+            
+            
+            #galaxy_map.xyz_to_pqr(sphere_grower.sphere_center_xyz, DEBUG_starting_pqr)
+            #print("Finished k4g at cell center: "+str(np.array(DEBUG_starting_pqr)), flush=True)
+            
+            
             
             k4g = result.nearest_neighbor_index
             min_x_4 = result.min_x_val
