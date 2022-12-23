@@ -1274,7 +1274,7 @@ cdef class SpatialMap:
         
         
         #DEBUGGING
-        self.kdtree = KDTree(self.points_xyz)
+        #self.kdtree = KDTree(self.points_xyz)
 
         
         
@@ -1282,7 +1282,10 @@ cdef class SpatialMap:
     cdef void ijk_to_xyz(self, 
                          DTYPE_INT64_t[:] ijk_location, 
                          DTYPE_F64_t[:] output_xyz):
-        
+        """
+        Convert an (i,j,k) location into (x,y,z) coordinates.  Note that we convert the
+        center of the (i,j,k) cell, so we add 0.5 to each value.
+        """
         cdef ITYPE_t idx
         
         for idx in range(3):
@@ -1295,7 +1298,9 @@ cdef class SpatialMap:
     cdef void xyz_to_pqr(self,
                          DTYPE_F64_t[:] input_xyz,
                          CELL_ID_t[:] output_pqr):
-    
+        """
+        Convert an (x,y,z) location into its corresponding (p,q,r) cell.
+        """
         
         output_pqr[0] = <CELL_ID_t>((input_xyz[0] - self.coord_min[0])/self.dl)
         output_pqr[1] = <CELL_ID_t>((input_xyz[1] - self.coord_min[1])/self.dl)
@@ -1328,49 +1333,29 @@ cdef class SpatialMap:
             return self.galaxy_map.contains(i, j, k)
         
         elif self.mask_mode == 2:
-            '''
-            self.update_lock.acquire()
-            
-            if self.galaxy_map.process_local_num_elements != self.galaxy_map.num_elements.value:
-                self.galaxy_map.refresh()
-                self.refresh()
-                
-            try:
-                curr_item = self.galaxy_map.getitem(i, j, k)
-                
-            except KeyError:
-                
-                self.add_cell_periodic(i, j, k)
-                
-                curr_item = self.galaxy_map.getitem(i, j, k)
-                
-                
-            self.update_lock.release()
-                
-            if curr_item.num_elements > 0:
-                
-                return True
-            else:
-                
-                return False
-            '''
             
             in_bounds = self.cell_in_source(i, j, k)
             
             if in_bounds:
                 
-                
                 try:
                 
                     return self.galaxy_map.contains(i,j,k)
+                
                 except KeyError:
+                    
                     print("Should not be getting keyerror: ", i,j,k)
                     
             else:
+                
                 self.update_lock.acquire()
+                
                 if self.galaxy_map_2.process_local_num_elements != self.galaxy_map_2.num_elements.value:
+                    
                     self.galaxy_map_2.refresh()
+                    
                     self.refresh()
+                    
                 try:
                     curr_item = self.galaxy_map_2.getitem(i, j, k)
                     
@@ -1379,7 +1364,6 @@ cdef class SpatialMap:
                     self.add_cell_periodic(i, j, k)
                     
                     curr_item = self.galaxy_map_2.getitem(i, j, k)
-                    
                     
                 self.update_lock.release()
                     
@@ -1449,8 +1433,6 @@ cdef class SpatialMap:
                 return curr_item
             
         
-            
-            
         
     cdef void setitem(self, 
                       CELL_ID_t i,
