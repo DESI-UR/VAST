@@ -1718,8 +1718,46 @@ cdef class SpatialMap:
                                      ITYPE_t k1g_idx, 
                                      DTYPE_F64_t[:] start_hole_center, 
                                      DTYPE_F64_t[:] search_unit_vector):
+        """
+        Description
+        ===========
+        
+        Given an existing sphere by its center and one of its bounding points, the search
+        vector along which we are growing, and a new candidate bounding point, we can calculate
+        the delta from the current sphere center to the new sphere center along the search vector
+        direction, which we are calling the "x val".
+        
+        Need notes from the VoidFinder notebooks to fill this in properly
+        
+        Parameters
+        ==========
+        
+        gal_idx : int
+            index of the candidate bounding point for which to calculate the x_val
+            
+        k1g_idx : int
+            index of the 1st existing bounding point
+            
+        start_hole_center : ndarray shape (3,)
+            xyz location of the existing sphere center bounded by k1g
+            
+        search_unit_vector : ndarray shape (3,)
+            direction in which the sphere center should propagate and therefore the
+            direction along which the center of the new sphere must be:
+            
+            
+        Returns
+        =======
+        
+        x_val : float
+            the delta this function solves for:
+            new_center = old_center + x_val*search_unit_vector
+        """
     
-    
+        ################################################################################
+        # Calculate the vectors pointing among the new candidate, the bounding neighbor
+        # A, and the existing hole center
+        ################################################################################
         cdef ITYPE_t jdx
     
         for jdx in range(3):
@@ -1732,7 +1770,10 @@ cdef class SpatialMap:
     
     
     
-    
+        ################################################################################
+        # Calculate the dot product of candidate minus A with the search vector 
+        # direction (direction in which the sphere center moves)
+        ################################################################################
         self.temp_f64_accum = 0.0
                     
         for jdx in range(3):
@@ -1742,7 +1783,9 @@ cdef class SpatialMap:
         self.neighbor_mem.bot_ratio[0] = 2.0*self.temp_f64_accum
         
         
-        
+        ################################################################################
+        # Calculate the numerator of the x_val
+        ################################################################################
         self.temp_f64_accum = 0.0
     
         for jdx in range(3):
@@ -1760,6 +1803,11 @@ cdef class SpatialMap:
         self.neighbor_mem.top_ratio[0] = self.temp_f64_val - self.temp_f64_accum
         
         
+        ################################################################################
+        # Check the bottom for 0.0 which is an edge case but would result in
+        # DivideByZero and return -1 instead, or the actual x_val (which could be
+        # negative).  Negative values will get filtered out in find_next_bounding_point
+        ################################################################################
         if self.neighbor_mem.bot_ratio[0] == 0.0:
             #Only way for this to happen is for the candidate to be in the hyperplane
             #perpendicular to the search vector (which includes if it is an existing
@@ -1769,7 +1817,6 @@ cdef class SpatialMap:
         
         else:
         
-            #self.neighbor_mem.x_vals[idx] = self.neighbor_mem.top_ratio[idx]/self.neighbor_mem.bot_ratio[idx]
             return self.neighbor_mem.top_ratio[0]/self.neighbor_mem.bot_ratio[0]
 
         
@@ -1788,8 +1835,6 @@ cdef class SpatialMap:
         '''
         cdef DistIdxPair query_vals
         
-        
-        
         query_vals = _query_first(self.reference_point_ijk,
                                   self.coord_min,
                                   self.dl,
@@ -1799,13 +1844,13 @@ cdef class SpatialMap:
                                   self.cell_ID_mem,
                                   query_location_xyz)
         
-        #k1g = query_vals.idx
-        
-        #vector_modulus = query_vals.dist
-        
         return query_vals.idx
     
     
+        
+        
+        
+        
     
     cpdef FindNextReturnVal find_next_bounding_point(self, 
                                                      DTYPE_F64_t[:] start_hole_center,
@@ -1817,8 +1862,33 @@ cdef class SpatialMap:
         Description
         ===========
         
-        Find the 2nd, 3rd, or 4th bounding point when growing a sphere.  One of the primary
-        workhorse methods of VoidFinder.
+        This method encodes the primary logic critical to sphere-growing: given a starting
+        position, a vector along which to propagate the center of the sphere while it grows,
+        and the indices of the existing bounding, return the index of the next bounding galaxy
+        which corresponds to the smallest sphere whose center lies on the search vector, or
+        return a failure code because the search left the valid region of space.
+        
+        This method accomplishes this by utilizing the cubic search grid, starting from the
+        grid cell corresponding to the starting location, and growing outward 1 "shell" at
+        a time, evaluating all the galaxies in the current shell of cubes as potential next 
+        bounding neighbors.  If a valid neighbor is found, we then check that the resultant
+        sphere due to this neighbor is fully contained within the space of the current shell.
+        If the sphere is fully contained in the space we have searched, that means we have 
+        found the minimum neighbor, but if it is not fully contained, we need to keep checking 
+        shells further out until it is fully contained to ensure that there is no neighbor 
+        which would result in a smaller sphere.
+        
+        The _gen_shell method when called sequentially as in this function will 
+        only return the cell ID's of the shell we ask it for, meaning we don't have to 
+        re-evaluate any interior neighbors that have been evaluated in a previous shell.
+        
+        As we iterate through the list of potential new neighbors, we initialize the min_x_val
+        and min_radius_sq to INFINITY.  min_x_val represents the delta between the starting
+        sphere position and the potential new sphere position along the search vector, and
+        min_radius_sq is the squared radius (to avoid sqrt calculations) of a potential
+        sphere.  Since there is a 1:1 correspondence between these two values, we can use the
+        cheaper-to-calculate min_radius_sq to filter out many of the potential neighbors
+        without ever calculating their x values 
         
         
         Parameters
@@ -1858,240 +1928,9 @@ cdef class SpatialMap:
         'dr' would not actually result in significantly more points being
         returned.
         
-        """
-        
-        
-        cdef FindNextReturnVal retval
-        
-        cdef ITYPE_t idx, jdx, k1g_idx, temp_idx, num_nearest, valid_min_idx
-        
-        cdef DTYPE_F64_t[:] k1g_xyz
-        
-        cdef DTYPE_F64_t search_radius, valid_min_val
-        
-        cdef DTYPE_B_t searching = True
-        
-        cdef DTYPE_B_t any_valid, matched_existing
-        
-        retval.nearest_neighbor_index = -1
-        retval.min_x_val = -1.0
-        retval.failed = 0
-        
-        ####################################################################
-        # Calculate the starting radius of the existing sphere, and init
-        # a sphere center we can temporarily move while searching for our
-        # next bounding point
-        ####################################################################
-        k1g_idx = existing_bounding_idxs[0]
-        
-        k1g_xyz = self.points_xyz[k1g_idx]
-        
-        self.temp_f64_accum = 0.0
-        
-        for idx in range(3):
-            
-            self.temp_f64_val = start_hole_center[idx] - k1g_xyz[idx]
-            
-            self.temp_f64_accum += self.temp_f64_val*self.temp_f64_val
-            
-        search_radius = sqrt(self.temp_f64_accum)
-        
-        for idx in range(3):
-            
-            self.temp_hole_center[idx] = start_hole_center[idx]
-        
-        
-        ####################################################################
-        # Begin the process of searching for the bounding point, moving the
-        # temp sphere center by the length of 1 grid cell each iteration
-        ####################################################################
-        while searching:
-            
-            search_radius += self.dl
-            
-            for idx in range(3):
-                self.temp_hole_center[idx] += self.dl*search_unit_vector[idx]
-            
-            self.neighbor_mem.next_neigh_idx = 0
-        
-            #_query_shell_radius now excludes existing neighbors
-            _query_shell_radius(self.reference_point_ijk,
-                                self.coord_min,
-                                self.dl, 
-                                self,
-                                self.cell_ID_mem,
-                                self.neighbor_mem,
-                                self.temp_hole_center, 
-                                search_radius, 
-                                existing_bounding_idxs,
-                                num_neighbors)
-            
-            num_nearest = <ITYPE_t>(self.neighbor_mem.next_neigh_idx)
-            
-            if num_nearest > 0:
-                
-                ####################################################################
-                # Calculate vectors pointing from hole center and galaxy 1/A to next 
-                # nearest candidate galaxy
-                #-------------------------------------------------------------------
-                for idx in range(num_nearest):
-    
-                    #temp_idx = self.neighbor_mem.i_nearest_reduced[idx]
-                    temp_idx = <ITYPE_t>(self.neighbor_mem.i_nearest[idx])
-
-                    for jdx in range(3):
-                        
-                        self.neighbor_mem.candidate_minus_A[3*idx+jdx] = self.points_xyz[temp_idx, jdx] - self.points_xyz[k1g_idx, jdx]
-                            
-                        self.neighbor_mem.candidate_minus_center[3*idx+jdx] = self.points_xyz[temp_idx, jdx] - start_hole_center[jdx]
-                        
-                        self.neighbor_mem.A_minus_center[3*idx+jdx] = self.points_xyz[k1g_idx, jdx] - start_hole_center[jdx]
-                
-                
-                ####################################################################
-    
-    
-                ####################################################################
-                # Calculate bottom of ratio to be minimized
-                # 2*dot(candidate_minus_A, unit_vector)
-                #-------------------------------------------------------------------
-                for idx in range(num_nearest):
-                    
-                    self.temp_f64_accum = 0.0
-                    
-                    for jdx in range(3):
-                        
-                        self.temp_f64_accum += self.neighbor_mem.candidate_minus_A[3*idx+jdx]*search_unit_vector[jdx]
-                        
-                    self.neighbor_mem.bot_ratio[idx] = 2.0*self.temp_f64_accum
-                ####################################################################
-    
-                
-                ####################################################################
-                # Calculate the distance the hole center will move, x
-                # Calculate |P - C|^2 which is just dot((P-C),(P-C))
-                # Calculate |A - C|^2 which is just dot((A-C),(A-C))
-                #
-                # x = [|P - C|^2 - |A - C|^2] / [2*(P-A).u] where P is the candidate
-                # point, A is neighbor k1g, C is the starting hole center, and u is
-                # the unit vector in the search direction.  Once x is calculated, 
-                # the new hole center C_hat will just be:
-                # C_hat = C + x*u
-                #
-                # This formula can be derived using the Law of Cosines
-                #-------------------------------------------------------------------
-            
-                for idx in range(num_nearest):
-                
-                    self.temp_f64_accum = 0.0
-                
-                    for jdx in range(3):
-                        
-                        self.temp_f64_accum += self.neighbor_mem.candidate_minus_center[3*idx+jdx]*self.neighbor_mem.candidate_minus_center[3*idx+jdx]
-                        
-                    self.temp_f64_val = self.temp_f64_accum
-            
-                    self.temp_f64_accum = 0.0
-                
-                    for jdx in range(3):
-                        
-                        self.temp_f64_accum += self.neighbor_mem.A_minus_center[3*idx+jdx]*self.neighbor_mem.A_minus_center[3*idx+jdx]
-                        
-                    self.neighbor_mem.top_ratio[idx] = self.temp_f64_val - self.temp_f64_accum
-                    
-                    
-                    if self.neighbor_mem.bot_ratio[idx] == 0.0:
-                        #Only way for this to happen is for the candidate to be in the hyperplane
-                        #perpendicular to the search vector (which includes if it is an existing
-                        #neighbor or a duplicate galaxy, either way exclude these guys
-                        self.neighbor_mem.x_vals[idx] = -1.0
-                    
-                    else:
-                    
-                        self.neighbor_mem.x_vals[idx] = self.neighbor_mem.top_ratio[idx]/self.neighbor_mem.bot_ratio[idx]
-                
-                ####################################################################
-    
-    
-    
-                ####################################################################
-                # Locate positive values of x_ratio
-                #-------------------------------------------------------------------
-                any_valid = 0
-                
-                valid_min_idx = 0
-                
-                valid_min_val = INFINITY
-                
-                for idx in range(num_nearest):
-                    
-                    self.temp_f64_val = self.neighbor_mem.x_vals[idx]
-                    
-                    if self.temp_f64_val > 0.0:
-                        
-                        matched_existing = 0
-                        #Be sure to exclude any existing neighbors
-                        temp_idx = self.neighbor_mem.i_nearest[idx]
-                        for jdx in range(num_neighbors):
-                            if temp_idx == existing_bounding_idxs[jdx]:
-                                matched_existing = 1
-                                break
-                            
-                        if matched_existing:
-                            continue
-                        
-                        
-                        any_valid = 1
-                        
-                        if self.temp_f64_val < valid_min_val:
-                            
-                            valid_min_idx = idx
-                            
-                            valid_min_val = self.temp_f64_val
-                ####################################################################
-                            
-    
-                ####################################################################
-                # If we found any positive values, we have a result
-                #-------------------------------------------------------------------
-                if any_valid:
-                    
-                    searching = False
-                    
-                    retval.nearest_neighbor_index = self.neighbor_mem.i_nearest[valid_min_idx]
-                    
-                    retval.min_x_val = self.neighbor_mem.x_vals[valid_min_idx]
-                    
-                    retval.failed = 0
-                    
-                
-            # If we aren't searching anymore (aka have found a result) we dont want
-            # to accidentally eliminate it with a bad mask check because we jumped
-            # by 'dl' instead of checking the actual location that corresponds to
-            # the minx projection along the search unit vector
-            if searching:
-                # If we dont have a valid one, check the mask
-                # to see if we've grown outside the survey
-                
-                if mask_checker.not_in_mask(self.temp_hole_center):
-                    
-                    searching = False
-                    
-                    retval.failed = 1
-        
-        return retval
         
         
         
-        
-    
-    cpdef FindNextReturnVal find_next_bounding_point_2(self, 
-                                                       DTYPE_F64_t[:] start_hole_center,
-                                                       DTYPE_F64_t[:] search_unit_vector,
-                                                       ITYPE_t[:] existing_bounding_idxs,
-                                                       ITYPE_t num_neighbors,
-                                                       MaskChecker mask_checker):
-        """
         TODO: when the pqr grid is created, keep track of the largest dimension
         (so like '63' in a grid of (48, 63, 22) and use this value as a maximum level
         at which to search after which to fail, since right now theoretically this function
@@ -2112,22 +1951,13 @@ cdef class SpatialMap:
         
         
         cdef DTYPE_F64_t[:] temp_sphere_center_xyz = np.empty(3, dtype=np.float64)
+        
         cdef DTYPE_F64_t[:] updated_sphere_center_xyz = np.empty(3, dtype=np.float64)
-        
-        updated_sphere_center_xyz[0] = start_hole_center[0]
-        updated_sphere_center_xyz[1] = start_hole_center[1]
-        updated_sphere_center_xyz[2] = start_hole_center[2]
-        
-        cdef DTYPE_INT32_t current_shell = -1
         
         cdef CELL_ID_t[:] starting_pqr = np.empty(3, dtype=np.int16)
         
-        #starting_pqr[0] = <CELL_ID_t>((temp_sphere_center_xyz[0] - self.coord_min[0])/self.dl)
-        #starting_pqr[1] = <CELL_ID_t>((temp_sphere_center_xyz[1] - self.coord_min[1])/self.dl)
-        #starting_pqr[2] = <CELL_ID_t>((temp_sphere_center_xyz[2] - self.coord_min[2])/self.dl)
         
-        self.xyz_to_pqr(start_hole_center, starting_pqr)
-        
+        cdef DTYPE_INT32_t current_shell = -1
         
         
         
@@ -2143,8 +1973,6 @@ cdef class SpatialMap:
         
         cdef DTYPE_B_t already_found
         
-        
-        
         cdef DTYPE_F64_t min_containing_radius_xyz
     
         cdef ITYPE_t cell_ID_idx
@@ -2153,7 +1981,7 @@ cdef class SpatialMap:
         
         cdef OffsetNumPair curr_offset_num_pair
         
-        cdef DistIdxPair return_vals
+        #cdef DistIdxPair return_vals
         
         cdef DTYPE_F64_t temp1, temp2, temp3, dist_sq
         
@@ -2161,7 +1989,7 @@ cdef class SpatialMap:
         
         cdef DTYPE_F64_t[:] potential_neighbor_xyz
         
-        cdef DTYPE_INT64_t num_cell_IDs
+        #cdef DTYPE_INT64_t num_cell_IDs
         
         cdef DTYPE_INT64_t cell_start_row, cell_end_row
         
@@ -2171,34 +1999,17 @@ cdef class SpatialMap:
         
         
         
+        updated_sphere_center_xyz[0] = start_hole_center[0]
+        updated_sphere_center_xyz[1] = start_hole_center[1]
+        updated_sphere_center_xyz[2] = start_hole_center[2]
+        
+        self.xyz_to_pqr(start_hole_center, starting_pqr)
+        
+        
+        
         while searching:
             
             current_shell += 1
-            
-            
-            
-            
-            '''
-            print("Searching shell: "+str(current_shell)+" at cell center: "+str(np.array(starting_pqr)), flush=True)
-            
-            holes_radii = np.empty(1, dtype=np.float64)
-            holes_radii[0] = 0.5*self.dl + self.dl*current_shell
-            holes_xyz = np.empty((1,3), dtype=np.float64)
-            holes_xyz[0,0:3] = temp_sphere_center_xyz[0:3]
-            holes_group_IDs = np.zeros(1, dtype=np.int32)
-            viz = VoidRender(holes_xyz=holes_xyz, 
-                             holes_radii=holes_radii,
-                             holes_group_IDs=holes_group_IDs,
-                             wall_galaxy_xyz=self.points_xyz,
-                             galaxy_display_radius=10,
-                             SPHERE_TRIANGULARIZATION_DEPTH=3,
-                             canvas_size=(1600,1200))
-            viz.run()
-            '''
-            
-            
-            
-            
             
             cell_start_row, cell_end_row = _gen_shell(starting_pqr, 
                                                       current_shell,
@@ -2217,7 +2028,6 @@ cdef class SpatialMap:
                 
                 num_elements = curr_offset_num_pair.num_elements
     
-                #print(cell_ID_idx, num_elements)
                 
                 for idx in range(num_elements):
                     
@@ -2231,12 +2041,9 @@ cdef class SpatialMap:
                     
                     dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
                     
-            
-                    
                     if dist_sq > min_radius_sq:
                         
                         continue
-                    
                     
                     x_val = self.calculate_x_val(potential_neighbor_idx, 
                                                  k1g_idx, 
@@ -2244,20 +2051,24 @@ cdef class SpatialMap:
                                                  search_unit_vector)
                 
                     if x_val < 0.0:
+                        
                         continue
             
-                    
                     if x_val < min_x_val:
                         
                         already_found = False
+                        
                         for ldx in range(num_neighbors):
+                            
                             if potential_neighbor_idx == existing_bounding_idxs[ldx]:
+                                
                                 already_found = True
+                                
                                 break
                             
                         if already_found:
+                            
                             continue
-                        
                         
                         updated_sphere_center_xyz[0] = start_hole_center[0] + x_val*search_unit_vector[0]
                         updated_sphere_center_xyz[1] = start_hole_center[1] + x_val*search_unit_vector[1]
@@ -2274,12 +2085,18 @@ cdef class SpatialMap:
                         found_neighbor_idx = potential_neighbor_idx
                         
                         retval.nearest_neighbor_index = found_neighbor_idx
+                        
                         retval.min_x_val = min_x_val
                         
-                        
-                        
-        
-        
+            
+            ################################################################################
+            # We've now finished looping through all the cells in the current shell and
+            # all their galaxies - if we found a candidate we need to check that its
+            # guaranteed to be the correct one by checking that its sphere is fully
+            # contained within the space of the shell we searched.  If we found no
+            # candidate, then check to make sure we aren't growing forever outside the 
+            # valid region as defined by the mask.
+            ################################################################################
             if found_neighbor_idx >= 0:
                 
                 _gen_shell_boundaries(self.shell_boundaries_xyz,
@@ -2314,59 +2131,7 @@ cdef class SpatialMap:
                     
                     break
                 
-                
-                
         return retval
-        
-        
-    '''
-    def find_next_bounding_point_3(self, 
-                                   DTYPE_F64_t[:] start_hole_center,
-                                   DTYPE_F64_t[:] search_unit_vector,
-                                   ITYPE_t[:] existing_bounding_idxs,
-                                   ITYPE_t num_neighbors,
-                                   MaskChecker mask_checker):
-        
-        
-        
-        #find next euclidean nearest neighbor
-        #select all galaxies within the new sphere
-        #if no one within new sphere, done
-        #otherwise select smallest within the new sphere
-        
-        
-        next_idx = query_first(start_hole_center, existing_bounding_idxs)
-        
-        x_val = calc_x_val(next_idx)
-        
-        #Problem - what if the X_val is negative.  We either need to loop
-        #through a bunch of query_firsts or find some other way to handle this
-        # but that kinda ruins the efficiency here.
-        
-        updated_center = update_center(next_idx, search_unit_vector, start_hole_center)
-        
-        updated_radius = calc_radius(updated_center, next_idx)
-        
-        interior_idxs = query_radius(updated_center, updated_radius)
-        
-        for curr_idx in interior_idxs:
-            
-            curr_x_val = calc_x_val(curr_idx)
-            
-            if curr_x_val > 0 and curr_x_val < x_val:
-                
-                out_idx = curr_idx
-                
-                x_val = curr_x_val
-            
-        
-        
-        
-        pass
-    '''   
-        
-        
-        
         
         
     def close(self):
@@ -2386,26 +2151,6 @@ cdef class SpatialMap:
         # https://github.com/ercius/openNCEM/issues/39
         
         os.close(self.gma_fd)
-        
-        
-        
-        
-'''
-class CellIDHelper:
-    
-    def __init__(self, start_ijk):
-        
-        self.curr_ijk = start_ijk
-        
-        self.already_searched_cells = []
-        
-        self.curr_level = 0
-        
-        
-    def next(self, radius):
-        
-        pass
-'''
         
         
         
@@ -2786,36 +2531,6 @@ cdef class Cell_ID_Memory:
 
 
 
-class CellTracker:
-    def __init__(self,
-                 starting_pqr,
-                 starting_xyz,
-                 dl):
-        
-        self.starting_pqr = starting_pqr
-        self.starting_xyz = starting_xyz
-        
-        self.current_shell = -1
-        
-        self.dl = dl
-        
-        self.half_cell_diagonal = 0.5*sqrt(3*self.dl*self.dl)
-
-
-    def increment(self, cell_ID_mem, galaxy_map):
-        """
-        Increment the self.curr_shell value by 1 and return those cell IDs
-        """
-        
-        self.current_shell += 1
-        
-        
-        cell_start_row, cell_end_row = _gen_shell(self.starting_pqr, 
-                                                  self.current_shell,
-                                                  cell_ID_mem,
-                                                  galaxy_map)
-        
-        
         
 
 
@@ -2845,7 +2560,6 @@ cdef class SphereGrower:
         self.hole_center_k4g1 = np.zeros(3, dtype=np.float64)
         
         self.hole_center_k4g2 = np.zeros(3, dtype=np.float64)
-        
         
         self.temp_vector = np.zeros(3, dtype=np.float64)
         

@@ -152,7 +152,8 @@ def combine_holes_2(x_y_z_r_array,
                     dup_tol=0.1,
                     maximal_overlap_frac=0.1,
                     min_maximal_radius=10.0,
-                    hole_join_frac=0.5
+                    hole_join_frac=0.5,
+                    verbose=0,
                     ):
     """
     Perform 3 steps to unionize the found holes into Voids.
@@ -203,7 +204,8 @@ def combine_holes_2(x_y_z_r_array,
         including the maximal spheres.
     """
     
-    print("Starting hole combine", flush=True)
+    if verbose > 0:
+        print("Starting hole combine", flush=True)
     
     ############################################################################
     # Remove holes who are nearly identical
@@ -212,8 +214,9 @@ def combine_holes_2(x_y_z_r_array,
     
     unique_index = remove_duplicates_2(x_y_z_r_array, dup_tol)
     
-    print("Removing duplicate spheres:", time.time() - remove_dup_start, 
-          flush=True)
+    if verbose > 0:
+        print("Removing duplicate spheres:", time.time() - remove_dup_start, 
+              flush=True)
     
     x_y_z_r_array = x_y_z_r_array[unique_index]
     boundary_holes = boundary_holes[unique_index]
@@ -235,7 +238,8 @@ def combine_holes_2(x_y_z_r_array,
                                                                  maximal_overlap_frac, 
                                                                  min_maximal_radius)
     
-    print("Find maximal holes:", time.time() - maximals_start, flush=True)
+    if verbose > 0:
+        print("Find maximal holes:", time.time() - maximals_start, flush=True)
     ############################################################################
 
     
@@ -255,8 +259,9 @@ def combine_holes_2(x_y_z_r_array,
                                              hole_join_frac, 
                                              maximal_grid_info)
     
-    print("Merging holes into voids:", time.time() - hole_merge_start, 
-          flush=True)
+    if verbose > 0:
+        print("Merging holes into voids:", time.time() - hole_merge_start, 
+              flush=True)
     
     holes_index = hole_flag_array[:,0]
     

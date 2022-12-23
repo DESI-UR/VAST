@@ -274,14 +274,8 @@ cdef class SpatialMap:
     
     cdef public ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:])
     
-    cpdef public FindNextReturnVal find_next_bounding_point(self, 
-                                                            DTYPE_F64_t[:] start_hole_center,
-                                                            DTYPE_F64_t[:] search_unit_vector,
-                                                            ITYPE_t[:] existing_bounding_idxs,
-                                                            ITYPE_t num_neighbors,
-                                                            MaskChecker mask_checker)
     
-    cpdef public FindNextReturnVal find_next_bounding_point_2(SpatialMap self, 
+    cpdef public FindNextReturnVal find_next_bounding_point(SpatialMap self, 
                                                             DTYPE_F64_t[:] start_hole_center,
                                                             DTYPE_F64_t[:] search_unit_vector,
                                                             ITYPE_t[:] existing_bounding_idxs,

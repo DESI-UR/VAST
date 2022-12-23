@@ -136,7 +136,6 @@ class TestVoidFinder(unittest.TestCase):
 
         # Define hole grid parameters
         self.hole_grid_edge_length = 1.0
-        self.hole_center_iter_dist = 0.2
 
         self.cell_ID_mem = Cell_ID_Memory(10)
 
@@ -603,7 +602,6 @@ class TestVoidFinder(unittest.TestCase):
                    mask_resolution=1,
                    dist_limits=TestVoidFinder.dist_limits,
                    hole_grid_edge_length=self.hole_grid_edge_length,
-                   hole_center_iter_dist=self.hole_center_iter_dist, 
                    min_maximal_radius=self.min_maximal_radius, 
                    num_cpus=1, 
                    pts_per_unit_volume=0.01, # 5

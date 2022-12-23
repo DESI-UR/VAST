@@ -712,7 +712,6 @@ def find_voids(galaxy_coords_xyz,
                hole_grid_edge_length=5.0,
                min_maximal_radius=10.0,
                galaxy_map_grid_edge_length=None,
-               hole_center_iter_dist=1.0,
                pts_per_unit_volume=0.01,
                maximal_spheres_filename="maximal_spheres.txt",
                void_table_filename="voids_table.txt",
@@ -755,7 +754,7 @@ def find_voids(galaxy_coords_xyz,
     contain at least 1 galaxy.  This makes the removal of isolated galaxies in 
     the preprocessing stage important.
     
-    VoidFinder will proceed to grow a sphere, called a hole, at every Empty grid 
+    VoidFinder will proceed to grow a sphere (or hole), at every Empty grid 
     cell.  These pre-void holes will be filtered such that the potential voids 
     along the edge of the survey will be removed, since any void on the edge of 
     the survey could potentially grow unbounded, and there may be galaxies not 
@@ -795,7 +794,7 @@ def find_voids(galaxy_coords_xyz,
     output of VoidFinder, but the main algorithm is intended to find discrete, 
     disjoint x-y-z coordinates of the centers of void regions.  If you wanted a 
     local density estimate for a given galaxy, you could just use the distance 
-    to Nth nearest neighbor, for example.  This is not what VoidFinder is for.
+    to Nth nearest neighbor, for example.
     
     To do this, VoidFinder makes the following assumptions:
     
@@ -938,7 +937,7 @@ def find_voids(galaxy_coords_xyz,
         values which are too high may cause the status update printing to take 
         more than print_after seconds.  Default value 10,000
         
-    verbose : int
+    verbose : int or bool
         Level of verbosity to print during running, 0 indicates off, 1 indicates 
         to print after every 'print_after' cells have been processed, and 2 
         indicates to print all debugging statements
@@ -978,16 +977,22 @@ def find_voids(galaxy_coords_xyz,
     
     
     
+    try:
+        verbose = int(verbose)
+    except:
+        raise ValueError("verbose argument invalid, must be int or bool: "+str(verbose))
+    
     ############################################################################
     # GROW HOLES
     #---------------------------------------------------------------------------
-    print('Growing holes', flush=True)
+    
+    if verbose > 0:
+        print('Growing holes', flush=True)
 
-    tot_hole_start = time.time()
+        tot_hole_start = time.time()
 
     x_y_z_r_array, n_holes = _hole_finder(galaxy_coords_xyz,
-                                          hole_grid_edge_length, 
-                                          hole_center_iter_dist,
+                                          hole_grid_edge_length,
                                           galaxy_map_grid_edge_length,
                                           survey_name,
                                           mask_mode=mask_mode,
@@ -1004,10 +1009,10 @@ def find_voids(galaxy_coords_xyz,
                                           print_after=print_after,
                                           num_cpus=num_cpus)
 
-
-    print('Found a total of', n_holes, 'potential voids.', flush=True)
-
-    print('Time to grow all holes:', time.time() - tot_hole_start, flush=True)
+    if verbose > 0:
+        print('Found a total of', n_holes, 'potential voids.', flush=True)
+    
+        print('Time to grow all holes:', time.time() - tot_hole_start, flush=True)
     ############################################################################
 
 
@@ -1076,9 +1081,10 @@ def find_voids(galaxy_coords_xyz,
     ############################################################################
     # CHECK IF 90% OF VOID VOLUME IS WITHIN SURVEY LIMITS
     #---------------------------------------------------------------------------
-    print("Starting volume cut", flush=True)
+    if verbose > 0:
+        print("Starting volume cut", flush=True)
     
-    vol_cut_start = time.time()
+        vol_cut_start = time.time()
     
     valid_idx, monte_index = check_hole_bounds(x_y_z_r_array, 
                                                mask_checker,
@@ -1088,8 +1094,9 @@ def find_voids(galaxy_coords_xyz,
                                                num_cpus=num_cpus,
                                                verbose=verbose)
     
-    print("Found", np.sum(np.logical_not(valid_idx)), "holes to cut", 
-          time.time() - vol_cut_start, flush=True)
+    if verbose > 0:
+        print("Found", np.sum(np.logical_not(valid_idx)), "holes to cut", 
+              time.time() - vol_cut_start, flush=True)
 
     x_y_z_r_array = x_y_z_r_array[valid_idx]
 
@@ -1102,11 +1109,13 @@ def find_voids(galaxy_coords_xyz,
     ############################################################################
     # SORT HOLES BY SIZE
     #---------------------------------------------------------------------------
-    print("Sorting holes based on radius", flush=True)
+    if verbose > 0:
+        print("Sorting holes based on radius", flush=True)
     
     sort_order = x_y_z_r_array[:,3].argsort()[::-1]
     
     x_y_z_r_array = x_y_z_r_array[sort_order]
+    
     boundary_hole = boundary_hole[sort_order]
     ############################################################################
 
@@ -1115,18 +1124,21 @@ def find_voids(galaxy_coords_xyz,
     ############################################################################
     # FILTER AND SORT HOLES INTO UNIQUE VOIDS
     #---------------------------------------------------------------------------
-    print("Combining holes into unique voids", flush=True)
+    if verbose > 0:
+        print("Combining holes into unique voids", flush=True)
     
-    combine_start = time.time()
+        combine_start = time.time()
     
     maximal_spheres_table, myvoids_table = combine_holes_2(x_y_z_r_array, 
                                                            boundary_hole, 
                                                            mask_checker,
-                                                           min_maximal_radius=min_maximal_radius)
+                                                           min_maximal_radius=min_maximal_radius,
+                                                           verbose=verbose)
     
-    print("Combine time:", time.time() - combine_start, flush=True)
+    if verbose > 0:
+        print("Combine time:", time.time() - combine_start, flush=True)
     
-    print('Number of unique voids is', len(maximal_spheres_table), flush=True)
+        print('Number of unique voids is', len(maximal_spheres_table), flush=True)
     ############################################################################
 
     
@@ -1151,7 +1163,7 @@ def find_voids(galaxy_coords_xyz,
     ############################################################################
     # Save list of maximal hole in each void
     #---------------------------------------------------------------------------
-    save_maximals(maximal_spheres_table, maximal_spheres_filename)
+    save_maximals(maximal_spheres_table, maximal_spheres_filename, verbose=verbose)
     ############################################################################
 
 
