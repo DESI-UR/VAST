@@ -164,15 +164,12 @@ def generate_mask(gal_data,
     #---------------------------------------------------------------------------
     
     num_px = maskra * maskdec * mask_resolution ** 2
-    hpscale=1
-    nside = int(hpscale*np.sqrt(num_px / 12)) #test scale by 4
+    hpscale=.75
+    nside = round(hpscale*np.sqrt(num_px / 12)) #test scale by 4
     healpix_mask = np.zeros(hp.nside2npix(nside), dtype = bool)
     galaxy_pixels = hp.ang2pix(nside, ra, dec, lonlat = True)
     galaxy_pixels = np.unique(galaxy_pixels, axis=0)
     healpix_mask[galaxy_pixels] = 1
-
-    print(num_px)
-    print(hp.nside2npix(nside))
     
     if smooth_mask:
         
