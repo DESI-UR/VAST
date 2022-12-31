@@ -164,15 +164,23 @@ def generate_mask(gal_data,
     #---------------------------------------------------------------------------
     
     num_px = maskra * maskdec * mask_resolution ** 2
-    hpscale=1.
+    hpscale=1
     nside = int(hpscale*np.sqrt(num_px / 12)) #test scale by 4
     healpix_mask = np.zeros(hp.nside2npix(nside), dtype = bool)
-    pxids = hp.ang2pix(nside, ra, dec, lonlat = True)
-    pxids = np.unique(pxids, axis=0)
-    healpix_mask[pxids] = 1
+    galaxy_pixels = hp.ang2pix(nside, ra, dec, lonlat = True)
+    galaxy_pixels = np.unique(galaxy_pixels, axis=0)
+    healpix_mask[galaxy_pixels] = 1
+
+    print(num_px)
+    print(hp.nside2npix(nside))
     
     if smooth_mask:
         
+        neighbors = hp.get_all_neighbours(nside,np.arange(len(healpix_mask)))[::2]
+        correct_idxs = np.sum(healpix_mask[neighbors], axis=0)
+        healpix_mask[np.where(correct_idxs >= 3)] = 1
+
+        """
         correct_idxs = []
         
         for (i, curr_val) in enumerate(healpix_mask):
@@ -183,6 +191,7 @@ def generate_mask(gal_data,
                 correct_idxs.append(i)
             
         healpix_mask[correct_idxs] = 1
+        """
     
     ############################################################################
 
@@ -199,10 +208,17 @@ def generate_mask(gal_data,
     # [0,180) space into [-90,90) space.
     #---------------------------------------------------------------------------
 
-    mask = np.zeros((mask_resolution*maskra, mask_resolution*maskdec), 
-                    dtype=bool)  
-        
+    maskY, maskX = np.meshgrid(
+        np.arange(mask_resolution * 180)/mask_resolution + dec_offset,
+        np.arange(mask_resolution * 360)/mask_resolution
+        )
+    grid_pixels = hp.ang2pix(nside, maskX, maskY, lonlat = True)
+    mask = healpix_mask[grid_pixels]
 
+    """
+    mask = np.zeros((mask_resolution*maskra, mask_resolution*maskdec), 
+                    dtype=bool) 
+    
     for i in range(0, mask_resolution * 360):
 
         for j in range (0, mask_resolution * 180):
@@ -211,10 +227,19 @@ def generate_mask(gal_data,
                               float(j) / mask_resolution + dec_offset, 
                               lonlat = True) 
 
-            mask[i,j] = healpix_mask[pxid]
+            mask[i,j] = healpix_mask[pxid]"""
     
     if smooth_mask:
+
+        padding=np.expand_dims(np.ones(mask.shape[0]+2),axis=1)
+        neighbors=np.hstack((padding,
+                            np.vstack((mask[-1],mask,mask[0])),
+                            padding))
+        neighbor_sum = neighbors[:-2,1:-1] + neighbors[2:,1:-1] + neighbors[1:-1,:-2] + neighbors[1:-1,2:]
+        mask[np.where(neighbor_sum>=3)] = 1
+                        
         
+        """
         correct_idxs = []
     
         for idx in range(mask.shape[0]):
@@ -236,7 +261,7 @@ def generate_mask(gal_data,
         
         for (idx, jdx) in correct_idxs:
             
-            mask[idx,jdx] = 1
+            mask[idx,jdx] = 1"""
     ############################################################################
 
     return mask, mask_resolution
