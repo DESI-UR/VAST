@@ -164,7 +164,7 @@ def generate_mask(gal_data,
     #---------------------------------------------------------------------------
     
     num_px = maskra * maskdec * mask_resolution ** 2
-    hpscale=.75
+    hpscale=1#.75
     nside = round(hpscale*np.sqrt(num_px / 12)) #test scale by 4
     healpix_mask = np.zeros(hp.nside2npix(nside), dtype = bool)
     galaxy_pixels = hp.ang2pix(nside, ra, dec, lonlat = True)
