@@ -165,7 +165,7 @@ def generate_mask(gal_data,
     
     num_px = maskra * maskdec * mask_resolution ** 2
     hpscale=1#.75
-    nside = round(hpscale*np.sqrt(num_px / 12)) #test scale by 4
+    nside = round(hpscale*np.sqrt(num_px / 12))
     healpix_mask = np.zeros(hp.nside2npix(nside), dtype = bool)
     galaxy_pixels = hp.ang2pix(nside, ra, dec, lonlat = True)
     galaxy_pixels = np.unique(galaxy_pixels, axis=0)
@@ -228,10 +228,10 @@ def generate_mask(gal_data,
     
     if smooth_mask:
 
-        padding=np.expand_dims(np.ones(mask.shape[0]+2),axis=1)
-        neighbors=np.hstack((padding,
-                            np.vstack((mask[-1],mask,mask[0])),
-                            padding))
+        neighbors=np.ones((mask.shape[0]+2,mask.shape[1]+2))
+        neighbors[1:-1,1:-1]=mask
+        neighbors[0,1:-1]=mask[-1]
+        neighbors[-1,1:-1]=mask[0]
         neighbor_sum = neighbors[:-2,1:-1] + neighbors[2:,1:-1] + neighbors[1:-1,:-2] + neighbors[1:-1,2:]
         mask[np.where(neighbor_sum>=3)] = 1
                         
