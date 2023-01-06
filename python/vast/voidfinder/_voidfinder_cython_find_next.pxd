@@ -201,7 +201,7 @@ cdef class SpatialMap:
     
     cdef public DTYPE_INT64_t num_points, points_xyz_fd
     
-    cdef public DTYPE_F64_t[:] coord_min
+    cdef public DTYPE_F64_t[:] grid_origin
     
     cdef public DTYPE_F64_t hole_grid_edge_length
     

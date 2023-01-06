@@ -710,6 +710,7 @@ def find_voids(galaxy_coords_xyz,
                check_only_empty_cells=True,
                max_hole_mask_overlap=0.1,
                hole_grid_edge_length=5.0,
+               grid_origin=None,
                min_maximal_radius=10.0,
                galaxy_map_grid_edge_length=None,
                pts_per_unit_volume=0.01,
@@ -811,10 +812,9 @@ def find_voids(galaxy_coords_xyz,
     Parameters
     ==========
     
-    galaxy_coords_xyz : length-2 list of numpy.ndarrays of shape (num_galaxies, 3)
-        Cartesian coordinates of the galaxies in the survey, units of Mpc/h.  
-        The first element of the list is the wall galaxies, the second are the 
-        field galaxies.
+    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
+        coordinates of the galaxies in the survey, units of Mpc/h
+        (xyz space)
         
     survey_name : str
         identifier for the survey running, may be prepended or appended to 
@@ -861,6 +861,11 @@ def find_voids(galaxy_coords_xyz,
         Size in Mpc/h of the edge of 1 cube in the search grid, or distance 
         between 2 grid cells
         (xyz space)
+
+    grid_origin : ndarray of shape (3,) or None
+        The spatial location to use as (0,0,0) in the search grid.
+        if None, will use the numpy.min() function on the provided galaxies
+        as the grid origin
 
     min_maximal_radius : float
         The minimum radius in units of distance for a hole to be considered
@@ -995,6 +1000,7 @@ def find_voids(galaxy_coords_xyz,
                                           hole_grid_edge_length,
                                           galaxy_map_grid_edge_length,
                                           survey_name,
+                                          grid_origin=grid_origin,
                                           mask_mode=mask_mode,
                                           mask=mask,
                                           mask_resolution=mask_resolution,

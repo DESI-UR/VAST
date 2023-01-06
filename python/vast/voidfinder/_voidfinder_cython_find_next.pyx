@@ -1141,7 +1141,7 @@ cdef class SpatialMap:
                  mask_mode,
                  galaxy_coords,
                  hole_grid_edge_length,
-                 coord_min, 
+                 grid_origin, 
                  dl,
                  galaxy_map,
                  galaxy_map_array):
@@ -1153,7 +1153,7 @@ cdef class SpatialMap:
         """
         self.mask_mode = mask_mode
         
-        self.coord_min = coord_min
+        self.grid_origin = grid_origin
         
         self.hole_grid_edge_length = hole_grid_edge_length
         
@@ -1290,7 +1290,7 @@ cdef class SpatialMap:
         
         for idx in range(3):
         
-            output_xyz[idx] = ((<DTYPE_F64_t>ijk_location[idx]) + 0.5)*self.hole_grid_edge_length + self.coord_min[idx]
+            output_xyz[idx] = ((<DTYPE_F64_t>ijk_location[idx]) + 0.5)*self.hole_grid_edge_length + self.grid_origin[idx]
         
         return
     
@@ -1302,9 +1302,9 @@ cdef class SpatialMap:
         Convert an (x,y,z) location into its corresponding (p,q,r) cell.
         """
         
-        output_pqr[0] = <CELL_ID_t>((input_xyz[0] - self.coord_min[0])/self.dl)
-        output_pqr[1] = <CELL_ID_t>((input_xyz[1] - self.coord_min[1])/self.dl)
-        output_pqr[2] = <CELL_ID_t>((input_xyz[2] - self.coord_min[2])/self.dl)
+        output_pqr[0] = <CELL_ID_t>((input_xyz[0] - self.grid_origin[0])/self.dl)
+        output_pqr[1] = <CELL_ID_t>((input_xyz[1] - self.grid_origin[1])/self.dl)
+        output_pqr[2] = <CELL_ID_t>((input_xyz[2] - self.grid_origin[2])/self.dl)
         
         return
         
@@ -1621,13 +1621,13 @@ cdef class SpatialMap:
                     
                     
                     
-                    source_center_xyz[0] = (<DTYPE_F64_t>source_i + 0.5)*self.dl + self.coord_min[0]
-                    source_center_xyz[1] = (<DTYPE_F64_t>source_j + 0.5)*self.dl + self.coord_min[1]
-                    source_center_xyz[2] = (<DTYPE_F64_t>source_k + 0.5)*self.dl + self.coord_min[2]
+                    source_center_xyz[0] = (<DTYPE_F64_t>source_i + 0.5)*self.dl + self.grid_origin[0]
+                    source_center_xyz[1] = (<DTYPE_F64_t>source_j + 0.5)*self.dl + self.grid_origin[1]
+                    source_center_xyz[2] = (<DTYPE_F64_t>source_k + 0.5)*self.dl + self.grid_origin[2]
                     
-                    curr_center_xyz[0] = (<DTYPE_F64_t>i + 0.5)*self.dl + self.coord_min[0]
-                    curr_center_xyz[1] = (<DTYPE_F64_t>j + 0.5)*self.dl + self.coord_min[1]
-                    curr_center_xyz[2] = (<DTYPE_F64_t>k + 0.5)*self.dl + self.coord_min[2]
+                    curr_center_xyz[0] = (<DTYPE_F64_t>i + 0.5)*self.dl + self.grid_origin[0]
+                    curr_center_xyz[1] = (<DTYPE_F64_t>j + 0.5)*self.dl + self.grid_origin[1]
+                    curr_center_xyz[2] = (<DTYPE_F64_t>k + 0.5)*self.dl + self.grid_origin[2]
                     
                     
                     
@@ -1818,7 +1818,7 @@ cdef class SpatialMap:
         cdef DistIdxPair query_vals
         
         query_vals = _query_first(self.reference_point_ijk,
-                                  self.coord_min,
+                                  self.grid_origin,
                                   self.dl,
                                   self.shell_boundaries_xyz,
                                   self.cell_center_xyz,
@@ -2083,7 +2083,7 @@ cdef class SpatialMap:
                 
                 _gen_shell_boundaries(self.shell_boundaries_xyz,
                                       self.cell_center_xyz,
-                                      self.coord_min,
+                                      self.grid_origin,
                                       self.dl,
                                       starting_pqr,
                                       current_shell)

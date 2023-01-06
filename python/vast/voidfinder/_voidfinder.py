@@ -206,6 +206,7 @@ def _hole_finder(galaxy_coords,
                  hole_grid_edge_length, 
                  galaxy_map_grid_edge_length,
                  survey_name,
+                 grid_origin=None,
                  mask_mode=0,
                  mask=None,
                  mask_resolution=None,
@@ -261,10 +262,9 @@ def _hole_finder(galaxy_coords,
     Parameters
     ==========
     
-    galaxy_coords : length-2 list of numpy.ndarrays of shape (num_galaxies, 3)
-        Cartesian coordinates of the galaxies in the survey, units of Mpc/h.  
-        The first element in the list is the wall galaxies, and the second is 
-        the field galaxies.
+    galaxy_coords : numpy.ndarray of shape (num_galaxies, 3)
+        coordinates of the galaxies in the survey, units of Mpc/h
+        (xyz space)
     
     hole_grid_edge_length : scalar float
         length of each cell in Mpc/h
@@ -282,6 +282,11 @@ def _hole_finder(galaxy_coords,
     survey_name : str
         identifier for the survey running, may be prepended or appended to 
         output filenames including the checkpoint filename
+        
+    grid_origin : ndarray of shape (3,) or None
+        The spatial location to use as (0,0,0) in the search grid.
+        if None, will use the numpy.min() function on the provided galaxies
+        as the grid origin
         
     mask_mode : int, one of [0,1,2]
         Determines which mode VoidFinder is running in with regards to the Mask
@@ -398,11 +403,13 @@ def _hole_finder(galaxy_coords,
         
             galaxy_map_grid_edge_length = 3.0*hole_grid_edge_length
         
-        coords_max = np.max(np.concatenate(galaxy_coords), axis=0)
+        coords_max = np.max(galaxy_coords, axis=0)
     
-        coords_min = np.min(np.concatenate(galaxy_coords), axis=0)
+        if grid_origin is None:
+            
+            grid_origin = np.min(galaxy_coords, axis=0)
         
-        box = coords_max - coords_min
+        box = coords_max - grid_origin
     
         ngrid = box/hole_grid_edge_length
         
@@ -425,7 +432,7 @@ def _hole_finder(galaxy_coords,
         
         hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
         
-        coords_min = xyz_limits[0,:]
+        grid_origin = xyz_limits[0,:]
         
         ngrid_galaxymap = box/galaxy_map_grid_edge_length
         
@@ -440,7 +447,7 @@ def _hole_finder(galaxy_coords,
         
         hole_grid_shape = tuple(np.ceil(ngrid).astype(int))
         
-        coords_min = xyz_limits[0,:]
+        grid_origin = xyz_limits[0,:]
         
         if galaxy_map_grid_edge_length is None:
             
@@ -493,7 +500,8 @@ def _hole_finder(galaxy_coords,
                 raise ValueError(error_str)
         
         
-    coords_min = coords_min.reshape(1,3).astype(np.float64)
+    #grid_origin = grid_origin.reshape(1,3).astype(np.float64)
+    grid_origin = grid_origin.astype(np.float64)
     
     if verbose > 0:
         
@@ -596,7 +604,7 @@ def _hole_finder(galaxy_coords,
     # memmaped file so it can be passed directly across fork() and has a resize
     # method so we can just use it directly without the helper.
     #---------------------------------------------------------------------------
-    mesh_indices = ((galaxy_coords[0] - coords_min)/hole_grid_edge_length).astype(np.int64)
+    mesh_indices = ((galaxy_coords - grid_origin)/hole_grid_edge_length).astype(np.int64)
     
     hole_cell_ID_dict = HoleGridCustomDict(hole_grid_shape,
                                            RESOURCE_DIR)
@@ -641,7 +649,7 @@ def _hole_finder(galaxy_coords,
         
         print("Building galaxy map", flush=True)
     
-    mesh_indices = ((galaxy_coords[0] - coords_min)/galaxy_map_grid_edge_length).astype(np.int64)
+    mesh_indices = ((galaxy_coords - grid_origin)/galaxy_map_grid_edge_length).astype(np.int64)
         
     pre_galaxy_map = {}
 
@@ -683,7 +691,7 @@ def _hole_finder(galaxy_coords,
     galaxy_search_cell_dict = GalaxyMapCustomDict(galaxy_map_grid_shape,
                                                   RESOURCE_DIR)
     
-    aligned_galaxy_coords = np.empty(galaxy_coords[0].shape, dtype=galaxy_coords[0].dtype)
+    aligned_galaxy_coords = np.empty(galaxy_coords.shape, dtype=galaxy_coords.dtype)
     
     offset = 0
     
@@ -697,7 +705,7 @@ def _hole_finder(galaxy_coords,
         
         new_indices = np.arange(offset, (offset+num_elements))
         
-        aligned_galaxy_coords[new_indices] = galaxy_coords[0][indices]
+        aligned_galaxy_coords[new_indices] = galaxy_coords[indices]
         
         #galaxy_map_list.append(indices)
         galaxy_map_list.append(new_indices)
@@ -721,7 +729,7 @@ def _hole_finder(galaxy_coords,
                             mask_mode,
                             aligned_galaxy_coords,
                             hole_grid_edge_length,
-                            coords_min[0,:], 
+                            grid_origin, 
                             galaxy_map_grid_edge_length,
                             galaxy_search_cell_dict,
                             galaxy_map_array)

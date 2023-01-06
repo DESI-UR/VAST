@@ -1,5 +1,5 @@
 import numpy as np
-import collections
+from collections.abc import Iterable
 import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM, z_at_value
 from scipy import interpolate
@@ -218,7 +218,7 @@ def flatten(l):
     -------
     """
     for el in l:
-        if isinstance(el,collections.Iterable) and not isinstance(el,(str,bytes)):
+        if isinstance(el, Iterable) and not isinstance(el,(str,bytes)):
             yield from flatten(el)
         else:
             yield el

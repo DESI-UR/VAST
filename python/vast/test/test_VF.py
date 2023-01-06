@@ -340,7 +340,7 @@ class TestVoidFinder(unittest.TestCase):
             tree_results.append(tree_idx[0][0])
             
             distidxpair = _query_first(TestVoidFinder.galaxy_map.reference_point_ijk,
-                                       TestVoidFinder.galaxy_map.coord_min,
+                                       TestVoidFinder.galaxy_map.grid_origin,
                                        TestVoidFinder.galaxy_map.dl,
                                        TestVoidFinder.galaxy_map.shell_boundaries_xyz,
                                        TestVoidFinder.galaxy_map.cell_center_xyz,
@@ -595,9 +595,13 @@ class TestVoidFinder(unittest.TestCase):
         """
         Identify maximal spheres and holes in the galaxy distribution
         """
+        
+        coords_min = np.min(np.concatenate([TestVoidFinder.wall, TestVoidFinder.field]), axis=0)
+        
 
-        find_voids([TestVoidFinder.wall, TestVoidFinder.field], 
+        find_voids(TestVoidFinder.wall, 
                    'test_', 
+                   grid_origin=coords_min,
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
                    dist_limits=TestVoidFinder.dist_limits,
