@@ -69,8 +69,8 @@ def toSky(cs,H0,Om_m,zstep):
     r   = np.sqrt(c1**2.+c2**2.+c3**2.)
     dec = np.arcsin(c3/r)/D2R
     ra  = (np.arccos(c1/np.sqrt(c1**2.+c2**2.))*np.sign(c2)/D2R)%360
-    zmn = z_at_value(Kos.comoving_distance,np.amin(r)*u.Mpc)
-    zmx = z_at_value(Kos.comoving_distance,np.amax(r)*u.Mpc)
+    zmn = z_at_value(Kos.comoving_distance, np.amin(r)*u.Mpc, method='bounded')
+    zmx = z_at_value(Kos.comoving_distance, np.amax(r)*u.Mpc, method='bounded')
     zmn = zmn-(zstep+zmn%zstep)
     zmx = zmx+(2*zstep-zmx%zstep)
     ct  = np.array([np.linspace(zmn,zmx,int(np.ceil(zmn/zstep))),Kos.comoving_distance(np.linspace(zmn,zmx,int(np.ceil(zmn/zstep)))).value]).T
