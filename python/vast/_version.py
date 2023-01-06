@@ -15,5 +15,5 @@ Additional labels for pre-release and build metadata are available as extensions
 
 """
 
-__version__ = '1.2.3'
+__version__ = '1.3.0'
 
