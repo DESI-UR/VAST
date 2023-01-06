@@ -29,7 +29,7 @@ from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 #from ._voidfinder import find_next_prime
 
 from ._voidfinder_cython_find_next cimport GalaxyMapCustomDict, \
-                                           GalaxyMap, \
+                                           SpatialMap, \
                                            Cell_ID_Memory, \
                                            _gen_cube, \
                                            OffsetNumPair, \
@@ -559,14 +559,15 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
     # GalaxyMap interface instead of the GalaxyMapCustomDict directly,
     # so instantiate the interface with some dummy variables here
     # and the real galaxy map custom dict we were using before
-    new_galaxy_map = GalaxyMap(RESOURCE_DIR,
-                               0, #mask mode 0 or 1 should be good
-                               np.empty((2,3), dtype=np.float64),
-                               np.empty((1,3), dtype=np.float64),
-                               1.0,
-                               cust_galaxy_map,
-                               np.empty(5, dtype=np.int64)
-                               )
+    new_galaxy_map = SpatialMap(RESOURCE_DIR,
+                                0, #mask mode 0 or 1 should be good
+                                np.empty((2,3), dtype=np.float64),
+                                1.0,
+                                np.empty(3, dtype=np.float64),
+                                1.0,
+                                cust_galaxy_map,
+                                np.empty(5, dtype=np.int64)
+                                )
         
     
     
@@ -576,9 +577,9 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cell_ID_mem = Cell_ID_Memory(10)
     
-    reference_cell_ijk = np.zeros((1,3), dtype=np.int16)
+    reference_cell_ijk = np.zeros(3, dtype=np.int16)
     
-    cdef CELL_ID_t[:,:] reference_cell_ijk_memview = reference_cell_ijk
+    cdef CELL_ID_t[:] reference_cell_ijk_memview = reference_cell_ijk
     
     ################################################################################
     # Iterate through all our holes, 
@@ -601,9 +602,9 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
         
         
         
-        reference_cell_ijk_memview[0,0] = <CELL_ID_t>((x_y_z_r_array[idx,0] - min_x)/twice_largest_radius)
-        reference_cell_ijk_memview[0,1] = <CELL_ID_t>((x_y_z_r_array[idx,1] - min_y)/twice_largest_radius)
-        reference_cell_ijk_memview[0,2] = <CELL_ID_t>((x_y_z_r_array[idx,2] - min_z)/twice_largest_radius)
+        reference_cell_ijk_memview[0] = <CELL_ID_t>((x_y_z_r_array[idx,0] - min_x)/twice_largest_radius)
+        reference_cell_ijk_memview[1] = <CELL_ID_t>((x_y_z_r_array[idx,1] - min_y)/twice_largest_radius)
+        reference_cell_ijk_memview[2] = <CELL_ID_t>((x_y_z_r_array[idx,2] - min_z)/twice_largest_radius)
         
         
         ################################################################################
@@ -711,9 +712,9 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
             '''
                 
             
-            curr_offset_num_pair = new_galaxy_map.getitem(reference_cell_ijk_memview[0,0],
-                                                          reference_cell_ijk_memview[0,1],
-                                                          reference_cell_ijk_memview[0,2])
+            curr_offset_num_pair = new_galaxy_map.getitem(reference_cell_ijk_memview[0],
+                                                          reference_cell_ijk_memview[1],
+                                                          reference_cell_ijk_memview[2])
             
             offset = curr_offset_num_pair.offset
             
@@ -722,9 +723,9 @@ def find_maximals_3(DTYPE_F64_t[:,:] x_y_z_r_array,
             
             candidate_hole_map_array_memview[offset+num_elements] = idx
             
-            new_galaxy_map.setitem(reference_cell_ijk_memview[0,0],
-                                   reference_cell_ijk_memview[0,1],
-                                   reference_cell_ijk_memview[0,2], 
+            new_galaxy_map.setitem(reference_cell_ijk_memview[0],
+                                   reference_cell_ijk_memview[1],
+                                   reference_cell_ijk_memview[2], 
                                    offset, 
                                    num_elements+1)
             
@@ -956,7 +957,7 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_F64_t twice_largest_radius = maximals_info["twice_largest_radius"]
     
-    cdef GalaxyMap maximals_map = maximals_info["maximals_map"]
+    cdef SpatialMap maximals_map = maximals_info["maximals_map"]
     
     cdef DTYPE_INT64_t[:] maximals_map_array = maximals_info["maximals_cell_array"]
     '''
@@ -981,9 +982,9 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_INT64_t offset, num_elements
     
-    reference_cell_ijk = np.zeros((1,3), dtype=np.int16)
+    reference_cell_ijk = np.zeros(3, dtype=np.int16)
     
-    cdef CELL_ID_t[:,:] reference_cell_ijk_memview = reference_cell_ijk
+    cdef CELL_ID_t[:] reference_cell_ijk_memview = reference_cell_ijk
     ############################################################################
 
     
@@ -1020,9 +1021,9 @@ cpdef np.ndarray join_holes_to_maximals(DTYPE_F64_t[:,:] x_y_z_r_array,
         
         num_matches = 0
         
-        reference_cell_ijk_memview[0,0] = <CELL_ID_t>((x_y_z_r_array[idx,0] - min_x)/twice_largest_radius)
-        reference_cell_ijk_memview[0,1] = <CELL_ID_t>((x_y_z_r_array[idx,1] - min_y)/twice_largest_radius)
-        reference_cell_ijk_memview[0,2] = <CELL_ID_t>((x_y_z_r_array[idx,2] - min_z)/twice_largest_radius)
+        reference_cell_ijk_memview[0] = <CELL_ID_t>((x_y_z_r_array[idx,0] - min_x)/twice_largest_radius)
+        reference_cell_ijk_memview[1] = <CELL_ID_t>((x_y_z_r_array[idx,1] - min_y)/twice_largest_radius)
+        reference_cell_ijk_memview[2] = <CELL_ID_t>((x_y_z_r_array[idx,2] - min_z)/twice_largest_radius)
         
         
         ########################################################################

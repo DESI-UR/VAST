@@ -104,7 +104,7 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_F64_t[:] curr_hole_position = np.empty((3,), dtype=np.float64)
     
-    cdef DTYPE_F64_t[:,:] curr_pt = np.empty((1,3), dtype=np.float64)
+    cdef DTYPE_F64_t[:] curr_pt = np.empty(3, dtype=np.float64)
         
     cdef DTYPE_F64_t curr_hole_radius
     
@@ -132,9 +132,9 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
         
         for jdx in range(num_shell_pts):
             
-            curr_pt[0,0] = curr_hole_radius*unit_sphere_pts[jdx,0] + curr_hole_position[0]
-            curr_pt[0,1] = curr_hole_radius*unit_sphere_pts[jdx,1] + curr_hole_position[1]
-            curr_pt[0,2] = curr_hole_radius*unit_sphere_pts[jdx,2] + curr_hole_position[2]
+            curr_pt[0] = curr_hole_radius*unit_sphere_pts[jdx,0] + curr_hole_position[0]
+            curr_pt[1] = curr_hole_radius*unit_sphere_pts[jdx,1] + curr_hole_position[1]
+            curr_pt[2] = curr_hole_radius*unit_sphere_pts[jdx,2] + curr_hole_position[2]
             
             
             not_in_mask = mask_checker.not_in_mask(curr_pt)
@@ -165,9 +165,9 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
             
             for kdx in range(num_pts_check):
                 
-                curr_pt[0,0] = curr_hole_position[0] + mesh_points[kdx,0]
-                curr_pt[0,1] = curr_hole_position[1] + mesh_points[kdx,1]
-                curr_pt[0,2] = curr_hole_position[2] + mesh_points[kdx,2]
+                curr_pt[0] = curr_hole_position[0] + mesh_points[kdx,0]
+                curr_pt[1] = curr_hole_position[1] + mesh_points[kdx,1]
+                curr_pt[2] = curr_hole_position[2] + mesh_points[kdx,2]
                                                       
                 not_in_mask = mask_checker.not_in_mask(curr_pt)
                 #not_in_mask = Not_In_Mask(curr_pt, mask, mask_resolution, min_dist, max_dist)
@@ -212,7 +212,7 @@ cpdef void _check_holes_mask_overlap_2(DTYPE_F64_t[:,:] x_y_z_r_array,
     
     cdef DTYPE_F64_t[:] curr_hole_position = np.empty((3,), dtype=np.float64)
     
-    cdef DTYPE_F64_t[:,:] curr_pt = np.empty((1,3), dtype=np.float64)
+    cdef DTYPE_F64_t[:] curr_pt = np.empty(3, dtype=np.float64)
         
     cdef DTYPE_F64_t curr_hole_radius
     
@@ -241,9 +241,9 @@ cpdef void _check_holes_mask_overlap_2(DTYPE_F64_t[:,:] x_y_z_r_array,
         
         for jdx in range(num_shell_pts):
             
-            curr_pt[0,0] = curr_hole_radius*unit_sphere_pts[jdx,0] + curr_hole_position[0]
-            curr_pt[0,1] = curr_hole_radius*unit_sphere_pts[jdx,1] + curr_hole_position[1]
-            curr_pt[0,2] = curr_hole_radius*unit_sphere_pts[jdx,2] + curr_hole_position[2]
+            curr_pt[0] = curr_hole_radius*unit_sphere_pts[jdx,0] + curr_hole_position[0]
+            curr_pt[1] = curr_hole_radius*unit_sphere_pts[jdx,1] + curr_hole_position[1]
+            curr_pt[2] = curr_hole_radius*unit_sphere_pts[jdx,2] + curr_hole_position[2]
             
             not_in_mask = Not_In_Mask(curr_pt, mask, mask_resolution, min_dist, max_dist)
             

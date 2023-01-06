@@ -295,13 +295,14 @@ def xyz_to_radecz(sphere_table):
 ################################################################################
 ################################################################################
 
-def save_maximals(sphere_table, out1_filename):
+def save_maximals(sphere_table, out1_filename, verbose=0):
     '''
     Calculate the ra, dec coordinates for the centers of each of the maximal spheres
     Save the maximal spheres to a text file
     '''
     
-    print("Saving maximals to", out1_filename, flush=True)
+    if verbose > 0:
+        print("Saving maximals to", out1_filename, flush=True)
 
     sphere_table = xyz_to_radecz(sphere_table)
 

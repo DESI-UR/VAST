@@ -224,7 +224,7 @@ class Zobov:
             self.minrad = np.median(vrads)
         rcut  = vrads > self.minrad
         
-        voids = np.array(voids)[rcut]
+        voids = np.array(voids, dtype=object)[rcut]
 
         vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]]
         vvols = vvols[rcut]
