@@ -31,6 +31,7 @@ from vast.voidfinder.multizmask import generate_mask
 from vast.voidfinder.preprocessing import file_preprocess
 
 import pickle
+import numpy as np
 ################################################################################
 
 
@@ -197,6 +198,7 @@ find_voids(wall_coords_xyz,
            maximal_spheres_filename=out1_filename,
            void_table_filename=out2_filename,
            potential_voids_filename=out_directory + survey_name + 'potential_voids_list.txt',
+           verbose=1,
            num_cpus=num_cpus)
 ################################################################################
 
