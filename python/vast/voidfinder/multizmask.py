@@ -143,7 +143,6 @@ def generate_mask(gal_data,
     # coordinates into this scaled space.  Each coordinate in the scaled space
     # will fall into an integer bucket, so we use .astype(int), and that value
     # will represent that the mask[ra_scaled, dec_scaled] should be set to True.
-    #
     #---------------------------------------------------------------------------
     scaled_converted_ang = (mask_resolution*ang).astype(int)
     
@@ -152,27 +151,24 @@ def generate_mask(gal_data,
 
 
     ############################################################################
-    # Now we create a healpix based boolean pre-mask with approximately the same
-    # number of bins as in the mask: (360*N)*(180*N). The actual dimensionality 
-    # of the pre-mask is the closest squared multiple of 12, as required by the
-    # healpix formalism. This multiple, termed as NSIDE in the healpix
-    # algorithm, is used with healpix to select and mark bins in the pre-mask 
-    # that contain galaxies.
+    # Now we create a HEALPix based boolean pre-mask with 12 * nside ** 2 bins,
+    # where a nside is an integer. We match the number of bins in the pre-mask
+    # as closely as possible to the number of bins num_px in the cartesian mask: 
+    # num_px = (360*N)*(180*N). We then flag bins in the pre-mask that contain 
+    # galaxies using HEALPix.
     #
     # We optionally smooth the premask to reduce patchiness.
-    #  
     #---------------------------------------------------------------------------
     
     num_px = maskra * maskdec * mask_resolution ** 2
-    hpscale=1#.75
-    nside = round(hpscale*np.sqrt(num_px / 12))
+    nside = round(np.sqrt(num_px / 12))
     healpix_mask = np.zeros(hp.nside2npix(nside), dtype = bool)
     galaxy_pixels = hp.ang2pix(nside, ra, dec, lonlat = True)
-    galaxy_pixels = np.unique(galaxy_pixels, axis=0)
     healpix_mask[galaxy_pixels] = 1
     
     if smooth_mask:
         
+        #Note: the [::2] selects only neighbors that share edges with the cell in question
         neighbors = hp.get_all_neighbours(nside,np.arange(len(healpix_mask)))[::2]
         correct_idxs = np.sum(healpix_mask[neighbors], axis=0)
         healpix_mask[np.where(correct_idxs >= 3)] = 1
@@ -196,13 +192,14 @@ def generate_mask(gal_data,
 
     ############################################################################
     # Now we create the actual boolean mask by allocating an array of shape
-    # (360*N, 180*N), and iterating through all ra-dec positions on this grid,
-    # and using the corresponding location on pre-mask to determine if the bin
-    # is in the mask.
+    # (360*N, 180*N). We initially define these coordinates with a meshgrid that
+    # we map onto the pre-mask to obtain the appropriate mask flags.
     #
     # Since declination is actually measured from the equator, we need to 
     # subtract 90 degrees from the mask index in order to convert from 
     # [0,180) space into [-90,90) space.
+    # 
+    # We optionally smooth the premask to reduce patchiness.
     #---------------------------------------------------------------------------
 
     maskY, maskX = np.meshgrid(
@@ -234,7 +231,6 @@ def generate_mask(gal_data,
         neighbors[-1,1:-1]=mask[0]
         neighbor_sum = neighbors[:-2,1:-1] + neighbors[2:,1:-1] + neighbors[1:-1,:-2] + neighbors[1:-1,2:]
         mask[np.where(neighbor_sum>=3)] = 1
-                        
         
         """
         correct_idxs = []
