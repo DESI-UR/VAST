@@ -11,8 +11,8 @@ from vast.voidfinder import find_voids, filter_galaxies
 from vast.voidfinder.table_functions import to_array
 from vast.voidfinder.multizmask import generate_mask
 from vast.voidfinder.preprocessing import file_preprocess
-from vast.voidfinder._voidfinder_cython import main_algorithm
-from vast.voidfinder._voidfinder_cython_find_next import GalaxyMap, \
+from vast.voidfinder._voidfinder_cython import grow_spheres
+from vast.voidfinder._voidfinder_cython_find_next import SpatialMap, \
                                                          Cell_ID_Memory, \
                                                          GalaxyMapCustomDict, \
                                                          HoleGridCustomDict, \
@@ -136,7 +136,6 @@ class TestVoidFinder(unittest.TestCase):
 
         # Define hole grid parameters
         self.hole_grid_edge_length = 1.0
-        self.hole_center_iter_dist = 0.2
 
         self.cell_ID_mem = Cell_ID_Memory(10)
 
@@ -298,13 +297,14 @@ class TestVoidFinder(unittest.TestCase):
 
         num_galaxy_map_elements = len(galaxy_search_cell_dict)
 
-        TestVoidFinder.galaxy_map = GalaxyMap(self.RESOURCE_DIR,
-                                              self.mask_mode,
-                                              TestVoidFinder.wall, 
-                                              self.coords_min.reshape(1,3), 
-                                              galaxy_map_grid_edge_length,
-                                              galaxy_search_cell_dict,
-                                              galaxy_map_array)
+        TestVoidFinder.galaxy_map = SpatialMap(self.RESOURCE_DIR,
+                                               self.mask_mode,
+                                               TestVoidFinder.wall,
+                                               self.hole_grid_edge_length,
+                                               self.coords_min, 
+                                               galaxy_map_grid_edge_length,
+                                               galaxy_search_cell_dict,
+                                               galaxy_map_array)
         ########################################################################
 
 
@@ -340,13 +340,13 @@ class TestVoidFinder(unittest.TestCase):
             tree_results.append(tree_idx[0][0])
             
             distidxpair = _query_first(TestVoidFinder.galaxy_map.reference_point_ijk,
-                                       TestVoidFinder.galaxy_map.coord_min,
+                                       TestVoidFinder.galaxy_map.grid_origin,
                                        TestVoidFinder.galaxy_map.dl,
                                        TestVoidFinder.galaxy_map.shell_boundaries_xyz,
                                        TestVoidFinder.galaxy_map.cell_center_xyz,
                                        TestVoidFinder.galaxy_map,
                                        self.cell_ID_mem,
-                                       curr_point.astype(np.float64)
+                                       curr_point[0,:].astype(np.float64)
                                        )
             
 
@@ -595,14 +595,17 @@ class TestVoidFinder(unittest.TestCase):
         """
         Identify maximal spheres and holes in the galaxy distribution
         """
+        
+        coords_min = np.min(np.concatenate([TestVoidFinder.wall, TestVoidFinder.field]), axis=0)
+        
 
-        find_voids([TestVoidFinder.wall, TestVoidFinder.field], 
+        find_voids(TestVoidFinder.wall, 
                    'test_', 
+                   grid_origin=coords_min,
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
                    dist_limits=TestVoidFinder.dist_limits,
                    hole_grid_edge_length=self.hole_grid_edge_length,
-                   hole_center_iter_dist=self.hole_center_iter_dist, 
                    min_maximal_radius=self.min_maximal_radius, 
                    num_cpus=1, 
                    pts_per_unit_volume=0.01, # 5

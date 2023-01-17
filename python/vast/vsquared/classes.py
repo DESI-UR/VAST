@@ -137,7 +137,7 @@ class Tesselation:
             reg = np.array(Vor.regions)[Vor.point_region]
             del Vor
             print("Computing volumes...")
-            vol = np.zeros(len(reg))
+            vol = np.zeros(len(coords))
             cut = np.arange(len(coords))
             hul = []
             for r in reg[cut]:
@@ -153,7 +153,13 @@ class Tesselation:
             print("Tesselating...")
             Vor = Voronoi(coords)
             ver = Vor.vertices
-            reg = np.array(Vor.regions)[Vor.point_region]
+            
+            reg = np.array(Vor.regions, dtype=object)[Vor.point_region]
+            
+            
+            
+            
+            
             del Vor
             ve2 = ver.T
             vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2])
@@ -201,7 +207,7 @@ class Tesselation:
         for i in range(len(vol)):
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
-        self.neighbors = np.array(nei)
+        self.neighbors = np.array(nei, dtype=object)
 
 
 class Zones:
@@ -260,7 +266,7 @@ class Zones:
                 depth[srt[i]] = depth[n]+1
                 zcell[lut[n]].append(srt[i])
 
-        self.zcell = np.array(zcell)
+        self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
         self.depth = depth
 
