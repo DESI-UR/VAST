@@ -200,6 +200,7 @@ class Tesselation:
             sim = Del.simplices
         nei = []
         lut = [[] for _ in range(len(vol))]
+        hzn = np.zeros(len(vol),dtype=bool)
         print("Consolidating neighbors...")
         for i in range(len(sim)):
             for j in sim[i]:
@@ -207,7 +208,10 @@ class Tesselation:
         for i in range(len(vol)):
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
+            if 0. in vol[nei[i]]:
+                hzn[i] = True
         self.neighbors = np.array(nei, dtype=object)
+        self.hzn       = hzn
 
 
 class Zones:
@@ -226,6 +230,7 @@ class Zones:
         """
         vol   = tess.volumes
         nei   = tess.neighbors
+        hzn   = tess.hzn
 
         # Sort the Voronoi cells by their volume
         print("Sorting cells...")
@@ -241,6 +246,7 @@ class Zones:
 
         zvols = [0.]
         zcell = [[]]
+        zhzn  = [1]
 
         print("Building zones...")
 
@@ -260,14 +266,17 @@ class Zones:
                 lut[n] = len(zvols) - 1
                 zcell.insert(-1,[n])
                 zvols.insert(-1,vol[n])
+                zhzn.insert(-1,int(hzn[n]))
             else:
                 # This cell is put into its least-dense neighbor's zone
                 lut[srt[i]]   = lut[n]
                 depth[srt[i]] = depth[n]+1
                 zcell[lut[n]].append(srt[i])
+                zhzn[lut[n]] += int(hzn[srt[i]])
 
         self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
+        self.zhzn  = zhzn
         self.depth = depth
 
         # Identify neighboring zones and the least-dense cells linking them

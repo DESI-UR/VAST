@@ -242,6 +242,8 @@ class Zobov:
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
 
+        vhzn = [np.sum(self.zones.zhzn[voi]) for voi in voids]
+
         # Identify eigenvectors of best-fit ellipsoid for each void.
         print("Calculating ellipsoid axes...")
 
@@ -264,6 +266,7 @@ class Zobov:
         self.vcens = vcens
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
+        self.vhzn = (np.array(vhzn)).astype(bool)
 
 
     def saveVoids(self):
@@ -282,8 +285,8 @@ class Zobov:
                     names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
         else:
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
-            vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+            vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2],(self.vhzn).astype(int)],
+                    names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3','edge'))
 
         vT.write(self.outdir+self.catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
 
