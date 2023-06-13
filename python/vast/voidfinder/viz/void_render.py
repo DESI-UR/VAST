@@ -1618,7 +1618,7 @@ class VoidRender(app.Canvas):
         
         hole_kdtree = neighbors.KDTree(self.holes_xyz)
         
-        valid_idx = np.ones(self.holes_xyz.shape[0], dtype=np.bool)
+        valid_idx = np.ones(self.holes_xyz.shape[0], dtype=np.bool_)
         
         for curr_idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
             
