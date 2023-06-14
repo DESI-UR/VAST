@@ -7,6 +7,8 @@ from astropy.table import Table
 
 import time
 
+import pickle
+
 from .hole_combine import combine_holes_2
 
 from .voidfinder_functions import mesh_galaxies, save_maximals
@@ -178,7 +180,9 @@ def filter_galaxies(galaxy_table,
         
         wall_gals_xyz, field_gals_xyz = wall_field_separation(coords_xyz,
                                                               sep_neighbor=sep_neighbor,
-                                                              verbose=verbose)
+                                                              verbose=verbose,
+                                                              survey_name=survey_name, 
+                                                              out_directory=out_directory)
 
     else:
         
@@ -596,7 +600,9 @@ def calculate_grid(galaxy_coords,
 
 def wall_field_separation(galaxy_coords_xyz,
                           sep_neighbor=3,
-                          verbose=0):
+                          verbose=0,
+                          survey_name = "", 
+                          out_directory = ""):
     """
     Given a set of galaxy coordinates in xyz space, find all the galaxies whose
     distance to their Nth nearest neighbor is above or below some limit.  
@@ -667,6 +673,10 @@ def wall_field_separation(galaxy_coords_xyz,
     
     print('Removing all galaxies with 3rd nearest neighbors further than', l, 
           flush=True)
+    
+    neighbor_info_file = open(out_directory + survey_name + 'neighbor_cut.pickle', 'wb')
+    pickle.dump((l, sd), neighbor_info_file)
+    neighbor_info_file.close()
     ############################################################################
 
 

@@ -29,6 +29,7 @@ from vast.voidfinder import find_voids, filter_galaxies
 
 from vast.voidfinder.multizmask import generate_mask
 from vast.voidfinder.preprocessing import file_preprocess
+from vast.voidfinder.postprocessing import file_postprocess
 
 import pickle
 import numpy as np
@@ -165,7 +166,7 @@ del galaxy_data_table
 
 # Save the catalog details needed for finding voids, so that the code can be 
 # restarted from the next step if needed.
-temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
+temp_outfile = open(out_directory + survey_name + "filter_galaxies_output.pickle", 'wb')
 pickle.dump((wall_coords_xyz, field_coords_xyz), temp_outfile)
 temp_outfile.close()
 ################################################################################
@@ -203,8 +204,34 @@ find_voids(wall_coords_xyz,
 ################################################################################
 
 
+################################################################################
+# Postprocess Data
+#-------------------------------------------------------------------------------
 
+#The below inputs should be tuned for any changes made to the voidfinding
 
+file_postprocess(
+    maximal_spheres_filename=out1_filename,
+    void_table_filename=out2_filename,
+    galaxies_filename = galaxies_filename,
+    mask_filename = out_directory + survey_name + 'mask.pickle',
+    wall_field_filename = out_directory + survey_name + "filter_galaxies_output.pickle",
+    in_directory=in_directory,
+    out_directory = out_directory,
+    survey_name = survey_name,
+    #mag_cut = magcut,
+    mag_cut = True,
+    magnitude_limit = -20,
+    #rm_isolated = rm_isolated
+    rm_isolated=True,
+    dist_metric=dist_metric,
+    dist_limits=dist_limits,
+    min_z = min_z,
+    max_z = max_z,
+    Omega_M = Omega_M,
+    #h = h
+    h=1
+)
 
 
 
