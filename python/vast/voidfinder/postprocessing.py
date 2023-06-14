@@ -137,7 +137,7 @@ def file_postprocess(maximal_spheres_filename,
 
     # name of file containing input galaxies
     in_filename = in_directory + galaxies_filename
-    
+
     # names of files assembled into the output
     wall_filename = out_directory + survey_name + 'wall_gal_file.txt'
     field_filename = out_directory + survey_name + 'field_gal_file.txt'
@@ -152,27 +152,27 @@ def file_postprocess(maximal_spheres_filename,
 
         hdr = fits.Header()
 
-        hdr['input_galaxy_table'] = in_filename
-        hdr['dist_metric'] = dist_metric
-        hdr['dist_limit_Mpc_min'] = dist_limits[0]
-        hdr['dist_limit_Mpc_max'] = dist_limits[1]
-        hdr['redshift_limit_min'] = min_z
-        hdr['redshift_limit_max'] = max_z
-        hdr['matter_density'] = Omega_M
-        hdr['hubble_parameter'] = h
+        hdr['Input Galaxy Table'] = in_filename
+        hdr['Distance Metric'] = dist_metric
+        hdr['Lower Distance Limit (Mpc/h)'] = dist_limits[0]
+        hdr['Upper Distance Limit (Mpc/h)'] = dist_limits[1]
+        hdr['Lower Redshift Limit'] = min_z
+        hdr['Upper Redshift Limit'] = max_z
+        hdr['Matter Density'] = Omega_M
+        hdr['Hubble Parameter'] = h
 
         # criteria for separating wall and field galaxies
         if rm_isolated: 
             temp_infile = open(neighbor_filename, 'rb')
             l, sd = pickle.load(temp_infile)
             temp_infile.close()
-            hdr['3rd_neighbor_separation_av'] = l
-            hdr['3rd_neighbor_separation_sd'] = sd
+            hdr['Average 3rd Neighbor Separation'] = l
+            hdr['STD of 3rd Neighbor Separation'] = sd
         
         # absolute magnitude cut info
-        hdr['mag_cut']=mag_cut
+        hdr['Magnitude Cut Applied']=mag_cut
         if mag_cut:
-                hdr['magnitude_limit']=magnitude_limit
+                hdr['Magnitude Limit']=magnitude_limit
         
         hdu = fits.PrimaryHDU(header=hdr)
 
@@ -188,9 +188,9 @@ def file_postprocess(maximal_spheres_filename,
 
         hdu = fits.ImageHDU(mask.astype(int))
         hdr = hdu.header
-        hdr['mask_resolution'] = mask_resolution
-        hdr['mask_dist_limit_Mpc_min'] = dist_limits[0]
-        hdr['mask_dist_limit_Mpc_max'] = dist_limits[1]
+        hdr['Mask Resolution'] = mask_resolution
+        hdr['Lower Distance Limit (Mpc/h)'] = dist_limits[0]
+        hdr['Upper Distance Limit (Mpc/h)'] = dist_limits[1]
 
         # caclulate solid angle sky coverage
         nside = round(np.sqrt(mask.size / 12))
@@ -198,7 +198,7 @@ def file_postprocess(maximal_spheres_filename,
         pix_cells = (np.floor(pix_cells[0]).astype(int), np.floor(pix_cells[1]+90).astype(int))
         healpix_mask = mask[pix_cells]
         coverage = np.sum(healpix_mask) * hp.nside2pixarea(nside) #solid angle coverage in steradians
-        hdr['steradian_sky_coverage'] = coverage
+        hdr['Sky Coverage (Steradians)'] = coverage
 
         return hdu
 
@@ -209,8 +209,8 @@ def file_postprocess(maximal_spheres_filename,
         fieldHDU = fits.BinTableHDU()
 
         # Form header
-        wallHDU.header['num_wall_galaxies'] = 0
-        fieldHDU.header['num_field_galaxies'] = 0
+        wallHDU.header['Wall Galaxy Count'] = 0
+        fieldHDU.header['Field Galaxy Count'] = 0
 
         # Read in wall and field galaxies (may be stored in several differnet file configurations)
         if wall_field_filename is not None and os.path.isfile(wall_field_filename):
@@ -223,34 +223,20 @@ def file_postprocess(maximal_spheres_filename,
             field_xyz_table = Table(data=field_coords_xyz, names=["x", "y", "z"])
             wallHDU.data = fits.BinTableHDU(wall_xyz_table).data
             fieldHDU.data = fits.BinTableHDU(field_xyz_table).data
-            wallHDU.header['num_wall_galaxies'] = len(wall_coords_xyz)
-            fieldHDU.header['num_field_galaxies'] = len(field_coords_xyz)
+            wallHDU.header['Wall Galaxy Count'] = len(wall_coords_xyz)
+            fieldHDU.header['Field Galaxy Count'] = len(field_coords_xyz)
 
         else:
             
             wall_coords_xyz = Table.read(wall_filename,format='ascii.commented_header')
             wallHDU.data = fits.BinTableHDU(wall_coords_xyz).data
-            wallHDU.header['num_wall_galaxies'] = len(wall_coords_xyz)
+            wallHDU.header['Wall Galaxy Count'] = len(wall_coords_xyz)
             
             field_coords_xyz = Table.read(field_filename,format='ascii.commented_header')
             fieldHDU.data = fits.BinTableHDU(field_coords_xyz).data
-            fieldHDU.header['num_field_galaxies'] = len(field_coords_xyz)
+            fieldHDU.header['Field Galaxy Count'] = len(field_coords_xyz)
 
         return wallHDU, fieldHDU
-    
-    # Record the galaxy number density along with intermediate caclulations
-    def galaxy_density(primaryHDU, maskHDU, wallHDU, fieldHDU):
-
-        coverage = maskHDU.header['steradian_sky_coverage']
-        primaryHDU.header['steradian_sky_coverage'] = coverage
-        d_max = primaryHDU.header['dist_limit_Mpc_max']
-        d_min = primaryHDU.header['dist_limit_Mpc_min']
-        vol = coverage / 3 * (d_max ** 3 - d_min ** 3) #survey volume = steradians / 3 * delta_d
-        primaryHDU.header['survey_volume_Mpc3'] = vol
-        num_gals = wallHDU.header['num_wall_galaxies'] + fieldHDU.header['num_field_galaxies']
-        primaryHDU.header['num_galaxies'] = num_gals
-        primaryHDU.header['galaxy_num_density_Mpc-3'] = num_gals/vol
-
         
     # Save void tables to HDUs
     def write_voids():
@@ -261,10 +247,27 @@ def file_postprocess(maximal_spheres_filename,
         maximalHDU = fits.BinTableHDU(maximals)
         holeHDU = fits.BinTableHDU(holes)
 
-        maximalHDU.header['num_voids'] = len(maximals)
-        holeHDU.header['num_voids'] = len(maximals)
+        maximalHDU.header['Void Count'] = len(maximals)
+        holeHDU.header['Void Count'] = len(maximals)
 
         return maximalHDU, holeHDU
+    
+    # Calculations dependant on the initial HDU properties
+    def post_calculations(primaryHDU, maskHDU, wallHDU, fieldHDU, maximalHDU):
+
+        coverage = maskHDU.header['Sky Coverage (Steradians)']
+        primaryHDU.header['Sky Coverage (Steradians)'] = coverage
+        d_max = primaryHDU.header['Upper Distance Limit (Mpc/h)']
+        d_min = primaryHDU.header['Lower Distance Limit (Mpc/h)']
+        vol = coverage / 3 * (d_max ** 3 - d_min ** 3) #survey volume = steradians / 3 * delta_d
+        primaryHDU.header['Survey Volume (Mpc/h)^3'] = vol
+        num_gals = wallHDU.header['Wall Galaxy Count'] + fieldHDU.header['Field Galaxy Count']
+        primaryHDU.header['Galaxy Count'] = num_gals
+        primaryHDU.header['Wall Galaxy Count'] = wallHDU.header['Wall Galaxy Count']
+        primaryHDU.header['Field Galaxy Count'] = fieldHDU.header['Field Galaxy Count']
+        primaryHDU.header['Galaxy Count Density (Mpc/h)^-3'] = num_gals/vol
+        primaryHDU.header['Average Galaxy Separation Mpc/h'] = np.power(vol/num_gals, 1/3)
+        primaryHDU.header['Void Count'] = maximalHDU.header['Void Count']
 
     ############################################################################
     # Fits file creation
@@ -279,8 +282,8 @@ def file_postprocess(maximal_spheres_filename,
         primaryHDU = write_header()
         maskHDU = write_mask()
         wallHDU, fieldHDU = write_galaxies()
-        galaxy_density(primaryHDU, maskHDU, wallHDU, fieldHDU)
         maximalHDU, holeHDU = write_voids()
+        post_calculations(primaryHDU, maskHDU, wallHDU, fieldHDU, maximalHDU)
         hdul = fits.HDUList([primaryHDU, maskHDU, wallHDU, fieldHDU, maximalHDU, holeHDU])
 
     # Save output
