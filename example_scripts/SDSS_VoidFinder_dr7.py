@@ -129,15 +129,18 @@ print("Dist limits: ", dist_limits)
 #-------------------------------------------------------------------------------
 mask, mask_resolution = generate_mask(galaxy_data_table, 
                                       max_z, 
+                                      survey_name,
+                                      out_directory,
                                       dist_metric=dist_metric, 
                                       smooth_mask=True,
                                       #h=h,
                                       )
 
 # Save the mask and mask resolution so that it can be used elsewhere
-temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
-pickle.dump((mask, mask_resolution, dist_limits), temp_outfile)
-temp_outfile.close()
+# Note that this is done automatically by generate mask now
+#temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
+#pickle.dump((mask, mask_resolution, dist_limits), temp_outfile)
+#temp_outfile.close()
 ################################################################################
 
 
@@ -148,6 +151,8 @@ temp_outfile.close()
 #-------------------------------------------------------------------------------
 # If you are rerunning the code, you can comment out the mask generation step 
 # above and just load it here instead.
+# Note that the pickle file will be replaced with a fits file if postprocessing 
+# is applied, and that the file name/read-in will need to be changed
 #temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
 #mask, mask_resolution, dist_limits = pickle.load(temp_infile)
 #temp_infile.close()
@@ -181,6 +186,8 @@ coords_min = np.min(np.concatenate([wall_coords_xyz, field_coords_xyz]), axis=0)
 # Again, if you are running the code and have not changed any of the above steps 
 # from a previous run, you can comment out most of the above function calls and 
 # load all the details in here to start over.
+# Note that the pickle file will be replaced with a fits file if postprocessing 
+# is applied, and that the file name/read-in will need to be changed 
 #temp_infile = open(survey_name + "filter_galaxies_output.pickle", 'rb')
 #wall_coords_xyz, field_coords_xyz = pickle.load(temp_infile)
 #temp_infile.close()
@@ -214,7 +221,6 @@ file_postprocess(
     maximal_spheres_filename=out1_filename,
     void_table_filename=out2_filename,
     galaxies_filename = galaxies_filename,
-    mask_filename = out_directory + survey_name + 'mask.pickle',
     wall_field_filename = out_directory + survey_name + "filter_galaxies_output.pickle",
     in_directory=in_directory,
     out_directory = out_directory,

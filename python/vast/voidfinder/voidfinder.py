@@ -75,7 +75,7 @@ def filter_galaxies(galaxy_table,
         include 'ra' and 'dec'
         
     survey_name : str
-        Name of the galxy catalog, string value to prepend or append to output 
+        Name of the galaxy catalog, string value to prepend or append to output 
         names
 
     out_directory : string
