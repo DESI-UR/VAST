@@ -7,7 +7,7 @@ import healpy as hp
 from astropy.io import fits
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, getBuff, flatten
+from vast.vsquared.util import toCoord, getBuff, flatten, rotate
 
 class Catalog:
     """Catalog data for void calculation.
@@ -62,6 +62,7 @@ class Catalog:
         if not periodic:
             nnls[zcut<1] = -1
         if maglim is not None:
+            mag = hdulist[1].data['rabsmag']
             print("Applying magnitude cut...")
             mcut = np.logical_and(mag<maglim,zcut)
             if not mcut.any():
@@ -276,15 +277,18 @@ class Zones:
 
         self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
-        self.zhzn  = zhzn
+        self.zhzn  = np.array(zhzn)
         self.depth = depth
 
         # Identify neighboring zones and the least-dense cells linking them
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
 
         if viz:
-            zverts = [[] for _ in range(len(zvols))]
-            znorms = [[] for _ in range(len(zvols))]
+            zverts  = [[] for _ in range(len(zvols))]
+            znorms  = [[] for _ in range(len(zvols))]
+            zarea_0 = np.zeros(len(zvols))
+            zarea_t = np.zeros(len(zvols))
+            zarea_s = [[] for _ in range(len(zvols))]
 
         print("Linking zones...")
 
@@ -296,7 +300,18 @@ class Zones:
             for n in ns:
                 z2 = lut[n]
                 if z2 == -1:
-                    continue
+                    if viz:
+                        vts = tess.vertIDs[i].copy()
+                        vts.extend(tess.vertIDs[n])
+                        vts = np.array(vts)
+                        vts = vts[[len(vts[vts==v])==2 for v in vts]]
+                        if len(vts)>2:
+                            vcs = rotate(tess.verts[vts])
+                            chv = ConvexHull(vcs).volume
+                            zarea_0[z1] += chv
+                            zarea_t[z1] += chv
+                    else:
+                        continue
                 if z1 != z2:
                     # This neighboring cell is in a different zone
                     if z2 not in zlinks[0][z1]:
@@ -304,6 +319,8 @@ class Zones:
                         zlinks[0][z2].append(z1)
                         zlinks[1][z1].append(0.)
                         zlinks[1][z2].append(0.)
+                        zarea_s[z1].append(0.)
+                        zarea_s[z2].append(0.)
                     j  = np.where(zlinks[0][z1] == z2)[0][0]
                     k  = np.where(zlinks[0][z2] == z1)[0][0]
                     # Update maximum link volume if needed
@@ -318,6 +335,10 @@ class Zones:
                         vts = vts[[len(vts[vts==v])==2 for v in vts]]
                         #vts = np.unique(vts[vts!=-1])
                         if len(vts)>2:
+                            vcs = rotate(tess.verts[vts])
+                            chv = ConvexHull(vcs).volume
+                            zarea_t[z1] += chv
+                            zarea_s[z1][j] += chv
                             try:
                                 vcs = (tess.verts[vts].T[0:2]).T
                                 zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
@@ -327,8 +348,11 @@ class Zones:
                             znorms[z1].append([i,n])
         self.zlinks = zlinks
         if viz:
-            self.zverts = zverts
-            self.znorms = znorms
+            self.zverts  = zverts
+            self.znorms  = znorms
+            self.zarea_0 = zarea_0
+            self.zarea_t = zarea_t
+            self.zarea_s = zarea_s
 
 
 class Voids:
