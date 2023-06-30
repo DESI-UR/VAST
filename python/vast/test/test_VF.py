@@ -173,7 +173,8 @@ class TestVoidFinder(unittest.TestCase):
         boolean mask + resolution
         """
         f_mask, f_mask_resolution = generate_mask(self.galaxies_shuffled, 
-                                                  self.redshift_range[-1], 
+                                                  self.redshift_range[-1],
+                                                  '','',
                                                   dist_metric='redshift', 
                                                   min_maximal_radius=self.min_maximal_radius)
 
