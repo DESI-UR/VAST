@@ -117,6 +117,16 @@ def file_postprocess(maximal_spheres_filename,
     # Helper functions for fits file assembly
     #---------------------------------------------------------------------------
 
+    # (Make Number) Format floats for headers
+    def mknum (flt):
+
+        #preserve 3 sig figs for numbers starting with "0."
+        if abs(flt) < 1:
+            return float(f"{flt:.3g}")
+        #otherwise round to two decimal places
+        else:
+            return float(f"{flt:.2f}")
+
     # Save general voidfinding information to a HDU
     def write_header():
 
@@ -124,25 +134,25 @@ def file_postprocess(maximal_spheres_filename,
 
         hdr['INFILE'] = (in_filename, 'Input Galaxy Table')
         hdr['METRIC'] = (dist_metric, 'Distance Metric')
-        hdr['DLIML'] = (dist_limits[0], 'Lower Distance Limit (Mpc/h)')
-        hdr['DLIMU'] = (dist_limits[1], 'Upper Distance Limit (Mpc/h)')
+        hdr['DLIML'] = (mknum(dist_limits[0]), 'Lower Distance Limit (Mpc/h)')
+        hdr['DLIMU'] = (mknum(dist_limits[1]), 'Upper Distance Limit (Mpc/h)')
         hdr['ZLIML'] = (min_z, 'Lower Redshift Limit')
         hdr['ZLIMU'] = (max_z, 'Upper Redshift Limit')
         hdr['OMEGAM'] = (Omega_M,'Matter Density')
-        hdr['HP'] = (h, 'Hubble Parameter')
+        hdr['HP'] = (h, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
 
         # criteria for separating wall and field galaxies
         if rm_isolated: 
             temp_infile = open(neighbor_filename, 'rb')
             l, sd = pickle.load(temp_infile)
             temp_infile.close()
-            hdr['3NNLA'] = (l,'Average 3rd Neighbor Separation')
-            hdr['3NNLS'] = (sd,'STD of 3rd Neighbor Separation')
+            hdr['3NNLA'] = (mknum(l),'Average 3rd Neighbor Separation (Mpc/h)')
+            hdr['3NNLS'] = (mknum(sd),'STD of 3rd Neighbor Separation (Mpc/h)')
         
         # absolute magnitude cut info
         hdr['MAGCUT']=(mag_cut,'Magnitude Cut Applied')
         if mag_cut:
-                hdr['MAGLIM']=(magnitude_limit, 'Magnitude Limit')
+                hdr['MAGLIM']=(magnitude_limit, 'R-Band Magnitude Limit')
         
         hdu = fits.PrimaryHDU(header=hdr)
 
@@ -222,20 +232,22 @@ def file_postprocess(maximal_spheres_filename,
     
     # Calculations dependant on the initial HDU properties
     def post_calculations(primaryHDU, maskHDU, wallHDU, fieldHDU, maximalHDU):
-
-        coverage = maskHDU.header['COVSTR']
-        primaryHDU.header['COVSTR'] = (coverage, 'Sky Coverage (Steradians)')
-        primaryHDU.header['COVDEG'] = (coverage*(180/np.pi)**2, 'Sky Coverage (Degrees^2)')
+        
+        primaryHDU.header['MSKRES'] = (maskHDU.header['MSKRES'], 'Mask Resolution')
+        coverage = maskHDU.header['COVSTR'] #preseve copy of COVSTR with more decimal places
+        maskHDU.header['COVSTR'] = mknum(coverage)
+        primaryHDU.header['COVSTR'] = (maskHDU.header['COVSTR'], 'Sky Coverage (Steradians)')
+        primaryHDU.header['COVDEG'] = (mknum(coverage*(180/np.pi)**2), 'Sky Coverage (Degrees^2)')
         d_max = primaryHDU.header['DLIMU']
         d_min = primaryHDU.header['DLIML']
         vol = coverage / 3 * (d_max ** 3 - d_min ** 3) #survey volume = steradians / 3 * delta_d
-        primaryHDU.header['VOLUME'] = (vol, 'Survey Volume (Mpc/h)^3')
-        num_gals = wallHDU.header['WALL'] + fieldHDU.header['FIELD']
+        primaryHDU.header['VOLUME'] = (mknum(vol), 'Survey Volume (Mpc/h)^3')
+        num_gals = int(wallHDU.header['WALL']) + int(fieldHDU.header['FIELD'])
         primaryHDU.header['GALAXY'] = (num_gals,'Galaxy Count')
         primaryHDU.header['WALL'] = (wallHDU.header['WALL'], 'Wall Galaxy Count')
         primaryHDU.header['FIELD'] = (fieldHDU.header['FIELD'], 'Field Galaxy Count')
-        primaryHDU.header['DENSITY'] = (num_gals/vol, 'Galaxy Count Density (Mpc/h)^-3')
-        primaryHDU.header['AVSEP'] = (np.power(vol/num_gals, 1/3), 'Average Galaxy Separation (Mpc/h)')
+        primaryHDU.header['DENSITY'] = (mknum(num_gals/vol), 'Galaxy Count Density (Mpc/h)^-3')
+        primaryHDU.header['AVSEP'] = (mknum(np.power(vol/num_gals, 1/3)), 'Average Galaxy Separation (Mpc/h)')
         primaryHDU.header['VOID'] = (maximalHDU.header['VOID'], 'Void Count')
 
     ############################################################################
