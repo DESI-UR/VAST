@@ -147,7 +147,7 @@ def generate_mask(gal_data,
     # to integers, many ra-dec pairs will fall into the same integer bucket and 
     # we only need to set that integer bucket to "True" once.
     #---------------------------------------------------------------------------
-    scaled_converted_ang = (mask_resolution*ang).astype(int)
+    scaled_converted_ang = np.floor(mask_resolution*ang).astype(int) #floor handles negatives
     
     pre_mask = np.unique(scaled_converted_ang, axis=0)
     ############################################################################
