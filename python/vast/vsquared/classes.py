@@ -241,6 +241,7 @@ class Zones:
 
         zvols = [0.]
         zcell = [[]]
+        zceln = []
 
         print("Building zones...")
 
@@ -260,11 +261,21 @@ class Zones:
                 lut[n] = len(zvols) - 1
                 zcell.insert(-1,[n])
                 zvols.insert(-1,vol[n])
+                zceln.append([n])
             else:
                 # This cell is put into its least-dense neighbor's zone
                 lut[srt[i]]   = lut[n]
                 depth[srt[i]] = depth[n]+1
                 zcell[lut[n]].append(srt[i])
+                if len(zceln[lut[n]])<4:
+                    for j,o in enumerate(zceln[lut[n]]):
+                        if o in ns:
+                            if j+1==len(zceln[lut[n]]):
+                                zceln[lut[n]].append(srt[i])
+                            else:
+                                continue
+                        else:
+                            break
 
         self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
