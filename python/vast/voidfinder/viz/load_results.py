@@ -96,8 +96,8 @@ def load_void_data(infilename):
         the radii of the holes
 
     hole_flags : numpy.ndarray shape (N,)
-        the VoidFinder 'flag' output representing
-        which void group a hole belongs to
+        the VoidFinder 'flag' output representing which void group a hole 
+        belongs to
 
     '''
     
@@ -131,8 +131,8 @@ def load_galaxy_data(infilename):
 
     infilename : string
         path to desired data file
-        intended to be an astropy table output from VoidFinder
-        with columns 'ra', 'dec', 'redshift', and possibly 'Rgal'
+        intended to be an astropy table output from VoidFinder with columns 
+        'ra', 'dec', 'redshift', and possibly 'Rgal'
 
     Returns
     =======

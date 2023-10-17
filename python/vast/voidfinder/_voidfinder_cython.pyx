@@ -480,6 +480,11 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     
     cdef DTYPE_F64_t hole_radius
 
+    # For testing purposes
+    #cdef DTYPE_F64_t hole_radius1
+    #cdef DTYPE_F64_t hole_radius2
+    #cdef DTYPE_F64_t hole_radius3
+
     cdef DTYPE_B_t zero_unit_vector
 
     cdef DTYPE_B_t check_both_4 = False
@@ -575,6 +580,8 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
     ############################################################################
 
 
+    #print('dl:', dl, flush=True)
+    #print('coord_min:', np.array(coord_min), flush=True)
     
     
     ############################################################################
@@ -604,9 +611,6 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         hole_center_memview[0,2] = i_j_k_array[working_idx, 2]
         
         #print("Working ijk: "+str(i_j_k_array[working_idx, 0])+","+str(i_j_k_array[working_idx, 1])+","+str(i_j_k_array[working_idx, 2]), flush=True)
-    
-        #print('dl:', dl, flush=True)
-        #print('coord_min:', np.array(coord_min), flush=True)
 
         for idx in range(3):
             
@@ -693,6 +697,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             unit_vector_memview[idx] = (galaxy_map.wall_galaxy_coords[k1g,idx] - hole_center_memview[0,idx])/vector_modulus
             
         hole_radius = vector_modulus
+
+        # For testing only
+        #hole_radius1 = hole_radius
         
 
 
@@ -879,6 +886,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             temp_f64_accum2 += temp_f64_val*unit_vector_memview[idx]
         
         hole_radius = 0.5*temp_f64_accum/temp_f64_accum2
+
+        # For testing only
+        #hole_radius2 = hole_radius
     
         
         for idx in range(3):
@@ -1017,17 +1027,15 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             print("Unit vector for hole propagation is null for Galaxy #3 search.", 
                   flush=True)
             
-            #If k1g, k2g and the hole center are co-linear, then choose any arbitrary 
-            #vector in the plane perpendicular to the colinear direction.  For now we 
-            #choose this arbitrary vector using the simple formula for the 3d vector dot
-            #product:  a*b + b*(-a) + c*0 = 0  where v1 = (a,b,c) and
-            #v2 = (b, -a, 0)
+            # If k1g, k2g and the hole center are co-linear, then choose any 
+            # arbitrary vector in the plane perpendicular to the colinear 
+            # direction.  For now we choose this arbitrary vector using the 
+            # simple formula for the 3d vector dot product:  
+            # a*b + b*(-a) + c*0 = 0 where v1 = (a,b,c) and v2 = (b, -a, 0)
             
             unit_vector_memview[0] = galaxy_map.wall_galaxy_coords[k1g,1] - galaxy_map.wall_galaxy_coords[k1g,1] #put b in a spot
             unit_vector_memview[1] = -1.0*(galaxy_map.wall_galaxy_coords[k1g,0] - galaxy_map.wall_galaxy_coords[k2g,0])
             unit_vector_memview[2] = 0.0
-            
-            
         #-----------------------------------------------------------------------
 
 
@@ -1131,6 +1139,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
             temp_f64_accum += temp_f64_val*temp_f64_val
     
         hole_radius = sqrt(temp_f64_accum)
+
+        # For testing only
+        #hole_radius3 = hole_radius
         
     
         #if not_in_mask(hole_center_memview, mask, mask_resolution, min_dist, max_dist):
@@ -1609,9 +1620,9 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         ########################################################################
         # End Debugging Section
         ########################################################################
-        
+        """
 
-        
+        '''
         out_str = "Cell coordinates: ["
         out_str += str(i_j_k_array[working_idx, 0])
         out_str += ", "
@@ -1627,8 +1638,18 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         out_str += ", "
         out_str += str(hole_center_memview[0, 2])
         out_str += ")\n"
+
         out_str += "Hole radius: "
         out_str += str(hole_radius)
+        out_str += "\n"
+        out_str += "Hole radius 1: "
+        out_str += str(hole_radius1)
+        out_str += "\n"
+        out_str += "Hole radius 2: "
+        out_str += str(hole_radius2)
+        out_str += "\n"
+        out_str += "Hole radius 3: "
+        out_str += str(hole_radius3)
         out_str += "\n"
         
         out_str += "Galaxy #1: ("
@@ -1661,7 +1682,7 @@ cpdef void main_algorithm(DTYPE_INT64_t[:,:] i_j_k_array,
         out_str += ")\n"
 
         DEBUG_OUTFILE.write(out_str)
-        """
+        '''
         
     ############################################################################
 

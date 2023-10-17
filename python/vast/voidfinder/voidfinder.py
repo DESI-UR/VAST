@@ -1,4 +1,4 @@
-#VoidFinder Function to do just about everything
+# VoidFinder Function to do just about everything
 
 
 import numpy as np

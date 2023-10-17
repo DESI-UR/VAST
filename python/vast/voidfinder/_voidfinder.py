@@ -528,6 +528,8 @@ def _hole_finder(galaxy_coords,
         
         print("Galaxy-searching edge length:", galaxy_map_grid_edge_length, 
               flush=True)
+
+        print("Minimum coordinates of galaxies:", coords_min, flush=True)
     ############################################################################
     
     
