@@ -96,3 +96,9 @@ V\ :sup:`2` API
 ================
 
 .. autofunction:: vast.vsquared.util.flatten
+
+
+``util.rotate``
+===============
+
+.. autofunction:: vast.vsquared.util.rotate

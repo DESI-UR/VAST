@@ -64,3 +64,9 @@ class TestV2Util(unittest.TestCase):
         flat = np.arange(23)
         l2 = np.array(list(util.flatten(l)))
         self.assertTrue(np.isclose(l2, flat).all())
+
+    def test_rotate(self):
+        p = np.array([[1.,1.,1.],[1.,2.,1.],[3.,2.,1.],[2.,1.,1.]])
+        r = util.rotate(p)
+        s = np.array([[0.,0.],[1.,0.],[1.,2.],[0.,1.]])
+        self.assertTrue(np.isclose(r,s).all())

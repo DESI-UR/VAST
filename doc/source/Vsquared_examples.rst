@@ -387,6 +387,14 @@ useful to the user post-void-finding) include
      - float
      - 
      - normalized z-component of the void's third ellipsoid axis
+   * - area
+     - float
+     - (Mpc/h)^2
+     - surface area of the void
+   * - edge
+     - float
+     - (Mpc/h)^2
+     - surface area of the void adjacent to edge particles
 
 .. list-table:: ``_triangles`` output file
    :widths: 25 25 25 50
