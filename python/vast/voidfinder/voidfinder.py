@@ -5,6 +5,8 @@ import numpy as np
 
 from astropy.table import Table
 
+from sklearn import neighbors
+
 import time
 
 from .hole_combine import combine_holes_2
@@ -633,11 +635,37 @@ def wall_field_separation(galaxy_coords_xyz,
         
     """
     
+    ############################################################################
+    # Check for (and remove) identical galaxies
+    #---------------------------------------------------------------------------
+    print('Checking for duplicate galaxies', flush=True)
+    
+    dup_start = time.time()
+    
+    galaxy_tree = neighbors.KDTree(galaxy_coords_xyz)
+    
+    distances, indices = galaxy_tree.query(galaxy_coords_xyz, k=2)
+    
+    duplicates = distances[:,1] == 0.
+    
+    if np.sum(duplicates) > 0:
+        
+        galaxy_coords_xyz = galaxy_coords_xyz[~duplicates]
+        
+        print('Removed', np.sum(duplicates), 'duplicates', flush=True)
+        
+    dup_end = time.time()
+    
+    print('Time to check for and remove duplicate galaxies:', dup_end-dup_start, 
+          flush=True)
+    ############################################################################
+    
+    
     
     ############################################################################
     # Calculate the average distance to the 3rd nearest neighbor
     #---------------------------------------------------------------------------
-    print('Finding isolated galaxy distance',flush=True)
+    print('Finding isolated galaxy distance', flush=True)
         
     sep_start = time.time()
 
