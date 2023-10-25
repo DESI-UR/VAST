@@ -1,10 +1,10 @@
 #cython: language_level=3
-#cython: initializedcheck=False
-#cython: boundscheck=False
-#cython: wraparound=False
+#cython: initializedcheck=True
+#cython: boundscheck=True
+#cython: wraparound=True
 #cython: cdivision=True
-#cython: nonecheck=False
-#cython: profile=False
+#cython: nonecheck=True
+#cython: profile=True
 
 
 
@@ -278,7 +278,20 @@ cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates,
     
     idx2 = <ITYPE_t>(n_float*dec) - <ITYPE_t>(n_float*dec_offset)
     
-    return_mask_value = survey_mask_ra_dec[idx1, idx2]
+    
+    
+    try:
+    
+        return_mask_value = survey_mask_ra_dec[idx1, idx2]
+    except:
+        print("FOUND IT!!!!!!!")
+        print("Ra: ", float(ra), "Dec: ", float(dec))
+        print("n_float: ", float(n_float))
+        print(np.array(coordinates))
+        print(np.array(survey_mask_ra_dec).shape)
+        print(idx1, idx2)
+        
+        raise
     ############################################################################
 
     
@@ -1989,6 +2002,10 @@ cdef class SpatialMap:
         
         
         
+        if np.isnan(search_unit_vector[0]):
+            print("YEP ITS A PROBLEM", flush=True)
+        
+        
         while searching:
             
             current_shell += 1
@@ -2104,6 +2121,17 @@ cdef class SpatialMap:
                 temp_sphere_center_xyz[0] = start_hole_center[0] + current_shell*self.dl*search_unit_vector[0]
                 temp_sphere_center_xyz[1] = start_hole_center[1] + current_shell*self.dl*search_unit_vector[1]
                 temp_sphere_center_xyz[2] = start_hole_center[2] + current_shell*self.dl*search_unit_vector[2]
+                
+                
+                
+                #DEBUGGING
+                if np.isnan(temp_sphere_center_xyz[0]):
+                    print("ERROR CYTHON_FIND_NEXT", flush=True)
+                    print(np.array(start_hole_center))
+                    print(current_shell)
+                    print(self.dl)
+                    print(np.array(search_unit_vector))
+                    raise RuntimeError
                 
                 if mask_checker.not_in_mask(temp_sphere_center_xyz):
                     
@@ -2607,6 +2635,12 @@ cdef class SphereGrower:
         for self.idx in range(3):
         
             self.search_unit_vector[self.idx] = self.temp_vector[self.idx]/self.vector_modulus
+            
+            
+        #DEBUGGING
+        if np.isnan(self.search_unit_vector[0]):
+            print("NAN AFTER K1G")
+            raise RuntimeError
         
         
         return
@@ -2672,6 +2706,12 @@ cdef class SphereGrower:
             for self.idx in range(3):
         
                 self.search_unit_vector[self.idx] /= self.vector_modulus
+                
+                
+        #DEBUGGING
+        if np.isnan(self.search_unit_vector[0]):
+            print("NAN AFTER K2G")
+            raise RuntimeError
             
         return
     
@@ -2699,6 +2739,13 @@ cdef class SphereGrower:
         bounding galaxy can search in both directions away from this plane.
         
         """
+        
+        #DEBUGGING
+        if np.isnan(self.search_unit_vector[0]):
+            print("NAN AFTER K3G- checkpoint 1")
+            raise RuntimeError
+        
+        
         cdef DTYPE_B_t coplanar = False
         
         
@@ -2730,6 +2777,16 @@ cdef class SphereGrower:
     
             self.search_unit_vector[self.idx] = self.v3_memview[self.idx]/self.vector_modulus
         #-----------------------------------------------------------------------
+
+        #DEBUGGING
+        if np.isnan(self.search_unit_vector[0]):
+            print("NAN AFTER K3G- checkpoint 2")
+            print(np.array(self.v3_memview))
+            print(self.vector_modulus)
+            print(np.array(k1g_xyz))
+            print(np.array(k2g_xyz))
+            print(np.array(k3g_xyz))
+            raise RuntimeError
 
 
         #-----------------------------------------------------------------------
@@ -2763,7 +2820,10 @@ cdef class SphereGrower:
             coplanar = True
         
         
-        
+        #DEBUGGING
+        if np.isnan(self.search_unit_vector[0]):
+            print("NAN AFTER K3G - checkpoint 3")
+            raise RuntimeError
         
         return coplanar
 

@@ -505,11 +505,16 @@ def _hole_finder(galaxy_coords,
     
     if verbose > 0:
         
+        print("Grid origin:", grid_origin, flush=True)
+        
+        print("Survey-containing box size:", box, flush=True)
+        
         print("Hole-growing Grid:", hole_grid_shape, flush=True)
         
         print("Galaxy-searching Grid:", galaxy_map_grid_shape, flush=True)
         
         print("Galaxy-searching edge length:", galaxy_map_grid_edge_length, flush=True)
+        
     ############################################################################
     
     
