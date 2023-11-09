@@ -60,12 +60,23 @@ class build_ext(_build_ext):
 #
 # Identify all Cython extensions and add them to the extensions list.
 #
+# The define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")] gets rid of the
+# annoying numpy API warnings, and the extra_compile_args=["-Wno-maybe-uninitialized"]
+# removes all the warnings about using variables which may be uninitialized
 ext_modules = []
 extfiles = glob('python/vast/voidfinder/*.pyx') + glob('python/vast/voidfinder/*/*.pyx')
 for extfile in extfiles:
-    name = name = extfile.replace('python/', '').replace('/', '.').replace('.pyx', '')
-    ext_modules.append(Extension(name, [extfile], library_dirs=['m'], cython_directives = {'embedsignature': True}))
-#
+    name = extfile.replace('python/', '').replace('/', '.').replace('.pyx', '')
+    
+    curr_ext = Extension(name, 
+                         [extfile], 
+                         library_dirs=['m'],
+                         define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+                         extra_compile_args=["-Wno-maybe-uninitialized"])
+    
+    ext_modules.append(curr_ext)
+
+
 setup_keywords['ext_modules'] = ext_modules
 setup_keywords['cmdclass'] = { 'build_ext' : build_ext }
 #

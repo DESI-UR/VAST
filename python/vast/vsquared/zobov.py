@@ -20,9 +20,9 @@ class Zobov:
         configfile : str
             Configuration file, in INI format.
         start : int
-            Analysis stages: 0=generate catalog, 1=load catalog, 2=load tesselation, 3=load zones.
+            Analysis stages: 0=generate catalog, 1=load catalog, 2=load tesselation, 3=load zones, 4=load voids.
         end :  int
-            Ending point: 1=generate tesselation, 2=generate zones, 3=generate voids.
+            Ending point: 0=generate catalog, 1=generate tesselation, 2=generate zones, 3=generate voids, 4=load voids.
         save_intermediate : bool
             If true, pickle and save intermediate outputs.
         visualize : bool
@@ -52,7 +52,7 @@ class Zobov:
         self.infile  = config['Paths']['Input Catalog']
         self.catname = config['Paths']['Survey Name']
         self.outdir  = config['Paths']['Output Directory']
-        self.intloc  = "../intermediate/" + self.catname
+        self.intloc  = "../../intermediate/" + self.catname
         
         self.H0   = float(config['Cosmology']['H_0'])
         self.Om_m = float(config['Cosmology']['Omega_m'])
@@ -176,8 +176,31 @@ class Zobov:
                     voids.append([c for q in self.prevoids.voids[i] for c in q])
 
         elif method==3:
-            print("Method 3 coming soon")
-            return
+            #print('Method 3')
+            voids = []
+            for i in range(len(self.prevoids.mvols)):
+                vh = self.prevoids.mvols[i]
+                vl = np.amax(self.zones.zlinks[1][self.prevoids.voids[i][0][0]])
+                r  = vh / vl
+                p1 = P(r)
+                for j in range(len(self.prevoids.voids[i])):
+                    if j == len(self.prevoids.voids[i])-1:
+                        voids.append([c for q in self.prevoids.voids[i] for c in q])
+                    else:
+                        vl = self.prevoids.ovols[i][j+2]
+                        r  = vh / vl
+                        p2 = P(r)
+                        p3 = 1.
+                        for zid in self.prevoids.voids[i][j+1]:
+                            vhz = np.amax(self.zones.zvols[zid])
+                            vlz = np.amax(self.zones.zlinks[1][zid])
+                            rz  = vhz / vlz
+                            p3  = p3 * P(rz)
+                        if p2 > p1*p3:
+                            voids.append([c for q in self.prevoids.voids[i][:j+1] for c in q])
+                            break
+                        else:
+                            p1 = p2
 
         elif method==4:
             #print('Method 4')
@@ -206,7 +229,7 @@ class Zobov:
             self.minrad = np.median(vrads)
         rcut  = vrads > self.minrad
         
-        voids = np.array(voids)[rcut]
+        voids = np.array(voids, dtype=object)[rcut]
 
         vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]]
         vvols = vvols[rcut]
@@ -307,7 +330,7 @@ class Zobov:
                     elist[glut2[c]] = 1
         elist[np.array(olist,dtype=bool)] = 0
 
-        zT = Table([glist,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
+        zT = Table([self.catalog.galids,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
         zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
 
 
@@ -332,8 +355,9 @@ class Zobov:
         zverts = self.zones.zverts
         znorms = self.zones.znorms
         z2v = self.zvoid.T[1]
-        z2v2 = np.array([np.where(z2v==z2)[0] for z2 in np.unique(z2v[z2v!=-1])])
-        zcut = [np.product([np.product(self.tesselation.volumes[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
+        z2v3 = np.unique(z2v[z2v!=-1])
+        z2v2 = np.array([np.where(z2v==z2)[0] for z2 in z2v3])
+        zcut = [np.product([np.product(self.tesselation.vecut[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
 
         tri1 = []
         tri2 = []
@@ -354,13 +378,13 @@ class Zobov:
                         tri2.append(verc[t[1]])
                         tri3.append(verc[t[2]])
                         norm.append(n)
-                        vid.append(k)
-                    g2v[gids[p[0]]] = k
+                        vid.append(z2v3[zcut][k])
+                    g2v[gids[p[0]]] = z2v3[zcut][k]
         for k,v in enumerate(z2v2[zcut]):
             for z in v:
                 for i in range(len(znorms[z])):
                     if g2v[gids[p[1]]] != -1:
-                        g2v2[gids[p[1]]] = k
+                        g2v2[gids[p[1]]] = z2v3[zcut][k]
 
         if len(vid)==0:
             print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")

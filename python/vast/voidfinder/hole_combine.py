@@ -1,8 +1,10 @@
+
+
 from astropy.table import Table
 
 import numpy as np
 
-from .table_functions import to_array,to_vector
+from .table_functions import to_array, to_vector
 
 import time
 
@@ -145,26 +147,32 @@ def combine_holes(spheres_table, frac=0.1):
 
 
 def combine_holes_2(x_y_z_r_array,
+                    boundary_holes, 
+                    mask_checker,
                     dup_tol=0.1,
                     maximal_overlap_frac=0.1,
                     min_maximal_radius=10.0,
-                    hole_join_frac=0.5
+                    hole_join_frac=0.5,
+                    verbose=0,
                     ):
     """
-    Description
-    ===========
-    
     Perform 3 steps to unionize the found holes into Voids.
     
     1).  Remove specific duplicate holes
     2).  Find holes which qualify as a Maximal
     3).  Join all other holes to the Maximals to form Voids.
     
-    Parameters
+
+    PARAMETERS
     ==========
     
     x_y_z_r_array : ndarray of shape (N,4)
         the xyz coordinates of the holes and their radii r
+
+    boundary_holes : ndarray of shape (N,)
+        whether or not the hole is on the survey boundary
+
+    mask_checker : 
         
     dup_tol : float 
         the tolerance in units of distance to check 2 hole centers
@@ -182,10 +190,22 @@ def combine_holes_2(x_y_z_r_array,
     hole_join_frac : float in [0,1.0)
         the fraction of the hole's volume required to overlap for a maximal
         for the hole to join that maximal's Void    
+    
 
+    RETURNS
+    =======
+
+    maximals_table : astropy table of length M
+        Table containing the holes from x_y_z_r_array that are identified 
+        maximal spheres
+
+    holes_table : astropy table of length P
+        Table containing the holes from x_y_z_r_array that are part of a void, 
+        including the maximal spheres.
     """
     
-    print("Starting hole combine", flush=True)
+    if verbose > 0:
+        print("Starting hole combine", flush=True)
     
     ############################################################################
     # Remove holes who are nearly identical
@@ -194,10 +214,12 @@ def combine_holes_2(x_y_z_r_array,
     
     unique_index = remove_duplicates_2(x_y_z_r_array, dup_tol)
     
-    print("Removing duplicate spheres:", time.time() - remove_dup_start, 
-          flush=True)
+    if verbose > 0:
+        print("Removing duplicate spheres:", time.time() - remove_dup_start, 
+              flush=True)
     
     x_y_z_r_array = x_y_z_r_array[unique_index]
+    boundary_holes = boundary_holes[unique_index]
     ############################################################################
 
 
@@ -216,7 +238,8 @@ def combine_holes_2(x_y_z_r_array,
                                                                  maximal_overlap_frac, 
                                                                  min_maximal_radius)
     
-    print("Find maximal holes:", time.time() - maximals_start, flush=True)
+    if verbose > 0:
+        print("Find maximal holes:", time.time() - maximals_start, flush=True)
     ############################################################################
 
     
@@ -236,8 +259,9 @@ def combine_holes_2(x_y_z_r_array,
                                              hole_join_frac, 
                                              maximal_grid_info)
     
-    print("Merging holes into voids:", time.time() - hole_merge_start, 
-          flush=True)
+    if verbose > 0:
+        print("Merging holes into voids:", time.time() - hole_merge_start, 
+              flush=True)
     
     holes_index = hole_flag_array[:,0]
     
@@ -246,6 +270,8 @@ def combine_holes_2(x_y_z_r_array,
     maximals_xyzr = x_y_z_r_array[maximal_spheres_indices]
     
     holes_xyzr = x_y_z_r_array[holes_index]
+
+    boundary_voids = boundary_holes[holes_index]
     ############################################################################
 
 
@@ -255,8 +281,80 @@ def combine_holes_2(x_y_z_r_array,
     #---------------------------------------------------------------------------
     maximals_table = Table(maximals_xyzr, names=('x','y','z','radius'))
     maximals_table["flag"] = np.arange(maximals_xyzr.shape[0])
+
     holes_table =  Table(holes_xyzr, names=('x','y','z','radius'))
     holes_table["flag"] = holes_flag_index
+    ############################################################################
+
+
+
+    ############################################################################
+    # Mark boundary voids
+    #---------------------------------------------------------------------------
+    maximals_table["edge"] = 0
+
+    for i,void in enumerate(maximals_table["flag"]):
+
+        # Find all holes associated with this void
+        void_hole_indices = holes_table["flag"] == void
+
+        # Check to see if any of the holes are on the boundary
+        if np.any(boundary_voids[void_hole_indices]):
+
+            maximals_table["edge"][i] = 1
+
+        else:
+            #-------------------------------------------------------------------
+            # Also mark those voids with at least one hole within 10 Mpc/h of 
+            # the survey boundary
+            #-------------------------------------------------------------------
+            void_holes = holes_table[void_hole_indices]
+
+            for j in range(np.sum(void_hole_indices)):
+
+                # Find the points which are 10 Mpc/h in each direction from the 
+                # center
+                hole_x_min = void_holes['x'][j] - 10.
+                hole_y_min = void_holes['y'][j] - 10.
+                hole_z_min = void_holes['z'][j] - 10.
+                hole_x_max = void_holes['x'][j] + 10.
+                hole_y_max = void_holes['y'][j] + 10.
+                hole_z_max = void_holes['z'][j] + 10.
+
+                # Coordinates to check
+                x_coords = [hole_x_min, 
+                            hole_x_max, 
+                            void_holes['x'][j], 
+                            void_holes['x'][j], 
+                            void_holes['x'][j], 
+                            void_holes['x'][j]]
+
+                y_coords = [void_holes['y'][j], 
+                            void_holes['y'][j], 
+                            hole_y_min, 
+                            hole_y_max, 
+                            void_holes['y'][j], 
+                            void_holes['y'][j]]
+
+                z_coords = [void_holes['z'][j], 
+                            void_holes['z'][j], 
+                            void_holes['z'][j], 
+                            void_holes['z'][j], 
+                            hole_z_min, 
+                            hole_z_max]
+
+                extreme_coords = np.array([x_coords, y_coords, z_coords])
+                
+                # Check to see if any of these are outside the survey
+                for k in range(6):
+
+                    if mask_checker.not_in_mask(extreme_coords[:,k]):
+
+                        # Hole center is within 10 Mpc/h of the survey edge
+                        maximals_table["edge"][i] = 2
+
+                        break
+            #-------------------------------------------------------------------
     ############################################################################
     
     return maximals_table, holes_table
