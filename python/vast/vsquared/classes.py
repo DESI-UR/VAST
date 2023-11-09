@@ -177,9 +177,9 @@ class Tesselation:
             cut = np.arange(len(vol))
             cu1 = np.array([-1 not in r for r in reg])
             if xyz:
-                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cmin[0],ve2[0][r]<cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
-                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cmin[1],ve2[1][r]<cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
-                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cmin[2],ve2[2][r]<cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
+                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cat.cmin[0],ve2[0][r]<cat.cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
+                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cat.cmin[1],ve2[1][r]<cat.cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cat.cmin[2],ve2[2][r]<cat.cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
                 cut = cut[cu1][cu2][cu3][cu4]
             else:
                 cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
