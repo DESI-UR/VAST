@@ -283,3 +283,82 @@ print('Time to combine holes into voids =', combine_end-combine_start, flush=Tru
 
 
 
+'''
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+@cython.profile(False)
+cpdef DTYPE_B_t check_mask_overlap(DTYPE_F64_t[:] coordinates,
+                                  DTYPE_F64_t[:] temp_coordinates,
+                                  DTYPE_F64_t hole_radial_mask_check_dist,
+                                  DTYPE_F64_t hole_radius,
+                                  DTYPE_B_t[:,:] mask, 
+                                  DTYPE_INT32_t mask_resolution,
+                                  DTYPE_F64_t min_dist, 
+                                  DTYPE_F64_t max_dist):
+                                   
+    cdef DTYPE_B_t discard
+    cdef DTYPE_F64_t check_dist = hole_radius*hole_radial_mask_check_dist
+    
+    #Positive X direction
+    temp_coordinates[0] = coordinates[0] + check_dist
+    temp_coordinates[1] = coordinates[1]
+    temp_coordinates[2] = coordinates[2]
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Negative X direction
+    temp_coordinates[0] = coordinates[0] - check_dist
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Positive Y direction
+    temp_coordinates[0] = coordinates[0] #reset X
+    temp_coordinates[1] = coordinates[1] + check_dist
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Negative Y direction
+    temp_coordinates[1] = coordinates[1] - check_dist
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Positive Z direction
+    temp_coordinates[1] = coordinates[1] #reset Y
+    temp_coordinates[2] = coordinates[2] + check_dist
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    #Negative Z direction
+    temp_coordinates[2] = coordinates[2] - check_dist
+
+    discard = not_in_mask(temp_coordinates, mask, mask_resolution, min_dist, max_dist)
+    
+    if discard:
+        
+        return discard
+    
+    return False
+'''
+
+

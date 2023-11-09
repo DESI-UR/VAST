@@ -404,7 +404,8 @@ class VoidRender(app.Canvas):
                  galaxy_color=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32),
                  wall_galaxy_color=np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32),
                  void_hole_color=np.array([0.0, 0.0, 1.0, 0.95], dtype=np.float32),
-                 SPHERE_TRIANGULARIZATION_DEPTH=3
+                 SPHERE_TRIANGULARIZATION_DEPTH=3,
+                 verbose=False,
                  ):
         '''
         Main class for initializing the visualization.
@@ -553,6 +554,8 @@ class VoidRender(app.Canvas):
                             size=canvas_size)
         
         #self.measure_fps()
+        
+        self.verbose = verbose
         
         self.title = title
         
@@ -1005,7 +1008,8 @@ class VoidRender(app.Canvas):
             
             self.wall_line_data_VB = gloo.VertexBuffer(self.wall_line_data)
             
-            print(self.wall_line_data_VB)
+            if self.verbose:
+                print(self.wall_line_data_VB)
             
             self.wall_line_data_program = gloo.Program(vert_wall_lines, frag_wall_lines)
             
@@ -1089,7 +1093,8 @@ class VoidRender(app.Canvas):
         
         if self.remove_void_intersects > 0:
             
-            print("Pre intersect-remove vertices: ", self.void_sphere_coord_data.shape[0])
+            if self.verbose:
+                print("Pre intersect-remove vertices: ", self.void_sphere_coord_data.shape[0])
             
             start_time = time.time()
             
@@ -1099,7 +1104,8 @@ class VoidRender(app.Canvas):
             
             num_sphere_verts = self.void_sphere_coord_data.shape[0]
             
-            print("Post intersect-remove vertices: ", num_sphere_verts, "time: ", remove_time)
+            if self.verbose:
+                print("Post intersect-remove vertices: ", num_sphere_verts, "time: ", remove_time)
             
         
         ######################################################################
@@ -1121,7 +1127,8 @@ class VoidRender(app.Canvas):
         
         if self.void_hole_color.shape[0] == self.num_hole:
             
-            print("Coloring based on self.void_hole_color of shape: ", self.void_hole_color.shape)
+            if self.verbose:
+                print("Coloring based on self.void_hole_color of shape: ", self.void_hole_color.shape)
             
             void_hole_colors = np.empty((self.void_sphere_coord_data.shape[0], 4), dtype=np.float32)
             
@@ -1129,16 +1136,19 @@ class VoidRender(app.Canvas):
                 
                 void_hole_colors[idx,:] = self.void_hole_color[hole_idx,:]
                 
-            print(void_hole_colors.min(), void_hole_colors.max())
+            if self.verbose:
+                print(void_hole_colors.min(), void_hole_colors.max())
             
         else:
             
-            print(self.void_hole_color.shape, self.num_hole)
-            print("Coloring all voids same color")
+            if self.verbose:
+                print(self.void_hole_color.shape, self.num_hole)
+                print("Coloring all voids same color")
         
             void_hole_colors = np.tile(self.void_hole_color, (self.void_sphere_coord_data.shape[0], 1))
             
-            print(void_hole_colors.min(), void_hole_colors.max())
+            if self.verbose:
+                print(void_hole_colors.min(), void_hole_colors.max())
         
         self.void_sphere_vertex_data["color"] = void_hole_colors
         
@@ -1148,7 +1158,8 @@ class VoidRender(app.Canvas):
         # Set up the sphere-drawing program
         ######################################################################
         
-        print("Void Sphere program vertices: ", self.void_sphere_vertex_data["position"].shape)
+        if self.verbose:
+            print("Void Sphere program vertices: ", self.void_sphere_vertex_data["position"].shape)
         
         self.void_sphere_VB = gloo.VertexBuffer(self.void_sphere_vertex_data)
         
@@ -1607,7 +1618,7 @@ class VoidRender(app.Canvas):
         
         hole_kdtree = neighbors.KDTree(self.holes_xyz)
         
-        valid_idx = np.ones(self.holes_xyz.shape[0], dtype=np.bool)
+        valid_idx = np.ones(self.holes_xyz.shape[0], dtype=np.bool_)
         
         for curr_idx, (hole_xyz, hole_radius) in enumerate(zip(self.holes_xyz, self.holes_radii)):
             
@@ -1631,7 +1642,9 @@ class VoidRender(app.Canvas):
             
             valid_idx[invalid_neighbors] = 0
             
-        print("Holes filtered: ", np.count_nonzero(valid_idx==0))
+            
+        if self.verbose:
+            print("Holes filtered: ", np.count_nonzero(valid_idx==0))
         
         if self.void_hole_color.shape[0] == self.holes_xyz.shape[0]:
             

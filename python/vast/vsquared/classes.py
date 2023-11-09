@@ -33,7 +33,7 @@ class Catalog:
         Om_m : float
             Matter density.
         maskfile : str or None
-            Mask file giving HEALPixels with catalog objects.
+            Mask file giving HEALPixels with catalog objects (FITS format).
         periodic : bool
             Use periodic boundary conditions.
         xyz : bool
@@ -61,7 +61,7 @@ class Catalog:
             c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
             self.coord = np.array([c1,c2,c3]).T
         nnls = np.arange(len(self.coord))
-        if not periodic:
+        if not periodic and not xyz:
             nnls[zcut<1] = -1
         if maglim is not None:
             print("Applying magnitude cut...")
@@ -76,15 +76,22 @@ class Catalog:
             nnls[ncut] = lut[tree.query(self.coord[ncut])[1]]
             self.mcut = mcut
         self.nnls = nnls
-        if not periodic:
+        self.imsk = np.ones(len(nnls),dtype=bool)
+        if not periodic and not xyz:
             if maskfile is None:
                 print("Generating mask...")
                 mask = np.zeros(hp.nside2npix(nside),dtype=bool)
                 pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True)
                 mask[pids] = True
+            else:
+                mask = (hp.read_map(maskfile)).astype(bool)
             self.mask = mask
             pids = hp.ang2pix(nside,ra,dec,lonlat=True)
             self.imsk = mask[pids]*zcut
+        try:
+            self.galids = hdulist[1].data['ID']
+        except:
+            self.galids = np.arange(len(z))
 
 class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.
@@ -133,7 +140,7 @@ class Tesselation:
             reg = np.array(Vor.regions)[Vor.point_region]
             del Vor
             print("Computing volumes...")
-            vol = np.zeros(len(reg))
+            vol = np.zeros(len(coords))
             cut = np.arange(len(coords))
             hul = []
             for r in reg[cut]:
@@ -149,7 +156,13 @@ class Tesselation:
             print("Tesselating...")
             Vor = Voronoi(coords)
             ver = Vor.vertices
-            reg = np.array(Vor.regions)[Vor.point_region]
+            
+            reg = np.array(Vor.regions, dtype=object)[Vor.point_region]
+            
+            
+            
+            
+            
             del Vor
             ve2 = ver.T
             if not xyz:
@@ -164,9 +177,9 @@ class Tesselation:
             cut = np.arange(len(vol))
             cu1 = np.array([-1 not in r for r in reg])
             if xyz:
-                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cmin[0],ve2[0][r]<cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
-                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cmin[1],ve2[1][r]<cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
-                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cmin[2],ve2[2][r]<cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
+                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cat.cmin[0],ve2[0][r]<cat.cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
+                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cat.cmin[1],ve2[1][r]<cat.cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cat.cmin[2],ve2[2][r]<cat.cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
                 cut = cut[cu1][cu2][cu3][cu4]
             else:
                 cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
@@ -204,7 +217,7 @@ class Tesselation:
         for i in range(len(vol)):
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
-        self.neighbors = np.array(nei)
+        self.neighbors = np.array(nei, dtype=object)
 
 
 class Zones:
@@ -236,12 +249,17 @@ class Zones:
         lut   = np.zeros(len(vol), dtype=int)
         depth = np.zeros(len(vol), dtype=int)
 
-        zvols = []
-        zcell = []
+        zvols = [0.]
+        zcell = [[]]
 
         print("Building zones...")
 
         for i in range(len(vol)):
+
+            if vol2[i] == 0.:
+                lut[srt[i]] = -1
+                zcell[-1].append(srt[i])
+                continue
 
             ns = nei2[i]
             vs = vol[ns]
@@ -249,16 +267,16 @@ class Zones:
 
             if n == srt[i]:
                 # This cell has the largest volume of its neighbors
-                lut[n] = len(zvols)
-                zcell.append([n])
-                zvols.append(vol[n])
+                lut[n] = len(zvols) - 1
+                zcell.insert(-1,[n])
+                zvols.insert(-1,vol[n])
             else:
                 # This cell is put into its least-dense neighbor's zone
                 lut[srt[i]]   = lut[n]
                 depth[srt[i]] = depth[n]+1
                 zcell[lut[n]].append(srt[i])
 
-        self.zcell = np.array(zcell)
+        self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
         self.depth = depth
 
@@ -274,8 +292,12 @@ class Zones:
         for i in range(len(vol)):
             ns = nei[i]
             z1 = lut[i]
+            if z1 == -1:
+                continue
             for n in ns:
                 z2 = lut[n]
+                if z2 == -1:
+                    continue
                 if z1 != z2:
                     # This neighboring cell is in a different zone
                     if z2 not in zlinks[0][z1]:
@@ -297,8 +319,12 @@ class Zones:
                         vts = vts[[len(vts[vts==v])==2 for v in vts]]
                         #vts = np.unique(vts[vts!=-1])
                         if len(vts)>2:
-                            vcs = (tess.verts[vts].T[0:2]).T
-                            zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
+                            try:
+                                vcs = (tess.verts[vts].T[0:2]).T
+                                zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
+                            except:
+                                vcs = (tess.verts[vts].T[1:3]).T
+                                zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
                             znorms[z1].append([i,n])
         self.zlinks = zlinks
         if viz:

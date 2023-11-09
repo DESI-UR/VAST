@@ -86,7 +86,7 @@ cpdef list build_grouped_neighbor_index(neighbor_tree, #need int64 types
         
         curr_num_neighbors = <ITYPE_t>curr_neighbors.shape[0]
         
-        valid_idx = np.ones(curr_num_neighbors, dtype=np.bool)
+        valid_idx = np.ones(curr_num_neighbors, dtype=np.bool_)
         
         for jdx in range(curr_num_neighbors):
             

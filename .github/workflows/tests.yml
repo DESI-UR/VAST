@@ -27,10 +27,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest pytest-runner
+        python -m pip install pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Install VAST
       run: |
+        which python
         python setup.py install --user
 #    - name: Lint with flake8
 #      run: |
@@ -40,4 +41,6 @@ jobs:
 #        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        python setup.py pytest
+        which python
+        python -c "import vast; print(vast.__file__)"
+        python -m pytest
