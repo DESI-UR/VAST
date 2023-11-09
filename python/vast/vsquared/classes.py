@@ -61,7 +61,7 @@ class Catalog:
             c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
             self.coord = np.array([c1,c2,c3]).T
         nnls = np.arange(len(self.coord))
-        if not periodic:
+        if not periodic and not xyz:
             nnls[zcut<1] = -1
         if maglim is not None:
             print("Applying magnitude cut...")
@@ -76,7 +76,8 @@ class Catalog:
             nnls[ncut] = lut[tree.query(self.coord[ncut])[1]]
             self.mcut = mcut
         self.nnls = nnls
-        if not periodic:
+        self.imsk = np.ones(len(nnls),dtype=bool)
+        if not periodic and not xyz:
             if maskfile is None:
                 print("Generating mask...")
                 mask = np.zeros(hp.nside2npix(nside),dtype=bool)
