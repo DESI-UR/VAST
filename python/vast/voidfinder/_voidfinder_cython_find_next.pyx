@@ -277,18 +277,8 @@ cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates,
     
     
     
-    try:
+    return_mask_value = survey_mask_ra_dec[idx1, idx2]
     
-        return_mask_value = survey_mask_ra_dec[idx1, idx2]
-    except:
-        print("FOUND IT!!!!!!!")
-        print("Ra: ", float(ra), "Dec: ", float(dec))
-        print("n_float: ", float(n_float))
-        print(np.array(coordinates))
-        print(np.array(survey_mask_ra_dec).shape)
-        print(idx1, idx2)
-        
-        raise
     ############################################################################
 
     
