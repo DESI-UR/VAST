@@ -68,6 +68,8 @@ cdef struct OffsetNumPair:
     DTYPE_INT64_t offset, num_elements      
     
     
+    
+    
 '''
 cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         DTYPE_F64_t[:,:] moving_hole_center_memview, \
@@ -142,7 +144,7 @@ cdef class HoleGridCustomDict:
 
 cdef class GalaxyMapCustomDict:
 
-    cdef object lookup_buffer
+    cdef public object lookup_buffer
     
     cdef object numpy_dtype
          
@@ -195,7 +197,11 @@ cdef class SpatialMap:
     
     cdef public DTYPE_INT32_t mask_mode
     
+    cdef public object points_xyz_np
+    
     cdef public DTYPE_F64_t[:,:] points_xyz
+    
+    cdef public DTYPE_F64_t[:,:] dummy_arr
     
     cdef public object points_buffer
     
@@ -223,7 +229,11 @@ cdef class SpatialMap:
     
     cdef public GalaxyMapCustomDict galaxy_map_2
     
+    #cdef public object galaxy_map_array_np
+    
     cdef public DTYPE_INT64_t[:] galaxy_map_array
+    
+    cdef public DTYPE_INT64_t[:] dummy_arr2
     
     cdef public object galaxy_map_array_buffer
     

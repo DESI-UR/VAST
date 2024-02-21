@@ -1,10 +1,10 @@
 #cython: language_level=3
-#cython: initializedcheck=True
-#cython: boundscheck=True
-#cython: wraparound=True
+#cython: initializedcheck=False
+#cython: boundscheck=False
+#cython: wraparound=False
 #cython: cdivision=True
-#cython: nonecheck=True
-#cython: profile=True
+#cython: nonecheck=False
+#cython: profile=False
 
 from __future__ import print_function
 
@@ -361,8 +361,8 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
     
     
         #DEBUGGING
-        if np.isnan(sphere_grower.sphere_center_xyz[0]):
-            print("CHECKPOINT-1", flush=True)
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-1", flush=True)
     
     
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
@@ -429,8 +429,8 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         
         
         #DEBUGGING
-        if np.isnan(sphere_grower.sphere_center_xyz[0]):
-            print("CHECKPOINT-2", flush=True)
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-2", flush=True)
         
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
@@ -470,8 +470,8 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         
         
         #DEBUGGING
-        if np.isnan(sphere_grower.sphere_center_xyz[0]):
-            print("CHECKPOINT-3", flush=True)
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-3", flush=True)
             
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
@@ -520,8 +520,8 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                 
                 
                 #DEBUGGING
-                if np.isnan(sphere_grower.hole_center_k4g1[0]):
-                    print("CHECKPOINT-4", flush=True)
+                #if np.isnan(sphere_grower.hole_center_k4g1[0]):
+                #    print("CHECKPOINT-4", flush=True)
                 
                 not_in_mask_k4g1 = mask_checker.not_in_mask(sphere_grower.hole_center_k4g1)
                 
@@ -554,8 +554,8 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                 
                 
                 #DEBUGGING
-                if np.isnan(sphere_grower.hole_center_k4g2[0]):
-                    print("CHECKPOINT-5", flush=True)
+                #if np.isnan(sphere_grower.hole_center_k4g2[0]):
+                #    print("CHECKPOINT-5", flush=True)
                 
                 not_in_mask_k4g2 = mask_checker.not_in_mask(sphere_grower.hole_center_k4g2)
                 
@@ -627,8 +627,8 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         
         
         #DEBUGGING
-        if np.isnan(sphere_grower.sphere_center_xyz[0]):
-            print("CHECKPOINT-6", flush=True)
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-6", flush=True)
         
         #Check against mask
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):

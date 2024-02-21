@@ -1021,6 +1021,8 @@ def find_voids(galaxy_coords_xyz,
     
     if verbose > 0:
         print('Growing holes', flush=True)
+        
+        print("Input galaxies shape: ", galaxy_coords_xyz.shape)
 
         tot_hole_start = time.time()
 
