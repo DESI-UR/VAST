@@ -28,6 +28,17 @@ visualization.
 It may be helpful to install the following for **VoidRender** on Ubuntu::
 
     sudo apt-get install mesa-common-dev libgl1-mesa-dev libgl1-mesa-dev
+    
+Vispy can be especially tricky to get running, for testing in a python terminal you can::
+
+    python
+    >>>import vispy
+    >>>vispy.test()
+    
+On Ubuntu 20.04 LTS it seems to work well with PyQT5::
+
+    pip install PyQT5
+    sudo apt install qt5-default
 
 
 OSX

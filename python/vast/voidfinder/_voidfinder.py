@@ -12,7 +12,7 @@ import atexit
 import tempfile
 import multiprocessing
 import h5py
-#import pickle
+import pickle
 import time
 from psutil import cpu_count
 
@@ -505,11 +505,16 @@ def _hole_finder(galaxy_coords,
     
     if verbose > 0:
         
+        print("Grid origin:", grid_origin, flush=True)
+        
+        print("Survey-containing box size:", box, flush=True)
+        
         print("Hole-growing Grid:", hole_grid_shape, flush=True)
         
         print("Galaxy-searching Grid:", galaxy_map_grid_shape, flush=True)
         
         print("Galaxy-searching edge length:", galaxy_map_grid_edge_length, flush=True)
+        
     ############################################################################
     
     
@@ -603,8 +608,31 @@ def _hole_finder(galaxy_coords,
     # The HoleGridCustomDict class now creates and manages its own internal
     # memmaped file so it can be passed directly across fork() and has a resize
     # method so we can just use it directly without the helper.
+    #
+    # Also here we have to "demote" any galaxies which are perfectly on the "far"
+    # edges of the survey (the sides furthest from grid_origin) since if they
+    # are perfectly on the far boundary they will get dumped into a cell which
+    # doesn't need to exist and mess up the Cell ID Generator
     #---------------------------------------------------------------------------
     mesh_indices = ((galaxy_coords - grid_origin)/hole_grid_edge_length).astype(np.int64)
+    
+    #"Demote bad galaxies" to interior cells
+    far_edge_x = mesh_indices[:,0] >= hole_grid_shape[0]
+    far_edge_y = mesh_indices[:,1] >= hole_grid_shape[1]
+    far_edge_z = mesh_indices[:,2] >= hole_grid_shape[2]
+    
+    mesh_indices[far_edge_x, 0] = hole_grid_shape[0] - 1
+    mesh_indices[far_edge_y, 1] = hole_grid_shape[1] - 1
+    mesh_indices[far_edge_z, 2] = hole_grid_shape[2] - 1
+    
+    if verbose > 1: #Mostly debugging info
+        print("Any hole grid idx less than 0: ", np.any(mesh_indices < 0))
+        print("Any hole grid idx greater than or equal to X_max: ", np.any(mesh_indices[:,0] >= hole_grid_shape[0]))
+        print("Any hole grid idx greater than or equal to Y_max: ", np.any(mesh_indices[:,1] >= hole_grid_shape[1]))
+        print("Any hole grid idx greater than or equal to Z_max: ", np.any(mesh_indices[:,2] >= hole_grid_shape[2]))
+        #print(mesh_indices[mesh_indices[:,0] >= hole_grid_shape[0], :])
+        #print(mesh_indices[mesh_indices[:,1] >= hole_grid_shape[1], :])
+        #print(mesh_indices[mesh_indices[:,2] >= hole_grid_shape[2], :])
     
     hole_cell_ID_dict = HoleGridCustomDict(hole_grid_shape,
                                            RESOURCE_DIR)
@@ -666,8 +694,11 @@ def _hole_finder(galaxy_coords,
     del mesh_indices
     
     num_in_galaxy_map = len(pre_galaxy_map)
+    
+    if verbose > 0:
+        print("Galaxies sorted into galaxy map cells", time.time() - galaxy_map_start_time, flush=True)
     ############################################################################
-
+    
     
     
     ############################################################################
@@ -707,7 +738,6 @@ def _hole_finder(galaxy_coords,
         
         aligned_galaxy_coords[new_indices] = galaxy_coords[indices]
         
-        #galaxy_map_list.append(indices)
         galaxy_map_list.append(new_indices)
         
         galaxy_search_cell_dict.setitem(*key, offset, num_elements)
@@ -718,9 +748,23 @@ def _hole_finder(galaxy_coords,
     
     del galaxy_map_list
     
+    del pre_galaxy_map
+    
     num_galaxy_map_elements = len(galaxy_search_cell_dict)
     
+    del galaxy_coords #using aligned_galaxy_coords instead now
     
+    
+    '''
+    #Debugging stuff
+    outfile = open('derpaderpadoo.pickle', 'wb')
+    pickle.dump((aligned_galaxy_coords, galaxy_map_array, num_in_galaxy_map, num_nonempty_hole_cells),outfile)
+    outfile.close()
+    
+    infile = open('derpaderpadoo.pickle', 'rb')
+    aligned_galaxy_coords, galaxy_map_array, num_in_galaxy_map, num_nonempty_hole_cells = pickle.load(infile)
+    infile.close()
+    '''
     ############################################################################
     # Now with the galaxies partitioned up and aligned, create the SpatialMap
     # object which does most of the heavy lifting
@@ -741,6 +785,9 @@ def _hole_finder(galaxy_coords,
               flush=True)
         
         print("Num gma indices:", galaxy_map.num_gma_indices, flush=True)
+        
+        
+        
     
     
     ############################################################################
@@ -758,15 +805,16 @@ def _hole_finder(galaxy_coords,
                     
                     #Yes using contains not setitem here
                     galaxy_map.contains(i,j,k)
+                    #time.sleep(0.05)
                 
     
     
     if verbose > 0:
         
-        print("Galaxy Map build time:", time.time() - galaxy_map_start_time, 
+        print("Galaxy Map total build time:", time.time() - galaxy_map_start_time, 
               flush=True)
         
-        print("Num items in Galaxy Map:", num_in_galaxy_map, flush=True)
+        print("Num cells in Galaxy Map:", num_in_galaxy_map, flush=True)
         
         print("Total slots in galaxy map hash table:", 
               galaxy_search_cell_dict.mem_length, 
@@ -784,6 +832,9 @@ def _hole_finder(galaxy_coords,
     
     if n_empty_cells == 0:
         raise ValueError("Found 0 cells to grow holes in.  Either set 'check_only_empty_cells' to False or check your grid and grid edge length parameters")
+    
+    if verbose > 0:
+        print("Found "+str(n_empty_cells)+" cells to grow holes in.", flush=True)
     ############################################################################
     
     
@@ -940,6 +991,13 @@ def _hole_finder(galaxy_coords,
                      }
     ############################################################################
 
+    
+    
+    #if verbose > 0:
+    #    print("REACHED DEBUG SLEEP", flush=True)
+        #time.sleep(60)
+    #    exit()
+    
     
     
     ############################################################################
@@ -1614,7 +1672,10 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
     ############################################################################
     # Memmap in the memory for the results
     #---------------------------------------------------------------------------
-    n_empty_cells = ngrid[0]*ngrid[1]*ngrid[2] - num_nonempty_hole_cells
+    
+    total_grid_cells = ngrid[0]*ngrid[1]*ngrid[2]
+    
+    n_empty_cells = total_grid_cells - num_nonempty_hole_cells
     
     result_buffer_length = n_empty_cells*4*8 #float64 so 8 bytes per element
     
@@ -1785,16 +1846,32 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
             #-------------------------------------------------------------------
             # Fill the current batch of cell IDs into our i_j_k_array variable
             #-------------------------------------------------------------------
+            
+            if start_idx >= total_grid_cells:
+                #---------------------------------------------------------------
+                # If the cell_ID_generator ever returns '0', that means that we 
+                # have reached the end of the whole search grid, so this worker 
+                # can notify the master that it is done working.
+                #---------------------------------------------------------------
+                no_cells_left_to_process = True
+                
+                #If we're in single threaded mode, exit now
+                if num_cpus == 1:
+                    exit_process = True
+                #---------------------------------------------------------------
+            
             num_write = cell_ID_gen.gen_cell_ID_batch(start_idx, 
                                                       batch_size, 
                                                       i_j_k_array)
             
             if num_write > 0:
                 
-                if return_array.shape[0] != num_write:
+                if return_array.shape[0] < num_write:
     
                     return_array = np.empty((num_write, 4), 
                                              dtype=np.float64)
+                
+                
                 
                     
                 grow_spheres(i_j_k_array[0:num_write],
@@ -1834,18 +1911,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                 have_result_to_write = True
                
                 
-            else:
-                #---------------------------------------------------------------
-                # If the cell_ID_generator ever returns '0', that means that we 
-                # have reached the end of the whole search grid, so this worker 
-                # can notify the master that it is done working.
-                #---------------------------------------------------------------
-                no_cells_left_to_process = True
-                
-                #If we're in single threaded mode, exit now
-                if num_cpus == 1:
-                    exit_process = True
-                #---------------------------------------------------------------
+            
         #-----------------------------------------------------------------------
 
             

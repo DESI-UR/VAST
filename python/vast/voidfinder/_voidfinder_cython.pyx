@@ -359,6 +359,12 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         
         galaxy_map.ijk_to_xyz(ijk_array[working_idx, :], sphere_grower.sphere_center_xyz)
     
+    
+        #DEBUGGING
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-1", flush=True)
+    
+    
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
             return_array[working_idx, 0] = NAN
@@ -421,6 +427,11 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         
         sphere_grower.update_hole_center(min_x_2)
         
+        
+        #DEBUGGING
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-2", flush=True)
+        
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
             return_array[working_idx, 0] = NAN
@@ -457,6 +468,11 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         sphere_grower.update_hole_center(min_x_3)
         
         
+        
+        #DEBUGGING
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-3", flush=True)
+            
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
             
             return_array[working_idx, 0] = NAN
@@ -501,6 +517,12 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                 for idx in range(3):
                     sphere_grower.hole_center_k4g1[idx] = sphere_grower.sphere_center_xyz[idx] + minx41*sphere_grower.search_unit_vector[idx]
                 
+                
+                
+                #DEBUGGING
+                #if np.isnan(sphere_grower.hole_center_k4g1[0]):
+                #    print("CHECKPOINT-4", flush=True)
+                
                 not_in_mask_k4g1 = mask_checker.not_in_mask(sphere_grower.hole_center_k4g1)
                 
                 if not_in_mask_k4g1:
@@ -528,6 +550,12 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                 
                 for idx in range(3):
                     sphere_grower.hole_center_k4g2[idx] = sphere_grower.sphere_center_xyz[idx] + minx42*sphere_grower.search_unit_vector[idx]
+                
+                
+                
+                #DEBUGGING
+                #if np.isnan(sphere_grower.hole_center_k4g2[0]):
+                #    print("CHECKPOINT-5", flush=True)
                 
                 not_in_mask_k4g2 = mask_checker.not_in_mask(sphere_grower.hole_center_k4g2)
                 
@@ -596,6 +624,11 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                 continue
         
         sphere_grower.update_hole_center(min_x_4)
+        
+        
+        #DEBUGGING
+        #if np.isnan(sphere_grower.sphere_center_xyz[0]):
+        #    print("CHECKPOINT-6", flush=True)
         
         #Check against mask
         if mask_checker.not_in_mask(sphere_grower.sphere_center_xyz):
