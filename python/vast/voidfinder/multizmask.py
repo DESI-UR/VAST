@@ -7,6 +7,8 @@ import pickle
 
 from vast.voidfinder.distance import z_to_comoving_dist
 from vast.voidfinder.constants import c #speed of light
+from .postprocessing import save_output_from_generate_mask
+
 
 maskra = 360
 maskdec = 180
@@ -218,6 +220,14 @@ def generate_mask(gal_data,
     temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
     pickle.dump((mask, mask_resolution), temp_outfile)
     temp_outfile.close()    
+
+    save_output_from_generate_mask(
+        mask,
+        mask_resolution,                    
+        survey_name,
+        out_directory,
+        smooth_mask,
+    )
 
     return mask, mask_resolution
 

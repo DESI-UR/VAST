@@ -11,7 +11,7 @@ import pickle
 
 from .hole_combine import combine_holes_2
 
-from .voidfinder_functions import mesh_galaxies, save_maximals
+from .voidfinder_functions import mesh_galaxies, save_maximals, xyz_to_radecz
 
 from .volume_cut import check_hole_bounds
 
@@ -24,6 +24,8 @@ from ._voidfinder import _hole_finder
 from .constants import c
 
 from ._voidfinder_cython_find_next import MaskChecker
+
+from .postprocessing import save_output_from_filter_galaxies, save_output_from_wall_field_separation, save_output_from_find_voids
 
 
 
@@ -196,6 +198,22 @@ def filter_galaxies(galaxy_table,
     ############################################################################
     # Write results to disk if desired
     #---------------------------------------------------------------------------
+    
+    save_output_from_filter_galaxies(
+        survey_name, 
+        out_directory,
+        wall_gals_xyz, 
+        field_gals_xyz,
+        write_table,
+        mag_cut, 
+        dist_limits,
+        rm_isolated,
+        dist_metric, 
+        h,
+        magnitude_limit,
+        verbose
+    )
+    
     if write_table:
     
         write_start = time.time()
@@ -602,7 +620,8 @@ def wall_field_separation(galaxy_coords_xyz,
                           sep_neighbor=3,
                           verbose=0,
                           survey_name = "", 
-                          out_directory = ""):
+                          out_directory = "",
+                          write_galaxies=False):
     """
     Given a set of galaxy coordinates in xyz space, find all the galaxies whose
     distance to their Nth nearest neighbor is above or below some limit.  
@@ -625,6 +644,9 @@ def wall_field_separation(galaxy_coords_xyz,
        
     verbose : int
         whether to print timing output, 0 for off and >= 1 for on
+
+    write_galaxies : bool
+        write out the wall and field galaxies to an output file
         
         
     Returns
@@ -700,6 +722,18 @@ def wall_field_separation(galaxy_coords_xyz,
         
         print('Time to sort field and wall gals:', fw_end-fw_start, flush=True)
     ############################################################################
+        
+    save_output_from_wall_field_separation(
+        survey_name, 
+        out_directory,
+        wall_gals_xyz,
+        field_gals_xyz,
+        write_galaxies,
+        sep_neighbor,
+        avsep,
+        sd,
+        verbose
+    )
 
     return wall_gals_xyz, field_gals_xyz
     
@@ -712,6 +746,7 @@ def wall_field_separation(galaxy_coords_xyz,
 
 def find_voids(galaxy_coords_xyz,
                survey_name,
+               out_directory,
                mask_type='ra_dec_z',
                mask=None, 
                mask_resolution=None,
@@ -724,9 +759,6 @@ def find_voids(galaxy_coords_xyz,
                min_maximal_radius=10.0,
                galaxy_map_grid_edge_length=None,
                pts_per_unit_volume=0.01,
-               maximal_spheres_filename="maximal_spheres.txt",
-               void_table_filename="voids_table.txt",
-               potential_voids_filename="potential_voids_list.txt",
                num_cpus=None,
                save_after=None,
                use_start_checkpoint=False,
@@ -907,14 +939,8 @@ def find_voids(galaxy_coords_xyz,
         to calculate the fraction of the hole's volume that falls outside the 
         survey bounds.  Default is 0.01.
     
-    maximal_spheres_filename : str
-        Location to save maximal spheres file 
-    
-    void_table_filename : str
-        Location to save void table to
-    
-    potential_voids_filename : str
-        Location to save potential voids file to
+    out_directory : string
+        Directory path for output files
     
     num_cpus : int or None
         Number of cpus to use while running the main algorithm.  None will 
@@ -1156,32 +1182,67 @@ def find_voids(galaxy_coords_xyz,
     
         print('Number of unique voids is', len(maximal_spheres_table), flush=True)
     ############################################################################
+        
 
-    
-    
     ############################################################################
-    # Save list of all void holes
+    # Save list of all void holes and maximal spheres
     #---------------------------------------------------------------------------
-    myvoids_table.write(void_table_filename, 
-                        format='ascii.commented_header', 
-                        overwrite=True)
-    ############################################################################
 
+    #format column names for output file
+    myvoids_table['x'].unit='Mpc/h'
+    myvoids_table['x'].name='X'
+    myvoids_table['y'].unit='Mpc/h'
+    myvoids_table['y'].name='Y'
+    myvoids_table['z'].unit='Mpc/h'
+    myvoids_table['z'].name='Z'
+    myvoids_table['radius'].unit='Mpc/h'
+    myvoids_table['radius'].name='RADIUS'
 
+    maximal_spheres_table = xyz_to_radecz(maximal_spheres_table)
 
+    maximal_spheres_table['x'].unit='Mpc/h'
+    maximal_spheres_table['x'].name='X'
+    maximal_spheres_table['y'].unit='Mpc/h'
+    maximal_spheres_table['y'].name='Y'
+    maximal_spheres_table['z'].unit='Mpc/h'
+    maximal_spheres_table['z'].name='Z'
+    maximal_spheres_table['radius'].unit='Mpc/h'
+    maximal_spheres_table['radius'].name='RADIUS'
+    maximal_spheres_table['r'].unit='Mpc/h'
+    maximal_spheres_table['r'].name='R'
+    maximal_spheres_table['ra'].unit='deg'
+    maximal_spheres_table['ra'].name='RA'
+    maximal_spheres_table['dec'].unit='deg'
+    maximal_spheres_table['dec'].name='DEC'
+
+    #save output
+    save_output_from_find_voids(
+        maximal_spheres_table,
+        myvoids_table, 
+        galaxy_coords_xyz,
+        out_directory, 
+        survey_name,
+        mask_type,
+        mask,            
+        mask_resolution,
+        dist_limits,     
+        xyz_limits,     
+        check_only_empty_cells,
+        max_hole_mask_overlap,  
+        hole_grid_edge_length,   
+        grid_origin,             
+        min_maximal_radius,
+        galaxy_map_grid_edge_length,
+        pts_per_unit_volume,
+        num_cpus,
+        batch_size,
+        verbose=verbose
+    )
+    
     ############################################################################
     # Compute volume of each void
     #---------------------------------------------------------------------------
     ############################################################################
-
-
-    
-    ############################################################################
-    # Save list of maximal hole in each void
-    #---------------------------------------------------------------------------
-    save_maximals(maximal_spheres_table, maximal_spheres_filename, verbose=verbose)
-    ############################################################################
-
 
 
     ############################################################################
