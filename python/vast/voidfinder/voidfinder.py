@@ -764,7 +764,8 @@ def find_voids(galaxy_coords_xyz,
                use_start_checkpoint=False,
                batch_size=10000,
                verbose=0,
-               print_after=5.0
+               print_after=5.0,
+               capitalize_colnames = False,
                ):
     """
     Main entry point for VoidFinder.  
@@ -1190,30 +1191,30 @@ def find_voids(galaxy_coords_xyz,
 
     #format column names for output file
     myvoids_table['x'].unit='Mpc/h'
-    myvoids_table['x'].name='X'
+    if capitalize_colnames: myvoids_table['x'].name='X'
     myvoids_table['y'].unit='Mpc/h'
-    myvoids_table['y'].name='Y'
+    if capitalize_colnames: myvoids_table['y'].name='Y'
     myvoids_table['z'].unit='Mpc/h'
-    myvoids_table['z'].name='Z'
+    if capitalize_colnames: myvoids_table['z'].name='Z'
     myvoids_table['radius'].unit='Mpc/h'
-    myvoids_table['radius'].name='RADIUS'
+    if capitalize_colnames: myvoids_table['radius'].name='RADIUS'
 
     maximal_spheres_table = xyz_to_radecz(maximal_spheres_table)
 
     maximal_spheres_table['x'].unit='Mpc/h'
-    maximal_spheres_table['x'].name='X'
+    if capitalize_colnames: maximal_spheres_table['x'].name='X'
     maximal_spheres_table['y'].unit='Mpc/h'
-    maximal_spheres_table['y'].name='Y'
+    if capitalize_colnames: maximal_spheres_table['y'].name='Y'
     maximal_spheres_table['z'].unit='Mpc/h'
-    maximal_spheres_table['z'].name='Z'
+    if capitalize_colnames: maximal_spheres_table['z'].name='Z'
     maximal_spheres_table['radius'].unit='Mpc/h'
-    maximal_spheres_table['radius'].name='RADIUS'
+    if capitalize_colnames: maximal_spheres_table['radius'].name='RADIUS'
     maximal_spheres_table['r'].unit='Mpc/h'
-    maximal_spheres_table['r'].name='R'
+    if capitalize_colnames: maximal_spheres_table['r'].name='R'
     maximal_spheres_table['ra'].unit='deg'
-    maximal_spheres_table['ra'].name='RA'
+    if capitalize_colnames: maximal_spheres_table['ra'].name='RA'
     maximal_spheres_table['dec'].unit='deg'
-    maximal_spheres_table['dec'].name='DEC'
+    if capitalize_colnames: maximal_spheres_table['dec'].name='DEC'
 
     #save output
     save_output_from_find_voids(

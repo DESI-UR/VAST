@@ -5,6 +5,7 @@ import os
 import numpy as np
 from sklearn import neighbors
 from astropy.table import Table, setdiff, vstack
+from astropy.io import fits
 
 from vast.voidfinder.constants import c
 from vast.voidfinder import find_voids, filter_galaxies
@@ -145,10 +146,10 @@ class TestVoidFinder(unittest.TestCase):
     def test_1_file_preprocess(self):
         """
         Take a galaxy data file and return a data table, compute the redshift 
-        range in comoving coordinates, and generate output filename.
+        range in comoving coordinates
         """
-        f_galaxy_table, f_dist_limits, f_out1_filename, f_out2_filename = \
-            file_preprocess(self.galaxies_filename, '', '', dist_metric='redshift')
+        f_galaxy_table, f_dist_limits = \
+            file_preprocess(self.galaxies_filename, 'test_', '', '', dist_metric='redshift')
 
         # Check the galaxy table
         self.assertEqual(len(setdiff(f_galaxy_table, self.galaxies_shuffled)), 0)
@@ -158,11 +159,7 @@ class TestVoidFinder(unittest.TestCase):
         TestVoidFinder.dist_limits[1] = c*self.redshift_range[-1]/100.
         self.assertTrue(np.isclose(f_dist_limits, TestVoidFinder.dist_limits).all())
 
-        # Check the first output file name
-        self.assertEqual(f_out1_filename, 'test_galaxies_redshift_maximal.txt')
-
-        # Check the second output file name
-        self.assertEqual(f_out2_filename, 'test_galaxies_redshift_holes.txt')
+        # file_preprocess now outputs a data table to a fits file. This could be a source of further checks 
 
 
 
@@ -174,7 +171,7 @@ class TestVoidFinder(unittest.TestCase):
         """
         f_mask, f_mask_resolution = generate_mask(self.galaxies_shuffled, 
                                                   self.redshift_range[-1],
-                                                  '','',
+                                                  'test_','',
                                                   dist_metric='redshift', 
                                                   min_maximal_radius=self.min_maximal_radius)
 
@@ -188,6 +185,8 @@ class TestVoidFinder(unittest.TestCase):
         # Check the mask resolution
         TestVoidFinder.mask_resolution = 1
         self.assertTrue(np.isclose(f_mask_resolution, TestVoidFinder.mask_resolution))
+
+        # generate_mask now saves its output to a fits file. This could be a source of further checks
     
 
 
@@ -601,7 +600,7 @@ class TestVoidFinder(unittest.TestCase):
         
 
         find_voids(TestVoidFinder.wall, 
-                   'test_', 
+                   'test_', '',
                    grid_origin=coords_min,
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
@@ -610,8 +609,7 @@ class TestVoidFinder(unittest.TestCase):
                    min_maximal_radius=self.min_maximal_radius, 
                    num_cpus=1, 
                    pts_per_unit_volume=0.01, # 5
-                   void_table_filename='test_galaxies_redshift_holes.txt', 
-                   maximal_spheres_filename='test_galaxies_redshift_maximal.txt')
+                   )
 
 
 
@@ -632,11 +630,12 @@ class TestVoidFinder(unittest.TestCase):
         viz.run()           
         """
 
-
+        #Load voids
+        with fits.open('test_VoidFinder_Output.fits') as file:
+            f_maximals = Table(file['MAXIMALS'].data)
+            f_holes = Table(file['HOLES'].data)
         
         # Check maximal spheres
-        f_maximals = Table.read('test_galaxies_redshift_maximal.txt', 
-                                format='ascii.commented_header')
         maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
                                     format='ascii.commented_header')
         '''
@@ -649,8 +648,6 @@ class TestVoidFinder(unittest.TestCase):
         #self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
         # Check holes
-        f_holes = Table.read('test_galaxies_redshift_holes.txt', 
-                             format='ascii.commented_header')
         holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                                  format='ascii.commented_header')
 

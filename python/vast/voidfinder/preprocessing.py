@@ -96,7 +96,6 @@ def file_preprocess(galaxies_filename,
                     in_directory, 
                     out_directory, 
                     mag_cut=True,
-                    rm_isolated=True,
                     dist_metric='comoving', 
                     min_z=None,
                     max_z=None,
@@ -129,12 +128,6 @@ def file_preprocess(galaxies_filename,
     mag_cut : boolean
         Determines whether or not to implement a magnitude cut on the galaxy 
         survey.  Default is True (remove all galaxies fainter than Mr = -20).
-        
-    rm_isolated : boolean
-        Determines whether or not to remove isolated galaxies (defined as those 
-        with the distance to their third nearest neighbor greater than the sum 
-        of the average third-nearest-neighbor distance and 1.5 times the 
-        standard deviation of the third-nearest-neighbor distances).
     
     dist_metric : string
         Description of which distance metric to use.  Options should include 
