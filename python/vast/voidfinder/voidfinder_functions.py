@@ -282,8 +282,11 @@ def xyz_to_radecz(sphere_table):
 
     r = np.linalg.norm(to_array(sphere_table), axis=1)
     sphere_table['r'] = r.T
+    sphere_table['r'].unit='Mpc/h'
     sphere_table['ra'] = np.arctan(sphere_table['y']/sphere_table['x'])*RtoD
+    sphere_table['ra'].unit='deg'
     sphere_table['dec'] = np.arcsin(sphere_table['z']/sphere_table['r'])*RtoD
+    sphere_table['dec'].unit='deg'
 
     # Adjust ra value as necessary
     boolean = np.logical_and(sphere_table['y'] != 0, sphere_table['x'] < 0)
