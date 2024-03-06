@@ -215,8 +215,9 @@ def save_output_from_filter_galaxies(
     #modify output file
     primaryHDU_header = hdul['PRIMARY'].header
     primaryHDU_header['METRIC'] = (dist_metric, 'Distance Metric')
-    primaryHDU_header['DLIML'] = (mknum(dist_limits[0]), 'Lower Distance Limit (Mpc/h)')
-    primaryHDU_header['DLIMU'] = (mknum(dist_limits[1]), 'Upper Distance Limit (Mpc/h)')
+    if dist_limits is not None:
+        primaryHDU_header['DLIML'] = (mknum(dist_limits[0]), 'Lower Distance Limit (Mpc/h)')
+        primaryHDU_header['DLIMU'] = (mknum(dist_limits[1]), 'Upper Distance Limit (Mpc/h)')
     primaryHDU_header['HP'] = (h, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
     primaryHDU_header['RMISO'] = (rm_isolated, 'Isolated Galaxies Removed')
     primaryHDU_header['MAGCUT']=(mag_cut,'Magnitude Cut Applied')
@@ -410,9 +411,9 @@ def save_output_from_find_voids(
     primaryHDU.header['DENSITY'] = (mknum(num_gals/vol), 'Galaxy Count Density (Mpc/h)^-3')
     primaryHDU.header['AVSEP'] = (mknum(np.power(vol/num_gals, 1/3)), 'Average Galaxy Separation (Mpc/h)')
     primaryHDU.header['VOID'] = (maximalHDU.header['VOID'], 'Void Count')
-
-    primaryHDU.header['DLIML'] = (mknum(dist_limits[0]), 'Lower Distance Limit (Mpc/h)')
-    primaryHDU.header['DLIMU'] = (mknum(dist_limits[1]), 'Upper Distance Limit (Mpc/h)')
+    if dist_limits is not None:
+        primaryHDU.header['DLIML'] = (mknum(dist_limits[0]), 'Lower Distance Limit (Mpc/h)')
+        primaryHDU.header['DLIMU'] = (mknum(dist_limits[1]), 'Upper Distance Limit (Mpc/h)')
 
     primaryHDU.header ['CHKE'] = (check_only_empty_cells,'Check Only Empty Cells') 
     primaryHDU.header ['MHMO'] = (mknum(max_hole_mask_overlap),'Max Hole Mask Overlap') 

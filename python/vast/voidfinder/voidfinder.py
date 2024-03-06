@@ -862,6 +862,9 @@ def find_voids(galaxy_coords_xyz,
     survey_name : str
         identifier for the survey running, may be prepended or appended to 
         output filenames including the checkpoint filename
+    
+    out_directory : string
+        Directory path for output files
         
     mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
         Determines the mode of mask checking to use and which mask parameters to 
@@ -940,9 +943,6 @@ def find_voids(galaxy_coords_xyz,
         to calculate the fraction of the hole's volume that falls outside the 
         survey bounds.  Default is 0.01.
     
-    out_directory : string
-        Directory path for output files
-    
     num_cpus : int or None
         Number of cpus to use while running the main algorithm.  None will 
         result in using number of physical cores on the machine.  Some speedup 
@@ -986,18 +986,20 @@ def find_voids(galaxy_coords_xyz,
         
     print_after : float
         Number of seconds to wait before printing a status update
+
+    capitalize_colnames : bool
+        If True, the column names in teh void tble outputs are capitalized. 
+        Otherwise, the column names are lowercase
     
     
     Returns
     =======
     
     All output is currently written to disk:
+        
+    combined voids table, fits format
     
-    potential voids table, ascii.commented_header format
-    
-    combined voids table, ascii.commented_header format
-    
-    maximal spheres table
+    maximal spheres table, fits format
     """
     
     if mask_type == "ra_dec_z":
