@@ -1,7 +1,30 @@
 # Change Log
 Log of changes for VAST versions.
 
-## v1.3.1 (unreleased)
+
+
+## 1.4.2
+- VF Bugfix:  Galaxies exactly on the "far" edge of the survey (cells furthest from grid_origin) causing problems
+              with Cell ID Generation - resulting in a cell which "should" be empty but the hole_cell_ID_dict cant
+              filter them because their Cell ID is promoted by 1, even though we know they belong to the original
+              survey even in periodic mode - fixed by "demoting" any galaxy exactly on the far edge of the survey 
+              to its adjacent interior cell
+           
+- VF Bugfix:  Multiple places where the cpython 'mmap' object was raising goofy BufferErrors which were not actually
+              a problem - this is more of a cpython implementation detail problem, added a workaround by deleting
+              the python mmap and re-opening the python mmap object, probably wont incur any noticable performance loss
+              Comments added in the code where these problems exist and have been worked around
+           
+- VF Bugfix:  Cell ID generation was stopping after any batch which had 0 valid hole start locations instead of 
+              continuing until the entire survey was run through.  Hadn't noticed this problem earlier because at
+              large batch sizes (aka default 10,000) it is generally unlikely to return a full 0 valid start hole 
+              locations
+
+
+## 1.4.1
+- Did Stuff
+
+## 1.3.1 (unreleased)
 - Added duplicate galaxy check in VF
 
 ## 1.3.0 (2023-01-05)

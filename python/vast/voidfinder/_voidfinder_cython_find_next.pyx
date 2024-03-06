@@ -9,9 +9,6 @@
 
 
 
-from __future__ import print_function
-from builtins import True
-
 cimport cython
 
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
@@ -278,7 +275,10 @@ cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates,
     
     idx2 = <ITYPE_t>(n_float*dec) - <ITYPE_t>(n_float*dec_offset)
     
+    
+    
     return_mask_value = survey_mask_ra_dec[idx1, idx2]
+    
     ############################################################################
 
     
@@ -784,8 +784,18 @@ cdef class GalaxyMapCustomDict:
         mappings.  Don't need to call the expensive resize() method, just refresh.
         """
         
+        
+        # This resize fails with 'BufferError: mmap can't resize with extant buffers exported.'
+        # similar to https://stackoverflow.com/questions/41077696/python-ctypes-from-buffer-mapping-with-context-manager-into-memory-mapped-file
+        # To fix, we have to delete the self.points_buffer mmap object and re-initialize it from the
+        # file descriptor
+        n_bytes = self.lookup_buffer.size()
+        
+        del self.lookup_buffer
     
-        self.lookup_buffer.resize(self.lookup_buffer.size()) #resize to full file length
+        self.lookup_buffer = mmap.mmap(self.lookup_fd, n_bytes)
+    
+        #self.lookup_buffer.resize(self.lookup_buffer.size()) #resize to full file length
         
         self.lookup_memory = np.frombuffer(self.lookup_buffer, dtype=self.numpy_dtype)
         
@@ -895,6 +905,8 @@ cdef class GalaxyMapCustomDict:
         cdef LOOKUPMEM_t curr_element
         
         cdef OffsetNumPair out
+        out.offset = -1
+        out.num_elements = -1
         
         hash_addr = self.custom_hash(i, j, k)
         
@@ -906,7 +918,8 @@ cdef class GalaxyMapCustomDict:
             
             if not curr_element.filled_flag:
                 
-                raise KeyError("key: ", i, j, k, " not in dictionary")
+                #raise KeyError("key: ", i, j, k, " not in dictionary")
+                return out
             
             else:
                 
@@ -919,7 +932,8 @@ cdef class GalaxyMapCustomDict:
                     
                     return out
                 
-        raise KeyError("key: ", i, j, k, " not in dictionary")
+        #raise KeyError("key: ", i, j, k, " not in dictionary")
+        return out
     
     
     
@@ -1176,6 +1190,8 @@ cdef class SpatialMap:
         self.neighbor_mem = NeighborMemory(50)
         
         
+        
+        
         ################################################################################
         # First, memmap the galaxy coordinate array
         ################################################################################
@@ -1190,21 +1206,28 @@ cdef class SpatialMap:
         
         os.ftruncate(wall_galaxies_coords_fd, w_coord_buffer_length)
         
-        w_coord_buffer = mmap.mmap(wall_galaxies_coords_fd, w_coord_buffer_length)
+        #w_coord_buffer = mmap.mmap(wall_galaxies_coords_fd, w_coord_buffer_length)
+        self.points_buffer = mmap.mmap(wall_galaxies_coords_fd, w_coord_buffer_length)
         
-        w_coord_buffer.write(galaxy_coords.astype(np.float64).tobytes())
+        #w_coord_buffer.write(galaxy_coords.astype(np.float64).tobytes())
+        self.points_buffer.write(galaxy_coords.astype(np.float64).tobytes())
         
         del galaxy_coords
         
-        galaxy_coords = np.frombuffer(w_coord_buffer, dtype=np.float64)
+        #galaxy_coords = np.frombuffer(w_coord_buffer, dtype=np.float64)
+        self.points_xyz_np = np.frombuffer(self.points_buffer, dtype=np.float64)
         
-        galaxy_coords.shape = (num_galaxies, 3)
+        self.points_xyz_np.shape = (num_galaxies, 3)
         
         os.unlink(WCOORD_BUFFER_PATH)
         
-        self.points_xyz = galaxy_coords
+        self.points_xyz = self.points_xyz_np
         
-        self.points_buffer = w_coord_buffer
+        self.dummy_arr = np.empty((2,3), dtype=np.float64)
+        
+        #self.points_buffer = w_coord_buffer
+        
+        #del w_coord_buffer
         
         self.num_points = num_galaxies
         
@@ -1226,26 +1249,27 @@ cdef class SpatialMap:
         
         os.ftruncate(gma_fd, gma_buffer_length)
         
-        gma_buffer = mmap.mmap(gma_fd, gma_buffer_length)
+        self.galaxy_map_array_buffer = mmap.mmap(gma_fd, gma_buffer_length)
         
-        gma_buffer.write(galaxy_map_array.astype(np.int64).tobytes())
+        self.galaxy_map_array_buffer.write(galaxy_map_array.astype(np.int64).tobytes())
         
         del galaxy_map_array
         
         os.unlink(GMA_BUFFER_PATH)
         
-        galaxy_map_array = np.frombuffer(gma_buffer, dtype=np.int64)
+        self.galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
         
-        galaxy_map_array.shape = (num_gma_indices,)
+        #self.galaxy_map_array_np.shape = (num_gma_indices,)
         
-        self.galaxy_map_array = galaxy_map_array
+        #self.galaxy_map_array = self.galaxy_map_array_np
         
-        self.galaxy_map_array_buffer = gma_buffer
+        #self.galaxy_map_array_buffer = gma_buffer
         
         self.num_gma_indices = num_gma_indices
         
         self.gma_fd = gma_fd
         
+        self.dummy_arr2 = np.empty(2, dtype=np.int64)
         
         ################################################################################
         # In periodic mode, create a secondary galaxy map for the dynamic portion
@@ -1334,18 +1358,16 @@ cdef class SpatialMap:
         
         elif self.mask_mode == 2:
             
+            #print("Mask mode 2 contains call: ", i, j, k, flush=True)
+            
             in_bounds = self.cell_in_source(i, j, k)
+            
+            #print("In bounds: ", in_bounds, flush=True)
             
             if in_bounds:
                 
-                try:
+                return self.galaxy_map.contains(i,j,k)
                 
-                    return self.galaxy_map.contains(i,j,k)
-                
-                except KeyError:
-                    
-                    print("Should not be getting keyerror: ", i,j,k)
-                    
             else:
                 
                 self.update_lock.acquire()
@@ -1356,14 +1378,24 @@ cdef class SpatialMap:
                     
                     self.refresh()
                     
-                try:
-                    curr_item = self.galaxy_map_2.getitem(i, j, k)
                     
-                except KeyError:
+                #print("DERPADERPADOOOOOO", flush=True)
+                
+                #try:
+                curr_item = self.galaxy_map_2.getitem(i, j, k)
+                    
+                #except KeyError as E:
+                if curr_item.offset == -1:
+                    
+                    #print(E)
+                    
+                    #print("Allowed KeyError on: ", i, j, k)
                     
                     self.add_cell_periodic(i, j, k)
                     
                     curr_item = self.galaxy_map_2.getitem(i, j, k)
+                    
+                #print("YERTLEYERTLE", flush=True)
                     
                 self.update_lock.release()
                     
@@ -1531,6 +1563,7 @@ cdef class SpatialMap:
         # of the current lock acquire so that doesn't need to be called
         ################################################################################
         
+        #print("ENTERING REFRESH", flush=True)
         self.refresh()
         
         
@@ -1557,12 +1590,14 @@ cdef class SpatialMap:
         
             # Try to get the source i,j,k from the dict, if that fails we know
             # it also has 0 elements
-            try:
+            #try:
                 
                 #Keep galaxy_map not galaxy_map_2 here because it contains all the source
-                curr_item = self.galaxy_map.getitem(source_i, source_j, source_k)
+            curr_item = self.galaxy_map.getitem(source_i, source_j, source_k)
                 
-            except KeyError:
+            #except KeyError:
+            
+            if curr_item.offset == -1:
             
                 #If the source ijk lookup fails, we know it had 0 galaxies
                 num_new_indices = 0
@@ -1588,27 +1623,42 @@ cdef class SpatialMap:
                     
                     # Extend our shared memory, these guys are basically being "appended" to
                     
+                    
+                    # I'm assuming this resize will fail with 'BufferError: mmap can't resize with extant buffers exported.'
+                    # similar to the other failures in the refresh() method and GalaxyMapCustomDict.resize()
+                    # similar to https://stackoverflow.com/questions/41077696/python-ctypes-from-buffer-mapping-with-context-manager-into-memory-mapped-file
+                    # To fix, we point the self.points_xyz object to this dummy array so this object basically
+                    # isn't looking at the self.points_buffer anymore, and no buffers are 'exported'
+                    del self.points_xyz_np 
+                    self.points_xyz = self.dummy_arr
+                    
                     self.points_buffer.resize(self.points_buffer.size()+wall_gal_nbytes)
             
-                    galaxy_coords = np.frombuffer(self.points_buffer, dtype=np.float64)
+                    self.points_xyz_np = np.frombuffer(self.points_buffer, dtype=np.float64)
                     
-                    self.num_points = self.points_buffer.size()/(3*8)
+                    self.num_points = self.points_buffer.size()//(3*8)
                     
-                    galaxy_coords.shape = (self.num_points, 3)
+                    self.points_xyz_np.shape = (self.num_points, 3)
                     
-                    self.points_xyz = galaxy_coords
+                    self.points_xyz = self.points_xyz_np
                     
                     
+                    # I'm assuming this resize will fail with 'BufferError: mmap can't resize with extant buffers exported.'
+                    # similar to the other failures in the refresh() method and GalaxyMapCustomDict.resize()
+                    # similar to https://stackoverflow.com/questions/41077696/python-ctypes-from-buffer-mapping-with-context-manager-into-memory-mapped-file
+                    # To fix, we point the self.points_xyz object to this dummy array so this object basically
+                    # isn't looking at the self.points_buffer anymore, and no buffers are 'exported'
+                    self.galaxy_map_array = self.dummy_arr2
                     
                     self.galaxy_map_array_buffer.resize(self.galaxy_map_array_buffer.size()+gal_array_nbytes)
                     
-                    galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
+                    self.galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
                     
-                    self.num_gma_indices = self.galaxy_map_array_buffer.size()/8
+                    self.num_gma_indices = self.galaxy_map_array_buffer.size()//8
                     
-                    galaxy_map_array.shape = (self.num_gma_indices,)
+                    #galaxy_map_array.shape = (self.num_gma_indices,)
                     
-                    self.galaxy_map_array = galaxy_map_array
+                    #self.galaxy_map_array = galaxy_map_array
                     
                     # Now we need to calculate the shift in position between the source ijk 
                     # and the current ijk we're being asked to fill to add it to all the galaxies 
@@ -1666,32 +1716,56 @@ cdef class SpatialMap:
         galaxy map array
         """
         
+        
+        #print("INSIDE REFRESH", flush=True)
+        
+        # This resize fails with 'BufferError: mmap can't resize with extant buffers exported.'
+        # similar to https://stackoverflow.com/questions/41077696/python-ctypes-from-buffer-mapping-with-context-manager-into-memory-mapped-file
+        # To fix, we have to delete the self.points_buffer mmap object and re-initialize it from the
+        # file descriptor
         n_bytes = self.points_buffer.size()
+        
+        
+        #del self.points_xyz_np 
+        #self.points_xyz_np = self.dummy_arr
+        #self.points_xyz = self.dummy_arr
+        
+        del self.points_buffer
+        
+        self.points_buffer = mmap.mmap(self.points_xyz_fd, n_bytes)
         
         self.points_buffer.resize(n_bytes)
         
-        galaxy_coords = np.frombuffer(self.points_buffer, dtype=np.float64)
         
-        self.num_points = n_bytes/(3*8)
+        self.points_xyz_np = np.frombuffer(self.points_buffer, dtype=np.float64)
         
-        galaxy_coords.shape = (self.num_points, 3)
+        self.num_points = n_bytes//(3*8)
         
-        self.points_xyz = galaxy_coords
+        self.points_xyz_np.shape = (self.num_points, 3)
+        
+        self.points_xyz = self.points_xyz_np
         
         
         
-        
+        # This resize also fails with 'BufferError: mmap can't resize with extant buffers exported.'
+        # similar to https://stackoverflow.com/questions/41077696/python-ctypes-from-buffer-mapping-with-context-manager-into-memory-mapped-file
+        # To fix, we point the self.galaxy_map_array object to this dummy array so this object basically
+        # isn't looking at the self.galaxy_map_array_buffer anymore, and no buffers are 'exported'
         n_bytes = self.galaxy_map_array_buffer.size()
+        
+        self.galaxy_map_array = self.dummy_arr2
         
         self.galaxy_map_array_buffer.resize(n_bytes)
         
-        galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
+        #print("PASSED SECOND RESIZE")
+        # Should be fine setting the memoryview directly to the buffer here because its 1D and memoryview is already int64
+        self.galaxy_map_array = np.frombuffer(self.galaxy_map_array_buffer, dtype=np.int64)
         
-        self.num_gma_indices = n_bytes/8
+        self.num_gma_indices = n_bytes//8
         
-        galaxy_map_array.shape = (self.num_gma_indices,)
+        #galaxy_map_array.shape = (self.num_gma_indices,)
         
-        self.galaxy_map_array = galaxy_map_array
+        #self.galaxy_map_array = galaxy_map_array
         
         
         
@@ -1988,6 +2062,10 @@ cdef class SpatialMap:
         self.xyz_to_pqr(start_hole_center, starting_pqr)
         
         
+        #DEBUGGING
+        #if np.isnan(search_unit_vector[0]):
+        #    print("YEP ITS A PROBLEM", flush=True)
+        
         
         while searching:
             
@@ -2104,6 +2182,17 @@ cdef class SpatialMap:
                 temp_sphere_center_xyz[0] = start_hole_center[0] + current_shell*self.dl*search_unit_vector[0]
                 temp_sphere_center_xyz[1] = start_hole_center[1] + current_shell*self.dl*search_unit_vector[1]
                 temp_sphere_center_xyz[2] = start_hole_center[2] + current_shell*self.dl*search_unit_vector[2]
+                
+                
+                
+                #DEBUGGING
+                #if np.isnan(temp_sphere_center_xyz[0]):
+                #    print("ERROR CYTHON_FIND_NEXT", flush=True)
+                #    print(np.array(start_hole_center))
+                #    print(current_shell)
+                #    print(self.dl)
+                #    print(np.array(search_unit_vector))
+                #    raise RuntimeError
                 
                 if mask_checker.not_in_mask(temp_sphere_center_xyz):
                     
@@ -2607,6 +2696,12 @@ cdef class SphereGrower:
         for self.idx in range(3):
         
             self.search_unit_vector[self.idx] = self.temp_vector[self.idx]/self.vector_modulus
+            
+            
+        #DEBUGGING
+        #if np.isnan(self.search_unit_vector[0]):
+        #    print("NAN AFTER K1G")
+        #    raise RuntimeError
         
         
         return
@@ -2672,6 +2767,12 @@ cdef class SphereGrower:
             for self.idx in range(3):
         
                 self.search_unit_vector[self.idx] /= self.vector_modulus
+                
+                
+        #DEBUGGING
+        #if np.isnan(self.search_unit_vector[0]):
+        #    print("NAN AFTER K2G")
+        #    raise RuntimeError
             
         return
     
@@ -2699,6 +2800,13 @@ cdef class SphereGrower:
         bounding galaxy can search in both directions away from this plane.
         
         """
+        
+        #DEBUGGING
+        #if np.isnan(self.search_unit_vector[0]):
+        #    print("NAN AFTER K3G- checkpoint 1")
+        #    raise RuntimeError
+        
+        
         cdef DTYPE_B_t coplanar = False
         
         
@@ -2730,6 +2838,16 @@ cdef class SphereGrower:
     
             self.search_unit_vector[self.idx] = self.v3_memview[self.idx]/self.vector_modulus
         #-----------------------------------------------------------------------
+
+        #DEBUGGING
+        #if np.isnan(self.search_unit_vector[0]):
+        #    print("NAN AFTER K3G- checkpoint 2")
+        #    print(np.array(self.v3_memview))
+        #    print(self.vector_modulus)
+        #    print(np.array(k1g_xyz))
+        #    print(np.array(k2g_xyz))
+        #    print(np.array(k3g_xyz))
+        #    raise RuntimeError
 
 
         #-----------------------------------------------------------------------
@@ -2763,7 +2881,10 @@ cdef class SphereGrower:
             coplanar = True
         
         
-        
+        #DEBUGGING
+        #if np.isnan(self.search_unit_vector[0]):
+        #    print("NAN AFTER K3G - checkpoint 3")
+        #    raise RuntimeError
         
         return coplanar
 
