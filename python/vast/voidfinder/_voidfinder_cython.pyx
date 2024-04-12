@@ -1,9 +1,9 @@
 #cython: language_level=3
-#cython: initializedcheck=False
-#cython: boundscheck=False
+#cython: initializedcheck=True
+#cython: boundscheck=True
 #cython: wraparound=False
 #cython: cdivision=True
-#cython: nonecheck=False
+#cython: nonecheck=True
 #cython: profile=False
 
 from __future__ import print_function
@@ -32,7 +32,6 @@ from numpy.math cimport NAN, INFINITY
 from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 from ._voidfinder_cython_find_next cimport not_in_mask, \
-                                           _query_first, \
                                            DistIdxPair, \
                                            Cell_ID_Memory, \
                                            GalaxyMapCustomDict, \
@@ -42,7 +41,10 @@ from ._voidfinder_cython_find_next cimport not_in_mask, \
                                            MaskChecker, \
                                            SphereGrower, \
                                            SpatialMap
-                                          
+                                           #_query_first
+
+#from ._voidfinder_cython_find_next import _query_first
+
 
 import time
 
@@ -52,9 +54,6 @@ from .viz import VoidRender
 
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef DTYPE_INT64_t fill_ijk_zig_zag(DTYPE_INT64_t[:,:] i_j_k_array,
                                      DTYPE_INT64_t start_idx,
                                      DTYPE_INT64_t batch_size,
@@ -204,9 +203,6 @@ cpdef DTYPE_INT64_t fill_ijk_zig_zag(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
                              DTYPE_INT64_t i,
                              DTYPE_INT64_t j,
@@ -283,7 +279,8 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
+#cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
+def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                         DTYPE_INT64_t batch_size,
                         DTYPE_F64_t[:,:] return_array,
                         SpatialMap galaxy_map,
@@ -349,9 +346,11 @@ cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
     cdef DTYPE_B_t k4g1_is_valid, k4g2_is_valid
     
     
+    start_time = time.time()
+    
     for working_idx in range(batch_size):
         
-        #print("Working index: ", working_idx, time.time() - start_time, flush=True)
+        print("Working index: ", working_idx, time.time() - start_time, flush=True)
         
         ################################################################################
         # Initial Setup

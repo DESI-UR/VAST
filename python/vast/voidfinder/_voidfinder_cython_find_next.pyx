@@ -1,9 +1,9 @@
 #cython: language_level=3
-#cython: initializedcheck=False
-#cython: boundscheck=False
+#cython: initializedcheck=True
+#cython: boundscheck=True
 #cython: wraparound=False
 #cython: cdivision=True
-#cython: nonecheck=False
+#cython: nonecheck=True
 #cython: profile=False
 
 
@@ -1053,6 +1053,8 @@ cdef class GalaxyMapCustomDict:
         
         os.ftruncate(self.lookup_fd, lookup_buffer_length)
         
+        print("GalaxyMapCustomDict resizing lookup buffer to (bytes): "+str(lookup_buffer_length), flush=True)
+        
         ########################################################################
         # Close the old mmap and re-map it since we changed the size of our 
         # memory file pointed to by self.lookup_fd.  Then point our 
@@ -1333,7 +1335,8 @@ cdef class SpatialMap:
         return
         
         
-    cpdef DTYPE_B_t contains(self,
+    #cpdef DTYPE_B_t contains(self,
+    def contains(self,
                              CELL_ID_t i, 
                              CELL_ID_t j, 
                              CELL_ID_t k):
@@ -1411,10 +1414,11 @@ cdef class SpatialMap:
         
         
         
-    cdef OffsetNumPair getitem(self,
+    #cdef OffsetNumPair getitem(self,
+    def getitem(self,
                                CELL_ID_t i, 
                                CELL_ID_t j, 
-                               CELL_ID_t k):
+                               CELL_ID_t k):# except *:
                                
         """
         I believe we will always call contains() on a cell
@@ -1452,7 +1456,14 @@ cdef class SpatialMap:
             if in_bounds:
                 return self.galaxy_map.getitem(i, j, k)
             else:
-                self.update_lock.acquire()
+                
+                try:
+                
+                    self.update_lock.acquire()
+                    
+                except Exception as E:
+                    print("Encountered Exception")
+                    print(E)
             
                 if self.galaxy_map_2.process_local_num_elements != self.galaxy_map_2.num_elements.value:
                     self.galaxy_map_2.refresh()
@@ -1473,6 +1484,8 @@ cdef class SpatialMap:
                       DTYPE_INT64_t offset,
                       DTYPE_INT64_t num_elements):
                        
+                       
+        print("SpatialMap setitem() called", flush=True)
         # Right now we don't have any multiprocessing synchronization
         # on setitem() because its only being used in single-threaded
         # or already-locked locations
@@ -1513,6 +1526,10 @@ cdef class SpatialMap:
         to the galaxy_map_array and then the appropriate (offset, num_elements) 
         into the galaxy_map_cell_dict
         """
+        
+        
+        print("Add cell periodic called", flush=True)
+        
         
         cdef CELL_ID_t source_i, source_j, source_k
         
@@ -1908,7 +1925,8 @@ cdef class SpatialMap:
         
         
     
-    cpdef FindNextReturnVal find_next_bounding_point(self, 
+    #cpdef FindNextReturnVal find_next_bounding_point(self,
+    def find_next_bounding_point(self,
                                                      DTYPE_F64_t[:] start_hole_center,
                                                      DTYPE_F64_t[:] search_unit_vector,
                                                      ITYPE_t[:] existing_bounding_idxs,
@@ -2087,6 +2105,9 @@ cdef class SpatialMap:
                 offset = curr_offset_num_pair.offset
                 
                 num_elements = curr_offset_num_pair.num_elements
+                
+                if num_elements < 0:
+                    print("BAD NUM ELEMENTS", id1, id2, id3, flush=True)
     
                 
                 for idx in range(num_elements):
@@ -2332,7 +2353,7 @@ cdef class NeighborMemory:
     cdef void resize(self, size_t max_num_neighbors):
     
     
-        #print("Neighbor mem resizing: "+str(max_num_neighbors), flush=True)
+        print("Neighbor mem resizing: "+str(max_num_neighbors), flush=True)
     
         self.max_num_neighbors = max_num_neighbors
         
@@ -2544,7 +2565,7 @@ cdef class Cell_ID_Memory:
         re-use the original data location.
         """
         
-        #print("Cell ID Mem resizing: ", self.max_level_mem, level, flush=True)
+        print("Cell ID Mem resizing: ", self.max_level_mem, level, flush=True)
 
         
         if level > <size_t>self.max_level_mem:
@@ -2894,7 +2915,8 @@ cdef class SphereGrower:
 
 
 
-cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
+#cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
+def _query_first(CELL_ID_t[:] reference_point_pqr,
                                DTYPE_F64_t[:] coord_min,
                                DTYPE_F64_t dl,
                                DTYPE_F64_t[:,:] shell_boundaries_xyz,
@@ -2904,7 +2926,7 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
                                DTYPE_F64_t[:] reference_point_xyz
                                ):
     """
-    Only called once in _voidfinder_cython.main_algorithm()
+    Only called once in SpatialMap.find_first_neighbor()
     
     Finds first nearest neighbor for the given reference point
     
@@ -3034,6 +3056,9 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
             offset = curr_offset_num_pair.offset
             
             num_elements = curr_offset_num_pair.num_elements
+            
+            if num_elements < 0:
+                print("BAD NUM ELEMENTS 2: ", id1, id2, id3, flush=True)
 
             #print(cell_ID_idx, num_elements)
             
@@ -3206,6 +3231,12 @@ cdef void _query_shell_radius(CELL_ID_t[:] reference_point_ijk,
         offset = curr_offset_num_pair.offset
         
         num_elements = curr_offset_num_pair.num_elements
+        
+        
+        if num_elements < 0:
+            print("BAD NUM ELEMENTS 3 : ", id1, id2, id3, flush=True)
+        
+        
         
         for idx in range(num_elements):
             

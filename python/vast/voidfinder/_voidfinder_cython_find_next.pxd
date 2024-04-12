@@ -255,15 +255,15 @@ cdef class SpatialMap:
     cdef public object kdtree
     
     
-    cpdef public DTYPE_B_t contains(self,
-                                   CELL_ID_t i, 
-                                   CELL_ID_t j, 
-                                   CELL_ID_t k)
+    #cpdef public DTYPE_B_t contains(self,
+    #                               CELL_ID_t i, 
+    #                               CELL_ID_t j, 
+    #                               CELL_ID_t k)
     
-    cdef public OffsetNumPair getitem(self,
-                                      CELL_ID_t i, 
-                                      CELL_ID_t j, 
-                                      CELL_ID_t k)
+    #cdef public OffsetNumPair getitem(self,
+    #                                  CELL_ID_t i, 
+    #                                  CELL_ID_t j, 
+    #                                  CELL_ID_t k) except *
     
     cdef public void setitem(self, 
                              CELL_ID_t i,
@@ -285,12 +285,12 @@ cdef class SpatialMap:
     cdef public ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:])
     
     
-    cpdef public FindNextReturnVal find_next_bounding_point(SpatialMap self, 
-                                                            DTYPE_F64_t[:] start_hole_center,
-                                                            DTYPE_F64_t[:] search_unit_vector,
-                                                            ITYPE_t[:] existing_bounding_idxs,
-                                                            ITYPE_t num_neighbors,
-                                                            MaskChecker mask_checker)
+    #cpdef public FindNextReturnVal find_next_bounding_point(SpatialMap self, 
+    #                                                        DTYPE_F64_t[:] start_hole_center,
+    #                                                        DTYPE_F64_t[:] search_unit_vector,
+    #                                                        ITYPE_t[:] existing_bounding_idxs,
+    #                                                        ITYPE_t num_neighbors,
+    #                                                        MaskChecker mask_checker)
     
     
     cdef public DTYPE_F64_t calculate_x_val(self, 
@@ -405,14 +405,14 @@ cdef class SphereGrower:
     
     
               
-cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_ijk, \
-                               DTYPE_F64_t[:] coord_min, \
-                               DTYPE_F64_t dl, \
-                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
-                               DTYPE_F64_t[:,:] cell_center_xyz, \
-                               SpatialMap galaxy_map, \
-                               Cell_ID_Memory cell_ID_mem, \
-                               DTYPE_F64_t[:] reference_point_xyz)
+#cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_ijk, \
+#                               DTYPE_F64_t[:] coord_min, \
+#                               DTYPE_F64_t dl, \
+#                               DTYPE_F64_t[:,:] shell_boundaries_xyz, \
+#                              DTYPE_F64_t[:,:] cell_center_xyz, \
+#                               SpatialMap galaxy_map, \
+#                               Cell_ID_Memory cell_ID_mem, \
+#                               DTYPE_F64_t[:] reference_point_xyz)
                                          
                                          
                                          

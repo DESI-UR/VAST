@@ -218,7 +218,7 @@ def _hole_finder(galaxy_coords,
                  use_start_checkpoint=False,
                  batch_size=1000,
                  verbose=0,
-                 print_after=10000,
+                 print_after=5.0,
                  num_cpus=None,
                  
                  SOCKET_PATH="/tmp/voidfinder.sock",
@@ -245,7 +245,7 @@ def _hole_finder(galaxy_coords,
     
     This function is designed to be run on Linux on an SMP (Symmetric 
     Multi-Processing) architecture.  It takes advantage of 2 Linux-specific 
-    properties: the /dev/shm filesystem and the fork() method of spawning 
+    properties: the /dev/shm filesystem and the fork() method of creating 
     processes. /dev/shm is used as the preferred location for creating memory 
     maps to share information between the worker processes since on Linux it is 
     a RAMdisk, and the implementation of fork() on Linux is used to share file 
@@ -1010,7 +1010,7 @@ def _hole_finder(galaxy_coords,
     # do not get called on a SIGKILL, which kinda defeats their purpose anyway.
     #---------------------------------------------------------------------------
     
-        
+    '''
     def cleanup_socket():
         
         if os.path.exists(SOCKET_PATH):
@@ -1025,7 +1025,7 @@ def _hole_finder(galaxy_coords,
         
     
     atexit.register(cleanup_socket)
-    
+    '''
     ############################################################################
 
     
@@ -1872,7 +1872,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                              dtype=np.float64)
                 
                 
-                
+                print("Starting batch of: ", num_write, flush=True)
                     
                 grow_spheres(i_j_k_array[0:num_write],
                              num_write,
