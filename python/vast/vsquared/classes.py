@@ -58,7 +58,7 @@ class Catalog:
             scut = zcut
             c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
             self.coord = np.array([c1,c2,c3]).T
-        nnls = np.arange(len(self.coord))
+        nnls = np.arange(len(self.coord)) # Array that will hold the nearest neighbor indexes for each galaxy
         if not periodic:
             nnls[zcut<1] = -1
         if maglim is not None:
@@ -68,10 +68,10 @@ class Catalog:
                 print("Choose valid magnitude limit")
                 return
             scut = mcut
-            ncut = np.arange(len(self.coord),dtype=int)[zcut][mcut[zcut]<1]
-            tree = KDTree(self.coord[mcut])
-            lut  = np.arange(len(self.coord),dtype=int)[mcut]
-            nnls[ncut] = lut[tree.query(self.coord[ncut])[1]]
+            ncut = np.arange(len(self.coord),dtype=int)[zcut][mcut[zcut]<1]  # indexes of galaxies in zcut*mcut
+            tree = KDTree(self.coord[mcut]) #kdtree of galaxies in mcut
+            lut  = np.arange(len(self.coord),dtype=int)[mcut] #indexes of galaxies in mcut
+            nnls[ncut] = lut[tree.query(self.coord[ncut])[1]] # the nearest neighbor index for each galaxy in zcut*mcut, but where the neighbors are in mcut
             self.mcut = mcut
         self.nnls = nnls
         if not periodic:
@@ -82,9 +82,9 @@ class Catalog:
                 mask[pids] = True
             else:
                 mask = (hp.read_map(maskfile)).astype(bool)
-            self.mask = mask
+            self.mask = mask #mask of all galaxies in scut, where scut might be zcut or mcut depending on if magnitude cut is used
             pids = hp.ang2pix(nside,ra,dec,lonlat=True)
-            self.imsk = mask[pids]*zcut
+            self.imsk = mask[pids]*zcut #mask pixel bool value for every galaxy (aka is galaxy in scut), multiplied by zcut
         try:
             self.galids = hdulist[1].data['ID']
         except:
@@ -108,7 +108,7 @@ class Tesselation:
         buff : float
             Width of incremental buffer shells for periodic computation.
         """
-        coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))]
+        coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))] #this selects every galaxy in zcut if no magcut is used, but it shouldn't select anything if a magcut is used 
         if periodic:
             print("Triangulating...")
             Del = Delaunay(coords,incremental=True,qhull_options='QJ')
@@ -152,9 +152,9 @@ class Tesselation:
         else:
             print("Tesselating...")
             Vor = Voronoi(coords)
-            ver = Vor.vertices
+            ver = Vor.vertices #array of vertices in the tesselelation
             
-            reg = np.array(Vor.regions, dtype=object)[Vor.point_region]
+            reg = np.array(Vor.regions, dtype=object)[Vor.point_region] #for each galaxy, indexes of vertices forming the voronoi cell
             
             
             
@@ -162,24 +162,24 @@ class Tesselation:
             
             del Vor
             ve2 = ver.T
-            vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2])
+            vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2]) #spherical coordinates for voronoi vertices
             vph = np.arctan2(ve2[1],ve2[0])
             vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
-            crh = np.array([np.sqrt((c**2.).sum()) for c in coords])
+            crh = np.array([np.sqrt((c**2.).sum()) for c in coords]) #radial distance to galaxies
             rmx = np.amax(crh)
             rmn = np.amin(crh)
             print("Computing volumes...")
             vol = np.zeros(len(reg))
-            cu1 = np.array([-1 not in r for r in reg])
-            cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool)
+            cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies selecting galaxies with finite voronoi cells
+            cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool) #cut selecting galaxes whose voronoi coordinates are finite and are within the survey distance limits
             msk = cat.mask
             nsd = hp.npix2nside(len(msk))
             pid = hp.ang2pix(nsd,vth,vph)
-            imk = msk[pid]
-            cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+            imk = msk[pid] #cut selecting voronoi vertexes inside survey mask
+            cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool) #cut selecting galaxies with finite voronoi coords that are within the total survvey bounds
             cut = np.arange(len(vol))
-            cut = cut[cu1][cu2][cu3]
-            hul = []
+            cut = cut[cu1][cu2][cu3] #shortcut for cu3 but w/o having to stack [cu1][cu2][cu3] each time
+            hul = [] #list of convex hull objects 
             for r in reg[cut]:
                 try:
                     ch = ConvexHull(ver[r])
@@ -187,9 +187,9 @@ class Tesselation:
                     ch = ConvexHull(ver[r],qhull_options='QJ')
                 hul.append(ch)
             #hul = [ConvexHull(ver[r]) for r in reg[cut]]
-            vol[cut] = np.array([h.volume for h in hul])
+            vol[cut] = np.array([h.volume for h in hul]) #write the volumes from the convex hulls to vol
             self.volumes = vol
-            if viz:
+            if viz: #save vertices, regions,and the cut to select regions contained by the surey bounds
                 self.vertIDs = reg
                 vecut = np.zeros(len(vol),dtype=bool)
                 vecut[cut] = True
@@ -197,9 +197,9 @@ class Tesselation:
                 self.verts = ver
             print("Triangulating...")
             Del = Delaunay(coords,qhull_options='QJ')
-            sim = Del.simplices
-        nei = []
-        lut = [[] for _ in range(len(vol))]
+            sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
+        nei = [] #for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra objects that it's part of
+        lut = [[] for _ in range(len(vol))] #for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's part of
         print("Consolidating neighbors...")
         for i in range(len(sim)):
             for j in sim[i]:
@@ -207,7 +207,7 @@ class Tesselation:
         for i in range(len(vol)):
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
-        self.neighbors = np.array(nei, dtype=object)
+        self.neighbors = np.array(nei, dtype=object) #for each galaxy, list of neighbor galaxy coordinates (see above explanation)
 
 
 class Zones:
@@ -230,17 +230,17 @@ class Zones:
         # Sort the Voronoi cells by their volume
         print("Sorting cells...")
 
-        srt   = np.argsort(-1.*vol)
+        srt   = np.argsort(-1.*vol) # srt[5] gives the index in vol of the 5th largest volume (lowest density)
 
         vol2  = vol[srt]
         nei2  = nei[srt]
 
         # Build zones from the cells
-        lut   = np.zeros(len(vol), dtype=int)
-        depth = np.zeros(len(vol), dtype=int)
+        lut   = np.zeros(len(vol), dtype=int) #for each galaxy, the index of the largest cell in that galaxy's zone
+        depth = np.zeros(len(vol), dtype=int) #for each galaxy, the number of adjacent cells between it and the largest cell in its zone
 
-        zvols = [0.]
-        zcell = [[]]
+        zvols = [0.] # the volume of the largest cell in each zone?
+        zcell = [[]] #list of zones, where each zone is a list of cells
 
         print("Building zones...")
 
@@ -251,9 +251,9 @@ class Zones:
                 zcell[-1].append(srt[i])
                 continue
 
-            ns = nei2[i]
-            vs = vol[ns]
-            n  = ns[np.argmax(vs)]
+            ns = nei2[i] # indexes of galaxies neigboring curent galaxy
+            vs = vol[ns] # volumes of cells neighboring current cell
+            n  = ns[np.argmax(vs)] #index of neigboring galaxy with largest volume
 
             if n == srt[i]:
                 # This cell has the largest volume of its neighbors
@@ -271,7 +271,7 @@ class Zones:
         self.depth = depth
 
         # Identify neighboring zones and the least-dense cells linking them
-        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)]
+        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
 
         if viz:
             zverts = [[] for _ in range(len(zvols))]
