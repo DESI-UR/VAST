@@ -117,18 +117,20 @@ def file_postprocess(maximals,
 
     
 def open_fits_file(
-        out_directory, 
-        survey_name):
+        log_filename,
+        out_directory=None, 
+        survey_name=None):
     
-    # format directory and file name appropriately
-    if len(out_directory) > 0 and out_directory[-1] != '/':
-        out_directory += '/'
+     # format directory and file name appropriately
+    if log_filename is None:
+        if len(out_directory) > 0 and out_directory[-1] != '/':
+            out_directory += '/'
 
-    if len(survey_name) > 0 and survey_name[-1] != '_':
-        survey_name += '_'
+        if len(survey_name) > 0 and survey_name[-1] != '_':
+            survey_name += '_'
 
-    log_filename = out_directory + survey_name +'VoidFinder_Output.fits'
-    
+        log_filename = out_directory + survey_name +'VoidFinder_Output.fits'
+        
     #create the output file if it doesn't already exist
     if not os.path.isfile(log_filename):
         hdul = fits.HDUList([fits.PrimaryHDU(header=fits.Header())])
@@ -153,7 +155,7 @@ def save_output_from_preprocessing(
         verbose=0):
     
     #open the output file
-    hdul, log_filename = open_fits_file(out_directory, survey_name)
+    hdul, log_filename = open_fits_file(None, out_directory, survey_name)
 
     #modify output file
     primaryHDU_header = hdul['PRIMARY'].header
@@ -210,7 +212,7 @@ def save_output_from_filter_galaxies(
         verbose=0):
 
     #open the output file
-    hdul, log_filename = open_fits_file(out_directory, survey_name)
+    hdul, log_filename = open_fits_file(None, out_directory, survey_name)
 
     #modify output file
     primaryHDU_header = hdul['PRIMARY'].header
@@ -248,7 +250,7 @@ def save_output_from_wall_field_separation(
        
     
     #open the output file
-    hdul, log_filename = open_fits_file(out_directory, survey_name)
+    hdul, log_filename = open_fits_file(None, out_directory, survey_name)
 
     primaryHDU_header = hdul['PRIMARY'].header
     primaryHDU_header['NNS'] = (sep_neighbor,'Nth Neighbor Used for Wall-Field Separation')
@@ -274,7 +276,7 @@ def save_output_from_generate_mask(
         log_smooth_mask=True):
     
     #open the output file
-    hdul, log_filename = open_fits_file(out_directory, survey_name)
+    hdul, log_filename = open_fits_file(None, out_directory, survey_name)
 
     append_mask(
         hdul,
@@ -342,7 +344,7 @@ def save_output_from_find_voids(
     print('Assembling full output file', flush=True)
 
     #open the output file
-    hdul, log_filename = open_fits_file(out_directory, survey_name)
+    hdul, log_filename = open_fits_file(None, out_directory, survey_name)
 
     try:
         hdul.index_of('MAXIMALS')
@@ -418,6 +420,9 @@ def save_output_from_find_voids(
     primaryHDU.header ['CHKE'] = (check_only_empty_cells,'Check Only Empty Cells') 
     primaryHDU.header ['MHMO'] = (mknum(max_hole_mask_overlap),'Max Hole Mask Overlap') 
     primaryHDU.header ['HGEL'] = (mknum(hole_grid_edge_length),'Hole Grid Edge Length') 
+
+    if grid_origin is None:
+        grid_origin = np.min(galaxy_coords_xyz, axis=0)
     primaryHDU.header ['GOX'] = (mknum(grid_origin[0]),'Grid Origin X Coordinate') 
     primaryHDU.header ['GOY'] = (mknum(grid_origin[1]),'Grid Origin Y Coordinate') 
     primaryHDU.header ['GOZ'] = (mknum(grid_origin[2]),'Grid Origin Z Coordinate')

@@ -198,46 +198,31 @@ def filter_galaxies(galaxy_table,
     ############################################################################
     # Write results to disk if desired
     #---------------------------------------------------------------------------
-    
-    save_output_from_filter_galaxies(
-        survey_name, 
-        out_directory,
-        wall_gals_xyz, 
-        field_gals_xyz,
-        write_table,
-        mag_cut, 
-        dist_limits,
-        rm_isolated,
-        dist_metric, 
-        h,
-        magnitude_limit,
-        verbose
-    )
-    
     if write_table:
-    
+
         write_start = time.time()
-        
-    
-        wall_xyz_table = Table(data=wall_gals_xyz, names=["x", "y", "z"])
-        
-        wall_xyz_table.write(out_directory + survey_name + 'wall_gal_file.txt', 
-                             format='ascii.commented_header', 
-                             overwrite=True)
-    
-        
-        field_xyz_table = Table(data=field_gals_xyz, names=["x", "y", "z"])
-    
-        field_xyz_table.write(out_directory + survey_name + 'field_gal_file.txt', 
-                              format='ascii.commented_header', 
-                              overwrite=True)
-        
-        
+
+        save_output_from_filter_galaxies(
+            survey_name, 
+            out_directory,
+            wall_gals_xyz, 
+            field_gals_xyz,
+            write_table,
+            mag_cut, 
+            dist_limits,
+            rm_isolated,
+            dist_metric, 
+            h,
+            magnitude_limit,
+            verbose
+        )
+
         if verbose > 0:
             
             print("Time to write field and wall tables:", 
                   time.time() - write_start, 
                   flush=True)
+
 
 
     nf =  len(field_gals_xyz)
@@ -696,9 +681,6 @@ def wall_field_separation(galaxy_coords_xyz,
     print('Removing all galaxies with 3rd nearest neighbors further than', l, 
           flush=True)
     
-    neighbor_info_file = open(out_directory + survey_name + 'neighbor_cut.pickle', 'wb')
-    pickle.dump((l, sd), neighbor_info_file)
-    neighbor_info_file.close()
     ############################################################################
 
 

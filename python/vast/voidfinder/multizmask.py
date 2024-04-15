@@ -216,10 +216,7 @@ def generate_mask(gal_data,
             mask[idx,jdx] = 1
     ############################################################################
 
-    # Save the mask and mask resolution so that it can be used elsewhere
-    temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
-    pickle.dump((mask, mask_resolution), temp_outfile)
-    temp_outfile.close()    
+    # Save the mask and mask resolution so that it can be used elsewhere 
 
     save_output_from_generate_mask(
         mask,
