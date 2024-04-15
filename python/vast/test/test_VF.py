@@ -29,7 +29,7 @@ from vast.voidfinder._voidfinder_cython_find_next import SpatialMap, \
 
 
 from vast.voidfinder.viz import VoidRender, \
-                                load_galaxy_data, \
+                                format_galaxy_data, \
                                 load_void_data
 
 
