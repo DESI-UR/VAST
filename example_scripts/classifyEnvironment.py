@@ -70,7 +70,7 @@ DtoR = np.pi/180
 print('Importing data')
 
 # Read in list of void holes
-catalog, log_filename = open_fits_file(voids_filename)
+catalog = open_fits_file(voids_filename)
 
 voids = Table(catalog['HOLES'].data)
 '''

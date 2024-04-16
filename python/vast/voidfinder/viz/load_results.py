@@ -101,7 +101,7 @@ def load_void_data(infilename):
         which void group a hole belongs to
 
     '''
-    catalog, log_filename = open_fits_file(infilename)
+    catalog = open_fits_file(infilename)
 
     holes_data = Table(catalog['HOLES'].data)
     

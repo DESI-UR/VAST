@@ -22,51 +22,102 @@ def mknum (flt):
     else:
         return float(f"{flt:.2f}")
         
-def file_postprocess(maximals,
-                    holes, 
-                    out_directory, 
-                    survey_name,
-                    mag_cut,
-                    magnitude_limit,
-                    rm_isolated,
-                    dist_metric, 
-                    dist_limits,
-                    min_z,
-                    max_z,
-                    Omega_M,
-                    h,
-                    wall_galaxies,
-                    field_galaxies=None,
-                    verbose=0):
+
+
+    
+def open_fits_file(
+        log_filename,
+        out_directory=None, 
+        survey_name=None):
+    
     '''
-    Set up a single fits file for all output results. Currently only works for 
-    masked sky surveys, and not for cubic simulations.
+    Reads in a fits file. If the file doesn't exist, a new file is created.
     
     
     PARAMETERS
     ==========
     
-    maximals : Astropy Table
-        the table of maximal spheres 
+    log_filename : string
+        The full path to the fits file. If None, then the path is created from
+        out_directory and survey_name
+
+    out_directory : string
+        The folder containing the fits file. Only used if log_filename = None
+
+    survey_name : string
+        The name of the survey associated with the fits file. The name of the
+        fits file will be (survey_name + '_VoidFinder_Output.fits'). Only used
+        if log_filename = None
     
-    holes : Astropy Table
-        the table of hole spheres 
+    RETURNS
+    =======
+
+    hdul : astropy fits object
+        The fits file
+
+    log_filename : string
+        The full path to the fits file. Only returned if the log_filename
+        input parameter is None
+
+    '''
+    
+    return_file_path = False
+
+    # format directory and file name appropriately
+    if log_filename is None:
+
+        return_file_path = True
+
+        if len(out_directory) > 0 and out_directory[-1] != '/':
+            out_directory += '/'
+
+        if len(survey_name) > 0 and survey_name[-1] != '_':
+            survey_name += '_'
+
+        log_filename = out_directory + survey_name +'VoidFinder_Output.fits'
+        
+    #create the output file if it doesn't already exist
+    if not os.path.isfile(log_filename):
+        hdul = fits.HDUList([fits.PrimaryHDU(header=fits.Header())])
+        hdul.writeto(log_filename)
+
+    #open the output file
+    hdul = fits.open(log_filename)
+
+    if return_file_path:
+        return hdul, log_filename
+    
+    return hdul
+
+
+
+
+def save_output_from_preprocessing(
+        galaxies_filename,
+        out_directory, 
+        survey_name,
+        dist_metric,
+        dist_limits, 
+        min_z,
+        max_z,
+        Omega_M,
+        h,
+        verbose=0):
+    
+    '''
+    Saves the output from the VoidFinder file_preprocess function to a fits
+    file.
+    
+    
+    PARAMETERS
+    ==========
+    
     
     galaxies_filename : string
         File name of galaxy catalog.  Should be readable by 
         astropy.table.Table.read as a ascii.commented_header file.  Required 
         columns include 'ra', 'dec', 'z', and absolute magnitude (either 
         'rabsmag' or 'magnitude'
-
-    wall_field_filename : string or None
-        File name of the galaxy catalog split into wall and field
-        galaxies. Should be a pickle file that reads in
-        (wall_coords_xyz: (n,3) numpy array, field_coords_xyz: (n,3) numpy 
-        array). If set to None, separate wall and field files are used 
-        instead
-        
-    in_directory : string
-        Directory path for input files
     
     out_directory : string
         Directory path for output files
@@ -74,19 +125,6 @@ def file_postprocess(maximals,
     survey_name : string
         Name of the galaxy catalog, string value to prepend or append to output 
         names
-        
-    mag_cut : boolean
-        Determines whether or not to implement a magnitude cut on the galaxy 
-        survey.  Default is True (remove all galaxies fainter than Mr = -20).
-    
-    magnitude_limit : float
-        value at which to perform magnitude cut
-        
-    rm_isolated : boolean
-        Determines whether or not to remove isolated galaxies (defined as those 
-        with the distance to their third nearest neighbor greater than the sum 
-        of the average third-nearest-neighbor distance and 1.5 times the 
-        standard deviation of the third-nearest-neighbor distances).
     
     dist_metric : string
         Description of which distance metric to use.  Options should include 
@@ -112,48 +150,6 @@ def file_postprocess(maximals,
     
     '''
     
-    pass
-
-
-    
-def open_fits_file(
-        log_filename,
-        out_directory=None, 
-        survey_name=None):
-    
-     # format directory and file name appropriately
-    if log_filename is None:
-        if len(out_directory) > 0 and out_directory[-1] != '/':
-            out_directory += '/'
-
-        if len(survey_name) > 0 and survey_name[-1] != '_':
-            survey_name += '_'
-
-        log_filename = out_directory + survey_name +'VoidFinder_Output.fits'
-        
-    #create the output file if it doesn't already exist
-    if not os.path.isfile(log_filename):
-        hdul = fits.HDUList([fits.PrimaryHDU(header=fits.Header())])
-        hdul.writeto(log_filename)
-
-    #open the output file
-    hdul = fits.open(log_filename)
-
-    return hdul, log_filename
-
-
-def save_output_from_preprocessing(
-        galaxies_filename,
-        out_directory, 
-        survey_name,
-        dist_metric,
-        dist_limits, 
-        min_z,
-        max_z,
-        Omega_M,
-        h,
-        verbose=0):
-    
     #open the output file
     hdul, log_filename = open_fits_file(None, out_directory, survey_name)
 
@@ -171,11 +167,37 @@ def save_output_from_preprocessing(
     #save file changes
     hdul.writeto(log_filename, overwrite=True)
 
+
+
+
 def append_wall_field_galaxies(
         hdul,   
         wall_gals_xyz, 
         field_gals_xyz,
         capitalize_colnames):
+    
+    '''
+    Saves wall and field gaalaxies to a fits file.
+    
+    
+    PARAMETERS
+    ==========
+    
+    hdul : astropy fits object
+        the table of maximal spheres 
+
+    wall_gals_xyz : numpy array of shape (N, 3)
+        xyz coordinates of wall galaxies
+        
+    field_gals_xyz : numpy array of shape (N, 3)
+        xyz coordiantes of field galaxies
+    
+    capitalize_colnames : bool
+        If true, column names in the fits files are capitalized.
+        Otherwise, column names are lowercase.
+
+    '''
+        
     try:
         hdul.index_of('WALL')
     except:
@@ -199,6 +221,9 @@ def append_wall_field_galaxies(
     wallHDU.header['WALLNUM'] = (len(wall_xyz_table), 'Wall Galaxy Count')
     fieldHDU.header['FIELDNUM'] = (len(field_xyz_table), 'Field Galaxy Count')
 
+
+
+
 def save_output_from_filter_galaxies(
         survey_name, 
         out_directory,
@@ -213,6 +238,65 @@ def save_output_from_filter_galaxies(
         magnitude_limit,
         capitalize_colnames,
         verbose=0):
+    
+    '''
+    Saves the output from the VoidFinder filter_galaxies function to a fits
+    file.
+    
+    
+    PARAMETERS
+    ==========
+    
+    
+    survey_name : string
+        Name of the galaxy catalog, string value to prepend or append to output 
+        names
+
+    out_directory : string
+        Directory path for output files
+
+    wall_gals_xyz : numpy array of shape (N, 3)
+        xyz coordinates of wall galaxies
+        
+    field_gals_xyz : numpy array of shape (N, 3)
+        xyz coordiantes of field galaxies
+
+    write_galaxies : bool
+        if True, wall and field galaxies are written to the fits file
+
+    mag_cut : boolean
+        Determines whether or not to implement a magnitude cut on the galaxy 
+        survey.  Default is True (remove all galaxies fainter than Mr = -20).
+    
+    dist_limits : list of length 2
+        [Minimum distance, maximum distance] of galaxy sample (in units of 
+        Mpc/h)  
+
+    rm_isolated : boolean
+        Determines whether or not to remove isolated galaxies (defined as those 
+        with the distance to their third nearest neighbor greater than the sum 
+        of the average third-nearest-neighbor distance and 1.5 times the 
+        standard deviation of the third-nearest-neighbor distances).
+
+    dist_metric : string
+        Description of which distance metric to use.  Options should include 
+        'comoving' (default) and 'redshift'.
+
+    h : float
+        Value of the Hubble constant.  Default is 1 (so all distances will be in 
+        units of h^-1).
+    
+    magnitude_limit : float
+        value at which to perform magnitude cut
+
+    capitalize_colnames : bool
+        If true, column names in the fits files are capitalized.
+        Otherwise, column names are lowercase.
+    
+    verbose : int
+        values greater than zero indicate to print output
+    
+    '''
 
     #open the output file
     hdul, log_filename = open_fits_file(None, out_directory, survey_name)
@@ -241,6 +325,9 @@ def save_output_from_filter_galaxies(
     #save file changes
     hdul.writeto(log_filename, overwrite=True)
 
+
+
+
 def save_output_from_wall_field_separation(   
     survey_name, 
     out_directory,
@@ -252,6 +339,51 @@ def save_output_from_wall_field_separation(
     sd,
     capitalize_colnames,
     verbose=0):
+
+    '''
+    Saves the output from the VoidFinder wall_field_separation function to a 
+    fits file.
+    
+    
+    PARAMETERS
+    ==========
+    
+    
+    survey_name : string
+        Name of the galaxy catalog, string value to prepend or append to output 
+        names
+
+    out_directory : string
+        Directory path for output files
+
+    wall_gals_xyz : numpy array of shape (N, 3)
+        xyz coordinates of wall galaxies
+        
+    field_gals_xyz : numpy array of shape (N, 3)
+        xyz coordiantes of field galaxies
+
+    write_galaxies : bool
+        if True, wall and field galaxies are written to the fits file
+
+    sep_neighbor : int
+        The integer N denoting the Nth nearest neighbor cut used for 
+        voidfinding. The default VoidFinder behavior is N = 3
+
+    avsep : float
+        The average separation between Nth nearest neighbor galaxies
+
+    sd : float
+        The standard deviation in the separation between Nth nearest 
+        neighbor galaxies
+
+    capitalize_colnames : bool
+        If true, column names in the fits files are capitalized.
+        Otherwise, column names are lowercase.
+    
+    verbose : int
+        values greater than zero indicate to print output
+    
+    '''
        
     
     #open the output file
@@ -273,13 +405,46 @@ def save_output_from_wall_field_separation(
     #save file changes
     hdul.writeto(log_filename, overwrite=True)   
 
+
+
+
 def save_output_from_generate_mask(
         mask,
         mask_resolution,                    
         survey_name,
         out_directory,
         smooth_mask,
-        log_smooth_mask=True):
+        log_smooth_mask=True):    
+    
+    '''
+    Saves the output from the VoidFinder generate_mask function to a fits
+    file.
+    
+    
+    PARAMETERS
+    ==========
+    
+    
+    mask : two dimensional numpy array
+        The survey mask
+    
+    mask_resolution : int
+        The ratio between the mask dimensions and (360, 180)
+
+    survey_name : string
+        Name of the galaxy catalog, string value to prepend or append to output 
+        names
+
+    out_directory : string
+        Directory path for output files
+
+    smooth_mask : bool
+        If true, the mask is smoothed
+
+    log_smooth_mask : bool
+        If true, smooth_mask is logged to the fits file
+
+    '''
     
     #open the output file
     hdul, log_filename = open_fits_file(None, out_directory, survey_name)
@@ -295,12 +460,39 @@ def save_output_from_generate_mask(
     hdul.writeto(log_filename, overwrite=True)  
 
 
+
+
 def append_mask(
         hdul,
         mask,
         mask_resolution,   
         smooth_mask=None,
         log_smooth_mask=False):
+    
+    '''
+    Saves a survey mask to a fits file.
+    
+    
+    PARAMETERS
+    ==========
+    
+    
+    hdul : astropy fits object
+        The fits file
+
+    mask : two dimensional numpy array
+        The survey mask
+    
+    mask_resolution : int
+        The ratio between the mask dimensions and (360, 180)
+
+    smooth_mask : bool
+        If true, the mask is smoothed
+
+    log_smooth_mask : bool
+        If true, smooth_mask is logged to the fits file
+    
+    '''
     
     try:
         hdul.index_of('MASK')
@@ -347,6 +539,115 @@ def save_output_from_find_voids(
         batch_size,
         capitalize_colnames,
         verbose=0):
+    
+    '''
+    Saves the output from the VoidFinder find_voids function to a fits
+    file.
+
+    Parameters
+    ==========
+
+    maximals : astropy table
+        The table of maximal spheres
+
+    holes : astropy table
+        The table of hole spheres
+    
+    galaxy_coords_xyz : numpy.ndarray of shape (num_galaxies, 3)
+        coordinates of the galaxies in the survey, units of Mpc/h
+        (xyz space)
+
+    out_directory : string
+        Directory path for output files
+
+    survey_name : str
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
+        
+    mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
+       The mode of mask checking used by VoidFinder.  
+        
+    mask : numpy.ndarray of shape (N,M) type bool
+        Represents the survey footprint in scaled ra/dec space.  Value of True 
+        indicates that a location is within the survey
+        (ra/dec space)
+
+    mask_resolution : integer
+        Scale factor of coordinates needed to index mask
+        
+    dist_limits : numpy array of shape (2,)
+        [min_dist, max_dist] in units of Mpc/h (xyz space)
+        
+    xyz_limits : numpy array of shape (2,3)
+        format [x_min, y_min, z_min]
+               [x_max, y_max, z_max]
+        Used for checking against the mask when mask_type == 'xyz' or for
+        periodic conditions when mask_type == 'periodic'
+
+    check_only_empty_cells : bool
+        Whether or not to start growing a hole in a cell which has galaxies in
+        it, aka "non-empty".  If True (default), don't grow holes in these 
+        cells.
+
+    max_hole_mask_overlap : float in range (0, 0.5)
+        When the volume of a hole overlaps the mask by this fraction, discard 
+        that hole.  Maximum value of 0.5 because a value of 0.5 means that the 
+        hole center will be outside the mask, but more importantly because the 
+        numpy.roots() function used in find_voids won't return a valid 
+        polynomial root.
+        
+    hole_grid_edge_length : float
+        Size in Mpc/h of the edge of 1 cube in the search grid, or distance 
+        between 2 grid cells
+        (xyz space)
+
+    grid_origin : ndarray of shape (3,) or None
+        The spatial location to use as (0,0,0) in the search grid.
+        if None, find_voids uses the numpy.min() function on the provided 
+        galaxies as the grid origin
+
+    min_maximal_radius : float
+        The minimum radius in units of distance for a hole to be considered
+        for maximal status.  Default value is 10 Mpc/h.
+        
+    galaxy_map_grid_edge_length : float or None
+        Edge length in Mpc/h for the secondary grid for finding nearest neighbor 
+        galaxies.  If None, will default to 3*hole_grid_edge_length (which 
+        results in a cell volume of 3^3 = 27 times larger cube volume).  This 
+        parameter yields a tradeoff between number of galaxies in a cell, and 
+        number of cells to search when growing a sphere.  Too large and many 
+        redundant galaxies may be searched, too small and too many cells will 
+        need to be searched.
+        (xyz space)
+        
+    pts_per_unit_volume : float
+        Number of points per unit volume that are distributed within the holes 
+        to calculate the fraction of the hole's volume that falls outside the 
+        survey bounds.  Default is 0.01.
+    
+    num_cpus : int or None
+        Number of cpus to use while running the main algorithm.  None will 
+        result in using number of physical cores on the machine.  Some speedup 
+        benefit may be obtained from using additional logical cores via Intel 
+        Hyperthreading but with diminishing returns.  This can safely be set 
+        above the number of physical cores without issue if desired
+    
+    batch_size : int
+        Number of potential void cells to evaluate at a time.  Lower values may 
+        be a bit slower as it involves some memory allocation overhead, and 
+        values which are too high may cause the status update printing to take 
+        more than print_after seconds.  Default value 10,000
+
+    capitalize_colnames : bool
+        If True, the column names in the void table outputs are capitalized. 
+        Otherwise, the column names are lowercase
+        
+    verbose : int or bool
+        Level of verbosity to print during running, 0 indicates off, 1 indicates 
+        to print after every 'print_after' cells have been processed, and 2 
+        indicates to print all debugging statements
+
+    '''
 
     print('Assembling full output file', flush=True)
 
