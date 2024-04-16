@@ -54,6 +54,7 @@ def filter_galaxies(galaxy_table,
                     dist_metric='comoving', 
                     h=1.0,
                     magnitude_limit=-20.09,
+                    capitalize_colnames=False,
                     verbose=0):
     """
     A hodge podge of miscellaneous tasks which need to be done to format the 
@@ -113,9 +114,12 @@ def filter_galaxies(galaxy_table,
 
     h : float
         Fractional value of Hubble's constant.  Default value is 1 (where H0 = 
-        100h).
-        
-        
+        100h).    
+    
+    capitalize_colnames : bool
+        If True, the column names in the void table outputs are capitalized. 
+        Otherwise, the column names are lowercase   
+
     verbose : int
         values greater than zero indicate to print output
         
@@ -184,7 +188,8 @@ def filter_galaxies(galaxy_table,
                                                               sep_neighbor=sep_neighbor,
                                                               verbose=verbose,
                                                               survey_name=survey_name, 
-                                                              out_directory=out_directory)
+                                                              out_directory=out_directory,
+                                                              capitalize_colnames=capitalize_colnames)
 
     else:
         
@@ -214,6 +219,7 @@ def filter_galaxies(galaxy_table,
             dist_metric, 
             h,
             magnitude_limit,
+            capitalize_colnames,
             verbose
         )
 
@@ -606,7 +612,8 @@ def wall_field_separation(galaxy_coords_xyz,
                           verbose=0,
                           survey_name = "", 
                           out_directory = "",
-                          write_galaxies=False):
+                          write_galaxies=False,
+                          capitalize_colnames=False):
     """
     Given a set of galaxy coordinates in xyz space, find all the galaxies whose
     distance to their Nth nearest neighbor is above or below some limit.  
@@ -632,8 +639,12 @@ def wall_field_separation(galaxy_coords_xyz,
 
     write_galaxies : bool
         write out the wall and field galaxies to an output file
-        
-        
+    
+    capitalize_colnames : bool
+        If True, the column names in the void table outputs are capitalized. 
+        Otherwise, the column names are lowercase       
+
+          
     Returns
     =======
     
@@ -714,7 +725,8 @@ def wall_field_separation(galaxy_coords_xyz,
         sep_neighbor,
         avsep,
         sd,
-        verbose
+        capitalize_colnames,
+        verbose,
     )
 
     return wall_gals_xyz, field_gals_xyz
@@ -970,7 +982,7 @@ def find_voids(galaxy_coords_xyz,
         Number of seconds to wait before printing a status update
 
     capitalize_colnames : bool
-        If True, the column names in teh void tble outputs are capitalized. 
+        If True, the column names in the void table outputs are capitalized. 
         Otherwise, the column names are lowercase
     
     
@@ -1221,6 +1233,7 @@ def find_voids(galaxy_coords_xyz,
         pts_per_unit_volume,
         num_cpus,
         batch_size,
+        capitalize_colnames,
         verbose=verbose
     )
     

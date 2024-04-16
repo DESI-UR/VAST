@@ -174,7 +174,8 @@ def save_output_from_preprocessing(
 def append_wall_field_galaxies(
         hdul,   
         wall_gals_xyz, 
-        field_gals_xyz):
+        field_gals_xyz,
+        capitalize_colnames):
     try:
         hdul.index_of('WALL')
     except:
@@ -190,8 +191,9 @@ def append_wall_field_galaxies(
 
     wallHDU = hdul['WALL']
     fieldHDU = hdul['FIELD']
-    wall_xyz_table = Table(data=wall_gals_xyz, names=["X", "Y", "Z"], units = ['Mpc/h','Mpc/h','Mpc/h'])
-    field_xyz_table = Table(data=field_gals_xyz, names=["X", "Y", "Z"], units = ['Mpc/h','Mpc/h','Mpc/h'])
+    names = ["X", "Y", "Z"] if capitalize_colnames else ["x", "y", "z"]
+    wall_xyz_table = Table(data=wall_gals_xyz, names=names, units = ['Mpc/h','Mpc/h','Mpc/h'])
+    field_xyz_table = Table(data=field_gals_xyz, names=names, units = ['Mpc/h','Mpc/h','Mpc/h'])
     wallHDU.data = fits.BinTableHDU(wall_xyz_table).data
     fieldHDU.data = fits.BinTableHDU(field_xyz_table).data
     wallHDU.header['WALLNUM'] = (len(wall_xyz_table), 'Wall Galaxy Count')
@@ -209,6 +211,7 @@ def save_output_from_filter_galaxies(
         dist_metric, 
         h,
         magnitude_limit,
+        capitalize_colnames,
         verbose=0):
 
     #open the output file
@@ -231,7 +234,8 @@ def save_output_from_filter_galaxies(
         append_wall_field_galaxies(
             hdul,   
             wall_gals_xyz, 
-            field_gals_xyz
+            field_gals_xyz,
+            capitalize_colnames
         )
 
     #save file changes
@@ -246,6 +250,7 @@ def save_output_from_wall_field_separation(
     sep_neighbor,
     avsep,
     sd,
+    capitalize_colnames,
     verbose=0):
        
     
@@ -261,7 +266,8 @@ def save_output_from_wall_field_separation(
         append_wall_field_galaxies(
             hdul,   
             wall_gals_xyz, 
-            field_gals_xyz
+            field_gals_xyz,
+            capitalize_colnames
         )
 
     #save file changes
@@ -339,6 +345,7 @@ def save_output_from_find_voids(
         pts_per_unit_volume,
         num_cpus,
         batch_size,
+        capitalize_colnames,
         verbose=0):
 
     print('Assembling full output file', flush=True)
@@ -381,7 +388,8 @@ def save_output_from_find_voids(
         append_wall_field_galaxies(
             hdul,   
             galaxy_coords_xyz, 
-            np.array([]))
+            np.array([]),
+            capitalize_colnames)
 
     primaryHDU = hdul['PRIMARY']
     wallHDU = hdul['WALL']
