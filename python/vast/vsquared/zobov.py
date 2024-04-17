@@ -7,6 +7,7 @@ import configparser
 from scipy import stats
 from astropy.table import Table
 from astropy.io import fits
+from astropy.cosmology import FlatLambdaCDM
 
 
 from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten, open_fits_file_V2, mknumV2
@@ -60,11 +61,14 @@ class Zobov:
         self.H0   = float(config['Cosmology']['H_0'])
         hduh['HP'] = (self.H0/100, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
         self.Om_m = float(config['Cosmology']['Omega_m'])
+        Kos = FlatLambdaCDM(self.H0, self.Om_m)
         hduh['OMEGAM'] = (self.Om_m,'Matter Density')
         self.zmin   = float(config['Settings']['redshift_min'])
         hduh['ZLIML'] = (mknumV2(self.zmin), 'Lower Redshift Limit')
         self.zmax   = float(config['Settings']['redshift_max'])
         hduh['ZLIMU'] = (mknumV2(self.zmax), 'Upper Redshift Limit')
+        hduh['DLIML'] =  (Kos.comoving_distance(self.zmin).value, 'Lower Distance Limit (Mpc/h)')
+        hduh['DLIMU'] =  (Kos.comoving_distance(self.zmax).value, 'Upper Distance Limit (Mpc/h)')
         self.minrad = float(config['Settings']['radius_min'])
         hduh['MINR'] = (mknumV2(self.minrad), ' Minimum Void Radius (Mpc/h)')
         self.zstep  = float(config['Settings']['redshift_step'])
@@ -93,7 +97,7 @@ class Zobov:
                         ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,
                                        column_names = config['Galaxy Column Names'], maglim=self.maglim,
                                        H0=self.H0,Om_m=self.Om_m,periodic=self.periodic, cmin=self.cmin,
-                                       cmax=self.cmax)
+                                       cmax=self.cmax, zobov = self)
                         if save_intermediate:
                             pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
@@ -345,6 +349,8 @@ class Zobov:
 
         # write to the output file
         hdul['PRIMARY'].header = self.hdu.header
+        if not self.periodic:
+            hdul.append(self.maskHDU)
 
         hdu = fits.BinTableHDU()
         hdu.name = 'VOIDS'

@@ -8,14 +8,14 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, getBuff, flatten
+from vast.vsquared.util import toCoord, getBuff, flatten, mknumV2
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 class Catalog:
     """Catalog data for void calculation.
     """
 
-    def __init__(self,catfile,nside,zmin,zmax,column_names,maglim=None,H0=100,Om_m=0.3,periodic=False,cmin=None,cmax=None,maskfile=None):
+    def __init__(self,catfile,nside,zmin,zmax,column_names,maglim=None,H0=100,Om_m=0.3,periodic=False,cmin=None,cmax=None,maskfile=None,zobov=None):
         """Initialize catalog.
 
         Parameters
@@ -109,7 +109,34 @@ class Catalog:
             # mask pixel bool value for every galaxy (aka is galaxy in same mask bin as a galaxy in scut), multiplied by zcut
             # this is used to select galaxies located outside the survey mask in the 'out' column of the galzones HDU
             self.imsk = mask[pids]*zcut 
+
+            #record mask information
+            maskHDU = fits.ImageHDU(mask.astype(int))
+            maskHDU.name = 'MASK'
+
+            coverage = np.sum(mask) * hp.nside2pixarea(nside) #solid angle coverage in steradians
+            coverage_deg = coverage*(180/np.pi)**2 #solid angle coverage in deg^2
+            maskHDU.header['COVSTR'] = (mknumV2(coverage), 'Sky Coverage (Steradians)')
+            zobov.hdu.header['COVSTR'] = (mknumV2(coverage), 'Sky Coverage (Steradians)')
+            zobov.hdu.header['COVDEG'] = (mknumV2(coverage_deg), 'Sky Coverage (Degrees^2)')
+
+            d_max = zobov.hdu.header['DLIMU']
+            d_min = zobov.hdu.header['DLIML']
+            vol = coverage / 3 * (d_max ** 3 - d_min ** 3) # volume calculation (A sphere subtends 4*pi steradians)
+            zobov.maskHDU = maskHDU
+        else:
+            delta_x = self.cmax[0]-self.cmin[0]
+            delta_y = self.cmax[1]-self.cmin[1]
+            delta_z = self.cmax[2]-self.cmin[2]
+            vol = delta_x*delta_y*delta_z
+
+        zobov.hdu.header['VOLUME'] = (mknumV2(vol), 'Survey Volume (Mpc/h)^3')
+        masked_gal_count = np.sum(nnls==np.arange(len(nnls))) #this selects every galaxy in zcut if no magcut is used and selects galaxies in mcut if magcut is used
+        zobov.hdu.header['MSKGAL'] = (masked_gal_count, 'Number of Galaxies in Tesselation')
+        zobov.hdu.header['MSKDEN'] = (mknumV2(masked_gal_count/vol), 'Galaxy Count Density (Mpc/h)^-3') 
+        zobov.hdu.header['MSKSEP'] = (mknumV2(np.power(vol/masked_gal_count, 1/3)), 'Average Galaxy Separation (Mpc/h)')
         
+        # get the galaxy IDs
         galaxy_ID_name = column_names['ID']
         if galaxy_ID_name != 'None':
             self.galids = galaxy_table[galaxy_ID_name]
