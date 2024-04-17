@@ -90,7 +90,10 @@ class Zobov:
             if start<3:
                 if start<2:
                     if start<1:
-                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,cmin=self.cmin,cmax=self.cmax)
+                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,
+                                       column_names = config['Galaxy Column Names'], maglim=self.maglim,
+                                       H0=self.H0,Om_m=self.Om_m,periodic=self.periodic, cmin=self.cmin,
+                                       cmax=self.cmax)
                         if save_intermediate:
                             pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
@@ -347,12 +350,14 @@ class Zobov:
         hdu.name = 'VOIDS'
         hdul.append(hdu)
         voids = hdul['VOIDS']
+        voids.header['VOID'] = (len(vT), 'Void Count')
         voids.data = fits.BinTableHDU(vT).data
 
         hdu = fits.BinTableHDU()
         hdu.name = 'ZONEVOID'
         hdul.append(hdu)
         zones = hdul['ZONEVOID']
+        zones.header['COUNT'] = (len(vZ), 'Zone Count')
         zones.data = fits.BinTableHDU(vZ).data
         
         #save file changes
@@ -405,6 +410,7 @@ class Zobov:
         hdu.name = 'GALZONE'
         hdul.append(hdu)
         galaxies = hdul['GALZONE']
+        galaxies.header['COUNT'] = (len(zT), 'Galaxy Count')
         galaxies.data = fits.BinTableHDU(zT).data
         
         #save file changes
@@ -495,12 +501,14 @@ class Zobov:
         hdu.name = 'TRIANGLE'
         hdul.append(hdu)
         triangles = hdul['TRIANGLE']
+        triangles.header['COUNT'] = (len(vizT), 'Triangle Count')
         triangles.data = fits.BinTableHDU(vizT).data
 
         hdu = fits.BinTableHDU()
         hdu.name = 'GALVIZ'
         hdul.append(hdu)
         galaxies = hdul['GALVIZ']
+        galaxies.header['COUNT'] = (len(g2vT), 'Galaxy Count')
         galaxies.data = fits.BinTableHDU(g2vT).data
         
         #save file changes

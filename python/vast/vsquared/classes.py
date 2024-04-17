@@ -5,15 +5,17 @@ input catalog.
 import numpy as np
 import healpy as hp
 from astropy.io import fits
+from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
 from vast.vsquared.util import toCoord, getBuff, flatten
+from vast.voidfinder.preprocessing import load_data_to_Table
 
 class Catalog:
     """Catalog data for void calculation.
     """
 
-    def __init__(self,catfile,nside,zmin,zmax,maglim=None,H0=100,Om_m=0.3,periodic=False,cmin=None,cmax=None,maskfile=None):
+    def __init__(self,catfile,nside,zmin,zmax,column_names,maglim=None,H0=100,Om_m=0.3,periodic=False,cmin=None,cmax=None,maskfile=None):
         """Initialize catalog.
 
         Parameters
@@ -26,6 +28,8 @@ class Catalog:
             Minimum redshift boundary.
         zmax : float
             Maximum redshift boundary.
+        column_names : str
+            'Galaxy Column Names' section of configuration file, in INI format
         maglim : float or None
             Catalog object magnitude limit.
         H0 : float
@@ -42,53 +46,74 @@ class Catalog:
             Array of coordinate maxima.
         """
         print("Extracting data...")
-        hdulist = fits.open(catfile)
+        
+        # read in galaxy file
+        galaxy_table = load_data_to_Table(catfile)
+
+        # For periodic mode, store the galaxy coordinates, the minimum coordinates,and the maximum coordinates
         if periodic:
-            self.coord = np.array([hdulist[1].data['x'],hdulist[1].data['y'],hdulist[1].data['z']]).T
+            self.coord = np.array([galaxy_table[column_names['x']],
+                                   galaxy_table[column_names['y']],
+                                   galaxy_table[column_names['z']]]).T
             self.cmin = cmin
             self.cmax = cmax
+        
+        # For ra-dec-z mode, convert sky coodinates to cartesian coordinates
         else:
-            z    = hdulist[1].data['z']
-            ra   = hdulist[1].data['ra']
-            dec  = hdulist[1].data['dec']
+            z    = galaxy_table[column_names['redshift']]
+            ra   = galaxy_table[column_names['ra']]
+            dec  = galaxy_table[column_names['dec']]
             zcut = np.logical_and(z>zmin,z<zmax)
             if not zcut.any():
                 print("Choose valid redshift limits")
                 return
-            scut = zcut
+            scut = zcut #alias for zcut, unless magnitude limit is used, in which case scut will be later set to mcut
             c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
             self.coord = np.array([c1,c2,c3]).T
-        nnls = np.arange(len(self.coord)) # Array that will hold -1 for galaxies outside z limits, nearest neighbor galaxy in magcut for remaining galaxies not in magcut, and self identifier for further remaining galaxies
+        
+        # Array that will hold -1 for galaxies outside z limits, nearest neighbor galaxy in magcut for remaining galaxies not in magcut, and self identifier for further remaining galaxies
+        nnls = np.arange(len(self.coord)) 
+        
+        # Galaxies outside z limit are marked with -1
         if not periodic:
             nnls[zcut<1] = -1
+
+        # Apply magnitude limit
         if maglim is not None:
             print("Applying magnitude cut...")
-            mcut = np.logical_and(mag<maglim,zcut)
+            mag = galaxy_table[column_names['rabsmag']]
+            mcut = np.logical_and(mag<maglim,zcut) # mcut is a subsample of zcut that removes galaxies outside the magnitude limit
             if not mcut.any():
                 print("Choose valid magnitude limit")
                 return
-            scut = mcut
+            scut = mcut # scut is made into an alias for mcut, unless no magnirtude limitis used, in hich case it remains an alias for zcut
             ncut = np.arange(len(self.coord),dtype=int)[zcut][mcut[zcut]<1]  # indexes of galaxies in zcut but not in mcut
             tree = KDTree(self.coord[mcut]) #kdtree of galaxies in mcut
             lut  = np.arange(len(self.coord),dtype=int)[mcut] #indexes of galaxies in mcut
             nnls[ncut] = lut[tree.query(self.coord[ncut])[1]] # the nearest neighbor index for each galaxy in zcut but not in mcut, and where the neighbors are in mcut
             self.mcut = mcut
+        
         self.nnls = nnls
+
+        # Apply survey mask
         if not periodic:
             if maskfile is None:
                 print("Generating mask...")
-                mask = np.zeros(hp.nside2npix(nside),dtype=bool)
-                pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True)
-                mask[pids] = True
+                mask = np.zeros(hp.nside2npix(nside),dtype=bool) #create a healpix mask with specified nside
+                pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True) #convert scut galaxy coordinates to mask coordinates
+                mask[pids] = True #mark where galaxies fall in mask
             else:
                 mask = (hp.read_map(maskfile)).astype(bool)
             self.mask = mask #mask of all galaxies in scut, where scut might be zcut or mcut depending on if magnitude cut is used
-            pids = hp.ang2pix(nside,ra,dec,lonlat=True)
-            self.imsk = mask[pids]*zcut #mask pixel bool value for every galaxy (aka is galaxy in scut), multiplied by zcut
-        try:
-            self.galids = hdulist[1].data['ID']
-        except:
-            self.galids = np.arange(len(z))
+            pids = hp.ang2pix(nside,ra,dec,lonlat=True) #convert all galaxy coordinates to mask coordinates
+            # TOO: why is the below multiplie by zcut and not scut?
+            self.imsk = mask[pids]*zcut #mask pixel bool value for every galaxy (aka is galaxy in same mask bin as a galaxy in scut), multiplied by zcut
+        
+        galaxy_ID_name = column_names['ID']
+        if galaxy_ID_name != 'None':
+            self.galids = galaxy_table[galaxy_ID_name]
+        else:
+            self.galids = np.arange(len(galaxy_table))
 
 class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.
@@ -108,15 +133,17 @@ class Tesselation:
         buff : float
             Width of incremental buffer shells for periodic computation.
         """
-        coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))] #this selects every galaxy in zcut if no magcut is used and selects galaxies in zcut*mcut if magcut is used
+        coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))] #this selects every galaxy in zcut if no magcut is used and selects galaxies in mcut if magcut is used
         if periodic:
             print("Triangulating...")
+            # create delaunay triangulation
             Del = Delaunay(coords,incremental=True,qhull_options='QJ')
             sim = Del.simplices
             simlen = len(sim)
             cids = np.arange(len(coords))
             print("Finding periodic neighbors...")
             n = 0
+            # add a buffer of galaxies around the simulation edges
             coords2,cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,n)
             coords3 = coords.tolist()
             coords3.extend(coords2)
