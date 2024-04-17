@@ -101,7 +101,11 @@ def file_preprocess(galaxies_filename,
                     max_z=None,
                     Omega_M=0.3,
                     h=1.0,
-                    verbose=0):
+                    verbose=0,
+                    ra_name='ra',
+                    dec_name='dec',
+                    redshift_name='redshift',
+                    rabsmag_name='rabsmag'):
     '''
     Set up output file names, calculate distances, etc.
     
@@ -111,9 +115,8 @@ def file_preprocess(galaxies_filename,
     
     galaxies_filename : string
         File name of galaxy catalog.  Should be readable by 
-        astropy.table.Table.read as a ascii.commented_header file.  Required 
-        columns include 'ra', 'dec', 'z', and absolute magnitude (either 
-        'rabsmag' or 'magnitude'.
+        astropy.table.Table.read as a ascii.commented_header, fits, or h5 file.  Required 
+        columns include 'ra', 'dec', 'redshift', and absolute magnitude.
 
     survey_name : str
         identifier for the survey running, may be prepended or appended to 
@@ -143,8 +146,23 @@ def file_preprocess(galaxies_filename,
     h : float
         Value of the Hubble constant.  Default is 1 (so all distances will be in 
         units of h^-1).
+
+    ra_name : str
+        the name of the ra column in the galaxy file to be read in. This column 
+        will be renamed 'ra' by VoidFinder
     
+    dec_name : str
+        the name of the dec column in the galaxy file to be read in. This column
+        will be renamed 'dec' by VoidFinder
     
+    redshift_name : str
+        the name of the reshift column in the galaxy file to be read in. This
+        column will be renamed 'redshift' by VoidFinder
+
+    rabsmag_name : str
+        the name of the rabsmag column in the galaxy file to be read in. This
+        column will be renamed 'rabsmag' by VoidFinder
+
     RETURNS
     =======
     
@@ -176,11 +194,18 @@ def file_preprocess(galaxies_filename,
     ############################################################################
     # Rename columns
     #---------------------------------------------------------------------------
-    if mag_cut and ('rabsmag' not in galaxy_data_table.columns):
-        galaxy_data_table['magnitude'].name = 'rabsmag'
-        
-    if 'redshift' not in galaxy_data_table.columns:
-        galaxy_data_table['z'].name = 'redshift'
+    if ra_name != 'ra':
+        galaxy_data_table[ra_name].name = 'ra'
+
+    if dec_name != 'dec':
+        galaxy_data_table[dec_name].name = 'dec'
+
+    if redshift_name != 'redshift':
+        galaxy_data_table[redshift_name].name = 'redshift'
+
+    if mag_cut and rabsmag_name !='rabsmag':
+        galaxy_data_table[rabsmag_name].name = 'rabsmag'
+    
     ############################################################################
     
     
