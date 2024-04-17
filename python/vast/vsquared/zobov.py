@@ -9,7 +9,7 @@ from astropy.table import Table
 from astropy.io import fits
 
 
-from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten, open_fits_file_V2
+from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten, open_fits_file_V2, mknumV2
 from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
@@ -48,25 +48,43 @@ class Zobov:
         config = configparser.ConfigParser()
         config.read(configfile)
 
+        hdu = fits.PrimaryHDU(header=fits.Header())
+        hduh = hdu.header
+
         self.infile  = config['Paths']['Input Catalog']
+        hduh['INFILE'] = (self.infile, 'Input Galaxy Table')
         self.catname = config['Paths']['Survey Name']
         self.outdir  = config['Paths']['Output Directory']
         self.intloc  = "../../intermediate/" + self.catname
         
         self.H0   = float(config['Cosmology']['H_0'])
+        hduh['HP'] = (mknumV2(self.H0/100), 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
         self.Om_m = float(config['Cosmology']['Omega_m'])
 
         self.zmin   = float(config['Settings']['redshift_min'])
+        hduh['ZLIML'] = (mknumV2(self.zmin), 'Lower Redshift Limit')
         self.zmax   = float(config['Settings']['redshift_max'])
+        hduh['ZLIMU'] = (mknumV2(self.zmax), 'Upper Redshift Limit')
         self.minrad = float(config['Settings']['radius_min'])
+        hduh['MINR'] = (mknumV2(self.minrad), ' Minimum Void Radius (Mpc/h)')
         self.zstep  = float(config['Settings']['redshift_step'])
+        hduh['ZSTEP'] = (mknumV2(self.zstep), 'Step Size for Comoving-distance-to-redshift Lookup Table')
         self.nside  = int(config['Settings']['nside'])
+        hduh['NSIDE'] = (self.nside, 'NSIDE for HEALPix Pixelization')
         self.maglim = config['Settings']['rabsmag_min']
         self.maglim = None if self.maglim=="None" else float(self.maglim)
+        hduh['MAGLIM'] = (mknumV2(self.maglim), 'Magnitude Limit (dex)')
         self.cmin = np.array([float(config['Settings']['x_min']),float(config['Settings']['y_min']),float(config['Settings']['z_min'])])
+        hduh['PXMIN'] = (mknumV2(self.cmin[0]), 'Lower X-limit for Periodic Boundary Conditions')
+        hduh['PYMIN'] = (mknumV2(self.cmin[1]), 'Lower Y-limit for Periodic Boundary Conditions')
+        hduh['PZMIN'] = (mknumV2(self.cmin[2]), 'Lower Z-limit for Periodic Boundary Conditions')
         self.cmax = np.array([float(config['Settings']['x_max']),float(config['Settings']['y_max']),float(config['Settings']['z_max'])])
+        hduh['PXMAX'] = (mknumV2(self.cmax[0]), 'Upper X-limit for Periodic Boundary Conditions')
+        hduh['PYMAX'] = (mknumV2(self.cmax[1]), 'Upper Y-limit for Periodic Boundary Conditions')
+        hduh['PZMAX'] = (mknumV2(self.cmax[2]), 'Upper Z-limit for Periodic Boundary Conditions')
         self.buff = float(config['Settings']['buffer'])
-
+        hduh['BUFFER'] = (mknumV2(self.buff), 'Periodic Buffer Shell Width (Mpc/h)')
+        self.hdu = hdu
 
         if start<4:
             if start<3:
@@ -137,19 +155,14 @@ class Zobov:
             try:
                 method = int(method)
             except:
-                match method:
-                    case ('VIDE','vide'):
-                        method = 0
-                    case ('ZOBOV','zobov'):
-                        method = 1
-                    case ('ZOBOV2','zobov2'):
-                        method = 2
-                    case ('REVOLVER','revolver'):
-                        method = 4
-                    case _:
-                        print("Choose a valid method")
-                        return
-
+                if method == 'VIDE' or method == 'vide':
+                    method = 0
+                if method == 'ZOBOV' or method == 'zobov':
+                    method = 1
+                if method == 'ZOBOV2' or method == 'zobov2':
+                    method = 2
+                if method == 'REVOLVER' or method == 'revolver':
+                    method = 4
 
         if not hasattr(self,'prevoids'):
             if method != 4:
@@ -328,6 +341,8 @@ class Zobov:
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
 
         # write to the output file
+        hdul['PRIMARY'].header = self.hdu.header
+
         hdu = fits.BinTableHDU()
         hdu.name = 'VOIDS'
         hdul.append(hdu)
@@ -342,6 +357,7 @@ class Zobov:
         
         #save file changes
         hdul.writeto(log_filename, overwrite=True)
+        print ('V2 void output saved to',log_filename)
 
 
     def saveZones(self):
@@ -393,6 +409,7 @@ class Zobov:
         
         #save file changes
         hdul.writeto(log_filename, overwrite=True)
+        print ('V2 zone output saved to',log_filename)
 
 
     def preViz(self):
@@ -488,3 +505,4 @@ class Zobov:
         
         #save file changes
         hdul.writeto(log_filename, overwrite=True)
+        print ('V2 visualization output saved to',log_filename)

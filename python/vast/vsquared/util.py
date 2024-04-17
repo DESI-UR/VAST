@@ -301,3 +301,16 @@ def open_fits_file_V2(
         return hdul, log_filename
     
     return hdul
+
+# (Make Number) Format floats for headers
+def mknumV2 (flt):
+
+    if flt is None:
+        return None
+
+    #preserve 3 sig figs for numbers starting with "0."
+    if abs(flt) < 1:
+        return float(f"{flt:.3g}")
+    #otherwise round to two decimal places
+    else:
+        return float(f"{flt:.2f}")
