@@ -106,8 +106,9 @@ class Catalog:
                 mask = (hp.read_map(maskfile)).astype(bool)
             self.mask = mask #mask of all galaxies in scut, where scut might be zcut or mcut depending on if magnitude cut is used
             pids = hp.ang2pix(nside,ra,dec,lonlat=True) #convert all galaxy coordinates to mask coordinates
-            # TOO: why is the below multiplie by zcut and not scut?
-            self.imsk = mask[pids]*zcut #mask pixel bool value for every galaxy (aka is galaxy in same mask bin as a galaxy in scut), multiplied by zcut
+            # mask pixel bool value for every galaxy (aka is galaxy in same mask bin as a galaxy in scut), multiplied by zcut
+            # this is used to select galaxies located outside the survey mask in the 'out' column of the galzones HDU
+            self.imsk = mask[pids]*zcut 
         
         galaxy_ID_name = column_names['ID']
         if galaxy_ID_name != 'None':
