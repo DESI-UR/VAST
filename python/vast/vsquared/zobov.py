@@ -58,9 +58,9 @@ class Zobov:
         self.intloc  = "../../intermediate/" + self.catname
         
         self.H0   = float(config['Cosmology']['H_0'])
-        hduh['HP'] = (mknumV2(self.H0/100), 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
+        hduh['HP'] = (self.H0/100, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
         self.Om_m = float(config['Cosmology']['Omega_m'])
-
+        hduh['OMEGAM'] = (self.Om_m,'Matter Density')
         self.zmin   = float(config['Settings']['redshift_min'])
         hduh['ZLIML'] = (mknumV2(self.zmin), 'Lower Redshift Limit')
         self.zmax   = float(config['Settings']['redshift_max'])
@@ -68,7 +68,7 @@ class Zobov:
         self.minrad = float(config['Settings']['radius_min'])
         hduh['MINR'] = (mknumV2(self.minrad), ' Minimum Void Radius (Mpc/h)')
         self.zstep  = float(config['Settings']['redshift_step'])
-        hduh['ZSTEP'] = (mknumV2(self.zstep), 'Step Size for Comoving-distance-to-redshift Lookup Table')
+        hduh['ZSTEP'] = (mknumV2(self.zstep), 'Step Size for r-to-z Lookup Table')
         self.nside  = int(config['Settings']['nside'])
         hduh['NSIDE'] = (self.nside, 'NSIDE for HEALPix Pixelization')
         self.maglim = config['Settings']['rabsmag_min']
