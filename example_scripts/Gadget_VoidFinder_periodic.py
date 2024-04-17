@@ -30,11 +30,8 @@ sim_filename = "gadget_sim_100_256_wall.dat"
 # "Survey" name - this will be used as the prefix for all output files
 survey_name = "Gadget_100_256_"
 
-# File name for maximal spheres
-out1_filename = survey_name + "maximals.txt"
-
-# File name for void holes
-out2_filename = survey_name + "holes.txt"
+# Change this directory paths to where you want the output to be saved.
+out_directory = ''
 
 # Coordinate limits of the simulation
 xyz_limits = np.array([[-50.,-50.,-50.],[50.,50.,50.]])
@@ -74,7 +71,9 @@ coords_xyz = np.concatenate((x.reshape(num_gal,1),
 #-------------------------------------------------------------------------------
 # Remove isolated galaxies
 #-------------------------------------------------------------------------------
-wall_coords_xyz, field_coords_xyz = wall_field_separation(coords_xyz)
+wall_coords_xyz, field_coords_xyz = wall_field_separation(coords_xyz,
+                                                          survey_name=survey_name, 
+                                                          out_directory=out_directory)
 #-------------------------------------------------------------------------------
 ################################################################################
 
@@ -87,14 +86,12 @@ wall_coords_xyz, field_coords_xyz = wall_field_separation(coords_xyz)
 #-------------------------------------------------------------------------------
 find_voids(wall_coords_xyz,
            survey_name,
+           out_directory,
            mask_type='periodic',
            xyz_limits=xyz_limits,
            #save_after=50000,
            #use_start_checkpoint=True,
            hole_grid_edge_length=hole_grid_edge_length,
-           maximal_spheres_filename=out1_filename,
-           void_table_filename=out2_filename,
-           potential_voids_filename=survey_name + 'potential_voids_list.txt',
            num_cpus=num_cpus)
 ################################################################################
 

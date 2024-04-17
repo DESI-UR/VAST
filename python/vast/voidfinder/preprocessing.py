@@ -14,6 +14,8 @@ from vast.voidfinder.constants import c #speed of light
 
 import os
 
+from .postprocessing import save_output_from_preprocessing
+
 
 
 def load_data_to_Table(input_filepath):
@@ -90,10 +92,10 @@ def load_data_to_Table(input_filepath):
 
 
 def file_preprocess(galaxies_filename, 
+                    survey_name,
                     in_directory, 
                     out_directory, 
                     mag_cut=True,
-                    rm_isolated=True,
                     dist_metric='comoving', 
                     min_z=None,
                     max_z=None,
@@ -112,6 +114,10 @@ def file_preprocess(galaxies_filename,
         astropy.table.Table.read as a ascii.commented_header file.  Required 
         columns include 'ra', 'dec', 'z', and absolute magnitude (either 
         'rabsmag' or 'magnitude'.
+
+    survey_name : str
+        identifier for the survey running, may be prepended or appended to 
+        output filenames including the checkpoint filename
         
     in_directory : string
         Directory path for input files
@@ -122,12 +128,6 @@ def file_preprocess(galaxies_filename,
     mag_cut : boolean
         Determines whether or not to implement a magnitude cut on the galaxy 
         survey.  Default is True (remove all galaxies fainter than Mr = -20).
-        
-    rm_isolated : boolean
-        Determines whether or not to remove isolated galaxies (defined as those 
-        with the distance to their third nearest neighbor greater than the sum 
-        of the average third-nearest-neighbor distance and 1.5 times the 
-        standard deviation of the third-nearest-neighbor distances).
     
     dist_metric : string
         Description of which distance metric to use.  Options should include 
@@ -155,35 +155,8 @@ def file_preprocess(galaxies_filename,
         Minimum and maximum distances to use for void search.  Units are Mpc/h, 
         in either comoving or redshift coordinates (depending on dist_metric).
         
-    out1_filename : string
-        File name of maximal sphere output file.
-        
-    out2_filename : string
-        File name of all void holes
     
     '''
-    
-    ############################################################################
-    # Build output file names
-    #---------------------------------------------------------------------------
-    if mag_cut and rm_isolated:
-        out1_suffix = '_' + dist_metric + '_maximal.txt'
-        out2_suffix = '_' + dist_metric + '_holes.txt'
-    elif rm_isolated:
-        out1_suffix = '_' + dist_metric + '_maximal_noMagCut.txt'
-        out2_suffix = '_' + dist_metric + '_holes_noMagCut.txt'
-    elif mag_cut:
-        out1_suffix = '_' + dist_metric + '_maximal_keepIsolated.txt'
-        out2_suffix = '_' + dist_metric + '_holes_keepIsolated.txt'
-    else:
-        out1_suffix = '_' + dist_metric + '_maximal_noFiltering.txt'
-        out2_suffix = '_' + dist_metric + 'holes_noFiltering.txt'
-    
-    out1_filename = out_directory + galaxies_filename[:-4] + out1_suffix  # List of maximal spheres of each void region: x, y, z, radius, distance, ra, dec
-    out2_filename = out_directory + galaxies_filename[:-4] + out2_suffix  # List of holes for all void regions: x, y, z, radius, flag (to which void it belongs)
-    #out3_filename = out_directory + 'out3_vollim_dr7.txt'                # List of void region sizes: radius, effective radius, evolume, x, y, z, deltap, nfield, vol_maxhole
-    #voidgals_filename = out_directory + 'vollim_voidgals_dr7.txt'        # List of the void galaxies: x, y, z, void region
-    ############################################################################
     
     
     ############################################################################
@@ -245,9 +218,22 @@ def file_preprocess(galaxies_filename,
     
         print("Finished Rgal calculation time: ", time.time() - calc_start_time, flush=True)
     ############################################################################
+        
     
+    save_output_from_preprocessing(
+        galaxies_filename,
+        out_directory, 
+        survey_name,
+        dist_metric, 
+        dist_limits,
+        min_z,
+        max_z,
+        Omega_M,
+        h,
+        verbose
+    )
     
-    return galaxy_data_table, dist_limits, out1_filename, out2_filename
+    return galaxy_data_table, dist_limits
 
 
 

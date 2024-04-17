@@ -3,9 +3,12 @@ from astropy.table import Table
 
 import numpy as np
 import time
+import pickle
 
 from vast.voidfinder.distance import z_to_comoving_dist
 from vast.voidfinder.constants import c #speed of light
+from .postprocessing import save_output_from_generate_mask
+
 
 maskra = 360
 maskdec = 180
@@ -16,11 +19,14 @@ D2R = np.pi/180.0
 
 def generate_mask(gal_data, 
                   z_max, 
+                  survey_name,
+                  out_directory,
                   dist_metric='comoving',
                   smooth_mask=True,
                   min_maximal_radius=10.0,
                   Omega_M=0.3,
-                  h=1.0):
+                  h=1.0,
+                  ):
     """
     This function creates a grid of shape (N,M) where the N dimension represents 
     increments of the ra space (0 to 360 degrees) and the M dimension represents 
@@ -47,6 +53,13 @@ def generate_mask(gal_data,
 
     z_max : float
         Maximum redshift of the volume-limited catalog.
+    
+    survey_name : str
+        Name of the galaxy catalog, string value to prepend or append to output 
+        names
+
+    out_directory : string
+        Directory path for output files
 
     dist_metric : string
         Distance metric to use in calculations.  Options are 'comoving' 
@@ -202,6 +215,16 @@ def generate_mask(gal_data,
             
             mask[idx,jdx] = 1
     ############################################################################
+
+    # Save the mask and mask resolution so that it can be used elsewhere 
+
+    save_output_from_generate_mask(
+        mask,
+        mask_resolution,                    
+        survey_name,
+        out_directory,
+        smooth_mask,
+    )
 
     return mask, mask_resolution
 

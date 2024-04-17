@@ -105,17 +105,18 @@ dist_metric = 'comoving'
 ################################################################################
 # PREPROCESS DATA
 #-------------------------------------------------------------------------------
-galaxy_data_table, dist_limits, out1_filename, out2_filename = file_preprocess(galaxies_filename, 
-                                                                               in_directory, 
-                                                                               out_directory, 
-                                                                               #mag_cut=mag_cut,
-                                                                               #rm_isolated=rm_isolated,
-                                                                               dist_metric=dist_metric,
-                                                                               min_z=min_z, 
-                                                                               max_z=max_z,
-                                                                               Omega_M=Omega_M,
-                                                                               #h=h,
-                                                                               )
+galaxy_data_table, dist_limits = file_preprocess(
+    galaxies_filename, 
+    survey_name,
+    in_directory, 
+    out_directory, 
+    #mag_cut=mag_cut,
+    dist_metric=dist_metric,
+    min_z=min_z, 
+    max_z=max_z,
+    Omega_M=Omega_M,
+    #h=h,
+)
 
 print("Dist limits: ", dist_limits)
 ################################################################################
@@ -128,15 +129,15 @@ print("Dist limits: ", dist_limits)
 #-------------------------------------------------------------------------------
 mask, mask_resolution = generate_mask(galaxy_data_table, 
                                       max_z, 
+                                      survey_name,
+                                      out_directory,
                                       dist_metric=dist_metric, 
                                       smooth_mask=True,
                                       #h=h,
                                       )
 
-# Save the mask and mask resolution so that it can be used elsewhere
-temp_outfile = open(out_directory + survey_name + 'mask.pickle', 'wb')
-pickle.dump((mask, mask_resolution, dist_limits), temp_outfile)
-temp_outfile.close()
+# The mask is automatically saved in the survey_name+'VoidFinder_Output.fits'
+# file and can be read in for future use
 ################################################################################
 
 
@@ -146,10 +147,13 @@ temp_outfile.close()
 # FILTER GALAXIES
 #-------------------------------------------------------------------------------
 # If you are rerunning the code, you can comment out the mask generation step 
-# above and just load it here instead.
-#temp_infile = open(out_directory + survey_name + 'mask.pickle', 'rb')
-#mask, mask_resolution, dist_limits = pickle.load(temp_infile)
-#temp_infile.close()
+# above and just load it here instead. Use something in the vein of the below 
+# (untested) code:
+# with fits.open(out_directory+survey_name+'_VoidFinder_Output.fits') as output:
+#   mask = output['MASK'].data
+#   mask_resolution  = output['MASK'].header['MSKRES']
+#   dist_limits = (output['PRIMARY'].header['DLIML'], output['PRIMARY'].header['DLIMU'])
+
 
 wall_coords_xyz, field_coords_xyz = filter_galaxies(galaxy_data_table,
                                                     survey_name,
@@ -163,11 +167,9 @@ wall_coords_xyz, field_coords_xyz = filter_galaxies(galaxy_data_table,
 
 del galaxy_data_table
 
-# Save the catalog details needed for finding voids, so that the code can be 
-# restarted from the next step if needed.
-temp_outfile = open(survey_name + "filter_galaxies_output.pickle", 'wb')
-pickle.dump((wall_coords_xyz, field_coords_xyz), temp_outfile)
-temp_outfile.close()
+# The galaxies are automatically saved in the survey_name+'VoidFinder_Output.fits'
+# file and can be read in for future use, o long as the write_table parameter of
+# filter_galaxies is True (it is True by default)
 ################################################################################
 
 
@@ -179,15 +181,18 @@ coords_min = np.min(np.concatenate([wall_coords_xyz, field_coords_xyz]), axis=0)
 #-------------------------------------------------------------------------------
 # Again, if you are running the code and have not changed any of the above steps 
 # from a previous run, you can comment out most of the above function calls and 
-# load all the details in here to start over.
-#temp_infile = open(survey_name + "filter_galaxies_output.pickle", 'rb')
-#wall_coords_xyz, field_coords_xyz = pickle.load(temp_infile)
-#temp_infile.close()
+# load all the details in here to start over. Use something in the vein of the 
+# below (untested) code:
+# with fits.open(out_directory+survey_name+'_VoidFinder_Output.fits') as output:
+#   wall_coords_xyz = np.array([output['WALL'].data['X'],
+#                               output['WALL'].data['Y'],
+#                               output['WALL'].data['Z']]).T
 
 
 
 find_voids(wall_coords_xyz, 
            survey_name,
+           out_directory,
            mask_type='ra_dec_z',
            mask=mask, 
            mask_resolution=mask_resolution,
@@ -195,14 +200,9 @@ find_voids(wall_coords_xyz,
            grid_origin=coords_min,
            #save_after=50000,
            #use_start_checkpoint=True,
-           maximal_spheres_filename=out1_filename,
-           void_table_filename=out2_filename,
-           potential_voids_filename=out_directory + survey_name + 'potential_voids_list.txt',
            verbose=1,
            num_cpus=num_cpus)
 ################################################################################
-
-
 
 
 

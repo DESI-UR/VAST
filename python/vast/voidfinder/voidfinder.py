@@ -9,9 +9,11 @@ from sklearn import neighbors
 
 import time
 
+import pickle
+
 from .hole_combine import combine_holes_2
 
-from .voidfinder_functions import mesh_galaxies, save_maximals
+from .voidfinder_functions import mesh_galaxies, save_maximals, xyz_to_radecz
 
 from .volume_cut import check_hole_bounds
 
@@ -24,6 +26,8 @@ from ._voidfinder import _hole_finder
 from .constants import c
 
 from ._voidfinder_cython_find_next import MaskChecker
+
+from .postprocessing import save_output_from_filter_galaxies, save_output_from_wall_field_separation, save_output_from_find_voids
 
 
 
@@ -52,6 +56,7 @@ def filter_galaxies(galaxy_table,
                     dist_metric='comoving', 
                     h=1.0,
                     magnitude_limit=-20.09,
+                    capitalize_colnames=False,
                     verbose=0):
     """
     A hodge podge of miscellaneous tasks which need to be done to format the 
@@ -75,7 +80,7 @@ def filter_galaxies(galaxy_table,
         include 'ra' and 'dec'
         
     survey_name : str
-        Name of the galxy catalog, string value to prepend or append to output 
+        Name of the galaxy catalog, string value to prepend or append to output 
         names
 
     out_directory : string
@@ -111,9 +116,12 @@ def filter_galaxies(galaxy_table,
 
     h : float
         Fractional value of Hubble's constant.  Default value is 1 (where H0 = 
-        100h).
-        
-        
+        100h).    
+    
+    capitalize_colnames : bool
+        If True, the column names in the void table outputs are capitalized. 
+        Otherwise, the column names are lowercase   
+
     verbose : int
         values greater than zero indicate to print output
         
@@ -180,7 +188,10 @@ def filter_galaxies(galaxy_table,
         
         wall_gals_xyz, field_gals_xyz = wall_field_separation(coords_xyz,
                                                               sep_neighbor=sep_neighbor,
-                                                              verbose=verbose)
+                                                              verbose=verbose,
+                                                              survey_name=survey_name, 
+                                                              out_directory=out_directory,
+                                                              capitalize_colnames=capitalize_colnames)
 
     else:
         
@@ -195,29 +206,31 @@ def filter_galaxies(galaxy_table,
     # Write results to disk if desired
     #---------------------------------------------------------------------------
     if write_table:
-    
+
         write_start = time.time()
-        
-    
-        wall_xyz_table = Table(data=wall_gals_xyz, names=["x", "y", "z"])
-        
-        wall_xyz_table.write(out_directory + survey_name + 'wall_gal_file.txt', 
-                             format='ascii.commented_header', 
-                             overwrite=True)
-    
-        
-        field_xyz_table = Table(data=field_gals_xyz, names=["x", "y", "z"])
-    
-        field_xyz_table.write(out_directory + survey_name + 'field_gal_file.txt', 
-                              format='ascii.commented_header', 
-                              overwrite=True)
-        
-        
+
+        save_output_from_filter_galaxies(
+            survey_name, 
+            out_directory,
+            wall_gals_xyz, 
+            field_gals_xyz,
+            write_table,
+            mag_cut, 
+            dist_limits,
+            rm_isolated,
+            dist_metric, 
+            h,
+            magnitude_limit,
+            capitalize_colnames,
+            verbose
+        )
+
         if verbose > 0:
             
             print("Time to write field and wall tables:", 
                   time.time() - write_start, 
                   flush=True)
+
 
 
     nf =  len(field_gals_xyz)
@@ -598,7 +611,11 @@ def calculate_grid(galaxy_coords,
 
 def wall_field_separation(galaxy_coords_xyz,
                           sep_neighbor=3,
-                          verbose=0):
+                          verbose=0,
+                          survey_name = "", 
+                          out_directory = "",
+                          write_galaxies=False,
+                          capitalize_colnames=False):
     """
     Given a set of galaxy coordinates in xyz space, find all the galaxies whose
     distance to their Nth nearest neighbor is above or below some limit.  
@@ -621,8 +638,15 @@ def wall_field_separation(galaxy_coords_xyz,
        
     verbose : int
         whether to print timing output, 0 for off and >= 1 for on
-        
-        
+
+    write_galaxies : bool
+        write out the wall and field galaxies to an output file
+    
+    capitalize_colnames : bool
+        If True, the column names in the void table outputs are capitalized. 
+        Otherwise, the column names are lowercase       
+
+          
     Returns
     =======
     
@@ -695,6 +719,7 @@ def wall_field_separation(galaxy_coords_xyz,
     
     print('Removing all galaxies with 3rd nearest neighbors further than', l, 
           flush=True)
+    
     ############################################################################
 
 
@@ -718,6 +743,19 @@ def wall_field_separation(galaxy_coords_xyz,
         
         print('Time to sort field and wall gals:', fw_end-fw_start, flush=True)
     ############################################################################
+        
+    save_output_from_wall_field_separation(
+        survey_name, 
+        out_directory,
+        wall_gals_xyz,
+        field_gals_xyz,
+        write_galaxies,
+        sep_neighbor,
+        avsep,
+        sd,
+        capitalize_colnames,
+        verbose,
+    )
 
     return wall_gals_xyz, field_gals_xyz
     
@@ -730,6 +768,7 @@ def wall_field_separation(galaxy_coords_xyz,
 
 def find_voids(galaxy_coords_xyz,
                survey_name,
+               out_directory,
                mask_type='ra_dec_z',
                mask=None, 
                mask_resolution=None,
@@ -742,15 +781,13 @@ def find_voids(galaxy_coords_xyz,
                min_maximal_radius=10.0,
                galaxy_map_grid_edge_length=None,
                pts_per_unit_volume=0.01,
-               maximal_spheres_filename="maximal_spheres.txt",
-               void_table_filename="voids_table.txt",
-               potential_voids_filename="potential_voids_list.txt",
                num_cpus=None,
                save_after=None,
                use_start_checkpoint=False,
                batch_size=10000,
                verbose=0,
-               print_after=5.0
+               print_after=5.0,
+               capitalize_colnames = False,
                ):
     """
     Main entry point for VoidFinder.  
@@ -847,6 +884,9 @@ def find_voids(galaxy_coords_xyz,
     survey_name : str
         identifier for the survey running, may be prepended or appended to 
         output filenames including the checkpoint filename
+    
+    out_directory : string
+        Directory path for output files
         
     mask_type : string, one of ['ra_dec_z', 'xyz', 'periodic']
         Determines the mode of mask checking to use and which mask parameters to 
@@ -925,15 +965,6 @@ def find_voids(galaxy_coords_xyz,
         to calculate the fraction of the hole's volume that falls outside the 
         survey bounds.  Default is 0.01.
     
-    maximal_spheres_filename : str
-        Location to save maximal spheres file 
-    
-    void_table_filename : str
-        Location to save void table to
-    
-    potential_voids_filename : str
-        Location to save potential voids file to
-    
     num_cpus : int or None
         Number of cpus to use while running the main algorithm.  None will 
         result in using number of physical cores on the machine.  Some speedup 
@@ -977,18 +1008,20 @@ def find_voids(galaxy_coords_xyz,
         
     print_after : float
         Number of seconds to wait before printing a status update
+
+    capitalize_colnames : bool
+        If True, the column names in the void table outputs are capitalized. 
+        Otherwise, the column names are lowercase
     
     
     Returns
     =======
     
     All output is currently written to disk:
+        
+    combined voids table, fits format
     
-    potential voids table, ascii.commented_header format
-    
-    combined voids table, ascii.commented_header format
-    
-    maximal spheres table
+    maximal spheres table, fits format
     """
     
     if mask_type == "ra_dec_z":
@@ -1176,32 +1209,68 @@ def find_voids(galaxy_coords_xyz,
     
         print('Number of unique voids is', len(maximal_spheres_table), flush=True)
     ############################################################################
+        
 
-    
-    
     ############################################################################
-    # Save list of all void holes
+    # Save list of all void holes and maximal spheres
     #---------------------------------------------------------------------------
-    myvoids_table.write(void_table_filename, 
-                        format='ascii.commented_header', 
-                        overwrite=True)
-    ############################################################################
 
+    #format column names for output file
+    myvoids_table['x'].unit='Mpc/h'
+    if capitalize_colnames: myvoids_table['x'].name='X'
+    myvoids_table['y'].unit='Mpc/h'
+    if capitalize_colnames: myvoids_table['y'].name='Y'
+    myvoids_table['z'].unit='Mpc/h'
+    if capitalize_colnames: myvoids_table['z'].name='Z'
+    myvoids_table['radius'].unit='Mpc/h'
+    if capitalize_colnames: myvoids_table['radius'].name='RADIUS'
 
+    maximal_spheres_table = xyz_to_radecz(maximal_spheres_table)
 
+    maximal_spheres_table['x'].unit='Mpc/h'
+    if capitalize_colnames: maximal_spheres_table['x'].name='X'
+    maximal_spheres_table['y'].unit='Mpc/h'
+    if capitalize_colnames: maximal_spheres_table['y'].name='Y'
+    maximal_spheres_table['z'].unit='Mpc/h'
+    if capitalize_colnames: maximal_spheres_table['z'].name='Z'
+    maximal_spheres_table['radius'].unit='Mpc/h'
+    if capitalize_colnames: maximal_spheres_table['radius'].name='RADIUS'
+    maximal_spheres_table['r'].unit='Mpc/h'
+    if capitalize_colnames: maximal_spheres_table['r'].name='R'
+    maximal_spheres_table['ra'].unit='deg'
+    if capitalize_colnames: maximal_spheres_table['ra'].name='RA'
+    maximal_spheres_table['dec'].unit='deg'
+    if capitalize_colnames: maximal_spheres_table['dec'].name='DEC'
+
+    #save output
+    save_output_from_find_voids(
+        maximal_spheres_table,
+        myvoids_table, 
+        galaxy_coords_xyz,
+        out_directory, 
+        survey_name,
+        mask_type,
+        mask,            
+        mask_resolution,
+        dist_limits,     
+        xyz_limits,     
+        check_only_empty_cells,
+        max_hole_mask_overlap,  
+        hole_grid_edge_length,   
+        grid_origin,             
+        min_maximal_radius,
+        galaxy_map_grid_edge_length,
+        pts_per_unit_volume,
+        num_cpus,
+        batch_size,
+        capitalize_colnames,
+        verbose=verbose
+    )
+    
     ############################################################################
     # Compute volume of each void
     #---------------------------------------------------------------------------
     ############################################################################
-
-
-    
-    ############################################################################
-    # Save list of maximal hole in each void
-    #---------------------------------------------------------------------------
-    save_maximals(maximal_spheres_table, maximal_spheres_filename, verbose=verbose)
-    ############################################################################
-
 
 
     ############################################################################

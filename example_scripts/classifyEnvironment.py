@@ -16,6 +16,7 @@ import pickle
 #sys.path.insert(1, '/local/path/VAST/VoidFinder/vast/voidfinder/')
 from vast.voidfinder.vflag import determine_vflag
 from vast.voidfinder.distance import z_to_comoving_dist
+from vast.voidfinder.postprocessing import open_fits_file
 ################################################################################
 
 
@@ -27,16 +28,11 @@ from vast.voidfinder.distance import z_to_comoving_dist
 #-------------------------------------------------------------------------------
 # FILE OF VOID HOLES
 #-------------------------------------------------------------------------------
-void_filename = './vollim_dr7_cbp_102709_comoving_holes.txt'
+voids_filename = './vollim_dr7_cbp_102709_VoidFinder_Output.fits'
 
 dist_metric = 'comoving'
 #-------------------------------------------------------------------------------
 
-#-------------------------------------------------------------------------------
-# SURVEY MASK FILE
-#-------------------------------------------------------------------------------
-mask_filename = './vollim_dr7_cbp_102709_mask.pickle'
-#-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 # FILE OF OBJECTS TO BE CLASSIFIED
@@ -74,13 +70,15 @@ DtoR = np.pi/180
 print('Importing data')
 
 # Read in list of void holes
-voids = Table.read(void_filename, format='ascii.commented_header')
+catalog = open_fits_file(voids_filename)
+
+voids = Table(catalog['HOLES'].data)
 '''
 voids['x'] == x-coordinate of center of void (in Mpc/h)
 voids['y'] == y-coordinate of center of void (in Mpc/h)
 voids['z'] == z-coordinate of center of void (in Mpc/h)
-voids['R'] == radius of void (in Mpc/h)
-voids['voidID'] == index number identifying to which void the sphere belongs
+voids['radius'] == radius of void (in Mpc/h)
+voids['flag'] == index number identifying to which void the sphere belongs
 '''
 
 
@@ -93,9 +91,9 @@ else:
 
 
 # Read in survey mask
-mask_infile = open(mask_filename, 'rb')
-mask, mask_resolution, dist_limits = pickle.load(mask_infile)
-mask_infile.close()
+mask=catalog['MASK'].data
+mask_resolution=catalog['MASK'].header['MSKRES']
+dist_limits = [catalog['PRIMARY'].header['DLIML'], catalog['PRIMARY'].header['DLIMU']]
 
 print('Data and mask imported')
 ################################################################################
