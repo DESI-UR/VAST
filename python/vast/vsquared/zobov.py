@@ -6,13 +6,15 @@ import pickle
 import configparser
 from scipy import stats
 from astropy.table import Table
+from astropy.io import fits
 
-from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten
+
+from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten, open_fits_file_V2
 from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
 
-    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False):
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False, capitalize_colnames=False):
         """Initialization of the ZOnes Bordering on Voids (ZOBOV) algorithm.
 
         Parameters
@@ -29,6 +31,8 @@ class Zobov:
             Create visualization.
         periodic : bool
             Use periodic boundary conditions.
+        capitalize_colnames : bool
+            If True, column names in ouput file are capitalized. If False, column names are lowercase
         """
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
@@ -104,6 +108,7 @@ class Zobov:
             self.zones       = zones
         if end>2:
             self.prevoids    = voids
+        self.capitalize = capitalize_colnames
 
 
     def sortVoids(self, method=0, minsig=2, dc=0.2):
@@ -264,6 +269,7 @@ class Zobov:
         self.vcens = vcens
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
+        self.method = method
 
 
     def saveVoids(self):
@@ -277,21 +283,46 @@ class Zobov:
         vax2 = np.array([vx[1] for vx in self.vaxes]).T
         vax3 = np.array([vx[2] for vx in self.vaxes]).T
 
+        # format output tables
         if self.periodic:
+            names = ['x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            if self.capitalize:
+                names = [name.upper() for name in names]
             vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+                    names = names,
+                    units = ['Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
+            names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            if self.capitalize:
+                names = [name.upper() for name in names]
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
             vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+                    names = names,
+                    units = ['Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+        
+        names = ['zone','void0','void1']
+        if self.capitalize:
+            names = [name.upper() for name in names]
+        vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]], names=names)
+        
+        # read in the ouptput file
+        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
 
-        vT.write(self.outdir+self.catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
+        # write to the output file
+        hdu = fits.BinTableHDU()
+        hdu.name = 'VOIDS'
+        hdul.append(hdu)
+        voids = hdul['VOIDS']
+        voids.data = fits.BinTableHDU(vT).data
 
-        vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],
-                    names=('zone','void0','void1'))
-        vZ.write(self.outdir+self.catname+"_zonevoids.dat", 
-                 format='ascii.commented_header', 
-                 overwrite=True)
+        hdu = fits.BinTableHDU()
+        hdu.name = 'ZONEVOID'
+        hdul.append(hdu)
+        zones = hdul['ZONEVOID']
+        zones.data = fits.BinTableHDU(vZ).data
+        
+        #save file changes
+        hdul.writeto(log_filename, overwrite=True)
 
 
     def saveZones(self):
@@ -325,8 +356,24 @@ class Zobov:
                     elist[glut2[c]] = 1
         elist[np.array(olist,dtype=bool)] = 0
 
-        zT = Table([self.catalog.galids,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
-        zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
+        # format output tables
+        names = ['gal','zone','depth','edge','out']
+        if self.capitalize:
+            names = [name.upper() for name in names]
+        zT = Table([self.catalog.galids,zlist,dlist,elist,olist], names=names)
+        
+        # read in the ouptput file
+        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
+
+        # write to the output file
+        hdu = fits.BinTableHDU()
+        hdu.name = 'GALZONE'
+        hdul.append(hdu)
+        galaxies = hdul['GALZONE']
+        galaxies.data = fits.BinTableHDU(zT).data
+        
+        #save file changes
+        hdul.writeto(log_filename, overwrite=True)
 
 
     def preViz(self):
@@ -391,8 +438,34 @@ class Zobov:
         norm = np.array(norm).T
         vid = np.array(vid)
 
+        # format output tables
+        names = ['void_id','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
+        if self.capitalize:
+            names = [name.upper() for name in names]
         vizT = Table([vid,norm[0],norm[1],norm[2],tri1[0],tri1[1],tri1[2],tri2[0],tri2[1],tri2[2],tri3[0],tri3[1],tri3[2]],
-                     names=('void_id','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z'))
-        vizT.write(self.outdir+self.catname+"_triangles.dat",format='ascii.commented_header',overwrite=True)
-        g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=('gid','g2v','g2v2'))
-        g2vT.write(self.outdir+self.catname+"_galviz.dat",format='ascii.commented_header',overwrite=True)
+                     names=names,
+                     units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+        
+        names = ['gid','g2v','g2v2']
+        if self.capitalize:
+            names = [name.upper() for name in names]
+        g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=names)
+
+        # read in the ouptput file
+        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
+
+        # write to the output file
+        hdu = fits.BinTableHDU()
+        hdu.name = 'TRIANGLE'
+        hdul.append(hdu)
+        triangles = hdul['TRIANGLE']
+        triangles.data = fits.BinTableHDU(vizT).data
+
+        hdu = fits.BinTableHDU()
+        hdu.name = 'GALVIZ'
+        hdul.append(hdu)
+        galaxies = hdul['GALVIZ']
+        galaxies.data = fits.BinTableHDU(g2vT).data
+        
+        #save file changes
+        hdul.writeto(log_filename, overwrite=True)

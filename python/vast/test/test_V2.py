@@ -114,17 +114,18 @@ class TestV2(unittest.TestCase):
         self.assertTrue(hasattr(TestV2.zobov, 'vrads')) # after sortVoids
 
         TestV2.zobov.saveVoids()
-        self.assertTrue(os.path.exists('TEST_zobovoids.dat'))
-        self.assertTrue(os.path.exists('TEST_zonevoids.dat'))
+
+        self.assertTrue(os.path.exists('TEST_V2_VIDE_Output.fits'))
 
         # Save zones.
         TestV2.zobov.saveZones()
-        self.assertTrue(os.path.exists('TEST_galzones.dat'))
+        
+        self.assertTrue(os.path.exists('TEST_V2_VIDE_Output.fits'))
 
     def tearDown(self):
         """Delete files produced for the unit tests.
         """
-        files = [ 'TEST_zobovoids.dat', 'TEST_zonevoids.dat', 'TEST_galzones.dat' ]
+        files = [ 'TEST_V2_VIDE_Output.fits' ]
         for f in files:
             if os.path.exists(f):
                 os.remove(f)
