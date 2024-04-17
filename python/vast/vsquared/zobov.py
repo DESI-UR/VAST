@@ -118,12 +118,12 @@ class Zobov:
         Parameters
         ==========
 
-        method : int
-            0 = VIDE method (arXiv:1406.1191); link zones with density <1/5 mean density, and remove voids with density >1/5 mean density.
-            1 = ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
-            2 = ZOBOV method; cut voids over a significance threshold.
+        method : int or string
+            0 or VIDE or vide = VIDE method (arXiv:1406.1191); link zones with density <1/5 mean density, and remove voids with density >1/5 mean density.
+            1 or ZOBOV or zobov = ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
+            2 or ZOBOV2 or zobov2 = ZOBOV method; cut voids over a significance threshold.
             3 = not available
-            4 = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
+            4 or REVOLVER or revolver = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
         
         minsig : float
             Minimum significance threshold for selecting voids.
@@ -131,6 +131,25 @@ class Zobov:
         dc : float
             Density cut for linking zones using VIDE method.
         """
+
+        #format method
+        if isinstance(method, str):
+            try:
+                method = int(method)
+            except:
+                match method:
+                    case ('VIDE','vide'):
+                        method = 0
+                    case ('ZOBOV','zobov'):
+                        method = 1
+                    case ('ZOBOV2','zobov2'):
+                        method = 2
+                    case ('REVOLVER','revolver'):
+                        method = 4
+                    case _:
+                        print("Choose a valid method")
+                        return
+
 
         if not hasattr(self,'prevoids'):
             if method != 4:
