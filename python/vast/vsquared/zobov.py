@@ -289,7 +289,7 @@ class Zobov:
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
 
-        vhzn = [np.sum(self.zones.zhzn[voi]) for voi in voids]
+        vhzn = [np.sum(self.zones.zhzn[voi.astype(int)]) for voi in voids]
         if self.visualize:
             varea_0 = [np.sum(self.zones.zarea_0[voi]) for voi in voids]
             varea_t = [np.sum(self.zones.zarea_t[voi]) for voi in voids]
