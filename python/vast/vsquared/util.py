@@ -227,7 +227,7 @@ def flatten(l):
 
 def open_fits_file_V2(
         log_filename,
-        method,
+        method=None,
         out_directory=None, 
         survey_name=None):
     
