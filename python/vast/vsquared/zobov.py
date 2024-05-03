@@ -15,7 +15,7 @@ from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
 
-    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False, capitalize_colnames=False):
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False,xyz=False, capitalize_colnames=False):
         """Initialization of the ZOnes Bordering on Voids (ZOBOV) algorithm.
 
         Parameters
@@ -32,6 +32,8 @@ class Zobov:
             Create visualization.
         periodic : bool
             Use periodic boundary conditions.
+         xyz : bool
+            Use rectangular boundary conditions.
         capitalize_colnames : bool
             If True, column names in ouput file are capitalized. If False, column names are lowercase
         """
@@ -45,6 +47,7 @@ class Zobov:
         else:
             self.visualize = visualize
         self.periodic = periodic
+        self.xyz = False if periodic*xyz or not xyz else True
 
         config = configparser.ConfigParser()
         config.read(configfile)
@@ -96,14 +99,14 @@ class Zobov:
                     if start<1:
                         ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,
                                        column_names = config['Galaxy Column Names'], maglim=self.maglim,
-                                       H0=self.H0,Om_m=self.Om_m,periodic=self.periodic, cmin=self.cmin,
+                                       H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,xyz=self.xyz, cmin=self.cmin,
                                        cmax=self.cmax, zobov = self)
                         if save_intermediate:
                             pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
                         ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
                     if end>0:
-                        tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,buff=self.buff)
+                        tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,xyz=self.xyz,buff=self.buff)
                         if save_intermediate:
                             pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
                 else:
@@ -286,6 +289,22 @@ class Zobov:
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
 
+        vhzn = [np.sum(self.zones.zhzn[voi]) for voi in voids]
+        if self.visualize:
+            varea_0 = [np.sum(self.zones.zarea_0[voi]) for voi in voids]
+            varea_t = [np.sum(self.zones.zarea_t[voi]) for voi in voids]
+            varea_s = np.zeros(len(voids))
+            for i in range(len(voids)):
+                if len(voids[i])==1:
+                    continue
+                for j in range(len(voids[i])-1):
+                    z1 = voids[i][j]
+                    for k in range(j+1,len(voids[i])):
+                        z2 = voids[i][k]
+                        if z2 in self.zones.zlinks[0][z1]:
+                            l = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
+                            varea_s[i] += self.zones.zarea_s[z1][l]
+
         # Identify eigenvectors of best-fit ellipsoid for each void.
         print("Calculating ellipsoid axes...")
 
@@ -309,6 +328,10 @@ class Zobov:
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
         self.method = method
+        self.vhzn = (np.array(vhzn)).astype(bool)
+        if self.visualize:
+            self.varea_0 = np.array(varea_0)
+            self.varea_t = np.array(varea_t)-varea_s
 
 
     def saveVoids(self):
@@ -331,13 +354,23 @@ class Zobov:
                     names = names,
                     units = ['Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
+            vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
+            columns = [vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]]
             names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            units = ['Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h']
+
+            if self.visualize:
+                columns += [self.varea_t,self.varea_0]
+                names += ['tot_area','edge_area']
+                units += ['(Mpc/h)^2','(Mpc/h)^2']
+            else:
+                columns.append((self.vhzn).astype(int))
+                names.append('edge')
+                units.append('')
             if self.capitalize:
                 names = [name.upper() for name in names]
-            vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
-            vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names = names,
-                    units = ['Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+            
+            vT = Table(columns, names = names, units = units)
         
         names = ['zone','void0','void1']
         if self.capitalize:

@@ -8,14 +8,14 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, getBuff, flatten, mknumV2
+from vast.vsquared.util import toCoord, getBuff, flatten, mknumV2, rotate
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 class Catalog:
     """Catalog data for void calculation.
     """
 
-    def __init__(self,catfile,nside,zmin,zmax,column_names,maglim=None,H0=100,Om_m=0.3,periodic=False,cmin=None,cmax=None,maskfile=None,zobov=None):
+    def __init__(self,catfile,nside,zmin,zmax,column_names,maglim=None,H0=100,Om_m=0.3,periodic=False,xyz=False,cmin=None,cmax=None,maskfile=None,zobov=None):
         """Initialize catalog.
 
         Parameters
@@ -40,6 +40,8 @@ class Catalog:
             Mask file giving HEALPixels with catalog objects (FITS format).
         periodic : bool
             Use periodic boundary conditions.
+        xyz : bool
+            Use rectangular boundary conditions.
         cmin : ndarray or None
             Array of coordinate minima.
         cmax : ndarray or None
@@ -51,7 +53,7 @@ class Catalog:
         galaxy_table = load_data_to_Table(catfile)
 
         # For periodic mode, store the galaxy coordinates, the minimum coordinates,and the maximum coordinates
-        if periodic:
+        if periodic or xyz:
             self.coord = np.array([galaxy_table[column_names['x']],
                                    galaxy_table[column_names['y']],
                                    galaxy_table[column_names['z']]]).T
@@ -75,7 +77,7 @@ class Catalog:
         nnls = np.arange(len(self.coord)) 
         
         # Galaxies outside z limit are marked with -1
-        if not periodic:
+        if not periodic and not xyz:
             nnls[zcut<1] = -1
 
         # Apply magnitude limit
@@ -96,7 +98,8 @@ class Catalog:
         self.nnls = nnls
 
         # Apply survey mask
-        if not periodic:
+        self.imsk = np.ones(len(nnls),dtype=bool) #simply selects all galaxies for periodic mode, see def. below otherwise
+        if not periodic and not xyz:
             if maskfile is None:
                 print("Generating mask...")
                 mask = np.zeros(hp.nside2npix(nside),dtype=bool) #create a healpix mask with specified nside
@@ -147,7 +150,7 @@ class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.
     """
 
-    def __init__(self,cat,viz=False,periodic=False,buff=5.):
+    def __init__(self,cat,viz=False,periodic=False,xyz=False,buff=5.):
         """Initialize tesselation.
 
         Parameters
@@ -217,23 +220,31 @@ class Tesselation:
             
             del Vor
             ve2 = ver.T
-            vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2]) #spherical coordinates for voronoi vertices
-            vph = np.arctan2(ve2[1],ve2[0])
-            vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
-            crh = np.array([np.sqrt((c**2.).sum()) for c in coords]) #radial distance to galaxies
-            rmx = np.amax(crh)
-            rmn = np.amin(crh)
+            if not xyz:
+                vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2]) #spherical coordinates for voronoi vertices
+                vph = np.arctan2(ve2[1],ve2[0])
+                vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
+                crh = np.array([np.sqrt((c**2.).sum()) for c in coords]) #radial distance to galaxies
+                rmx = np.amax(crh)
+                rmn = np.amin(crh)
             print("Computing volumes...")
             vol = np.zeros(len(reg))
-            cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies with finite voronoi cells
-            cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool) #cut selecting galaxes whose voronoi coordinates are finite and are within the survey distance limits
-            msk = cat.mask
-            nsd = hp.npix2nside(len(msk))
-            pid = hp.ang2pix(nsd,vth,vph)
-            imk = msk[pid] #cut selecting voronoi vertexes inside survey mask
-            cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool) #cut selecting galaxies with finite voronoi coords that are within the total survvey bounds
             cut = np.arange(len(vol))
-            cut = cut[cu1][cu2][cu3] #shortcut for cu3 but w/o having to stack [cu1][cu2][cu3] each time
+            if xyz:
+                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cat.cmin[0],ve2[0][r]<cat.cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
+                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cat.cmin[1],ve2[1][r]<cat.cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cat.cmin[2],ve2[2][r]<cat.cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
+                cut = cut[cu1][cu2][cu3][cu4]
+            else:
+                cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies with finite voronoi cells
+                cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool) #cut selecting galaxes whose voronoi coordinates are finite and are within the survey distance limits
+                msk = cat.mask
+                nsd = hp.npix2nside(len(msk))
+                pid = hp.ang2pix(nsd,vth,vph)
+                imk = msk[pid] #cut selecting voronoi vertexes inside survey mask
+                cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool) #cut selecting galaxies with finite voronoi coords that are within the total survvey bounds
+                cut = cut[cu1][cu2][cu3] #shortcut for cu3 but w/o having to stack [cu1][cu2][cu3] each time
+            
             hul = [] #list of convex hull objects 
             for r in reg[cut]:
                 try:
@@ -253,8 +264,9 @@ class Tesselation:
             print("Triangulating...")
             Del = Delaunay(coords,qhull_options='QJ')
             sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
-        nei = [] #for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra objects that it's part of
-        lut = [[] for _ in range(len(vol))] #for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's part of
+        nei = [] #for each galaxy, list of indexes of neighbor galaxies in the same tetrahedra objects that it's part of
+        lut = [[] for _ in range(len(vol))] #same as nei but duplicate galaxy entries may appear
+        hzn = np.zeros(len(vol),dtype=bool) # for each galaxy, flags if teh galaxy is along edge of survey
         print("Consolidating neighbors...")
         for i in range(len(sim)):
             for j in sim[i]:
@@ -262,8 +274,10 @@ class Tesselation:
         for i in range(len(vol)):
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
+            if 0. in vol[nei[i]]: # if any of cell's neighbors have a volume of 0 (meaning cell extends outside survey bounds)
+                hzn[i] = True # denote edge cell
         self.neighbors = np.array(nei, dtype=object) #for each galaxy, list of neighbor galaxy coordinates (see above explanation)
-
+        self.hzn       = hzn # selects edge cells (see above explanation)
 
 class Zones:
     """Partitioning of particles into zones around density minima.
@@ -281,6 +295,7 @@ class Zones:
         """
         vol   = tess.volumes
         nei   = tess.neighbors
+        hzn   = tess.hzn
 
         # Sort the Voronoi cells by their volume
         print("Sorting cells...")
@@ -296,6 +311,7 @@ class Zones:
 
         zvols = [0.] # the volume of the largest cell in each zone?
         zcell = [[]] #list of zones, where each zone is a list of cells
+        zhzn  = [1]
 
         print("Building zones...")
 
@@ -315,14 +331,17 @@ class Zones:
                 lut[n] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
                 zcell.insert(-1,[n]) # create a new zone
                 zvols.insert(-1,vol[n]) # note the volume of the largest cell in the zone
+                zhzn.insert(-1,int(hzn[n])) #note whether the largest cell in teh zone is an edge cell
             else:
                 # This cell is put into its least-dense neighbor's zone
                 lut[srt[i]]   = lut[n] #the galaxy in this cell is given the zone ID of it's least dense neighbor
                 depth[srt[i]] = depth[n]+1 #the galaxy's depth = its least dense neighbor's depth + 1
                 zcell[lut[n]].append(srt[i]) #the galaxy is added to it's least dense neighbor's zone
+                zhzn[lut[n]] += int(hzn[srt[i]]) #increment the zone's edge flag if an edge cell is found (0 = no edge cells)
 
         self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
+        self.zhzn  = np.array(zhzn)
         self.depth = depth
 
         # Identify neighboring zones and the least-dense cells linking them
@@ -331,6 +350,9 @@ class Zones:
         if viz:
             zverts = [[] for _ in range(len(zvols))]
             znorms = [[] for _ in range(len(zvols))]
+            zarea_0 = np.zeros(len(zvols))
+            zarea_t = np.zeros(len(zvols))
+            zarea_s = [[] for _ in range(len(zvols))]
 
         print("Linking zones...")
 
@@ -342,7 +364,18 @@ class Zones:
             for n in ns:
                 z2 = lut[n]
                 if z2 == -1:
-                    continue
+                    if viz:
+                        vts = tess.vertIDs[i].copy()
+                        vts.extend(tess.vertIDs[n])
+                        vts = np.array(vts)
+                        vts = vts[[len(vts[vts==v])==2 for v in vts]]
+                        if len(vts)>2:
+                            vcs = rotate(tess.verts[vts])
+                            chv = ConvexHull(vcs).volume
+                            zarea_0[z1] += chv
+                            zarea_t[z1] += chv
+                    else:
+                        continue
                 if z1 != z2:
                     # This neighboring cell is in a different zone
                     if z2 not in zlinks[0][z1]:
@@ -350,6 +383,8 @@ class Zones:
                         zlinks[0][z2].append(z1)
                         zlinks[1][z1].append(0.)
                         zlinks[1][z2].append(0.)
+                        zarea_s[z1].append(0.)
+                        zarea_s[z2].append(0.)
                     j  = np.where(zlinks[0][z1] == z2)[0][0]
                     k  = np.where(zlinks[0][z2] == z1)[0][0]
                     # Update maximum link volume if needed
@@ -364,6 +399,10 @@ class Zones:
                         vts = vts[[len(vts[vts==v])==2 for v in vts]]
                         #vts = np.unique(vts[vts!=-1])
                         if len(vts)>2:
+                            vcs = rotate(tess.verts[vts])
+                            chv = ConvexHull(vcs).volume
+                            zarea_t[z1] += chv
+                            zarea_s[z1][j] += chv
                             try:
                                 vcs = (tess.verts[vts].T[0:2]).T
                                 zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
@@ -375,6 +414,11 @@ class Zones:
         if viz:
             self.zverts = zverts
             self.znorms = znorms
+            self.zverts  = zverts
+            self.znorms  = znorms
+            self.zarea_0 = zarea_0
+            self.zarea_t = zarea_t
+            self.zarea_s = zarea_s
 
 
 class Voids:
