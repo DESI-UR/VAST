@@ -53,7 +53,7 @@ class Zobov:
         hduh = hdu.header
 
         self.infile  = config['Paths']['Input Catalog']
-        hduh['INFILE'] = (self.infile, 'Input Galaxy Table')
+        hduh['INFILE'] = (self.infile.split('/')[-1], 'Input Galaxy Table') #split directories by '/' and take the filename at the end
         self.catname = config['Paths']['Survey Name']
         self.outdir  = config['Paths']['Output Directory']
         self.intloc  = "../../intermediate/" + self.catname
