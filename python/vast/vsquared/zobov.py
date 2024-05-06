@@ -289,10 +289,10 @@ class Zobov:
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
 
-        vhzn = [np.sum(self.zones.zhzn[np.array(voi)]) for voi in voids]
+        vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
         if self.visualize:
-            varea_0 = [np.sum(self.zones.zarea_0[voi]) for voi in voids]
-            varea_t = [np.sum(self.zones.zarea_t[voi]) for voi in voids]
+            varea_0 = [np.sum(self.zones.zarea_0[np.array(voi, dtype=int)]) for voi in voids]
+            varea_t = [np.sum(self.zones.zarea_t[np.array(voi, dtype=int)]) for voi in voids]
             varea_s = np.zeros(len(voids))
             for i in range(len(voids)):
                 if len(voids[i])==1:
