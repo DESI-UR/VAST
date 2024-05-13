@@ -136,12 +136,12 @@ class Catalog:
         zobov.hdu.header['MSKDEN'] = (mknumV2(masked_gal_count/vol), 'Galaxy Count Density (Mpc/h)^-3') 
         zobov.hdu.header['MSKSEP'] = (mknumV2(np.power(vol/masked_gal_count, 1/3)), 'Average Galaxy Separation (Mpc/h)')
         
-        # get the galaxy IDs
+        # create galaxy IDs and optionally get catalog target IDs
+        self.galids = np.arange(len(galaxy_table))
         galaxy_ID_name = column_names['ID']
         if galaxy_ID_name != 'None':
-            self.galids = galaxy_table[galaxy_ID_name]
-        else:
-            self.galids = np.arange(len(galaxy_table))
+            self.tarids = galaxy_table[galaxy_ID_name]
+        
 
 class Tesselation:
     """Implementation of Voronoi tesselation of the catalog.

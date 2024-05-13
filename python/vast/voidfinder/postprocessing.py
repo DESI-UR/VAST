@@ -337,6 +337,7 @@ def save_output_from_wall_field_separation(
     sep_neighbor,
     avsep,
     sd,
+    duplicates,
     capitalize_colnames,
     verbose=0):
 
@@ -376,6 +377,9 @@ def save_output_from_wall_field_separation(
         The standard deviation in the separation between Nth nearest 
         neighbor galaxies
 
+    duplicates : int
+        The number of dupliate galaxies removed from the input
+
     capitalize_colnames : bool
         If true, column names in the fits files are capitalized.
         Otherwise, column names are lowercase.
@@ -393,6 +397,7 @@ def save_output_from_wall_field_separation(
     primaryHDU_header['NNS'] = (sep_neighbor,'Nth Neighbor Used for Wall-Field Separation')
     primaryHDU_header['NNSA'] = (mknum(avsep),'Average Nth Neighbor Separation (Mpc/h)')
     primaryHDU_header['NNSS'] = (mknum(sd),'STD of Nth Neighbor Separation (Mpc/h)')
+    primaryHDU_header['DUPL'] = (duplicates, 'Number of Duplicate Galaxies Removed')
     
     if write_galaxies:
         append_wall_field_galaxies(

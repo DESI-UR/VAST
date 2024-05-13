@@ -404,9 +404,16 @@ class Zobov:
 
         # format output tables
         names = ['gal','zone','depth','edge','out']
+        columns = [self.catalog.galids,zlist,dlist,elist,olist]
+        
+        if hasattr(self.catalog, 'tarids'):
+            names.insert(1, 'target')
+            columns.insert(1, self.catalog.tarids)
+            
         if self.capitalize:
             names = [name.upper() for name in names]
-        zT = Table([self.catalog.galids,zlist,dlist,elist,olist], names=names)
+
+        zT = Table(columns, names=names)
         
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 

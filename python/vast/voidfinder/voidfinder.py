@@ -753,6 +753,7 @@ def wall_field_separation(galaxy_coords_xyz,
         sep_neighbor,
         avsep,
         sd,
+        np.sum(duplicates),
         capitalize_colnames,
         verbose,
     )
