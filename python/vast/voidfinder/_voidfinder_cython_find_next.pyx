@@ -1647,6 +1647,7 @@ cdef class SpatialMap:
                     # To fix, we point the self.points_xyz object to this dummy array so this object basically
                     # isn't looking at the self.points_buffer anymore, and no buffers are 'exported'
                     del self.points_xyz_np 
+                    
                     self.points_xyz = self.dummy_arr
                     
                     self.points_buffer.resize(self.points_buffer.size()+wall_gal_nbytes)
@@ -1707,11 +1708,18 @@ cdef class SpatialMap:
                     # Since we're appending to both the wall_galaxy_coords and galaxy_map_array
                     # the output index for both will be the same now
                     
+                    print("DERPADERPA GLOOP", flush=True)
+                    
+                    print(num_new_indices, curr_item.offset, curr_item.offset+num_new_indices, self.galaxy_map_array.shape[0], new_offset, flush=True)
+                    
                     for idx, gma_idx in enumerate(range(curr_item.offset, curr_item.offset+num_new_indices)):
                     
                         curr_gal_idx = self.galaxy_map_array[gma_idx]
                         
                         out_gma_idx = new_offset + idx
+                        
+                        if self.num_gma_indices > 200000000:
+                            print("GRRRR", idx, gma_idx, curr_gal_idx, out_gma_idx, flush=True)
                         
                         for kdx in range(3):
                         
@@ -1719,8 +1727,11 @@ cdef class SpatialMap:
                         
                         self.galaxy_map_array[out_gma_idx] = out_gma_idx
                         
+                    print("DERPADERPATHREE", flush=True)
                 
         self.galaxy_map_2.setitem(i, j, k, new_offset, num_new_indices)
+        
+        print("DERPADERPAFOUR", flush=True)
         
         return
         
@@ -1734,7 +1745,7 @@ cdef class SpatialMap:
         """
         
         
-        #print("INSIDE REFRESH", flush=True)
+        print("INSIDE REFRESH", flush=True)
         
         # This resize fails with 'BufferError: mmap can't resize with extant buffers exported.'
         # similar to https://stackoverflow.com/questions/41077696/python-ctypes-from-buffer-mapping-with-context-manager-into-memory-mapped-file
