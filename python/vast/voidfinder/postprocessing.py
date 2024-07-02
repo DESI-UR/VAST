@@ -514,7 +514,7 @@ def append_mask(
     # caclulate solid angle sky coverage
     nside = round(np.sqrt(mask.size / 12))
     pix_cells = hp.pix2ang(nside, np.arange(hp.nside2npix(nside)), lonlat = True) #healpix array containing corresponding ra-dec coords in radians
-    pix_cells = (np.floor(pix_cells[0]).astype(int), np.floor(pix_cells[1]+90).astype(int))
+    pix_cells = (np.floor(pix_cells[0]*mask_resolution).astype(int), np.floor((pix_cells[1]+90)*mask_resolution).astype(int))
     healpix_mask = mask[pix_cells]
     coverage = np.sum(healpix_mask) * hp.nside2pixarea(nside) #solid angle coverage in steradians
     maskHDU.header['COVSTR'] = (coverage, 'Sky Coverage (Steradians)')
