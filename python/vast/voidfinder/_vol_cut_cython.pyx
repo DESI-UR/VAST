@@ -1,4 +1,10 @@
 #cython: language_level=3
+#cython: initializedcheck=False
+#cython: boundscheck=False
+#cython: wraparound=False
+#cython: cdivision=True
+#cython: nonecheck=False
+#cython: profile=False
 
 
 from __future__ import print_function
@@ -32,9 +38,6 @@ from ._voidfinder_cython_find_next cimport MaskChecker
 
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cdef inline ITYPE_t binary_searchsorted(DTYPE_F64_t[:] sorted_array,
                                         DTYPE_F64_t search_val,
                                         ):
@@ -81,9 +84,6 @@ cdef inline ITYPE_t binary_searchsorted(DTYPE_F64_t[:] sorted_array,
 
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array, 
                                      MaskChecker mask_checker,
                                      DTYPE_F64_t[:,:] unit_sphere_pts,
@@ -186,9 +186,6 @@ cpdef void _check_holes_mask_overlap(DTYPE_F64_t[:,:] x_y_z_r_array,
                                            
 
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.cdivision(True)
 cpdef void _check_holes_mask_overlap_2(DTYPE_F64_t[:,:] x_y_z_r_array, 
                                            DTYPE_B_t[:,:] mask, 
                                            DTYPE_INT32_t mask_resolution,
