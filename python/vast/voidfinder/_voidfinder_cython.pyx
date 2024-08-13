@@ -1,9 +1,9 @@
 #cython: language_level=3
-#cython: initializedcheck=True
-#cython: boundscheck=True
+#cython: initializedcheck=False
+#cython: boundscheck=False
 #cython: wraparound=False
 #cython: cdivision=True
-#cython: nonecheck=True
+#cython: nonecheck=False
 #cython: profile=False
 
 from __future__ import print_function
@@ -31,8 +31,7 @@ from numpy.math cimport NAN, INFINITY
 
 from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
-from ._voidfinder_cython_find_next cimport not_in_mask, \
-                                           DistIdxPair, \
+from ._voidfinder_cython_find_next cimport GalIdxDescriptor, \
                                            Cell_ID_Memory, \
                                            GalaxyMapCustomDict, \
                                            HoleGridCustomDict, \
@@ -40,16 +39,18 @@ from ._voidfinder_cython_find_next cimport not_in_mask, \
                                            NeighborMemory, \
                                            MaskChecker, \
                                            SphereGrower, \
-                                           SpatialMap
+                                           SpatialMap, \
+                                           not_in_mask
                                            #_query_first
 
+#from ._voidfinder_cython_find_next import not_in_mask
 #from ._voidfinder_cython_find_next import _query_first
 
 
-import time
+#import time
 
 #Debugging
-from .viz import VoidRender
+#from .viz import VoidRender
 
 
 
@@ -279,8 +280,8 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-#cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
-def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
+cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
+#def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                         DTYPE_INT64_t batch_size,
                         DTYPE_F64_t[:,:] return_array,
                         SpatialMap galaxy_map,
@@ -333,7 +334,8 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
     
     cdef ITYPE_t working_idx, idx
     
-    cdef ITYPE_t k1g, k2g, k3g, k4g, k4g1, k4g2
+    #cdef ITYPE_t k1g, k2g, k3g, k4g, k4g1, k4g2
+    cdef GalIdxDescriptor k1g, k2g, k3g, k4g, k4g1, k4g2
     
     cdef DTYPE_F64_t min_x_2, min_x_3, min_x_4, minx41, minx42
     
@@ -346,11 +348,11 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
     cdef DTYPE_B_t k4g1_is_valid, k4g2_is_valid
     
     
-    start_time = time.time()
+    #start_time = time.time()
     
     for working_idx in range(batch_size):
         
-        print("Working index: ", working_idx, time.time() - start_time, flush=True)
+        #print("\nWorking index: ", working_idx, time.time() - start_time, flush=True)
         
         ################################################################################
         # Initial Setup
@@ -358,7 +360,11 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         
         galaxy_map.ijk_to_xyz(ijk_array[working_idx, :], sphere_grower.sphere_center_xyz)
     
-    
+        #print("Hole start position: ", np.array(ijk_array[working_idx, :]), np.array(sphere_grower.sphere_center_xyz))
+        
+        #if working_idx > 10:
+        #    exit()
+        
         #DEBUGGING
         #if np.isnan(sphere_grower.sphere_center_xyz[0]):
         #    print("CHECKPOINT-1", flush=True)
@@ -381,8 +387,12 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         #-------------------------------------------------------------------------------
         k1g = galaxy_map.find_first_neighbor(sphere_grower.sphere_center_xyz)
 
+        sphere_grower.k1g_pos_xyz[0] = galaxy_map.points_xyz[k1g.idx, 0] + k1g.shift_x
+        sphere_grower.k1g_pos_xyz[1] = galaxy_map.points_xyz[k1g.idx, 1] + k1g.shift_y
+        sphere_grower.k1g_pos_xyz[2] = galaxy_map.points_xyz[k1g.idx, 2] + k1g.shift_z
+
         # This function accounts for the Zero Vector/point on top of each other case
-        sphere_grower.calculate_search_unit_vector_after_k1g(galaxy_map.points_xyz[k1g])
+        sphere_grower.calculate_search_unit_vector_after_k1g(sphere_grower.k1g_pos_xyz)
         
         sphere_grower.existing_bounding_idxs[0] = k1g
         
@@ -408,15 +418,15 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         # find_next_bounding_point to communicate that it failed by way of
         # leaving the mask
         #-------------------------------------------------------------------------------
-        result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+        k2g = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
                                                      sphere_grower.search_unit_vector,
                                                      sphere_grower.existing_bounding_idxs,
                                                      1,
                                                      mask_checker)
         
-        k2g = result.nearest_neighbor_index
-        min_x_2 = result.min_x_val
-        failed_2 = result.failed
+        #k2g = result.idx
+        min_x_2 = k2g.min_x_val
+        failed_2 = k2g.failed
         
         if failed_2:
             
@@ -438,25 +448,33 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
             continue
         
         # This function accounts for the Co-linear case
-        sphere_grower.calculate_search_unit_vector_after_k2g(galaxy_map.points_xyz[k1g],
-                                                             galaxy_map.points_xyz[k2g])
+        
+        sphere_grower.k2g_pos_xyz[0] = galaxy_map.points_xyz[k2g.idx, 0] + k2g.shift_x
+        sphere_grower.k2g_pos_xyz[1] = galaxy_map.points_xyz[k2g.idx, 1] + k2g.shift_y
+        sphere_grower.k2g_pos_xyz[2] = galaxy_map.points_xyz[k2g.idx, 2] + k2g.shift_z
+        
+        
+        sphere_grower.calculate_search_unit_vector_after_k2g(sphere_grower.k1g_pos_xyz,
+                                                             sphere_grower.k2g_pos_xyz)
 
         sphere_grower.existing_bounding_idxs[1] = k2g
+        
+        #print("K3g search unit vector: ", np.array(sphere_grower.search_unit_vector))
 
 
         ################################################################################
         # Find third bounding point (k3g) and setup to find 4th
         #-------------------------------------------------------------------------------
         
-        result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+        k3g = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
                                                      sphere_grower.search_unit_vector,
                                                      sphere_grower.existing_bounding_idxs,
                                                      2,
                                                      mask_checker)
         
-        k3g = result.nearest_neighbor_index
-        min_x_3 = result.min_x_val
-        failed_3 = result.failed
+        #k3g = result.nearest_neighbor_index
+        min_x_3 = k3g.min_x_val
+        failed_3 = k3g.failed
         
         if failed_3:
             
@@ -478,13 +496,22 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
             
             continue
         
+        
+        sphere_grower.k3g_pos_xyz[0] = galaxy_map.points_xyz[k3g.idx, 0] + k3g.shift_x
+        sphere_grower.k3g_pos_xyz[1] = galaxy_map.points_xyz[k3g.idx, 1] + k3g.shift_y
+        sphere_grower.k3g_pos_xyz[2] = galaxy_map.points_xyz[k3g.idx, 2] + k3g.shift_z
+        
+        
+        
         # This function accounts for the Co-Planar case
-        is_coplanar = sphere_grower.calculate_search_unit_vector_after_k3g(galaxy_map.points_xyz[k1g],
-                                                                           galaxy_map.points_xyz[k2g],
-                                                                           galaxy_map.points_xyz[k3g])
+        is_coplanar = sphere_grower.calculate_search_unit_vector_after_k3g(sphere_grower.k1g_pos_xyz,
+                                                                           sphere_grower.k2g_pos_xyz,
+                                                                           sphere_grower.k3g_pos_xyz)
         
         sphere_grower.existing_bounding_idxs[2] = k3g
         
+        
+        #print("K4g search unit vector: ", np.array(sphere_grower.search_unit_vector))
         
         ################################################################################
         # Find 4th and final bounding point
@@ -499,13 +526,13 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
             # Start on the side we calculated with the search unit vector
             #-------------------------------------------------------------------------------
             
-            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+            k4g1 = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
                                                          sphere_grower.search_unit_vector,
                                                          sphere_grower.existing_bounding_idxs,
                                                          3,
                                                          mask_checker)
             
-            k4g1 = result.nearest_neighbor_index
+            #k4g1 = result.nearest_neighbor_index
             minx41 = result.min_x_val
             failed_41 = result.failed
             
@@ -533,13 +560,13 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
             for idx in range(3):
                 sphere_grower.search_unit_vector[idx] *= -1.0
             
-            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+            k4g2 = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
                                                          sphere_grower.search_unit_vector,
                                                          sphere_grower.existing_bounding_idxs,
                                                          3,
                                                          mask_checker)
             
-            k4g2 = result.nearest_neighbor_index
+            #k4g2 = result.nearest_neighbor_index
             minx42 = result.min_x_val
             failed_42 = result.failed
             
@@ -606,13 +633,13 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         ########################################################################
         else:
         
-            result = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
+            k4g = galaxy_map.find_next_bounding_point(sphere_grower.sphere_center_xyz,
                                                          sphere_grower.search_unit_vector,
                                                          sphere_grower.existing_bounding_idxs,
                                                          3,
                                                          mask_checker)
             
-            k4g = result.nearest_neighbor_index
+            #k4g = result.nearest_neighbor_index
             min_x_4 = result.min_x_val
             failed_4 = result.failed
             
@@ -645,7 +672,7 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
         
         for idx in range(3):
             
-            temp_f64_val = sphere_grower.sphere_center_xyz[idx] - galaxy_map.points_xyz[k1g, idx]
+            temp_f64_val = sphere_grower.sphere_center_xyz[idx] - sphere_grower.k1g_pos_xyz[idx]
             
             temp_f64_accum += temp_f64_val*temp_f64_val
         
