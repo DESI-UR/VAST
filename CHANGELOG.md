@@ -3,6 +3,13 @@ Log of changes for VAST versions.
 
 
 
+## 1.4.3
+- VF Bugfix:  Found an issue finding 3rd bounding galaxy for a hole when galaxies are colinear with the 
+              hole center as in some synthetic datasets.
+              Changed Period Mode strategy to add an offset to existing galaxies instead of allocating
+              additional memory as new cells.  May want to revisit strategy, but appears to be working well,
+              in non-periodic mode this offset should always be 0.0.
+
 ## 1.4.2
 - VF Bugfix:  Galaxies exactly on the "far" edge of the survey (cells furthest from grid_origin) causing problems
               with Cell ID Generation - resulting in a cell which "should" be empty but the hole_cell_ID_dict cant
