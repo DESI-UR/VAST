@@ -26,6 +26,7 @@ def generate_mask(gal_data,
                   min_maximal_radius=10.0,
                   Omega_M=0.3,
                   h=1.0,
+                  save_to_file = True
                   ):
     """
     This function creates a grid of shape (N,M) where the N dimension represents 
@@ -81,7 +82,9 @@ def generate_mask(gal_data,
     h : float
         Fractional value of Hubble's constant.  Default value is 1 (where 
         H0 = 100h).
-
+        
+    save_to_file : bool
+        Flag for saving the mask to a file in addition to returning it. True by default.
 
     Returns
     =======
@@ -217,14 +220,14 @@ def generate_mask(gal_data,
     ############################################################################
 
     # Save the mask and mask resolution so that it can be used elsewhere 
-
-    save_output_from_generate_mask(
-        mask,
-        mask_resolution,                    
-        survey_name,
-        out_directory,
-        smooth_mask,
-    )
+    if save_to_file:
+        save_output_from_generate_mask(
+            mask,
+            mask_resolution,                    
+            survey_name,
+            out_directory,
+            smooth_mask,
+        )
 
     return mask, mask_resolution
 
