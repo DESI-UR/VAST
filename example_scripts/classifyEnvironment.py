@@ -78,7 +78,7 @@ voids['x'] == x-coordinate of center of void (in Mpc/h)
 voids['y'] == y-coordinate of center of void (in Mpc/h)
 voids['z'] == z-coordinate of center of void (in Mpc/h)
 voids['radius'] == radius of void (in Mpc/h)
-voids['flag'] == index number identifying to which void the sphere belongs
+voids['void'] == index number identifying to which void the sphere belongs
 '''
 
 
