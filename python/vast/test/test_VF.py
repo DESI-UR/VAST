@@ -105,7 +105,7 @@ class TestVoidFinder(unittest.TestCase):
         self.maximals['y'] = [8., 3.]
         self.maximals['z'] = [0., -1.]
         self.maximals['r'] = [2.5, 1.5]
-        self.maximals['flag'] = [0, 1]
+        self.maximals['void'] = [0, 1]
 
         # Define holes
         holes = Table()
@@ -113,7 +113,7 @@ class TestVoidFinder(unittest.TestCase):
         holes['y'] = [7.9, 3.2]
         holes['z'] = [0.1, -0.5]
         holes['r'] = [2., 0.5]
-        holes['flag'] = [0, 1]
+        holes['void'] = [0, 1]
         self.holes = vstack([holes, self.maximals])
 
         # Remove points which fall inside holes
@@ -651,9 +651,9 @@ class TestVoidFinder(unittest.TestCase):
         holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                                  format='ascii.commented_header')
 
-        # Sort both tables by flag, radius, x, y, z columns
-        f_holes.sort(['flag', 'radius', 'x', 'y', 'z'])
-        holes_truth.sort(['flag', 'radius', 'x', 'y', 'z'])
+        # Sort both tables by void flag, radius, x, y, z columns
+        f_holes.sort(['void', 'radius', 'x', 'y', 'z'])
+        holes_truth.sort(['void', 'radius', 'x', 'y', 'z'])
         '''
         for name in f_holes.dtype.names:
             if not np.allclose(f_holes[name], holes_truth[name]):
