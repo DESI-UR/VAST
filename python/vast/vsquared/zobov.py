@@ -267,8 +267,9 @@ class Zobov:
         print('Effective void radius calculated')
 
         # Locate all voids with radii smaller than set minimum
-        if method==4:
-            self.minrad = np.median(vrads)
+        # Old behavior for REVOLVER
+        #if method==4:
+        #    self.minrad = np.median(vrads)
         rcut  = vrads > self.minrad
         
         voids = np.array(voids, dtype=object)[rcut]
