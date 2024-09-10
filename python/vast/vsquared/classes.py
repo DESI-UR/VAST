@@ -356,22 +356,22 @@ class Zones:
 
         print("Linking zones...")
 
-        for i in range(len(vol)):
-            ns = nei[i]
-            z1 = lut[i]
-            if z1 == -1:
+        for i in range(len(vol)): #iterate through every cell
+            ns = nei[i] #get cells neighboring current cell
+            z1 = lut[i] #get the zone ID for current cell
+            if z1 == -1: #if cell isn't part of a void, then nothing further needs to be done
                 continue
-            for n in ns:
-                z2 = lut[n]
-                if z2 == -1:
+            for n in ns: #iterate though neighboring cells
+                z2 = lut[n] #get zone ID of current neighbor
+                if z2 == -1: #if current neighbor isn't in a void
                     if viz:
-                        vts = tess.vertIDs[i].copy()
-                        vts.extend(tess.vertIDs[n])
+                        vts = tess.vertIDs[i].copy() #get indexes of vertices forming original neighbor
+                        vts.extend(tess.vertIDs[n]) #add indexes of vertices forming current neighbor
                         vts = np.array(vts)
-                        vts = vts[[len(vts[vts==v])==2 for v in vts]]
-                        if len(vts)>2:
-                            vcs = rotate(tess.verts[vts])
-                            chv = ConvexHull(vcs).volume
+                        vts = vts[[len(vts[vts==v])==2 for v in vts]] #select only vertices that are shared by the two cells?
+                        if len(vts)>2: #If there are 3 vertices shared between teh cells (a triangle)
+                            vcs = rotate(tess.verts[vts]) #rotate the triangle to be flat on the "ground"
+                            chv = ConvexHull(vcs).volume #get the triangle's area: TODO: this can surely be replaced with a simple area formula
                             zarea_0[z1] += chv
                             zarea_t[z1] += chv
                     else:
@@ -383,8 +383,9 @@ class Zones:
                         zlinks[0][z2].append(z1)
                         zlinks[1][z1].append(0.)
                         zlinks[1][z2].append(0.)
-                        zarea_s[z1].append(0.)
-                        zarea_s[z2].append(0.)
+                        if viz:
+                            zarea_s[z1].append(0.)
+                            zarea_s[z2].append(0.)
                     j  = np.where(zlinks[0][z1] == z2)[0][0]
                     k  = np.where(zlinks[0][z2] == z1)[0][0]
                     # Update maximum link volume if needed

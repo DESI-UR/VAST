@@ -185,11 +185,13 @@ class Zobov:
 
         # Selecting void candidates
         print("Selecting void candidates...")
+        
+        # mean zone volume / 0.2 aka 0.2 * mean density
+        minvol = np.mean(self.tesselation.volumes[self.tesselation.volumes>0])/dc
 
         if method==0:
             #print('Method 0')
             voids  = []
-            minvol = np.mean(self.tesselation.volumes[self.tesselation.volumes>0])/dc
             for i in range(len(self.prevoids.ovols)):
                 vl = self.prevoids.ovols[i]
                 vbuff = []
@@ -282,13 +284,23 @@ class Zobov:
         # Identify void centers.
         print("Finding void centers...")
         vcens = np.array([wCen(self.tesselation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
-        if method==0:
+        """if method==0:
             dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
             vrads = vrads[dcut]
             rcut  = vrads>(minvol*dc)**(1./3)
             vrads = vrads[rcut]
             vcens = vcens[dcut][rcut]
-            voids = (voids[dcut])[rcut]
+            voids = (voids[dcut])[rcut]"""
+        dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
+        rcut  = vrads>(minvol*dc)**(1./3)
+        self.underdense = (dcut*rcut).astype(int)
+        # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
+        # TODO: make cnetral density cut optional
+        if method == 0:
+            vrads = vrads[dcut*rcut]
+            vcens = vcens[dcut*rcut]
+            voids = voids[dcut*rcut]
+            self.underdense = self.underdense[dcut*rcut]
 
         vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
         if self.visualize:
@@ -348,17 +360,20 @@ class Zobov:
 
         # format output tables
         if self.periodic:
-            names = ['x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            names = ['void','x','y','z','radius', 'underdense', 'x1','y1','z1','x2','y2','z2','x3','y3','z3']
             if self.capitalize:
                 names = [name.upper() for name in names]
-            vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+            vT = Table([np.arange(len(self.vrads)),vcen[0],vcen[1],vcen[2],self.vrads,self.underdense,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
                     names = names,
-                    units = ['Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+                    units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
-            columns = [vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]]
-            names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
-            units = ['Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h']
+            columns = [np.arange(len(self.vrads)), vcen[0], vcen[1], vcen[2], 
+                       vz, vra, vdec, self.vrads, self.underdense, 
+                       vax1[0], vax1[1], vax1[2], vax2[0], vax2[1], vax2[2], vax3[0], vax3[1], vax3[2]]
+            names = ['void','x','y','z',
+                     'redshift','ra','dec','radius', 'underdense','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            units = ['','Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h', '', 'Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h']
 
             if self.visualize:
                 columns += [self.varea_t,self.varea_0]
@@ -437,8 +452,8 @@ class Zobov:
         elist[np.array(olist,dtype=bool)] = 0
 
         # format output tables
-        names = ['gal','zone','depth','edge','out']
-        columns = [self.catalog.galids,zlist,dlist,elist,olist]
+        names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
+        columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
         
         if hasattr(self.catalog, 'tarids'):
             names.insert(1, 'target')
@@ -528,7 +543,7 @@ class Zobov:
         vid = np.array(vid)
 
         # format output tables
-        names = ['void_id','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
+        names = ['void','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
         if self.capitalize:
             names = [name.upper() for name in names]
         vizT = Table([vid,norm[0],norm[1],norm[2],tri1[0],tri1[1],tri1[2],tri2[0],tri2[1],tri2[2],tri3[0],tri3[1],tri3[2]],
