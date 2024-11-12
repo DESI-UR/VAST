@@ -343,8 +343,10 @@ class Zones:
         self.zvols = np.array(zvols)
         self.zhzn  = np.array(zhzn)
         self.depth = depth
-
-        # Identify neighboring zones and the least-dense cells linking them
+        
+        # For each zone i and its neighbors j
+        # Identify neighboring zones (zlinks[0][i] has j in once it for every cell on their border?)
+        # and the least-dense cells linking them (zlinks[1][i] has j copies of the maximum link volume between the zones?)
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
 
         if viz:
@@ -439,12 +441,15 @@ class Voids:
 
         # Sort zone links by volume, identify zones linked at each volume
         print("Sorting links...")
-
+        
+        # For each zone i and its neighbors j
+        # Identify neighboring zones (zlinks[0][i] has j in once it for every cell on their border?)
+        # and the least-dense cells linking them (zlinks[1][i] has j copies of the maximum link volume between the zones?)
         zl0   = np.array(list(flatten(zlinks[0])))
         zl1   = np.array(list(flatten(zlinks[1])))
 
-        zlu   = -1.*np.sort(-1.*np.unique(zl1))
-        zlut  = [np.unique(zl0[np.where(zl1==zl)[0]]).tolist() for zl in zlu]
+        zlu   = -1.*np.sort(-1.*np.unique(zl1)) # the maximum cell volumes linking all adjacent zones, in descending order
+        zlut  = [np.unique(zl0[np.where(zl1==zl)[0]]).tolist() for zl in zlu] #the zone ids for each linking volume?
 
         voids = []
         mvols = []
@@ -458,9 +463,10 @@ class Voids:
         # with the highest maximum cell volume (the "shallower" voids flow into 
         # the "deepest" void with which they are linked)
         print("Expanding voids...")
-
+        
+        #for every zone link
         for i in range(len(zlu)):
-            lvol  = zlu[i]
+            lvol  = zlu[i] #get the maximum volume along the link surface
             mxvls = mvlut[zlut[i]]
             mvarg = np.argmax(mxvls)
             mxvol = mxvls[mvarg]

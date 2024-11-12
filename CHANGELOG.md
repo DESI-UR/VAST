@@ -3,6 +3,9 @@ Log of changes for VAST versions.
 
 
 
+## 1.4.3
+- Replaced the multiple txt output files for VoidFinder with 
+
 ## 1.4.2
 - VF Bugfix:  Galaxies exactly on the "far" edge of the survey (cells furthest from grid_origin) causing problems
               with Cell ID Generation - resulting in a cell which "should" be empty but the hole_cell_ID_dict cant

@@ -139,7 +139,7 @@ class Zobov:
         self.capitalize = capitalize_colnames
 
 
-    def sortVoids(self, method=0, minsig=2, dc=0.2):
+    def sortVoids(self, method=0, minsig=2, zone_linking_cut=0.2, central_density_cut=0.2):
         """
         Sort voids according to one of several methods.
 
@@ -156,8 +156,11 @@ class Zobov:
         minsig : float
             Minimum significance threshold for selecting voids.
 
-        dc : float
+        zone_linking_cut : float
             Density cut for linking zones using VIDE method.
+            
+        central_density_cut : float
+            Density cut for filtering voids from the final catalog.
         """
 
         #format method
@@ -186,8 +189,8 @@ class Zobov:
         # Selecting void candidates
         print("Selecting void candidates...")
         
-        # mean zone volume / 0.2 aka 0.2 * mean density
-        minvol = np.mean(self.tesselation.volumes[self.tesselation.volumes>0])/dc
+        # mean cell volume / 0.2 aka 1 / (0.2 * mean density)
+        minvol = np.mean(self.tesselation.volumes[self.tesselation.volumes>0])/zone_linking_cut
 
         if method==0:
             #print('Method 0')
@@ -201,7 +204,7 @@ class Zobov:
                         break
                     vbuff.extend(self.prevoids.voids[i][j])
                 voids.append(vbuff)
-
+            #voids now contains the entire void hierarchy, broken up by teh linking density
         elif method==1:
             #print('Method 1')
             voids = [[c for q in v for c in q] for v in self.prevoids.voids]
@@ -255,16 +258,19 @@ class Zobov:
             return
 
         print('Void candidates selected...')
-
+        
+        #for every void in hierarchy (VIDE) or for every zone (REVOLVER), the cells that compose it
         vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
         cutco = self.catalog.coord[gcut]
 
         # Build array of void volumes
+        #for every void in hierarchy, its volume
         vvols = np.array([np.sum(self.tesselation.volumes[vcut]) for vcut in vcuts])
 
         # Calculate effective radius of voids
+        #for every void in hierarchy, its radius
         vrads = (vvols*3/(4*np.pi))**(1/3)
         print('Effective void radius calculated')
 
@@ -284,24 +290,39 @@ class Zobov:
         # Identify void centers.
         print("Finding void centers...")
         vcens = np.array([wCen(self.tesselation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
-        """if method==0:
+        
+        # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
+        minvol *= zone_linking_cut / central_density_cut
+        """
+        OLD CODE: applies central density cut by removing voids that don't make the cut
+        if method==0:
             dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
             vrads = vrads[dcut]
             rcut  = vrads>(minvol*dc)**(1./3)
             vrads = vrads[rcut]
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]"""
+        
+        # NEW CODE: applies central density cut by flagging voids that don't make the cut.
+        # The new code hasn't been set up to complete it's goal yet, so it is for the time being
+        # essentially equivalent to the old code, with the exception of adding a flag column to the
+        # data output
+        # -----------------------
         dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
-        rcut  = vrads>(minvol*dc)**(1./3)
+        rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
+        self.dcut=dcut #DELETE
+        self.rcut=rcut #DELETE
+        self.minvol = minvol #DELETE
         self.underdense = (dcut*rcut).astype(int)
         # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
-        # TODO: make cnetral density cut optional
+        # TODO: make central density cut optional
         if method == 0:
             vrads = vrads[dcut*rcut]
             vcens = vcens[dcut*rcut]
             voids = voids[dcut*rcut]
             self.underdense = self.underdense[dcut*rcut]
-
+        # -----------------------
+        
         vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
         if self.visualize:
             varea_0 = [np.sum(self.zones.zarea_0[np.array(voi, dtype=int)]) for voi in voids]
@@ -324,8 +345,11 @@ class Zobov:
         vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
 
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
-
+        
+        #iterate over voids
         for i in range(len(voids)):
+            
+            #iterate over 
             for j in voids[i]:
                 if zvoid[j][0] > -0.5:
                     if len(voids[i]) < len(voids[zvoid[j][0]]):
@@ -336,6 +360,7 @@ class Zobov:
                     zvoid[j][0] = i
                     zvoid[j][1] = i
 
+        self.voids = voids #DELETE
         self.vrads = vrads
         self.vcens = vcens
         self.vaxes = vaxes
