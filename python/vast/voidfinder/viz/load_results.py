@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 #from vast.voidfinder.absmag_comovingdist_functions import Distance
 from vast.voidfinder.distance import z_to_comoving_dist
 from vast.voidfinder.preprocessing import load_data_to_Table
+from vast.voidfinder.postprocessing import open_fits_file
 
 
 # Constants
@@ -84,7 +85,7 @@ def load_void_data(infilename):
     ==========
 
     infilename : string
-        path to desired data file
+        path to desired VoidFinder fits output file
 
     Returns
     =======
@@ -100,8 +101,9 @@ def load_void_data(infilename):
         which void group a hole belongs to
 
     '''
-    
-    holes_data = load_data_to_Table(infilename)
+    catalog = open_fits_file(infilename)
+
+    holes_data = Table(catalog['HOLES'].data)
     
     num_rows = len(holes_data)
     
@@ -114,24 +116,27 @@ def load_void_data(infilename):
     holes_xyz[:,2] = holes_data['z']
     hole_radii[:] = holes_data["radius"]
     hole_flags[:] = holes_data["flag"]
+
+    field_galaxy_data = format_galaxy_data(Table(catalog['FIELD'].data))
+
+    wall_galaxy_data = format_galaxy_data(Table(catalog['WALL'].data))
     
-    return holes_xyz, hole_radii, hole_flags
+    return holes_xyz, hole_radii, hole_flags, field_galaxy_data, wall_galaxy_data
 
 
 
 
 
 
-def load_galaxy_data(infilename):
+def format_galaxy_data(galaxy_data):
     """
-    Load a table of galaxies for use in VoidRender
+    Format a table of galaxies for use in VoidRender
 
     Parameters
     ==========
 
-    infilename : string
-        path to desired data file
-        intended to be an astropy table output from VoidFinder
+    galaxy_data : astropy Table
+        astropy table output from VoidFinder
         with columns 'ra', 'dec', 'redshift', and possibly 'Rgal'
 
     Returns
@@ -143,12 +148,6 @@ def load_galaxy_data(infilename):
     """
     
     
-    
-    
-    
-    galaxy_data = load_data_to_Table(infilename)
-
-
 
     if all([name in galaxy_data.colnames for name in ['x', 'y', 'z']]):
         
@@ -159,6 +158,16 @@ def load_galaxy_data(infilename):
         galaxy_data_xyz[:,0] = galaxy_data['x']
         galaxy_data_xyz[:,1] = galaxy_data['y']
         galaxy_data_xyz[:,2] = galaxy_data['z']
+
+    elif all([name in galaxy_data.colnames for name in ['X', 'Y', 'Z']]):
+
+        num_rows = len(galaxy_data)
+    
+        galaxy_data_xyz = numpy.empty((num_rows, 3), dtype=numpy.float64)
+        
+        galaxy_data_xyz[:,0] = galaxy_data['X']
+        galaxy_data_xyz[:,1] = galaxy_data['Y']
+        galaxy_data_xyz[:,2] = galaxy_data['Z']
         
     else:
     

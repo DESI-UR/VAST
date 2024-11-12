@@ -10,8 +10,8 @@ from vast.vsquared.zobov import Zobov
 p = ArgumentParser(description='Voronoi Voids (V^2) void finder.',
                    formatter_class=ArgumentDefaultsHelpFormatter)
 
-p.add_argument('-m', '--method', type=int, default=0,
-               help='Void-finding method (0,1,2,3,...)')
+p.add_argument('-m', '--method', default='0',
+               help='Void-finding method (0,1,2,...) or (VIDE,ZOBOV,ZOBOV2,...) or (vide,zobov,zobov2,...)')
 p.add_argument('-v', '--visualize', action='store_true', default=False,
                help='Enable void visualization.')
 p.add_argument('-w', '--save_intermediate', action='store_true', default=False,
