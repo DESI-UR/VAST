@@ -16,6 +16,7 @@ from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 class Zobov:
 
     def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False,xyz=False, capitalize_colnames=False):
+
         """Initialization of the ZOnes Bordering on Voids (ZOBOV) algorithm.
 
         Parameters
@@ -372,6 +373,7 @@ class Zobov:
             self.varea_t = np.array(varea_t)-varea_s
 
 
+
     def saveVoids(self):
         """Output calculated voids to an ASCII file [catalogname]_zonevoids.dat.
         """
@@ -392,6 +394,9 @@ class Zobov:
                     names = names,
                     units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
+            names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            if self.capitalize:
+                names = [name.upper() for name in names]
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
             columns = [np.arange(len(self.vrads)), vcen[0], vcen[1], vcen[2], 
                        vz, vra, vdec, self.vrads, self.underdense, 

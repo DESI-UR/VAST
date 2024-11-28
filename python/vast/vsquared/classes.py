@@ -265,6 +265,7 @@ class Tesselation:
             print("Triangulating...")
             Del = Delaunay(coords,qhull_options='QJ')
             sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
+
         nei = [] #for each galaxy, list of indexes of neighbor galaxies in the same tetrahedra objects that it's part of
         lut = [[] for _ in range(len(vol))] #same as nei but duplicate galaxy entries may appear
         hzn = np.zeros(len(vol),dtype=bool) # for each galaxy, flags if teh galaxy is along edge of survey
@@ -333,12 +334,14 @@ class Zones:
                 zcell.insert(-1,[n]) # create a new zone
                 zvols.insert(-1,vol[n]) # note the volume of the largest cell in the zone
                 zhzn.insert(-1,int(hzn[n])) #note whether the largest cell in teh zone is an edge cell
+
             else:
                 # This cell is put into its least-dense neighbor's zone
                 lut[srt[i]]   = lut[n] #the galaxy in this cell is given the zone ID of it's least dense neighbor
                 depth[srt[i]] = depth[n]+1 #the galaxy's depth = its least dense neighbor's depth + 1
                 zcell[lut[n]].append(srt[i]) #the galaxy is added to it's least dense neighbor's zone
                 zhzn[lut[n]] += int(hzn[srt[i]]) #increment the zone's edge flag if an edge cell is found (0 = no edge cells)
+
 
         self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)

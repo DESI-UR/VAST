@@ -3,8 +3,11 @@ Log of changes for VAST versions.
 
 
 
-## 1.4.3
-- Replaced the multiple txt output files for VoidFinder with 
+## 1.6.0
+- Feature: Added non-periodic xyz mode for V2
+
+## 1.5.0
+- Feature: Replaced the multiple txt output files for VoidFinder and V2 with a single fits file.
 
 ## 1.4.2
 - VF Bugfix:  Galaxies exactly on the "far" edge of the survey (cells furthest from grid_origin) causing problems
