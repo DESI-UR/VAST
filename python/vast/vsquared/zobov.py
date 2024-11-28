@@ -38,6 +38,11 @@ class Zobov:
         capitalize_colnames : bool
             If True, column names in ouput file are capitalized. If False, column names are lowercase
         """
+        
+        # ------------------------------------------------------------------------------------------------------
+        # Ensure appropriate user settings
+        # ------------------------------------------------------------------------------------------------------
+        
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
             return
@@ -50,86 +55,116 @@ class Zobov:
         self.periodic = periodic
         self.xyz = False if periodic*xyz or not xyz else True
 
+        
+        # ------------------------------------------------------------------------------------------------------
+        # Read in config file settings
+        # ------------------------------------------------------------------------------------------------------
+        
         config = configparser.ConfigParser()
         config.read(configfile)
-
-        hdu = fits.PrimaryHDU(header=fits.Header())
-        hduh = hdu.header
-
         self.infile  = config['Paths']['Input Catalog']
-        hduh['INFILE'] = (self.infile.split('/')[-1], 'Input Galaxy Table') #split directories by '/' and take the filename at the end
         self.catname = config['Paths']['Survey Name']
         self.outdir  = config['Paths']['Output Directory']
         self.intloc  = "../../intermediate/" + self.catname
-        
         self.H0   = float(config['Cosmology']['H_0'])
-        hduh['HP'] = (self.H0/100, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
         self.Om_m = float(config['Cosmology']['Omega_m'])
         Kos = FlatLambdaCDM(self.H0, self.Om_m)
-        hduh['OMEGAM'] = (self.Om_m,'Matter Density')
         self.zmin   = float(config['Settings']['redshift_min'])
-        hduh['ZLIML'] = (mknumV2(self.zmin), 'Lower Redshift Limit')
         self.zmax   = float(config['Settings']['redshift_max'])
+        self.minrad = float(config['Settings']['radius_min'])
+        self.zstep  = float(config['Settings']['redshift_step'])
+        self.nside  = int(config['Settings']['nside'])
+        self.maglim = config['Settings']['rabsmag_min']
+        self.maglim = None if self.maglim=="None" else float(self.maglim)
+        self.cmin = np.array([float(config['Settings']['x_min']),float(config['Settings']['y_min']),float(config['Settings']['z_min'])])
+        self.cmax = np.array([float(config['Settings']['x_max']),float(config['Settings']['y_max']),float(config['Settings']['z_max'])])
+        self.buff = float(config['Settings']['buffer'])
+        
+        
+        # ------------------------------------------------------------------------------------------------------
+        # Save config file settings to fits file header
+        # ------------------------------------------------------------------------------------------------------
+        
+        hdu = fits.PrimaryHDU(header=fits.Header())
+        hduh = hdu.header
+        hduh['INFILE'] = (self.infile.split('/')[-1], 'Input Galaxy Table') #split directories by '/' and take the filename at the end
+        hduh['HP'] = (self.H0/100, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
+        hduh['OMEGAM'] = (self.Om_m,'Matter Density')
+        hduh['ZLIML'] = (mknumV2(self.zmin), 'Lower Redshift Limit')
         hduh['ZLIMU'] = (mknumV2(self.zmax), 'Upper Redshift Limit')
         hduh['DLIML'] =  (Kos.comoving_distance(self.zmin).value, 'Lower Distance Limit (Mpc/h)')
         hduh['DLIMU'] =  (Kos.comoving_distance(self.zmax).value, 'Upper Distance Limit (Mpc/h)')
-        self.minrad = float(config['Settings']['radius_min'])
         hduh['MINR'] = (mknumV2(self.minrad), ' Minimum Void Radius (Mpc/h)')
-        self.zstep  = float(config['Settings']['redshift_step'])
         hduh['ZSTEP'] = (mknumV2(self.zstep), 'Step Size for r-to-z Lookup Table')
-        self.nside  = int(config['Settings']['nside'])
         hduh['NSIDE'] = (self.nside, 'NSIDE for HEALPix Pixelization')
-        self.maglim = config['Settings']['rabsmag_min']
-        self.maglim = None if self.maglim=="None" else float(self.maglim)
         hduh['MAGLIM'] = (mknumV2(self.maglim), 'Magnitude Limit (dex)')
-        self.cmin = np.array([float(config['Settings']['x_min']),float(config['Settings']['y_min']),float(config['Settings']['z_min'])])
         hduh['PXMIN'] = (mknumV2(self.cmin[0]), 'Lower X-limit for Periodic Boundary Conditions')
         hduh['PYMIN'] = (mknumV2(self.cmin[1]), 'Lower Y-limit for Periodic Boundary Conditions')
         hduh['PZMIN'] = (mknumV2(self.cmin[2]), 'Lower Z-limit for Periodic Boundary Conditions')
-        self.cmax = np.array([float(config['Settings']['x_max']),float(config['Settings']['y_max']),float(config['Settings']['z_max'])])
         hduh['PXMAX'] = (mknumV2(self.cmax[0]), 'Upper X-limit for Periodic Boundary Conditions')
         hduh['PYMAX'] = (mknumV2(self.cmax[1]), 'Upper Y-limit for Periodic Boundary Conditions')
         hduh['PZMAX'] = (mknumV2(self.cmax[2]), 'Upper Z-limit for Periodic Boundary Conditions')
-        self.buff = float(config['Settings']['buffer'])
         hduh['BUFFER'] = (mknumV2(self.buff), 'Periodic Buffer Shell Width (Mpc/h)')
         self.hdu = hdu
 
-        if start<4:
-            if start<3:
-                if start<2:
-                    if start<1:
-                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,
-                                       column_names = config['Galaxy Column Names'], maglim=self.maglim,
-                                       H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,xyz=self.xyz, cmin=self.cmin,
-                                       cmax=self.cmax, zobov = self)
-                        if save_intermediate:
-                            pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
-                    else:
-                        ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
-                    if end>0:
-                        tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,xyz=self.xyz,buff=self.buff)
-                        if save_intermediate:
-                            pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
-                else:
-                    ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
-                    tess = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
-                if end>1:
-                    zones = Zones(tess,viz=visualize)
-                    if save_intermediate:
-                        pickle.dump(zones,open(self.intloc+"_zones.pkl",'wb'))
-            else:
-                ctlg  = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
-                tess  = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
-                zones = pickle.load(open(self.intloc+"_zones.pkl",'rb'))
-            if end>2:
-                voids = Voids(zones)
-                if save_intermediate:
-                    pickle.dump(voids,open(self.intloc+"_voids.pkl",'wb'))
+        
+        # ------------------------------------------------------------------------------------------------------
+        # Load galaxy catalog
+        # ------------------------------------------------------------------------------------------------------
+            
+        if start<1:
+            ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,
+                           column_names = config['Galaxy Column Names'], maglim=self.maglim,
+                           H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,xyz=self.xyz, cmin=self.cmin,
+                           cmax=self.cmax, zobov = self)
+            if save_intermediate:
+                pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
+        else:
+            ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
+           
+        
+        # ------------------------------------------------------------------------------------------------------
+        # Create tesselation
+        # ------------------------------------------------------------------------------------------------------
+
+        if start<2 and end>0:
+            tess = Tesselation(ctlg,viz=self.visualize,periodic=self.periodic,xyz=self.xyz,buff=self.buff)
+            if save_intermediate:
+                pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
+        else:
+            ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
+            tess = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
+        
+        
+        # ------------------------------------------------------------------------------------------------------
+        # Create zones
+        # ------------------------------------------------------------------------------------------------------
+        
+        if start<3 and end>1:
+            zones = Zones(tess,viz=visualize)
+            if save_intermediate:
+                pickle.dump(zones,open(self.intloc+"_zones.pkl",'wb'))
+        else:
+            ctlg  = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
+            tess  = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
+            zones = pickle.load(open(self.intloc+"_zones.pkl",'rb'))
+        
+
+        # ------------------------------------------------------------------------------------------------------
+        # Create voids
+        # ------------------------------------------------------------------------------------------------------
+
+        if start<4 and end>2:
+            voids = Voids(zones)
+            if save_intermediate:
+                pickle.dump(voids,open(self.intloc+"_voids.pkl",'wb'))
         else:
             ctlg  = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
             tess  = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
             zones = pickle.load(open(self.intloc+"_zones.pkl",'rb'))
             voids = pickle.load(open(self.intloc+"_voids.pkl",'rb'))
+           
+        # Fields for later use
         self.catalog = ctlg
         if end>0:
             self.tesselation = tess
@@ -164,7 +199,10 @@ class Zobov:
             Density cut for filtering voids from the final catalog.
         """
 
-        #format method
+        # ------------------------------------------------------------------------------------------------------
+        # Ensure appropriate user settings
+        # ------------------------------------------------------------------------------------------------------
+       
         if isinstance(method, str):
             try:
                 method = int(method)
@@ -375,7 +413,7 @@ class Zobov:
 
 
     def saveVoids(self):
-        """Output calculated voids to an ASCII file [catalogname]_zonevoids.dat.
+        """Output calculated voids to a FITS file [catalogname]_V2_[pruning method]_Output.fits
         """
         if not hasattr(self,'vcens'):
             print("Sort voids first")
@@ -451,7 +489,7 @@ class Zobov:
 
 
     def saveZones(self):
-        """Output calculated zones to an ASCII file [catalogname]_galzones.dat.
+        """Output calculated zones to a FITS file [catalogname]_V2_[pruning method]_Output.fits
         """
 
         if not hasattr(self,'zones'):
@@ -511,8 +549,8 @@ class Zobov:
 
 
     def preViz(self):
-        """Pre-computations needed for zone and void visualizations. Produces
-        an ASCII file [catalogname]_galviz.dat.
+        """Pre-computations needed for zone and void visualizations. Outputs to
+        a FITS file [catalogname]_V2_[pruning method]_Output.fits
         """
 
         if not self.visualize:
