@@ -231,6 +231,7 @@ class Tesselation:
             vol = np.zeros(len(reg))
             cut = np.arange(len(vol))
             if xyz:
+                cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies with finite voronoi cells
                 cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cat.cmin[0],ve2[0][r]<cat.cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
                 cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cat.cmin[1],ve2[1][r]<cat.cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
                 cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cat.cmin[2],ve2[2][r]<cat.cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)

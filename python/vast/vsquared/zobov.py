@@ -423,7 +423,7 @@ class Zobov:
 
         # write to the output file
         hdul['PRIMARY'].header = self.hdu.header
-        if not self.periodic:
+        if not self.periodic and not self.xyz:
             hdul.append(self.maskHDU)
 
         hdu = fits.BinTableHDU()
