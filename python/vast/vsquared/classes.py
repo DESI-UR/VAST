@@ -49,27 +49,43 @@ class Catalog:
         """
         print("Extracting data...")
         
-        # read in galaxy file
+        # ------------------------------------------------------------------------------------------------------
+        # Read in galaxy file and identify columns
+        # ------------------------------------------------------------------------------------------------------
+       
+        # Load galaxies to table
         galaxy_table = load_data_to_Table(catfile)
 
         # For periodic mode, store the galaxy coordinates, the minimum coordinates,and the maximum coordinates
         if periodic or xyz:
+            
             self.coord = np.array([galaxy_table[column_names['x']],
                                    galaxy_table[column_names['y']],
                                    galaxy_table[column_names['z']]]).T
             self.cmin = cmin
             self.cmax = cmax
         
+        #A mask used for subsampling galaxies. Cuts may be made on redshift and magnitude
+        galaxy_subsample = np.full(len(galaxy_table), True)
+        
         # For ra-dec-z mode, convert sky coodinates to cartesian coordinates
         else:
+            
+            #coordinates
             z    = galaxy_table[column_names['redshift']]
             ra   = galaxy_table[column_names['ra']]
             dec  = galaxy_table[column_names['dec']]
+            
+            #redshift cut
             zcut = np.logical_and(z>zmin,z<zmax)
-            if not zcut.any():
+            galaxy_subsample *= zcut #apply redshift cut to the overall subsample
+            
+            #chcek user settings
+            if not galaxy_subsample.any():
                 print("Choose valid redshift limits")
                 return
-            scut = zcut #alias for zcut, unless magnitude limit is used, in which case scut will be later set to mcut
+            
+            #convert to Cartesian coordinates
             c1,c2,c3   = toCoord(z,ra,dec,H0,Om_m)
             self.coord = np.array([c1,c2,c3]).T
         
@@ -80,38 +96,66 @@ class Catalog:
         if not periodic and not xyz:
             nnls[zcut<1] = -1
 
+        # ------------------------------------------------------------------------------------------------------
         # Apply magnitude limit
+        # ------------------------------------------------------------------------------------------------------
+       
         if maglim is not None:
+            
             print("Applying magnitude cut...")
+            
+            #get magnitudes
             mag = galaxy_table[column_names['rabsmag']]
-            mcut = np.logical_and(mag<maglim,zcut) # mcut is a subsample of zcut that removes galaxies outside the magnitude limit
-            if not mcut.any():
+            
+            # magnitude cut
+            mcut = mag<maglim
+            galaxy_subsample *= mcut # add the magnitude cut to the galaxy selection
+            
+            #check user settings
+            if not galaxy_subsample.any():
                 print("Choose valid magnitude limit")
                 return
-            scut = mcut # scut is made into an alias for mcut, unless no magnirtude limitis used, in hich case it remains an alias for zcut
-            ncut = np.arange(len(self.coord),dtype=int)[zcut][mcut[zcut]<1]  # indexes of galaxies in zcut but not in mcut
-            tree = KDTree(self.coord[mcut]) #kdtree of galaxies in mcut
-            lut  = np.arange(len(self.coord),dtype=int)[mcut] #indexes of galaxies in mcut
-            nnls[ncut] = lut[tree.query(self.coord[ncut])[1]] # the nearest neighbor index for each galaxy in zcut but not in mcut, and where the neighbors are in mcut
-            self.mcut = mcut
+            
+            # For galaxies that are within the redshift limits but are fainter than the magnitude limit,
+            # record their nearest neighbors, but where the neighbors are brighter than the magnitude limit
+            ncut = np.arange(len(self.coord), dtype=int)[zcut*~mcut]  
+            tree = KDTree(self.coord[galaxy_subsample])
+            lut  = np.arange(len(self.coord), dtype=int)[galaxy_subsample] 
+            nnls[ncut] = lut[tree.query(self.coord[ncut])[1]]
+            #self.mcut = galaxy_subsample #No need for this? It's never used again...
         
         self.nnls = nnls
 
+        # ------------------------------------------------------------------------------------------------------
         # Apply survey mask
-        self.imsk = np.ones(len(nnls),dtype=bool) #simply selects all galaxies for periodic mode, see def. below otherwise
+        # ------------------------------------------------------------------------------------------------------
+       
         if not periodic and not xyz:
             if maskfile is None:
                 print("Generating mask...")
-                mask = np.zeros(hp.nside2npix(nside),dtype=bool) #create a healpix mask with specified nside
-                pids = hp.ang2pix(nside,ra[scut],dec[scut],lonlat=True) #convert scut galaxy coordinates to mask coordinates
-                mask[pids] = True #mark where galaxies fall in mask
+                
+                #create a healpix mask from the subsampled galaxies
+                mask = np.zeros(hp.nside2npix(nside),dtype=bool)
+                
+                #convert ra/dec to mask coordinates (pixels)
+                masked_pixel_ids = hp.ang2pix(nside, ra[galaxy_subsample], dec[galaxy_subsample],lonlat=True) 
+                
+                #apply mask
+                mask[masked_pixel_ids] = True
+                
             else:
+                #read in exisitng mask
                 mask = (hp.read_map(maskfile)).astype(bool)
-            self.mask = mask #mask of all galaxies in scut, where scut might be zcut or mcut depending on if magnitude cut is used
-            pids = hp.ang2pix(nside,ra,dec,lonlat=True) #convert all galaxy coordinates to mask coordinates
-            # mask pixel bool value for every galaxy (aka is galaxy in same mask bin as a galaxy in scut), multiplied by zcut
-            # this is used to select galaxies located outside the survey mask in the 'out' column of the galzones HDU
-            self.imsk = mask[pids]*zcut 
+            
+            #save mask
+            self.mask = mask
+            
+            #mask coordinates for each galaxy
+            masked_pixel_ids = hp.ang2pix(nside,ra,dec,lonlat=True) 
+            
+            # Create an "in-mask" column that checks if every galaxy in the full sample lies within the subsample mask + redshift limits 
+            # (used to select galaxies located outside the survey mask in the 'out' column of the galzones HDU)
+            self.imsk = mask[masked_pixel_ids]*zcut 
 
             #record mask information
             maskHDU = fits.ImageHDU(mask.astype(int))
@@ -127,14 +171,23 @@ class Catalog:
             d_min = zobov.hdu.header['DLIML']
             vol = coverage / 3 * (d_max ** 3 - d_min ** 3) # volume calculation (A sphere subtends 4*pi steradians)
             zobov.maskHDU = maskHDU
+        
         else:
+            #cubic simulation mask info
             delta_x = self.cmax[0]-self.cmin[0]
             delta_y = self.cmax[1]-self.cmin[1]
             delta_z = self.cmax[2]-self.cmin[2]
             vol = delta_x*delta_y*delta_z
+            
+            #all galaxies are in mask for simulations
+            self.imsk = np.ones(len(nnls),dtype=bool)
+            
+        # ------------------------------------------------------------------------------------------------------
+        # Save metadata
+        # ------------------------------------------------------------------------------------------------------
 
         zobov.hdu.header['VOLUME'] = (mknumV2(vol), 'Survey Volume (Mpc/h)^3')
-        masked_gal_count = np.sum(nnls==np.arange(len(nnls))) #this selects every galaxy in zcut if no magcut is used and selects galaxies in mcut if magcut is used
+        masked_gal_count = np.sum(nnls==np.arange(len(nnls))) #this selects every galaxy in galaxy_subsample
         zobov.hdu.header['MSKGAL'] = (masked_gal_count, 'Number of Galaxies in Tesselation')
         zobov.hdu.header['MSKDEN'] = (mknumV2(masked_gal_count/vol), 'Galaxy Count Density (Mpc/h)^-3') 
         zobov.hdu.header['MSKSEP'] = (mknumV2(np.power(vol/masked_gal_count, 1/3)), 'Average Galaxy Separation (Mpc/h)')
@@ -164,7 +217,10 @@ class Tesselation:
         buff : float
             Width of incremental buffer shells for periodic computation.
         """
-        coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))] #this selects every galaxy in zcut if no magcut is used and selects galaxies in mcut if magcut is used
+        
+        # select subsampled galaxies
+        coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))] 
+        
         if periodic:
             print("Triangulating...")
             # create delaunay triangulation
