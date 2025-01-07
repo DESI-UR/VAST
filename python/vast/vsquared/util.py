@@ -139,6 +139,7 @@ def getBuff(cin,idsin,cmin,cmax,buff,n):
             for k in range(3):
                 if i==1 and j==1 and k==1:
                     continue
+                #create an offset copy of the box (c2)
                 c2 = cin+(np.array([i,j,k])-1)*(cmax-cmin)
                 c2d = np.amax(np.abs(c2-(cmax+cmin)/2.)-(cmax-cmin)/2.,axis=1)
                 cut = c2d<buff*(n+1)

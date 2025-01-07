@@ -56,6 +56,9 @@ class Catalog:
         # Load galaxies to table
         galaxy_table = load_data_to_Table(catfile)
 
+        #A mask used for subsampling galaxies. Cuts may be made on redshift and magnitude
+        galaxy_subsample = np.full(len(galaxy_table), True)
+
         # For periodic mode, store the galaxy coordinates, the minimum coordinates,and the maximum coordinates
         if periodic or xyz:
             
@@ -64,9 +67,6 @@ class Catalog:
                                    galaxy_table[column_names['z']]]).T
             self.cmin = cmin
             self.cmax = cmax
-        
-        #A mask used for subsampling galaxies. Cuts may be made on redshift and magnitude
-        galaxy_subsample = np.full(len(galaxy_table), True)
         
         # For ra-dec-z mode, convert sky coodinates to cartesian coordinates
         else:
@@ -220,14 +220,18 @@ class Tesselation:
         
         # select subsampled galaxies
         coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))] 
-        
+
+        # Periodic mode
         if periodic:
+
+            # Create delaunay triangulation
             print("Triangulating...")
-            # create delaunay triangulation
             Del = Delaunay(coords,incremental=True,qhull_options='QJ')
             sim = Del.simplices
             simlen = len(sim)
             cids = np.arange(len(coords))
+
+            #Find periodic neighbors
             print("Finding periodic neighbors...")
             n = 0
             # add a buffer of galaxies around the simulation edges
@@ -263,6 +267,8 @@ class Tesselation:
             #hul = [ConvexHull(ver[r]) for r in reg[cut]]
             vol[cut] = np.array([h.volume for h in hul])
             self.volumes = vol
+
+        # ra-dec-z and xyz mode
         else:
             print("Tesselating...")
             Vor = Voronoi(coords)
