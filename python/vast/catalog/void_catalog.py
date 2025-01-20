@@ -7,6 +7,7 @@ from vast.voidfinder._voidfinder_cython_find_next import MaskChecker
 from vast.vsquared.util import open_fits_file_V2
 
 
+import os
 import numpy as np
 import copy
 from astropy.table import Table, vstack
@@ -143,7 +144,7 @@ class VoidCatalog():
         #free up memory    
         self.clear_catalog()
                 
-    def add_galaxies(self, galaxies_path, load_vflag = False, redshift_name='redshift', ra_name = 'ra', dec_name='dec', cartesian = False, x_name = 'x', y_name = 'y', z_name = 'z'):
+    def add_galaxies(self, galaxies_path, vflag_path = None, redshift_name='redshift', ra_name = 'ra', dec_name='dec', cartesian = False, x_name = 'x', y_name = 'y', z_name = 'z'):
         """
         Reads in a galaxy catalog.
         
@@ -152,7 +153,13 @@ class VoidCatalog():
         galaxies_path (string): The location of the galaxies file. The file should be in .dat, .txt, 
             .fits, or .h5 format.
 
-        load_vflag (TO BE REMOVED)
+        vflag_path (string): The location of a file specifying which galaxies are in or outside of 
+            voids (vflags). This can be the same as the galaxies_path, though this is not 
+            recommended, in case one galaxy catalog is used to create multiple void catalogs (such as 
+            catalogs with different magnitude/redshift limits, or different algorithm settings). If 
+            no vflags are calculated the VoidCatalog class is capable of calcualting them and 
+            outputting to a new file (see calculate_vflags). Defaults to None, in which case no 
+            pre-computed vflags are loaded.
 
         redshift_name (string): The name of the redshift column. Defaults to 'redshift'
 
@@ -203,22 +210,19 @@ class VoidCatalog():
                 self.galaxies['x']=tmp[:,0]
                 self.galaxies['y']=tmp[:,1]
                 self.galaxies['z']=tmp[:,2]
-
-        # For compatability with old vflag model where info was stored in 
-        # galaxies file instead of void catalog
-        if load_vflag:
+        
+        # Return if no vflags are caclculated
+        if vflag_path is None:
+            return
+        # Load vflags stored in galaxy file if desired
+        if os.path.realpath(vflag_path) == os.path.realpath(galaxies_path):
             
-            hdu = fits.BinTableHDU(
-                Table(self.galaxies['gal','vflag'],
-                 names = ['gal', 'vflag'])
-            )
-            hdu.name = 'VFLAG'
-            try:
-                self._catalog['VFLAG'].data = hdu.data
-            except:
-                self._catalog.append(hdu)
-                self.vflag = Table(self._catalog['VFLAG'].data)
-                self.tables['VFLAG'] = self.vflag
+            self.vflag = self.galaxies['gal','vflag']
+        
+        # Or else load vflags stored in seperate file
+        else:
+            vflags = load_data_to_Table(vflag_path)
+            self.vflag = vflags['gal','vflag']
                 
 
             
@@ -366,9 +370,6 @@ class VoidFinderCatalog (VoidCatalog):
             self.holes = Table(self._catalog['HOLES'].data)
             self.tables['HOLES'] = self.holes
             self.headers['HOLES'] = self.holes_info
-        if 'VFLAG' in hdu_names:
-            self.vflag = Table(self._catalog['VFLAG'].data)
-            self.tables['VFLAG'] = self.vflag
             
         self.lower_col_names()
         
@@ -487,12 +488,21 @@ class VoidFinderCatalog (VoidCatalog):
         
         save_r_eff()
  
-    def calculate_vflag(self, overwrite = False, cartesian = False):
+    def calculate_vflag(self, vflag_path, , astropy_file_format='fits', overwrite = False, cartesian = False):
         """
-        Calculates which galaxies are located inside or outside of voids.
+        Calculates which galaxies are located inside or outside of voids (vflags).
         
         params:
         ---------------------------------------------------------------------------------------------
+        vflag_path (string): The location to output the vflags to. This can be the same as 
+            self.galaxies_path, though this is not recommended, in case one galaxy catalog is used to 
+            create multiple void catalogs (such as catalogs with different magnitude/redshift limits, 
+            or different algorithm settings). 
+
+        astropy_file_format (string): The 'format' parameter taken by astropy.table.Table.write which
+            specifies the file format of the output. This format must be chosen to match the format 
+            of vflags_path, or a write error may occur. Defaults to 'fits'
+            
         overwrite (bool): Boolean that terminates the calculation if the void membership has
             previously been calculated. When set to True, this behavior is disabled. Defaults to 
             False.
@@ -509,7 +519,7 @@ class VoidFinderCatalog (VoidCatalog):
         
         #ensure that vflag wasn't previously calculated
         hdu_names = [self._catalog[i].name for i in range(len(self._catalog))]
-        if not overwrite and 'VFLAG' in hdu_names:
+        if not overwrite and hasattr(self, 'vflag'):
             print ('vflags already calculated. Run with overwrite=True to overwrite vflags')
             return
         
@@ -559,26 +569,23 @@ class VoidFinderCatalog (VoidCatalog):
             
         # Write output to the catalog object
         
-        hdu = fits.BinTableHDU(
-            Table(self.galaxies['gal','vflag'],
-             names = ['gal', 'vflag'])
-        )
-        hdu.name = 'VFLAG'
-        try:
-            self._catalog['VFLAG'].data = hdu.data
-        except:
-            self._catalog.append(hdu)
-            self.vflag = Table(self._catalog['VFLAG'].data)
-            self.tables['VFLAG'] = self.vflag
-            
-        # Format and save output
-        if self.capitalize_colnames:
-            self.upper_col_names()
-            
-        self._catalog.writeto(self.file_name, overwrite=True)
+        self.vflag = self.galaxies['gal','vflag']
+
+        # If user desires to output vflags to the galaxy file
+        if os.path.realpath(vflag_path) == os.path.realpath(self.galaxies_path):
+            self.galaxies.write(vflag_path, format=astropy_file_format, overwrite=True)
+            return
+
+        #If user desires to output vflags to seperate file (recommended)
         
-        if self.capitalize_colnames:
-            self.lower_col_names()
+        # Format and save output
+        """if self.capitalize_colnames:
+            self.upper_col_names()"""
+            
+        self.vflag.write(vflag_path, format=astropy_file_format, overwrite=True)
+        
+        """if self.capitalize_colnames:
+            self.lower_col_names()"""
             
     def plot_vflag(self, mask_title='Survey Mask', galaxies_title='Galaxy Distribution', file_prefix='vast', save_image = False):
         """
@@ -716,95 +723,7 @@ class VoidFinderCatalog (VoidCatalog):
             
         return membership
 
-    def plot_density_profile():
-
-        pass
-    '''
-    def subsample_catalog(self, mask_hdu, catalog_file_path, rmin = None, rmax = None):
-         """
-        Returns a new void catalog containing only voids in a masked region
-
-        params:
-        ---------------------------------------------------------------------------------------------
-        mask_hdu (astropy fits HDU): A mask HDU corresponding to an angular mask used for 
-            selecting the galaxies. Defaults to None, in which case, the void catalog's angular mask
-            is used.
-            
-        catalog_file_path (string): The location to save the modified void catalog to
         
-        rmin (float): The minimum line-of-sight comoving distance for the calculation. Defaults to
-            None, in which case the catalog redshift limit is used.
-
-        rmax (float): The maximum line-of-sight comoving distance for the calculation. Defaults to
-            None, in which case the catalog redshift limit is used.
-
-        mag_lim (float): The r-band absolute magnitude limit used for the calculation. Defaults to
-            None, in which case the catalog magntiude limit is used.
-
-        returns:
-        ---------------------------------------------------------------------------------------------
-        new_catalog (VoidCatalog object): The subsampled void catalog
-        """
-        
-        if rmin is None:
-            rmin = self.info['DLIML']
-            
-        if rmax is None:
-            rmax = self.info['DLIMU']   
-            
-        #deep copy the current catalog
-        new_catalog = copy.deepcopy(self)
-        
-        #change the file output name
-        new_catalog.file_name = catalog_file_path
-        
-        # mask the maximals
-        
-        new_catalog.maximals = select_mask(self.maximals, mask_hdu.data, 
-                                           mask_hdu.header['MSKRES'], rmin, rmax, r_name = 'r')
-        new_catalog._catalog['MAXIMALS'] = fits.BinTableHDU(new_catalog.maximals)
-        
-            
-        #TODO: update the maximal HDU header with new void count
-        
-        #grab holes that are in maximals
-        
-        holes_select = np.isin(self.holes['void'], new_catalog.maximals['void'])
-        
-        new_catalog.holes = self.holes[holes_select]
-        new_catalog._catalog['HOLES'] = fits.BinTableHDU(new_catalog.holes)
-        
-        #TODO: update the holes HDU header with new void count
-        
-        #if galaxies exist, mask the galaxies
-        
-        if hasattr(self, 'galaxies'):
-            new_catalog.galaxies = select_mask(self.galaxies, mask_hdu.data, 
-                                               mask_hdu.header['MSKRES'], rmin, rmax)
-
-            gal_select = np.isin(self.galaxies['gal'], new_catalog.galaxies['gal'])
-
-            if hasattr(self, 'vflag'):
-
-                new_catalog.vflag = self.vflag[gal_select]
-
-                self._catalog['VFLAG'].data = fits.BinTableHDU(new_catalog.vflag).data
-
-        
-        #replace the mask HDU
-        if hasattr(self, 'mask'):
-            self.mask = mask_hdu.data
-            new_catalog._catalog['MASK'] = fits.ImageHDU(mask_hdu.data)
-        
-        #TODO update the mask HDU header with new mask info
-        
-        #TODO: update he primary HDU with new mask info
-        
-        return new_catalog'''
-        
-    
-        
-
 class V2Catalog(VoidCatalog):
     """
     Class for V2 void catalogs
