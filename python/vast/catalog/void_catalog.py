@@ -488,7 +488,7 @@ class VoidFinderCatalog (VoidCatalog):
         
         save_r_eff()
  
-    def calculate_vflag(self, vflag_path, , astropy_file_format='fits', overwrite = False, cartesian = False):
+    def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False):
         """
         Calculates which galaxies are located inside or outside of voids (vflags).
         
