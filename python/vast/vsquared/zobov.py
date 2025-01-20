@@ -243,7 +243,7 @@ class Zobov:
                         break
                     vbuff.extend(self.prevoids.voids[i][j])
                 voids.append(vbuff)
-            #voids now contains the entire void hierarchy, broken up by teh linking density
+            #voids now contains the entire void hierarchy, broken up by the linking density
         elif method==1:
             #print('Method 1')
             voids = [[c for q in v for c in q] for v in self.prevoids.voids]
