@@ -344,14 +344,13 @@ class VoidMapVF():
             return Cp[Cpi].T[0], Cp[Cpi].T[1]
 
 
-    # Plot VoidFinder Voids (Version 2)
-    def pvf2(self,dec,wdth,npc,chkdpth, 
+    def plot_survey(self,dec,wdth,npc,chkdpth, 
              ra0, ra1, cz0, cz1, title, graph = None, zlimits = True, rot = 0, 
              colors = ["blue","blue","blue"], gal_colors = ["black","red"], include_gals=True, include_voids=True, alpha=0.2, border_alpha = 1,
              horiz_legend_offset=.8, plot_sdss = True, sdss_lim=332.38626, sdss_color='magenta', 
              mag_limit = None, galaxy_point_size = 1, return_plot_data=False):
         '''
-        Plot VoidFinder voids
+        Plot VoidFinder voids within a survey volume.
         
         params:
         ----------------------------------------------------------
@@ -557,11 +556,11 @@ class VoidMapVF():
         return self.graph
     
     # Plot VoidFinder Voids from a Cubic Simulation (Version 2)
-    def pvf2xyz(self,plane_height,wdth,npc,chkdpth, 
+    def plot_xyz(self,plane_height,wdth,npc,chkdpth, 
                 title, h="x",v="y",n="z", h_range = (0,50), v_range = (0,50), graph = None, 
                 colors = ["blue","blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1):
             '''
-            Plot VoidFinder voids
+            Plot VoidFinder voids wihtin a cubic simulation volume.
             '''
             axes = {"x":self.vfx4, "y":self.vfy4, "z":self.vfz4}
             gal_axes = {"x":self.gx, "y":self.gy, "z":self.gz}
@@ -911,14 +910,13 @@ class VoidMapV2():
                     break
         return [[np.array(intr)[ccut][o].tolist(),np.array(intra)[ccut][o].tolist()] for o in ocut],icut 
 
-    #Plot Zobov Voids
-    def pzbv(self,dec,wdth,
+    def plot_survey(self,dec,wdth,
              ra0, ra1, cz0, cz1, title, graph = None, zlimits = True, rot = 0, 
              colors = ["blue","blue"],include_gals=True,alpha=0.2, border_alpha = 1,
              horiz_legend_offset=.8, plot_sdss = True, sdss_lim=332.38626, sdss_color='magenta', 
              mag_limit = None, galaxy_point_size=1, return_plot_data=False):
         '''
-        Plot Vsquared voids
+        Plot Vsquared voids within a survey volume
         
         params:
         ----------------------------------------------------------

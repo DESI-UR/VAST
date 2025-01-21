@@ -27,8 +27,7 @@ import pickle
 """
 Authors: Hernan Rincon
 
-Some code has been adopted from the following individuals: [check authors]
-# TODO: Add other authors (I believe it's Kelly Douglass and Lorenzo Mendoza, but this should be checked)
+The main body of this code has been adopted from the following individuals: Kelly Douglass and Lorenzo Mendoza
 
 """
 

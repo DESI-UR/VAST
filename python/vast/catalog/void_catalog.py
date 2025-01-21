@@ -5,16 +5,15 @@ from vast.voidfinder.distance import z_to_comoving_dist
 from vast.voidfinder.voidfinder import ra_dec_to_xyz
 from vast.voidfinder._voidfinder_cython_find_next import MaskChecker
 from vast.vsquared.util import open_fits_file_V2
-
+import vast.catalog.void_volume as vol
+import vast.catalog.void_overlap as vo
 
 import os
 import numpy as np
 import copy
 from astropy.table import Table, vstack
 from astropy.io import fits
-
-import void_volume as vol
-import void_overlap as vo
+import matplotlib.pyplot as plt
 
 """
 Authors: Hernan Rincon
@@ -669,7 +668,7 @@ class VoidFinderCatalog (VoidCatalog):
             return_selector is True.
         """
         
-        print('WARNING: ensure that the calculated vflags match the currently loaded galaxy file, as vflags are saved to the void file and not the galaxy file.')
+        print('WARNING: ensure that the calculated vflags match the currently loaded galaxy file, as vflags may be saved to their own file and not the galaxy file.')
         
         if rmin is None:
             rmin = self.info['DLIML']
@@ -942,29 +941,34 @@ class V2Catalog(VoidCatalog):
         if custom_mask_hdu is not None:
             mask = custom_mask_hdu.data
             mask_res = custom_mask_hdu.header['MSKRES']
-            galaxies = select_mask(galaxies, mask, mask_res, rmin, rmax)
-            
-            # Cut galaxies down to those within 10 mpc/h of survey border
-            # Note: we use the main survey mask rather than the custom mask option, 
-            # because were ony worried about galaxies near edge voids
-            points_boolean = np.zeros(len(galaxies), dtype = bool)
-
-            #Flag points that fall outside the main survey mask
-            for i in range(len(galaxies)):
-                # The current point
-                curr_pt = galaxies[i]
-
-                is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
-                                           mask, mask_res, rmin, rmax, self.edge_buffer)
-                points_boolean[i] = not is_edge
-
-
-            galaxies = galaxies[points_boolean]
+        elif hasattr(self, 'mask') and hasattr(self, 'mask_info'):
+            mask = self.mask
+            mask_res = self.mask_info['MSKRES']
         else:
             #This should never be the case (in current draft of code)
             print('V2 galaxy membership should have a custom mask to accurately exclude edge galaxies')
             assert 1==2
-            galaxies = galaxies[(galaxies['Rgal'] >rmin)*(galaxies['Rgal'] < rmax)]
+            #galaxies = galaxies[(galaxies['Rgal'] >rmin)*(galaxies['Rgal'] < rmax)]
+            
+        galaxies = select_mask(galaxies, mask, mask_res, rmin, rmax)
+        
+        # Cut galaxies down to those within 10 mpc/h of survey border
+        # Note: we use the main survey mask rather than the custom mask option, 
+        # because were ony worried about galaxies near edge voids
+        points_boolean = np.zeros(len(galaxies), dtype = bool)
+
+        #Flag points that fall outside the main survey mask
+        for i in range(len(galaxies)):
+            # The current point
+            curr_pt = galaxies[i]
+
+            is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
+                                       mask, mask_res, rmin, rmax, self.edge_buffer)
+            points_boolean[i] = not is_edge
+
+
+        galaxies = galaxies[points_boolean]
+
         
         
         #get indexes in full galaxy list of galaxies that make survey cuts
@@ -1412,7 +1416,7 @@ def select_mask(gals, mask, mask_resolution, rmin, rmax, r_name = 'Rgal'):
     #Flag points that fall outside the mask
     for i in range(len(gals)):
         # The current point
-        curr_pt = np.array([gals['x'][i],gals['y'][i],gals['z'][i]])
+        curr_pt = np.array([gals['x'][i],gals['y'][i],gals['z'][i]]).astype(np.float64)
         if gals[r_name][i] > 0:
             # Declare if point is not in mask
             not_in_mask = mask_checker.not_in_mask(curr_pt)
