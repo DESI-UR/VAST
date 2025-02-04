@@ -67,18 +67,19 @@ class TestV2(unittest.TestCase):
         TestV2.zones = classes.Zones(TestV2.tess)
 
         # Test zone cells
-        print(np.mean([len(zc) for zc in self.zones.zcell]))
         self.assertTrue(np.isclose(np.mean([len(zc) for zc in self.zones.zcell]), 87.23404255319149))
 
         # Test zone volumes
-        print(np.mean(self.zones.zvols))
+        print(np.mean(self.zones.zvols), self.zones.zvols[0])
         self.assertTrue(np.isclose(np.mean(self.zones.zvols), 6897.767791048626))
 
         # Test zone links
-        print(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]))
+        print(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]), len(self.zones.zlinks[0][0]))
         self.assertTrue(np.isclose(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]), 9.617021276595745))
-        print(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][:-1]]))
+        print(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][:-1]]), np.mean(self.zones.zlinks[1][:-1][0]))
         self.assertTrue(np.isclose(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][:-1]]), 3285.6313303024826))
+
+        self.assertTrue(False)
 
     def test_zobov_3_voids(self):
         """Test ZOBOV void creation
