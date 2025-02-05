@@ -187,7 +187,7 @@ def getSMA(vrad,coords):
         iTen = iTen - np.array([[0,p[0]*p[1],p[0]*p[2]],[p[0]*p[1],0,p[1]*p[2]],[p[0]*p[2],p[1]*p[2],0]])
     eival,eivec = np.linalg.eig(iTen)
     eival = eival**.25
-    rfac = vrad/(np.prod(eival)**(1./3))
+    rfac = vrad/(np.product(eival)**(1./3))
     eival = eival*rfac
     return eival.reshape(3,1)*eivec.T
 

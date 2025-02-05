@@ -454,7 +454,7 @@ class Zobov:
         z2v = self.zvoid.T[1]
         z2v3 = np.unique(z2v[z2v!=-1])
         z2v2 = np.array([np.where(z2v==z2)[0] for z2 in z2v3])
-        zcut = [np.prod([np.prod(self.tesselation.vecut[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
+        zcut = [np.product([np.product(self.tesselation.vecut[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
 
         tri1 = []
         tri2 = []
