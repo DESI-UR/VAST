@@ -22,14 +22,16 @@ A summary checklist for installing and running **VoidFinder**.
    * ``in_directory`` and ``out_directory``
    * ``data_filename``
    * redshift and/or magnitude limits
-   * Comment out ``dist_metric`` from all functions if you are using comoving distances.
+   * Comment out ``dist_metric`` from all functions if you are using comoving 
+   	 distances.
    * etc.
 
  * Run your script (``SDSS_VoidFinder_dr7.py``, in this case) on your machine or 
    using a cluster.
 
-The output file ``[survey_name]_VoidFinder_Output.fits`` will be located in the directory 
-specified by ``out_directory``. See :ref:`VF-output` for a detailed description of this file.
+The output file ``[survey_name]_VoidFinder_Output.fits`` will be located in the 
+directory specified by ``out_directory``.  See :ref:`VF-output` for a detailed 
+description of this file.
 
 
 
@@ -334,26 +336,27 @@ Output
 
 Each void found by **VoidFinder** is a union of spheres: one maximal sphere (the 
 largest sphere that can fit within that void) and a set of smaller spheres 
-(called holes).  Within the output file ``[survey_name]_VoidFinder_Output.fits``,
-the two `FITS table HDUs <https://fits.gsfc.nasa.gov/fits_primer.html>`_ that list the identified voids have the EXTNAMES:
+(called holes).  Within the output file 
+``[survey_name]_VoidFinder_Output.fits``, the two 
+`FITS table HDUs <https://fits.gsfc.nasa.gov/fits_primer.html>`_ that list the 
+identified voids have the EXTNAMES:
 
  * ``MAXIMALS``
  * ``HOLES``
 
 Both of these table HDUs are described in more detail below.
 
-Additional HDUs that can be produced during the process (which may or may not 
-be useful to the user post-void-finding) include
+Additional HDUs that can be produced during the process (which may or may not be 
+useful to the user post-void-finding) include
 
  * ``PRIMARY`` -- Summary information about the void-finding and void catalog.
- * ``MASK`` -- The sky mask of the survey.  The resolution 
-   of the mask is computed to be optimal for void-finding at the highest 
-   redshift that voids are found.  See :ref:`VF-mask` for details on the HDU 
-   contents.
- * ``FIELD`` -- A list of the field galaxies removed 
-   from the input galaxy file prior to void-finding.
- * ``WALL`` -- A list of the wall galaxies that are 
-   used to define the non-void regions.
+ * ``MASK`` -- The sky mask of the survey.  The resolution of the mask is 
+   computed to be optimal for void-finding at the highest redshift that voids 
+   are found.  See :ref:`VF-mask` for details on the HDU contents.
+ * ``FIELD`` -- A list of the field galaxies removed from the input galaxy file 
+   prior to void-finding.
+ * ``WALL`` -- A list of the wall galaxies that are used to define the non-void 
+   regions.
 
 The union of the field and wall galaxy files is the same as the input data file, 
 after any redshift and/or magnitude cuts are applied.
@@ -642,8 +645,8 @@ Is my object in a void?
 
 Because **VoidFinder** defines voids as a union of spheres, it is relatively 
 simple to determine whether or not an object is located within a void: if its 
-location falls within one of the spheres listed in the ``HOLES`` output 
-table (see :ref:`VF-output`), then it is within a void!
+location falls within one of the spheres listed in the ``HOLES`` output table 
+(see :ref:`VF-output`), then it is within a void!
 
 Note that only the centers of the maximal spheres are given in both Cartesian 
 (x, y, z) and sky coordinates (ra, dec, distance).  Therefore, it is often 
@@ -667,14 +670,13 @@ whether an object is within a void, in the wall, too close to the survey
 boundary to classify, or outside the survey bounds. 
  
 See also the jupyter notebook ``void_analysis.ipynb`` (found in the 
-``VAST/example_scripts/`` directory) for an example of how to read 
-information from the output and perform void analysis using the 
-``VoidCatalog`` class. This class offers a convenient method for
-automatically loading the FITS file output into a collection of astropy
-tables. The class can be further used to perform void analysis, including 
-the calculation of void volumes, median and maximum void radii, the total
-void volume fraction, and void galaxy membership. The notebook also shows
-how to create a void slice plot using the catalog.
+``VAST/example_scripts/`` directory) for an example of how to read information 
+from the output and perform void analysis using the ``VoidCatalog`` class.  This 
+class offers a convenient method for automatically loading the FITS file output 
+into a collection of astropy tables.  The class can be further used to perform 
+void analysis, including the calculation of void volumes, median and maximum 
+void radii, the total void volume fraction, and void galaxy membership.  The 
+notebook also shows how to create a void slice plot using the catalog.
  
  
  
