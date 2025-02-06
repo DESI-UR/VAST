@@ -22,21 +22,16 @@ A summary checklist for installing and running **VoidFinder**.
    * ``in_directory`` and ``out_directory``
    * ``data_filename``
    * redshift and/or magnitude limits
-   * Comment out ``dist_metric`` from all functions if you are using comoving distances.
+   * Comment out ``dist_metric`` from all functions if you are using comoving 
+   	 distances.
    * etc.
 
  * Run your script (``SDSS_VoidFinder_dr7.py``, in this case) on your machine or 
    using a cluster.
 
-The output files will be located in the directory specified by ``out_directory``.
-
- * ``[survey_name]_[comoving/redshift]_holes.txt``
- * ``[survey_name]_[comoving/redshift]_maximal.txt``
- * ``[survey_name]_mask.pickle``
- * ``[survey_name]_field_gal_file.txt``
- * ``[survey_name]_wall_gal_file.txt``
-
-See :ref:`VF-output` for a detailed description of each of these files.
+The output file ``[survey_name]_VoidFinder_Output.fits`` will be located in the 
+directory specified by ``out_directory``.  See :ref:`VF-output` for a detailed 
+description of this file.
 
 
 
@@ -62,7 +57,10 @@ selection of example scripts:
    ("void" objects), which are outside the voids ("wall" objects), and which are 
    too close to the survey boundary and/or are outside the survey bounds to be 
    classified ("edge" objects).
-
+ * ``void_analysis.ipynb`` uses the finalized VoidFinder catalog to calculate 
+   void statistics, including void volumes, median and maximum void radii, 
+   the total void volume fraction, and void galaxy membership. An example of
+   creating void slice plots is also included.
 
 
 
@@ -338,29 +336,32 @@ Output
 
 Each void found by **VoidFinder** is a union of spheres: one maximal sphere (the 
 largest sphere that can fit within that void) and a set of smaller spheres 
-(called holes).  The two files that list the identified voids are:
+(called holes).  Within the output file 
+``[survey_name]_VoidFinder_Output.fits``, the two 
+`FITS table HDUs <https://fits.gsfc.nasa.gov/fits_primer.html>`_ that list the 
+identified voids have the EXTNAMES:
 
- * ``[survey_name]_[comoving/redshift]_maximal.txt``
- * ``[survey_name]_[comoving/redshift]_holes.txt``
+ * ``MAXIMALS``
+ * ``HOLES``
 
-Both of these files are described in more detail below.
+Both of these table HDUs are described in more detail below.
 
-Additional files that can be produced during the process (which may or may not 
-be useful to the user post-void-finding) include
+Additional HDUs that can be produced during the process (which may or may not be 
+useful to the user post-void-finding) include
 
- * ``[survey_name]_mask.pickle`` -- The sky mask of the survey.  The resolution 
-   of the mask is computed to be optimal for void-finding at the highest 
-   redshift that voids are found.  See :ref:`VF-mask` for details on the file 
-   contents.
- * ``[survey_name]_field_gal_file.txt`` -- A list of the field galaxies removed 
-   from the input galaxy file prior to void-finding.
- * ``[survey_name]_wall_gal_file.txt`` -- A list of the wall galaxies that are 
-   used to define the non-void regions.
+ * ``PRIMARY`` -- Summary information about the void-finding and void catalog.
+ * ``MASK`` -- The sky mask of the survey.  The resolution of the mask is 
+   computed to be optimal for void-finding at the highest redshift that voids 
+   are found.  See :ref:`VF-mask` for details on the HDU contents.
+ * ``FIELD`` -- A list of the field galaxies removed from the input galaxy file 
+   prior to void-finding.
+ * ``WALL`` -- A list of the wall galaxies that are used to define the non-void 
+   regions.
 
 The union of the field and wall galaxy files is the same as the input data file, 
 after any redshift and/or magnitude cuts are applied.
 
-.. list-table:: Maximal sphere output file
+.. list-table:: Maximal sphere output table HDU 
    :widths: 25 25 25 50
    :header-rows: 1
    
@@ -384,11 +385,11 @@ after any redshift and/or magnitude cuts are applied.
      - float
      - Mpc/h
      - Radius of the maximal sphere
-   * - flag
+   * - void
      - integer
      - 
      - Unique number associated to each void.  With only one maximal sphere per 
-       void, this means that each maximal sphere has a different ``flag`` value.
+       void, this means that each maximal sphere has a different ``void`` value.
    * - r
      - float
      - Mpc/h
@@ -402,7 +403,7 @@ after any redshift and/or magnitude cuts are applied.
      - degrees
      - Declination of the center of the maximal sphere
      
-.. list-table:: Holes output file
+.. list-table:: Holes output table HDU
    :widths: 25 25 25 50
    :header-rows: 1
    
@@ -426,11 +427,11 @@ after any redshift and/or magnitude cuts are applied.
      - float
      - Mpc/h
      - Radius of the hole (sphere)
-   * - flag
+   * - void
      - integer
      - 
      - Unique number associated to each void.  The union of all holes with the 
-       same flag value define that void.
+       same ``void`` value define that void.
 
 
 
@@ -523,9 +524,8 @@ Adjustable parameters
      - boolean
      - True
      - Determines whether or not to save the 
-       ``[survey_name]_field_gal_file.txt`` and 
-       ``[survey_name]_wall_gal_file.txt`` files to disk.  If so, these files 
-       will be saved to the location specified by ``out_directory``.
+       ``FIELD`` and 
+       ``WALL`` tables to the output file. 
    * - ``hole_grid_edge_length``
      - ``filter_galaxies``, ``find_voids``
      - float
@@ -599,19 +599,6 @@ Adjustable parameters
      - maximal_spheres.txt
      - Location to save the maximal spheres.  If ``file_preprocess`` was run, 
        this should be set to ``out1_filename``.
-   * - ``void_table_filename``
-     - ``find_voids``
-     - string
-     - voids_table.txt
-     - Location to save the list of void spheres.  If ``file_preprocess`` was 
-       run, this should be set to ``out2_filename``.
-   * - ``potential_voids_filename``
-     - ``find_voids``
-     - string
-     - potential_voids_list.txt
-     - Location to save the list of potential voids spheres (all spheres found, 
-       no filtering yet implemented on the list).  An ideal name for this file 
-       would be ``out_directory + survey_name + 'potential_voids_list.txt'``.
    * - ``num_cpus``
      - ``find_voids``
      - integer
@@ -641,7 +628,12 @@ Adjustable parameters
      - 10,000
      - Number of potential cells to evaluate at a time.  Only used in the 
        multi-threaded mode of ``find_voids``.
-
+   * - ``capitalize_colnames``
+     - ``find_voids``
+     - boolean
+     - False
+     - Determines whether or not to capitalize the column names in the output 
+       FITS file. Column names are lowercase by default.
 
 
 
@@ -653,8 +645,8 @@ Is my object in a void?
 
 Because **VoidFinder** defines voids as a union of spheres, it is relatively 
 simple to determine whether or not an object is located within a void: if its 
-location falls within one of the spheres listed in the ``_holes.txt`` output 
-file (see :ref:`VF-output`), then it is within a void!
+location falls within one of the spheres listed in the ``HOLES`` output table 
+(see :ref:`VF-output`), then it is within a void!
 
 Note that only the centers of the maximal spheres are given in both Cartesian 
 (x, y, z) and sky coordinates (ra, dec, distance).  Therefore, it is often 
@@ -677,6 +669,14 @@ See the example script ``classifyEnvironment.py`` (found in the
 whether an object is within a void, in the wall, too close to the survey 
 boundary to classify, or outside the survey bounds. 
  
+See also the jupyter notebook ``void_analysis.ipynb`` (found in the 
+``VAST/example_scripts/`` directory) for an example of how to read information 
+from the output and perform void analysis using the ``VoidCatalog`` class.  This 
+class offers a convenient method for automatically loading the FITS file output 
+into a collection of astropy tables.  The class can be further used to perform 
+void analysis, including the calculation of void volumes, median and maximum 
+void radii, the total void volume fraction, and void galaxy membership.  The 
+notebook also shows how to create a void slice plot using the catalog.
  
  
  
