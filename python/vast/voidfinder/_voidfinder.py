@@ -795,6 +795,7 @@ def _hole_finder(galaxy_coords,
     # survey to make sure the virtual cells already exist, since that shell
     # will be the most used virtual locations
     #---------------------------------------------------------------------------
+    '''
     if mask_mode == 2:
         
         for i in range(-1, galaxy_map_grid_shape[0]+1):
@@ -807,7 +808,14 @@ def _hole_finder(galaxy_coords,
                     galaxy_map.contains(i,j,k)
                     #time.sleep(0.05)
                 
+        
+        if verbose > 0:
+            print("Filling in shell: (", -1, galaxy_map_grid_shape[0]+1, ")",
+                  "(", -1, galaxy_map_grid_shape[1]+1, ")",
+                  "(", -1, galaxy_map_grid_shape[2]+1, ")",
+                  )
     
+    '''
     
     if verbose > 0:
         
@@ -1880,6 +1888,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                              galaxy_map,
                              sphere_grower,
                              mask_checker)
+                
+                #time.sleep(1.0)
                 
                 num_cells_processed += num_write
                 

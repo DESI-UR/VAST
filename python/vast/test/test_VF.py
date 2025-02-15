@@ -5,6 +5,7 @@ import os
 import numpy as np
 from sklearn import neighbors
 from astropy.table import Table, setdiff, vstack
+from astropy.io import fits
 
 from vast.voidfinder.constants import c
 from vast.voidfinder import find_voids, filter_galaxies
@@ -28,7 +29,7 @@ from vast.voidfinder._voidfinder_cython_find_next import SpatialMap, \
 
 
 from vast.voidfinder.viz import VoidRender, \
-                                load_galaxy_data, \
+                                format_galaxy_data, \
                                 load_void_data
 
 
@@ -104,7 +105,7 @@ class TestVoidFinder(unittest.TestCase):
         self.maximals['y'] = [8., 3.]
         self.maximals['z'] = [0., -1.]
         self.maximals['r'] = [2.5, 1.5]
-        self.maximals['flag'] = [0, 1]
+        self.maximals['void'] = [0, 1]
 
         # Define holes
         holes = Table()
@@ -112,7 +113,7 @@ class TestVoidFinder(unittest.TestCase):
         holes['y'] = [7.9, 3.2]
         holes['z'] = [0.1, -0.5]
         holes['r'] = [2., 0.5]
-        holes['flag'] = [0, 1]
+        holes['void'] = [0, 1]
         self.holes = vstack([holes, self.maximals])
 
         # Remove points which fall inside holes
@@ -145,10 +146,10 @@ class TestVoidFinder(unittest.TestCase):
     def test_1_file_preprocess(self):
         """
         Take a galaxy data file and return a data table, compute the redshift 
-        range in comoving coordinates, and generate output filename.
+        range in comoving coordinates
         """
-        f_galaxy_table, f_dist_limits, f_out1_filename, f_out2_filename = \
-            file_preprocess(self.galaxies_filename, '', '', dist_metric='redshift')
+        f_galaxy_table, f_dist_limits = \
+            file_preprocess(self.galaxies_filename, 'test_', '', '', dist_metric='redshift')
 
         # Check the galaxy table
         self.assertEqual(len(setdiff(f_galaxy_table, self.galaxies_shuffled)), 0)
@@ -158,11 +159,7 @@ class TestVoidFinder(unittest.TestCase):
         TestVoidFinder.dist_limits[1] = c*self.redshift_range[-1]/100.
         self.assertTrue(np.isclose(f_dist_limits, TestVoidFinder.dist_limits).all())
 
-        # Check the first output file name
-        self.assertEqual(f_out1_filename, 'test_galaxies_redshift_maximal.txt')
-
-        # Check the second output file name
-        self.assertEqual(f_out2_filename, 'test_galaxies_redshift_holes.txt')
+        # file_preprocess now outputs a data table to a fits file. This could be a source of further checks 
 
 
 
@@ -173,7 +170,8 @@ class TestVoidFinder(unittest.TestCase):
         boolean mask + resolution
         """
         f_mask, f_mask_resolution = generate_mask(self.galaxies_shuffled, 
-                                                  self.redshift_range[-1], 
+                                                  self.redshift_range[-1],
+                                                  'test_','',
                                                   dist_metric='redshift', 
                                                   min_maximal_radius=self.min_maximal_radius)
 
@@ -187,6 +185,8 @@ class TestVoidFinder(unittest.TestCase):
         # Check the mask resolution
         TestVoidFinder.mask_resolution = 1
         self.assertTrue(np.isclose(f_mask_resolution, TestVoidFinder.mask_resolution))
+
+        # generate_mask now saves its output to a fits file. This could be a source of further checks
     
 
 
@@ -600,7 +600,7 @@ class TestVoidFinder(unittest.TestCase):
         
 
         find_voids(TestVoidFinder.wall, 
-                   'test_', 
+                   'test_', '',
                    grid_origin=coords_min,
                    mask=TestVoidFinder.mask, 
                    mask_resolution=1,
@@ -609,8 +609,7 @@ class TestVoidFinder(unittest.TestCase):
                    min_maximal_radius=self.min_maximal_radius, 
                    num_cpus=1, 
                    pts_per_unit_volume=0.01, # 5
-                   void_table_filename='test_galaxies_redshift_holes.txt', 
-                   maximal_spheres_filename='test_galaxies_redshift_maximal.txt')
+                   )
 
 
 
@@ -631,11 +630,12 @@ class TestVoidFinder(unittest.TestCase):
         viz.run()           
         '''
 
-
+        #Load voids
+        with fits.open('test_VoidFinder_Output.fits') as file:
+            f_maximals = Table(file['MAXIMALS'].data)
+            f_holes = Table(file['HOLES'].data)
         
         # Check maximal spheres
-        f_maximals = Table.read('test_galaxies_redshift_maximal.txt', 
-                                format='ascii.commented_header')
         maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
                                     format='ascii.commented_header')
         '''
@@ -648,14 +648,12 @@ class TestVoidFinder(unittest.TestCase):
         #self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
         # Check holes
-        f_holes = Table.read('test_galaxies_redshift_holes.txt', 
-                             format='ascii.commented_header')
         holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
                                  format='ascii.commented_header')
 
-        # Sort both tables by flag, radius, x, y, z columns
-        f_holes.sort(['flag', 'radius', 'x', 'y', 'z'])
-        holes_truth.sort(['flag', 'radius', 'x', 'y', 'z'])
+        # Sort both tables by void flag, radius, x, y, z columns
+        f_holes.sort(['void', 'radius', 'x', 'y', 'z'])
+        holes_truth.sort(['void', 'radius', 'x', 'y', 'z'])
         '''
         for name in f_holes.dtype.names:
             if not np.allclose(f_holes[name], holes_truth[name]):

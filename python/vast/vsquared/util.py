@@ -3,6 +3,8 @@ from collections.abc import Iterable
 import astropy.units as u
 from astropy.cosmology import FlatLambdaCDM, z_at_value
 from scipy import interpolate
+from astropy.io import fits
+import os
 
 c    = 3e5
 D2R  = np.pi/180.
@@ -222,3 +224,93 @@ def flatten(l):
             yield from flatten(el)
         else:
             yield el
+
+def open_fits_file_V2(
+        log_filename,
+        method=None,
+        out_directory=None, 
+        survey_name=None):
+    
+    '''
+    Reads in a fits file. If the file doesn't exist, a new file is created.
+    
+    
+    PARAMETERS
+    ==========
+    
+    log_filename : string
+        The full path to the fits file. If None, then the path is created from
+        out_directory and survey_name
+
+    method : int
+        0 = VIDE method (arXiv:1406.1191); link zones with density <1/5 mean density, and remove voids with density >1/5 mean density.
+        1 = ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
+        2 = ZOBOV method; cut voids over a significance threshold.
+        3 = not available
+        4 = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
+
+    out_directory : string
+        The folder containing the fits file. Only used if log_filename = None
+
+    survey_name : string
+        The name of the survey associated with the fits file. The name of the
+        fits file will be (survey_name + '_V2_<method>_Output.fits'). Only used
+        if log_filename = None
+    
+    RETURNS
+    =======
+
+    hdul : astropy fits object
+        The fits file
+
+    log_filename : string
+        The full path to the fits file. Only returned if the log_filename
+        input parameter is None
+
+    '''
+    # set the method name
+    method_name = 'ZOBOV'
+    if method == 0:
+        method_name = 'VIDE'
+    elif method == 4:
+        method_name = 'REVOLVER'
+    
+    # format directory and file name appropriately
+    return_file_path = False
+    if log_filename is None:
+
+        return_file_path = True
+
+        if len(out_directory) > 0 and out_directory[-1] != '/':
+            out_directory += '/'
+
+        if len(survey_name) > 0 and survey_name[-1] != '_':
+            survey_name += '_'
+
+        log_filename = out_directory + survey_name + f'V2_{method_name}_Output.fits'
+        
+    #create the output file if it doesn't already exist
+    if not os.path.isfile(log_filename):
+        hdul = fits.HDUList([fits.PrimaryHDU(header=fits.Header())])
+        hdul.writeto(log_filename)
+
+    #open the output file
+    hdul = fits.open(log_filename)
+
+    if return_file_path:
+        return hdul, log_filename
+    
+    return hdul
+
+# (Make Number) Format floats for headers
+def mknumV2 (flt):
+
+    if flt is None:
+        return None
+
+    #preserve 3 sig figs for numbers starting with "0."
+    if abs(flt) < 1:
+        return float(f"{flt:.3g}")
+    #otherwise round to two decimal places
+    else:
+        return float(f"{flt:.2f}")

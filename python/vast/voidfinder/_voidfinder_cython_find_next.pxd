@@ -43,9 +43,13 @@ cdef struct FindNextReturnVal:
     DTYPE_B_t failed
     
     
-cdef struct DistIdxPair:
-    ITYPE_t idx
+cdef struct GalIdxDescriptor:
+    DTYPE_INT64_t idx
     DTYPE_F64_t dist
+    DTYPE_F64_t min_x_val
+    DTYPE_F64_t shift_x, shift_y, shift_z
+    CELL_ID_t mod_i, mod_j, mod_k
+    DTYPE_B_t failed
                                   
                                          
 cdef packed struct LOOKUPMEM_t:
@@ -65,7 +69,10 @@ cdef packed struct HOLE_LOOKUPMEM_t:
     
 
 cdef struct OffsetNumPair:
-    DTYPE_INT64_t offset, num_elements      
+    DTYPE_INT64_t offset, num_elements
+    DTYPE_F64_t shift_x, shift_y, shift_z
+    CELL_ID_t mod_i, mod_j, mod_k
+    
     
     
     
@@ -87,11 +94,13 @@ cdef FindNextReturnVal find_next_galaxy(DTYPE_F64_t[:,:] hole_center_memview, \
                                         )
 '''
 
+
 cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates, \
                   DTYPE_B_t[:,:] survey_mask_ra_dec, \
                   DTYPE_INT32_t n, \
                   DTYPE_F64_t rmin, \
                   DTYPE_F64_t rmax)
+                  
 
 #cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:,:] coordinates, \
 #                  DTYPE_B_t[:,:] survey_mask_ra_dec, \
@@ -255,15 +264,16 @@ cdef class SpatialMap:
     cdef public object kdtree
     
     
-    #cpdef public DTYPE_B_t contains(self,
-    #                               CELL_ID_t i, 
-    #                               CELL_ID_t j, 
-    #                               CELL_ID_t k)
+    cpdef public DTYPE_B_t contains(self,
+                                   CELL_ID_t i, 
+                                   CELL_ID_t j, 
+                                   CELL_ID_t k)
     
-    #cdef public OffsetNumPair getitem(self,
-    #                                  CELL_ID_t i, 
-    #                                  CELL_ID_t j, 
-    #                                  CELL_ID_t k) except *
+    cdef public OffsetNumPair getitem(self,
+                                      CELL_ID_t i, 
+                                      CELL_ID_t j, 
+                                      CELL_ID_t k)
+    #                                 CELL_ID_t k) except *
     
     cdef public void setitem(self, 
                              CELL_ID_t i,
@@ -282,20 +292,22 @@ cdef class SpatialMap:
  
     cpdef void refresh(self)
     
-    cdef public ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:])
+    cdef public GalIdxDescriptor find_first_neighbor(self, DTYPE_F64_t[:])
     
     
-    #cpdef public FindNextReturnVal find_next_bounding_point(SpatialMap self, 
-    #                                                        DTYPE_F64_t[:] start_hole_center,
-    #                                                        DTYPE_F64_t[:] search_unit_vector,
-    #                                                        ITYPE_t[:] existing_bounding_idxs,
-    #                                                        ITYPE_t num_neighbors,
-    #                                                        MaskChecker mask_checker)
+    cpdef public GalIdxDescriptor find_next_bounding_point(SpatialMap self, 
+                                                            DTYPE_F64_t[:] start_hole_center,
+                                                            DTYPE_F64_t[:] search_unit_vector,
+                                                            GalIdxDescriptor[:] existing_bounding_idxs,
+                                                            ITYPE_t num_neighbors,
+                                                            MaskChecker mask_checker)
     
     
     cdef public DTYPE_F64_t calculate_x_val(self, 
                                             ITYPE_t gal_idx, 
                                             ITYPE_t k1g_idx, 
+                                            DTYPE_F64_t[:] shift_vals,
+                                            DTYPE_F64_t[:] k1g_shift,
                                             DTYPE_F64_t[:] start_hole_center, 
                                             DTYPE_F64_t[:] search_unit_vector)
     
@@ -363,7 +375,7 @@ cdef class SphereGrower:
         
     cdef public DTYPE_F64_t[:] search_unit_vector
     
-    cdef public ITYPE_t[:] existing_bounding_idxs
+    cdef public GalIdxDescriptor[:] existing_bounding_idxs
         
     cdef public DTYPE_F64_t[:] midpoint_memview
         
@@ -382,6 +394,12 @@ cdef class SphereGrower:
     
     
     cdef public DTYPE_F64_t[:] temp_vector
+    
+    
+    cdef public DTYPE_F64_t[:] k1g_pos_xyz
+    cdef public DTYPE_F64_t[:] k2g_pos_xyz
+    cdef public DTYPE_F64_t[:] k3g_pos_xyz
+    
     
     cdef public DTYPE_F64_t vector_modulus, temp_f64_val, temp_f64_accum
     

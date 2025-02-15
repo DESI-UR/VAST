@@ -9,6 +9,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 from astropy.cosmology import FlatLambdaCDM
+from vast.vsquared.util import open_fits_file_V2
 
 # Constants
 c = 3e5
@@ -19,7 +20,7 @@ distance_metric = 'comoving'
 Omega_M = 0.3
 h = 1.0
 Kos = FlatLambdaCDM(h*100.,Omega_M)
-
+"""
 if __name__ == "__main__":
     
     infilename1 = "../data/DR7_triangles.dat"
@@ -52,20 +53,17 @@ if __name__ == "__main__":
     #print(xyz_galaxy_data)
     
     print(voids_data)
-    
+"""
 
-def load_void_data(infilename1, infilename2):
+def load_void_data(infilename):
     '''
     Load voids as formatted for Vsquared
 
     Parameters
     ==========
 
-    infilename1 : string
-        path to desired _triangles.dat data file
-
-    infilename2 : string
-        path to desired _galviz.dat data file
+    infilename : string
+        path to desired void catalog
 
     Returns
     =======
@@ -86,9 +84,18 @@ def load_void_data(infilename1, infilename2):
         the void ID of each galaxy's nearest neighbor
 
     '''
+    #read in voids file
+    catalog = open_fits_file_V2(infilename)
     
-    voids_data = Table.read(infilename1, format='ascii.commented_header')
-    gv_data = Table.read(infilename2, format='ascii.commented_header')
+    voids_data = Table(catalog['TRIANGLE'].data)
+    gv_data = Table(catalog['GALVIZ'].data)
+
+    del catalog
+    #make column names lowercase
+    for colname in voids_data.colnames:
+        voids_data[colname].name = colname.lower()
+    for colname in gv_data.colnames:
+        gv_data[colname].name = colname.lower()
     
     num_rows = len(voids_data)
 

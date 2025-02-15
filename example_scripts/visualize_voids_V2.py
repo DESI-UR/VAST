@@ -16,8 +16,7 @@ from vispy.color import Colormap
 ################################################################################
 # Load data
 #-------------------------------------------------------------------------------
-voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data("DR7_triangles.dat", 
-                                                                                               "DR7_galviz.dat")
+voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data("DR7_V2_VIDE_Output.fits")
 
 galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.fits")
 

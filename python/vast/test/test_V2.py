@@ -8,6 +8,7 @@ from vast.vsquared import util, classes, zobov
 import os
 import copy
 import numpy as np
+import configparser
 
 class TestV2(unittest.TestCase):
 
@@ -26,7 +27,10 @@ class TestV2(unittest.TestCase):
     def test_cat_coord(self):
         """Check catalog coordinate access
         """
-        TestV2.cat = classes.Catalog(TestV2.catfile, 16, 0.03, 0.1)
+        config = configparser.ConfigParser()
+        config.read(TestV2.inifile)
+        TestV2.zobov = zobov.Zobov(TestV2.inifile, save_intermediate=False)
+        TestV2.cat = classes.Catalog(TestV2.catfile, 16, 0.03, 0.1, config['Galaxy Column Names'],zobov=TestV2.zobov)
 
         mcoord = np.array([-158.0472400951847,-19.01100010666949,94.40978960900837])
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[0]), mcoord[0]))
@@ -114,17 +118,18 @@ class TestV2(unittest.TestCase):
         self.assertTrue(hasattr(TestV2.zobov, 'vrads')) # after sortVoids
 
         TestV2.zobov.saveVoids()
-        self.assertTrue(os.path.exists('TEST_zobovoids.dat'))
-        self.assertTrue(os.path.exists('TEST_zonevoids.dat'))
+
+        self.assertTrue(os.path.exists('TEST_V2_VIDE_Output.fits'))
 
         # Save zones.
         TestV2.zobov.saveZones()
-        self.assertTrue(os.path.exists('TEST_galzones.dat'))
+        
+        self.assertTrue(os.path.exists('TEST_V2_VIDE_Output.fits'))
 
     def tearDown(self):
         """Delete files produced for the unit tests.
         """
-        files = [ 'TEST_zobovoids.dat', 'TEST_zonevoids.dat', 'TEST_galzones.dat' ]
+        files = [ 'TEST_V2_VIDE_Output.fits' ]
         for f in files:
             if os.path.exists(f):
                 os.remove(f)

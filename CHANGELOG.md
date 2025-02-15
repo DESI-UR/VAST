@@ -1,7 +1,19 @@
 # Change Log
 Log of changes for VAST versions.
 
+## 1.6.0
+- Feature: Added void catalog class for reading void-finding fits output and performing analysis.
 
+## 1.5.0
+- Feature: Replaced the multiple txt output files for VoidFinder and V2 with a single fits file.
+
+## 1.4.3
+- VF Bugfix:  Found an issue finding 3rd bounding galaxy for a hole when galaxies are colinear with the 
+              hole center as in some synthetic datasets.
+              Changed Period Mode strategy to add an offset to existing galaxies instead of allocating
+              additional memory as new cells.  May want to revisit strategy, but appears to be working well,
+              in non-periodic mode this offset should always be 0.0.  VF on SDSS DR7 finds 900 voids now using the 
+              example script.
 
 ## 1.4.2
 - VF Bugfix:  Galaxies exactly on the "far" edge of the survey (cells furthest from grid_origin) causing problems
