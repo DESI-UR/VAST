@@ -25,5 +25,5 @@ viz.run()
 """
 from .void_render import VoidRender
 
-from .load_results import load_void_data, load_galaxy_data
+from .load_results import load_void_data, format_galaxy_data
 

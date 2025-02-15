@@ -38,16 +38,9 @@ A summary checklist for installing and running
     
    .. note:: Include the ``-v`` option to produce the output required for **VoidRender**.
 
-The output files will be located in the directory specified by the Output 
-directory.
-
- * ``[survey_name]_galviz.dat``
- * ``[survey_name]_galzones.dat``
- * ``[survey_name]_triangles.dat``
- * ``[survey_name]_zobovoids.dat``
- * ``[survey_name]_zonevoids.dat``
-
-See :ref:`V2-output` for a detailed description of each of these files.
+The output file ``[survey_name]_V2_[pruning_method]_Output.fits`` will be 
+located in the directory specified by ``out_directory``. See :ref:`V2-output` 
+for a detailed description of this file.
 
 
 
@@ -136,12 +129,12 @@ with the following options:
      - Paths
      - string
      - 
-     - Survey identifier to use in output file names
+     - Survey identifier to use in output file name
    * - ``Output Directory``
      - Paths
      - string
      - 
-     - Path to the directory where output files will be saved
+     - Path to the directory where output file will be saved
    * - ``H_0``
      - Cosmology
      - float
@@ -202,7 +195,9 @@ File format
 
 Currently supported formats for the input data file include:
 
- * .fits
+ * ascii commented header (readable by ``astropy.table.Table.read``)
+ * .fits or .fit
+ * .h5
 
 
 Data columns
@@ -252,26 +247,28 @@ Output
 ======
 
 Each void found by :raw-html:`<strong>V<sup>2</sup></strong>` is a set of 
-Voronoi cells.  The files that list the identified voids are:
+Voronoi cells.  Within the output file 
+``[survey_name]_V2_[pruning_method]_Output.fits``, the 
+`FITS table HDUs <https://fits.gsfc.nasa.gov/fits_primer.html>`_ that list the 
+identified voids have the EXTNAMES:
 
- * ``[survey_name]_galzones.dat`` -- Identifies the zone to which each galaxy 
-   belongs.
- * ``[survey_name]_zonevoids.dat`` -- Identifies the void to which each zone 
-   belongs.
- * ``[survey_name]_zobovoids.dat`` -- Identifies the coordinates, effective 
-   radius, and ellipticity of each void.
+ * ``GALZONE`` -- Identifies the zone to which each galaxy belongs.
+ * ``ZONEVOID`` -- Identifies the void to which each zone belongs.
+ * ``VOIDS`` -- Identifies the coordinates, effective radius, and ellipticity of 
+ 	each void.
 
 Each of these files is described in more detail below.
 
 Additional files that are produced during the process (which may or may not be 
 useful to the user post-void-finding) include
- 
- * ``[survey_name]_triangles.dat`` -- Identifies the vertices, normal vector,
-   and void membership of each triangle making up a void boundary
- * ``[survey_name]_galviz.dat`` -- Identifies the voids to which each galaxy and
-   its nearest neighbor belong
 
-.. list-table:: ``_galzones`` output file
+ * ``PRIMARY`` -- Summary information about the void-finding and void catalog.
+ * ``TRIANGLE`` -- Identifies the vertices, normal vector, and void membership 
+ 	of each triangle making up a void boundary
+ * ``GALVIZ`` -- Identifies the voids to which each galaxy and its nearest 
+ 	neighbor belong
+
+.. list-table:: ``GALZONE`` output table HDU
    :widths: 25 25 50
    :header-rows: 1
    
@@ -296,7 +293,7 @@ useful to the user post-void-finding) include
      - integer
      - 1 if the galaxy is located outside the survey mask, 0 otherwise
      
-.. list-table:: ``_zonevoids`` output file
+.. list-table:: ``ZONEVOID`` output table HDU
    :widths: 25 25 50
    :header-rows: 1
    
@@ -315,7 +312,7 @@ useful to the user post-void-finding) include
      - Unique identifier of the zone's largest containing void; -1 if zone is 
        not part of a void
 
-.. list-table:: ``_zobovoids`` output file
+.. list-table:: ``VOIDS`` output table HDU
    :widths: 25 25 25 50
    :header-rows: 1
 
@@ -388,7 +385,7 @@ useful to the user post-void-finding) include
      - 
      - normalized z-component of the void's third ellipsoid axis
 
-.. list-table:: ``_triangles`` output file
+.. list-table:: ``TRIANGLE`` output table HDU
    :widths: 25 25 25 50
    :header-rows: 1
 
@@ -449,7 +446,7 @@ useful to the user post-void-finding) include
      - Mpc/h
      - z-coordinate of the triangle's third vertex
 
-.. list-table:: ``_galviz`` output file
+.. list-table:: ``GALVIZ`` output table HDU
    :widths: 25 25 50
    :header-rows: 1
    
@@ -478,12 +475,21 @@ Is my object in a void?
 
 Because voids found by :raw-html:`<strong>V<sup>2</sup></strong>` are formed 
 from zones, which are unions of objects' voronoi cells, each object's void 
-membership is easily determined from the output.  The ``_galzones.dat`` output 
-file (see :ref:`V2-output`) contains each object's zone membership, and the 
-``_zonevoids.dat`` output file contains each zone's void membership.  If the 
-values in the ``void0`` and ``void1`` columns of a zone are ``-1``, the zone 
-does not belong to any void, and any objects contained within that zone are not 
-in a void.
+membership is easily determined from the output.  The ``GALZONE`` output table 
+(see :ref:`V2-output`) contains each object's zone membership, and the 
+``ZONEVOID`` output table contains each zone's void membership.  If the values 
+in the ``void0`` and ``void1`` columns of a zone are ``-1``, the zone does not 
+belong to any void, and any objects contained within that zone are not in a 
+void.
+
+See the jupyter notebook ``void_analysis.ipynb`` (found in the 
+``VAST/example_scripts/`` directory) for an example of how to read information 
+from the output and perform void analysis using the ``VoidCatalog`` class.  This 
+class offers a convenient method for automatically loading the FITS file output 
+into a collection of Astropy tables.  The class can be further used to perform 
+void analysis, including the calculation of void volumes, median and maximum 
+void radii, the total void volume fraction, and void galaxy membership.  The 
+notebook also shows how to create a void slice plot using the catalog.
  
  
 

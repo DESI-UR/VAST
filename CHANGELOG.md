@@ -1,7 +1,11 @@
 # Change Log
 Log of changes for VAST versions.
 
+## 1.6.0
+- Feature: Added void catalog class for reading void-finding fits output and performing analysis.
 
+## 1.5.0
+- Feature: Replaced the multiple txt output files for VoidFinder and V2 with a single fits file.
 
 ## 1.4.3
 - VF Bugfix:  Found an issue finding 3rd bounding galaxy for a hole when galaxies are colinear with the 

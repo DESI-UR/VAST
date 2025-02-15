@@ -88,12 +88,12 @@ def combine_holes(spheres_table, frac=0.1):
 
     maximal_spheres_table : astropy table of length M
         Table of maximal spheres (largest hole in each void).  Minimum radius is 
-        10 Mpc/h.  Columns: x, y, z, radius (all in units of Mpc/h), flag 
+        10 Mpc/h.  Columns: x, y, z, radius (all in units of Mpc/h), void 
         (unique void number).
 
     holes_table : astropy table of length P
         Table of all holes that belong to voids.  Columns: x, y, z, radius (all 
-        in units of Mpc/h), flag (void number identifier).
+        in units of Mpc/h), void (void number identifier).
     '''
 
 
@@ -280,10 +280,10 @@ def combine_holes_2(x_y_z_r_array,
     # Format the results as astropy tables
     #---------------------------------------------------------------------------
     maximals_table = Table(maximals_xyzr, names=('x','y','z','radius'))
-    maximals_table["flag"] = np.arange(maximals_xyzr.shape[0])
+    maximals_table["void"] = np.arange(maximals_xyzr.shape[0])
 
     holes_table =  Table(holes_xyzr, names=('x','y','z','radius'))
-    holes_table["flag"] = holes_flag_index
+    holes_table["void"] = holes_flag_index
     ############################################################################
 
 
@@ -293,10 +293,10 @@ def combine_holes_2(x_y_z_r_array,
     #---------------------------------------------------------------------------
     maximals_table["edge"] = 0
 
-    for i,void in enumerate(maximals_table["flag"]):
+    for i,void in enumerate(maximals_table["void"]):
 
         # Find all holes associated with this void
-        void_hole_indices = holes_table["flag"] == void
+        void_hole_indices = holes_table["void"] == void
 
         # Check to see if any of the holes are on the boundary
         if np.any(boundary_voids[void_hole_indices]):
@@ -484,7 +484,7 @@ def find_maximals(spheres_table, frac):
 
     maximal_spheres_table : astropy table of length M
         Table of maximal spheres.  Columns: x, y, z, radius (all in units of 
-        Mpc/h), flag (unique void identifier)
+        Mpc/h), void (unique void identifier)
 
     maximal_spheres_indices : numpy array of shape (M,)
         Integer numpy array of the indices in spheres_table corresponding to 
@@ -614,7 +614,7 @@ def find_maximals(spheres_table, frac):
     maximal_spheres_table['radius'] = maximal_spheres_radii[0:out_idx]
 
     # Add void flag identifier to maximal spheres
-    maximal_spheres_table['flag'] = np.arange(N_voids) + 1
+    maximal_spheres_table["void"] = np.arange(N_voids) + 1
 
     # Convert maximal_spheres_indices to numpy array of type int
     maximal_spheres_indices = np.array(maximal_spheres_indices, dtype=int)
@@ -651,7 +651,7 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
 
     maximal_spheres_table : astropy table of length M
         Table of maximal spheres.  Columns: x, y, z, radius (all in units of 
-        Mpc/h), flag (unique void identifier)
+        Mpc/h), void (unique void identifier)
 
     maximal_spheres_indices : numpy array of shape (M,)
         Integer numpy array of the indices in spheres_table corresponding to 
@@ -663,7 +663,7 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
 
     hole_table : astropy table of length P
         Table of void holes.  Columns are x, y, z, radius (all in units of 
-        Mpc/h), flag (void identifier)
+        Mpc/h), void (void identifier)
     '''
 
 
@@ -688,7 +688,7 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
 
 
     # Initialize void flag identifier
-    spheres_table['flag'] = -1
+    spheres_table["void"] = -1
 
     # Number of holes
     N_spheres = len(spheres_table)
@@ -730,8 +730,8 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
         if i in maximal_sphere_index:
             N_holes += 1
             holes_indices.append(i)
-            #spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_spheres_indices == i]
-            spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_sphere_index[i]]
+            #spheres_table["void"][i] = maximal_spheres_table["void"][maximal_spheres_indices == i]
+            spheres_table["void"][i] = maximal_spheres_table["void"][maximal_sphere_index[i]]
             #print('sphere i is a maximal sphere')
             continue
         ########################################################################
@@ -813,7 +813,7 @@ def find_holes(spheres_table, maximal_spheres_table, maximal_spheres_indices):
 
                 holes_indices.append(i)
 
-                spheres_table['flag'][i] = maximal_spheres_table['flag'][maximal_overlap_indices[overlap2_boolean]]
+                spheres_table["void"][i] = maximal_spheres_table["void"][maximal_overlap_indices[overlap2_boolean]]
             '''
             else:
                 print('Hole overlaps void, but not part of one', sphere_i_radius)

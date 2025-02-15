@@ -6,13 +6,16 @@ import pickle
 import configparser
 from scipy import stats
 from astropy.table import Table
+from astropy.io import fits
+from astropy.cosmology import FlatLambdaCDM
 
-from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten
+
+from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten, open_fits_file_V2, mknumV2
 from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
 
 class Zobov:
 
-    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False):
+    def __init__(self,configfile,start=0,end=3,save_intermediate=True,visualize=False,periodic=False, capitalize_colnames=False):
         """Initialization of the ZOnes Bordering on Voids (ZOBOV) algorithm.
 
         Parameters
@@ -29,6 +32,8 @@ class Zobov:
             Create visualization.
         periodic : bool
             Use periodic boundary conditions.
+        capitalize_colnames : bool
+            If True, column names in ouput file are capitalized. If False, column names are lowercase
         """
         if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
             print("Choose valid stages")
@@ -44,31 +49,55 @@ class Zobov:
         config = configparser.ConfigParser()
         config.read(configfile)
 
+        hdu = fits.PrimaryHDU(header=fits.Header())
+        hduh = hdu.header
+
         self.infile  = config['Paths']['Input Catalog']
+        hduh['INFILE'] = (self.infile.split('/')[-1], 'Input Galaxy Table') #split directories by '/' and take the filename at the end
         self.catname = config['Paths']['Survey Name']
         self.outdir  = config['Paths']['Output Directory']
         self.intloc  = "../../intermediate/" + self.catname
         
         self.H0   = float(config['Cosmology']['H_0'])
+        hduh['HP'] = (self.H0/100, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
         self.Om_m = float(config['Cosmology']['Omega_m'])
-
+        Kos = FlatLambdaCDM(self.H0, self.Om_m)
+        hduh['OMEGAM'] = (self.Om_m,'Matter Density')
         self.zmin   = float(config['Settings']['redshift_min'])
+        hduh['ZLIML'] = (mknumV2(self.zmin), 'Lower Redshift Limit')
         self.zmax   = float(config['Settings']['redshift_max'])
+        hduh['ZLIMU'] = (mknumV2(self.zmax), 'Upper Redshift Limit')
+        hduh['DLIML'] =  (Kos.comoving_distance(self.zmin).value, 'Lower Distance Limit (Mpc/h)')
+        hduh['DLIMU'] =  (Kos.comoving_distance(self.zmax).value, 'Upper Distance Limit (Mpc/h)')
         self.minrad = float(config['Settings']['radius_min'])
+        hduh['MINR'] = (mknumV2(self.minrad), ' Minimum Void Radius (Mpc/h)')
         self.zstep  = float(config['Settings']['redshift_step'])
+        hduh['ZSTEP'] = (mknumV2(self.zstep), 'Step Size for r-to-z Lookup Table')
         self.nside  = int(config['Settings']['nside'])
+        hduh['NSIDE'] = (self.nside, 'NSIDE for HEALPix Pixelization')
         self.maglim = config['Settings']['rabsmag_min']
         self.maglim = None if self.maglim=="None" else float(self.maglim)
+        hduh['MAGLIM'] = (mknumV2(self.maglim), 'Magnitude Limit (dex)')
         self.cmin = np.array([float(config['Settings']['x_min']),float(config['Settings']['y_min']),float(config['Settings']['z_min'])])
+        hduh['PXMIN'] = (mknumV2(self.cmin[0]), 'Lower X-limit for Periodic Boundary Conditions')
+        hduh['PYMIN'] = (mknumV2(self.cmin[1]), 'Lower Y-limit for Periodic Boundary Conditions')
+        hduh['PZMIN'] = (mknumV2(self.cmin[2]), 'Lower Z-limit for Periodic Boundary Conditions')
         self.cmax = np.array([float(config['Settings']['x_max']),float(config['Settings']['y_max']),float(config['Settings']['z_max'])])
+        hduh['PXMAX'] = (mknumV2(self.cmax[0]), 'Upper X-limit for Periodic Boundary Conditions')
+        hduh['PYMAX'] = (mknumV2(self.cmax[1]), 'Upper Y-limit for Periodic Boundary Conditions')
+        hduh['PZMAX'] = (mknumV2(self.cmax[2]), 'Upper Z-limit for Periodic Boundary Conditions')
         self.buff = float(config['Settings']['buffer'])
-
+        hduh['BUFFER'] = (mknumV2(self.buff), 'Periodic Buffer Shell Width (Mpc/h)')
+        self.hdu = hdu
 
         if start<4:
             if start<3:
                 if start<2:
                     if start<1:
-                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,maglim=self.maglim,H0=self.H0,Om_m=self.Om_m,periodic=self.periodic,cmin=self.cmin,cmax=self.cmax)
+                        ctlg = Catalog(catfile=self.infile,nside=self.nside,zmin=self.zmin,zmax=self.zmax,
+                                       column_names = config['Galaxy Column Names'], maglim=self.maglim,
+                                       H0=self.H0,Om_m=self.Om_m,periodic=self.periodic, cmin=self.cmin,
+                                       cmax=self.cmax, zobov = self)
                         if save_intermediate:
                             pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
                     else:
@@ -104,6 +133,7 @@ class Zobov:
             self.zones       = zones
         if end>2:
             self.prevoids    = voids
+        self.capitalize = capitalize_colnames
 
 
     def sortVoids(self, method=0, minsig=2, dc=0.2):
@@ -113,12 +143,12 @@ class Zobov:
         Parameters
         ==========
 
-        method : int
-            0 = VIDE method (arXiv:1406.1191); link zones with density <1/5 mean density, and remove voids with density >1/5 mean density.
-            1 = ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
-            2 = ZOBOV method; cut voids over a significance threshold.
+        method : int or string
+            0 or VIDE or vide = VIDE method (arXiv:1406.1191); link zones with density <1/5 mean density, and remove voids with density >1/5 mean density.
+            1 or ZOBOV or zobov = ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
+            2 or ZOBOV2 or zobov2 = ZOBOV method; cut voids over a significance threshold.
             3 = not available
-            4 = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
+            4 or REVOLVER or revolver = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
         
         minsig : float
             Minimum significance threshold for selecting voids.
@@ -126,6 +156,20 @@ class Zobov:
         dc : float
             Density cut for linking zones using VIDE method.
         """
+
+        #format method
+        if isinstance(method, str):
+            try:
+                method = int(method)
+            except:
+                if method == 'VIDE' or method == 'vide':
+                    method = 0
+                if method == 'ZOBOV' or method == 'zobov':
+                    method = 1
+                if method == 'ZOBOV2' or method == 'zobov2':
+                    method = 2
+                if method == 'REVOLVER' or method == 'revolver':
+                    method = 4
 
         if not hasattr(self,'prevoids'):
             if method != 4:
@@ -264,6 +308,7 @@ class Zobov:
         self.vcens = vcens
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
+        self.method = method
 
 
     def saveVoids(self):
@@ -277,21 +322,53 @@ class Zobov:
         vax2 = np.array([vx[1] for vx in self.vaxes]).T
         vax3 = np.array([vx[2] for vx in self.vaxes]).T
 
+        # format output tables
         if self.periodic:
+            names = ['x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            if self.capitalize:
+                names = [name.upper() for name in names]
             vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names=('x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+                    names = names,
+                    units = ['Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
+            names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            if self.capitalize:
+                names = [name.upper() for name in names]
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
             vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names=('x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3'))
+                    names = names,
+                    units = ['Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+        
+        names = ['zone','void0','void1']
+        if self.capitalize:
+            names = [name.upper() for name in names]
+        vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]], names=names)
+        
+        # read in the ouptput file
+        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
 
-        vT.write(self.outdir+self.catname+"_zobovoids.dat",format='ascii.commented_header',overwrite=True)
+        # write to the output file
+        hdul['PRIMARY'].header = self.hdu.header
+        if not self.periodic:
+            hdul.append(self.maskHDU)
 
-        vZ = Table([np.array(range(len(self.zvoid))),(self.zvoid).T[0],(self.zvoid).T[1]],
-                    names=('zone','void0','void1'))
-        vZ.write(self.outdir+self.catname+"_zonevoids.dat", 
-                 format='ascii.commented_header', 
-                 overwrite=True)
+        hdu = fits.BinTableHDU()
+        hdu.name = 'VOIDS'
+        hdul.append(hdu)
+        voids = hdul['VOIDS']
+        voids.header['VOID'] = (len(vT), 'Void Count')
+        voids.data = fits.BinTableHDU(vT).data
+
+        hdu = fits.BinTableHDU()
+        hdu.name = 'ZONEVOID'
+        hdul.append(hdu)
+        zones = hdul['ZONEVOID']
+        zones.header['COUNT'] = (len(vZ), 'Zone Count')
+        zones.data = fits.BinTableHDU(vZ).data
+        
+        #save file changes
+        hdul.writeto(log_filename, overwrite=True)
+        print ('V2 void output saved to',log_filename)
 
 
     def saveZones(self):
@@ -325,8 +402,33 @@ class Zobov:
                     elist[glut2[c]] = 1
         elist[np.array(olist,dtype=bool)] = 0
 
-        zT = Table([self.catalog.galids,zlist,dlist,elist,olist],names=('gal','zone','depth','edge','out'))
-        zT.write(self.outdir+self.catname+"_galzones.dat",format='ascii.commented_header',overwrite=True)
+        # format output tables
+        names = ['gal','zone','depth','edge','out']
+        columns = [self.catalog.galids,zlist,dlist,elist,olist]
+        
+        if hasattr(self.catalog, 'tarids'):
+            names.insert(1, 'target')
+            columns.insert(1, self.catalog.tarids)
+            
+        if self.capitalize:
+            names = [name.upper() for name in names]
+
+        zT = Table(columns, names=names)
+        
+        # read in the ouptput file
+        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
+
+        # write to the output file
+        hdu = fits.BinTableHDU()
+        hdu.name = 'GALZONE'
+        hdul.append(hdu)
+        galaxies = hdul['GALZONE']
+        galaxies.header['COUNT'] = (len(zT), 'Galaxy Count')
+        galaxies.data = fits.BinTableHDU(zT).data
+        
+        #save file changes
+        hdul.writeto(log_filename, overwrite=True)
+        print ('V2 zone output saved to',log_filename)
 
 
     def preViz(self):
@@ -391,8 +493,37 @@ class Zobov:
         norm = np.array(norm).T
         vid = np.array(vid)
 
+        # format output tables
+        names = ['void_id','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
+        if self.capitalize:
+            names = [name.upper() for name in names]
         vizT = Table([vid,norm[0],norm[1],norm[2],tri1[0],tri1[1],tri1[2],tri2[0],tri2[1],tri2[2],tri3[0],tri3[1],tri3[2]],
-                     names=('void_id','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z'))
-        vizT.write(self.outdir+self.catname+"_triangles.dat",format='ascii.commented_header',overwrite=True)
-        g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=('gid','g2v','g2v2'))
-        g2vT.write(self.outdir+self.catname+"_galviz.dat",format='ascii.commented_header',overwrite=True)
+                     names=names,
+                     units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+        
+        names = ['gid','g2v','g2v2']
+        if self.capitalize:
+            names = [name.upper() for name in names]
+        g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=names)
+
+        # read in the ouptput file
+        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
+
+        # write to the output file
+        hdu = fits.BinTableHDU()
+        hdu.name = 'TRIANGLE'
+        hdul.append(hdu)
+        triangles = hdul['TRIANGLE']
+        triangles.header['COUNT'] = (len(vizT), 'Triangle Count')
+        triangles.data = fits.BinTableHDU(vizT).data
+
+        hdu = fits.BinTableHDU()
+        hdu.name = 'GALVIZ'
+        hdul.append(hdu)
+        galaxies = hdul['GALVIZ']
+        galaxies.header['COUNT'] = (len(g2vT), 'Galaxy Count')
+        galaxies.data = fits.BinTableHDU(g2vT).data
+        
+        #save file changes
+        hdul.writeto(log_filename, overwrite=True)
+        print ('V2 visualization output saved to',log_filename)
