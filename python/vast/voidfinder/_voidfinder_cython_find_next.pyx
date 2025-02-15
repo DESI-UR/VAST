@@ -1053,7 +1053,7 @@ cdef class GalaxyMapCustomDict:
         
         os.ftruncate(self.lookup_fd, lookup_buffer_length)
         
-        print("GalaxyMapCustomDict resizing lookup buffer to (bytes): "+str(lookup_buffer_length), flush=True)
+        #print("GalaxyMapCustomDict resizing lookup buffer to (bytes): "+str(lookup_buffer_length), flush=True)
         
         ########################################################################
         # Close the old mmap and re-map it since we changed the size of our 
@@ -1485,7 +1485,7 @@ cdef class SpatialMap:
                       DTYPE_INT64_t num_elements):
                        
                        
-        print("SpatialMap setitem() called", flush=True)
+        #print("SpatialMap setitem() called", flush=True)
         # Right now we don't have any multiprocessing synchronization
         # on setitem() because its only being used in single-threaded
         # or already-locked locations
@@ -2576,7 +2576,7 @@ cdef class Cell_ID_Memory:
         re-use the original data location.
         """
         
-        print("Cell ID Mem resizing: ", self.max_level_mem, level, flush=True)
+        #print("Cell ID Mem resizing: ", self.max_level_mem, level, flush=True)
 
         
         if level > <size_t>self.max_level_mem:
@@ -2926,8 +2926,8 @@ cdef class SphereGrower:
 
 
 
-#cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
-def _query_first(CELL_ID_t[:] reference_point_pqr,
+cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
+#def _query_first(CELL_ID_t[:] reference_point_pqr,
                                DTYPE_F64_t[:] coord_min,
                                DTYPE_F64_t dl,
                                DTYPE_F64_t[:,:] shell_boundaries_xyz,

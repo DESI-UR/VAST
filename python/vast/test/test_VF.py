@@ -614,7 +614,7 @@ class TestVoidFinder(unittest.TestCase):
 
 
 
-        """
+        '''
         holes_xyz, holes_radii, holes_flags = load_void_data('test_galaxies_redshift_holes.txt')
     
         viz = VoidRender(holes_xyz,
@@ -629,7 +629,7 @@ class TestVoidFinder(unittest.TestCase):
                      )
     
         viz.run()           
-        """
+        '''
 
 
         

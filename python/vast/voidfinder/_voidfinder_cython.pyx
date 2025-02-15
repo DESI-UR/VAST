@@ -279,8 +279,8 @@ cpdef DTYPE_INT64_t fill_ijk(DTYPE_INT64_t[:,:] i_j_k_array,
 
 
 
-#cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
-def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
+cpdef void grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
+#def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
                         DTYPE_INT64_t batch_size,
                         DTYPE_F64_t[:,:] return_array,
                         SpatialMap galaxy_map,
@@ -350,7 +350,7 @@ def grow_spheres(DTYPE_INT64_t[:,:] ijk_array,
     
     for working_idx in range(batch_size):
         
-        print("Working index: ", working_idx, time.time() - start_time, flush=True)
+        #print("Working index: ", working_idx, time.time() - start_time, flush=True)
         
         ################################################################################
         # Initial Setup

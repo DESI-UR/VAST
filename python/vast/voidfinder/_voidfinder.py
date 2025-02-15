@@ -1872,7 +1872,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                              dtype=np.float64)
                 
                 
-                print("Starting batch of: ", num_write, flush=True)
+                #print("Starting batch of: ", num_write, flush=True)
                     
                 grow_spheres(i_j_k_array[0:num_write],
                              num_write,
