@@ -423,7 +423,7 @@ cdef class SphereGrower:
     
     
               
-cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_ijk, \
+cpdef GalIdxDescriptor _query_first(CELL_ID_t[:] reference_point_ijk, \
                                DTYPE_F64_t[:] coord_min, \
                                DTYPE_F64_t dl, \
                                DTYPE_F64_t[:,:] shell_boundaries_xyz, \
