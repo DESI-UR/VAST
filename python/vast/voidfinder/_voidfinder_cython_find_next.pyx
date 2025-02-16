@@ -20,23 +20,23 @@ cimport numpy as np
 np.import_array()  # required in order to use C-API
 
 from .typedefs cimport DTYPE_CP128_t, \
-                      DTYPE_CP64_t, \
-                      DTYPE_F64_t, \
-                      DTYPE_F32_t, \
-                      DTYPE_B_t, \
-                      ITYPE_t, \
-                      DTYPE_INT32_t, \
-                      DTYPE_INT64_t, \
-                      DTYPE_UINT16_t, \
-                      CELL_ID_t
+                       DTYPE_CP64_t, \
+                       DTYPE_F64_t, \
+                       DTYPE_F32_t, \
+                       DTYPE_B_t, \
+                       ITYPE_t, \
+                       DTYPE_INT32_t, \
+                       DTYPE_INT64_t, \
+                       DTYPE_UINT16_t, \
+                       CELL_ID_t
 
 from numpy.math cimport NAN, INFINITY
 
-from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
+from libc.math cimport fabs, sqrt, asin, atan, ceil, floor#, exp, pow, cos, sin, asin
 
 #from libc.stdlib cimport malloc, free
 
-import time
+#import time
 import os
 import tempfile
 from multiprocessing import RLock, Value
@@ -46,9 +46,9 @@ import mmap
 
 
 #DEBUGGING IMPORTS
-from sklearn.neighbors import KDTree
+#from sklearn.neighbors import KDTree
 #Debugging
-from .viz import VoidRender
+#from .viz import VoidRender
 
 
 cdef DTYPE_F64_t RtoD = 180./np.pi
@@ -155,7 +155,7 @@ cdef DTYPE_B_t not_in_mask_xyz(DTYPE_F64_t[:] coordinates,
     
     
 
-cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates, 
+cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates,
                            DTYPE_B_t[:,:] survey_mask_ra_dec, 
                            DTYPE_INT32_t n,
                            DTYPE_F64_t rmin, 
@@ -276,8 +276,16 @@ cpdef DTYPE_B_t not_in_mask(DTYPE_F64_t[:] coordinates,
     idx2 = <ITYPE_t>(n_float*dec) - <ITYPE_t>(n_float*dec_offset)
     
     
-    
+    #try:
     return_mask_value = survey_mask_ra_dec[idx1, idx2]
+    #except Exception as E:
+    #    print("YERPLE DERPLE THIS IS THE BURPLE")
+    #    print(survey_mask_ra_dec)
+    #    print(idx1, idx2)
+    #    print(n)
+    #    print(ra, dec, dec_offset)
+    #    print(coord_x, coord_y, coord_z)
+    #    raise E
     
     ############################################################################
 
@@ -907,6 +915,12 @@ cdef class GalaxyMapCustomDict:
         cdef OffsetNumPair out
         out.offset = -1
         out.num_elements = -1
+        out.shift_x = 0.0
+        out.shift_y = 0.0
+        out.shift_z = 0.0
+        out.mod_i = 0
+        out.mod_j = 0
+        out.mod_k = 0
         
         hash_addr = self.custom_hash(i, j, k)
         
@@ -977,7 +991,7 @@ cdef class GalaxyMapCustomDict:
             
             curr_element = self.lookup_memory[curr_hash_addr]
             
-            if not curr_element.filled_flag:
+            if not curr_element.filled_flag: #is an empty slot
                 
                 if not first_try:
                     
@@ -995,7 +1009,7 @@ cdef class GalaxyMapCustomDict:
                 
                 if curr_element.key_i == i and \
                    curr_element.key_j == j and \
-                   curr_element.key_k == k:
+                   curr_element.key_k == k:  #not empty, but a match, overwriting
                     
                     if not first_try:
                     
@@ -1052,6 +1066,8 @@ cdef class GalaxyMapCustomDict:
         lookup_buffer_length = self.mem_length*23 #23 bytes per element
         
         os.ftruncate(self.lookup_fd, lookup_buffer_length)
+        
+        #print("GalaxyMapCustomDict resizing lookup buffer to (bytes): "+str(lookup_buffer_length), flush=True)
         
         ########################################################################
         # Close the old mmap and re-map it since we changed the size of our 
@@ -1275,7 +1291,7 @@ cdef class SpatialMap:
         # In periodic mode, create a secondary galaxy map for the dynamic portion
         # of cell lookups
         ################################################################################
-        
+        '''
         if self.mask_mode == 2:
             
             grid_dims = (self.galaxy_map.i_dim, self.galaxy_map.j_dim, self.galaxy_map.k_dim)
@@ -1286,7 +1302,7 @@ cdef class SpatialMap:
             
             self.galaxy_map_2 = GalaxyMapCustomDict(grid_dims, resource_dir, 2*starting_cells)
         
-        
+        '''
         
         
         ################################################################################
@@ -1334,6 +1350,7 @@ cdef class SpatialMap:
         
         
     cpdef DTYPE_B_t contains(self,
+    #def contains(self,
                              CELL_ID_t i, 
                              CELL_ID_t j, 
                              CELL_ID_t k):
@@ -1370,6 +1387,7 @@ cdef class SpatialMap:
                 
             else:
                 
+                '''
                 self.update_lock.acquire()
                 
                 if self.galaxy_map_2.process_local_num_elements != self.galaxy_map_2.num_elements.value:
@@ -1405,16 +1423,31 @@ cdef class SpatialMap:
                 else:
                     
                     return False
-            
+                '''
         
-        
-        
+                
+                source_i = i % self.galaxy_map.i_dim
+                if source_i < 0:
+                    source_i += self.galaxy_map.i_dim
+                    
+                source_j = j % self.galaxy_map.j_dim
+                if source_j < 0:
+                    source_j += self.galaxy_map.j_dim
+                    
+                source_k = k % self.galaxy_map.k_dim
+                if source_k < 0:
+                    source_k += self.galaxy_map.k_dim
+                
+                
+                return self.galaxy_map.contains(source_i, source_j, source_k)
+                
         
         
     cdef OffsetNumPair getitem(self,
+    #def getitem(self,
                                CELL_ID_t i, 
                                CELL_ID_t j, 
-                               CELL_ID_t k):
+                               CELL_ID_t k):# except *:
                                
         """
         I believe we will always call contains() on a cell
@@ -1424,7 +1457,9 @@ cdef class SpatialMap:
         
         cdef OffsetNumPair curr_item
         
-        cdef DTYPE_B_t in_bounds
+        cdef CELL_ID_t source_i, source_j, source_k
+        
+        #cdef DTYPE_B_t in_bounds
         
         
         if self.mask_mode == 0 or self.mask_mode == 1:
@@ -1447,12 +1482,20 @@ cdef class SpatialMap:
             return curr_item
             '''
             
+            '''
             in_bounds = self.cell_in_source(i, j, k)
             
             if in_bounds:
                 return self.galaxy_map.getitem(i, j, k)
             else:
-                self.update_lock.acquire()
+                
+                try:
+                
+                    self.update_lock.acquire()
+                    
+                except Exception as E:
+                    print("Encountered Exception")
+                    print(E)
             
                 if self.galaxy_map_2.process_local_num_elements != self.galaxy_map_2.num_elements.value:
                     self.galaxy_map_2.refresh()
@@ -1463,6 +1506,54 @@ cdef class SpatialMap:
                 self.update_lock.release()
                 
                 return curr_item
+            '''
+            
+            
+            #Since cython.cdivision(True) have to check for less than 0
+            source_i = i % self.galaxy_map.i_dim
+            if source_i < 0:
+                source_i += self.galaxy_map.i_dim
+                
+            source_j = j % self.galaxy_map.j_dim
+            if source_j < 0:
+                source_j += self.galaxy_map.j_dim
+                
+            source_k = k % self.galaxy_map.k_dim
+            if source_k < 0:
+                source_k += self.galaxy_map.k_dim
+            
+            
+            curr_item = self.galaxy_map.getitem(source_i, source_j, source_k)
+                
+            if curr_item.offset == -1:
+                #The source cell has 0 galaxies anyway, just return it
+                return curr_item
+            
+            
+            i_ratio = (<DTYPE_F64_t>i) / (<DTYPE_F64_t>self.galaxy_map.i_dim)
+            j_ratio = (<DTYPE_F64_t>j) / (<DTYPE_F64_t>self.galaxy_map.j_dim)
+            k_ratio = (<DTYPE_F64_t>k) / (<DTYPE_F64_t>self.galaxy_map.k_dim)
+            
+            
+            # If the index is between 0 and dim, we want that to floor to 0 since
+            # we're still in the main survey and dont actually want to add any shift
+            # If the index is between 0 and a negative value (since the i,j or k
+            # is negative), we want that to floor to some negative integer, and
+            # if the index is greater than dim, we want that to floor to a pos int
+            integer_factor_i = floor(i_ratio)
+            integer_factor_j = floor(j_ratio)
+            integer_factor_k = floor(k_ratio)
+                
+            
+            curr_item.shift_x = self.dl*self.galaxy_map.i_dim*integer_factor_i
+            curr_item.shift_y = self.dl*self.galaxy_map.j_dim*integer_factor_j
+            curr_item.shift_z = self.dl*self.galaxy_map.k_dim*integer_factor_k
+            curr_item.mod_i = <CELL_ID_t>integer_factor_i
+            curr_item.mod_j = <CELL_ID_t>integer_factor_j
+            curr_item.mod_k = <CELL_ID_t>integer_factor_k
+        
+        
+            return curr_item
             
         
         
@@ -1473,6 +1564,8 @@ cdef class SpatialMap:
                       DTYPE_INT64_t offset,
                       DTYPE_INT64_t num_elements):
                        
+                       
+        #print("SpatialMap setitem() called", flush=True)
         # Right now we don't have any multiprocessing synchronization
         # on setitem() because its only being used in single-threaded
         # or already-locked locations
@@ -1513,6 +1606,10 @@ cdef class SpatialMap:
         to the galaxy_map_array and then the appropriate (offset, num_elements) 
         into the galaxy_map_cell_dict
         """
+        
+        
+        print("Add cell periodic called", flush=True)
+        
         
         cdef CELL_ID_t source_i, source_j, source_k
         
@@ -1629,7 +1726,9 @@ cdef class SpatialMap:
                     # similar to https://stackoverflow.com/questions/41077696/python-ctypes-from-buffer-mapping-with-context-manager-into-memory-mapped-file
                     # To fix, we point the self.points_xyz object to this dummy array so this object basically
                     # isn't looking at the self.points_buffer anymore, and no buffers are 'exported'
+
                     del self.points_xyz_np 
+                    
                     self.points_xyz = self.dummy_arr
                     
                     self.points_buffer.resize(self.points_buffer.size()+wall_gal_nbytes)
@@ -1670,7 +1769,7 @@ cdef class SpatialMap:
                     
                     
                     
-                    
+                    '''
                     source_center_xyz[0] = (<DTYPE_F64_t>source_i + 0.5)*self.dl + self.grid_origin[0]
                     source_center_xyz[1] = (<DTYPE_F64_t>source_j + 0.5)*self.dl + self.grid_origin[1]
                     source_center_xyz[2] = (<DTYPE_F64_t>source_k + 0.5)*self.dl + self.grid_origin[2]
@@ -1684,26 +1783,63 @@ cdef class SpatialMap:
                     shift_xyz[0] = curr_center_xyz[0] - source_center_xyz[0]
                     shift_xyz[1] = curr_center_xyz[1] - source_center_xyz[1]
                     shift_xyz[2] = curr_center_xyz[2] - source_center_xyz[2]
+                    '''
+                    i_ratio = (<DTYPE_F64_t>i) / (<DTYPE_F64_t>self.galaxy_map.i_dim)
+                    j_ratio = (<DTYPE_F64_t>j) / (<DTYPE_F64_t>self.galaxy_map.j_dim)
+                    k_ratio = (<DTYPE_F64_t>k) / (<DTYPE_F64_t>self.galaxy_map.k_dim)
+                    
+                    
+                    # If the index is between 0 and dim, we want that to floor to 0 since
+                    # we're still in the main survey and dont actually want to add any shift
+                    # If the index is between 0 and a negative value (since the i,j or k
+                    # is negative), we want that to floor to some negative integer, and
+                    # if the index is greater than dim, we want that to floor to a pos int
+                    integer_factor_i = floor(i_ratio)
+                    integer_factor_j = floor(j_ratio)
+                    integer_factor_k = floor(k_ratio)
+                    
+                    
+                    shift_xyz[0] = self.dl*self.galaxy_map.i_dim*integer_factor_i
+                    shift_xyz[1] = self.dl*self.galaxy_map.j_dim*integer_factor_j
+                    shift_xyz[2] = self.dl*self.galaxy_map.k_dim*integer_factor_k
+                    
                     
                     
                     # We now have the new space, but we need to fill it in
                     # Since we're appending to both the wall_galaxy_coords and galaxy_map_array
                     # the output index for both will be the same now
                     
+
+                    #print("DERPADERPA GLOOB", flush=True)
+                    
+                    #print(num_new_indices, curr_item.offset, curr_item.offset+num_new_indices, self.galaxy_map_array.shape[0], new_offset, flush=True)
+                    
                     for idx, gma_idx in enumerate(range(curr_item.offset, curr_item.offset+num_new_indices)):
                     
                         curr_gal_idx = self.galaxy_map_array[gma_idx]
                         
                         out_gma_idx = new_offset + idx
+   
+                        #if self.num_gma_indices > 2087000000:
+                        #    print("GRRRRRR", idx, gma_idx, curr_gal_idx, out_gma_idx, flush=True)
+
                         
                         for kdx in range(3):
                         
                             self.points_xyz[out_gma_idx,kdx] = self.points_xyz[curr_gal_idx,kdx] + shift_xyz[kdx] # PLUS SHIFT
                         
+                        #if self.num_gma_indices > 2087000000:
+                        #    print("YELIPE", flush=True)
+                        
                         self.galaxy_map_array[out_gma_idx] = out_gma_idx
                         
+
+                    #print("DERPADERPATHREE", flush=True)
                 
         self.galaxy_map_2.setitem(i, j, k, new_offset, num_new_indices)
+        
+        #print("DERPADERPAFOUR", flush=True)
+
         
         return
         
@@ -1771,7 +1907,9 @@ cdef class SpatialMap:
         
     cdef DTYPE_F64_t calculate_x_val(self, 
                                      ITYPE_t gal_idx, 
-                                     ITYPE_t k1g_idx, 
+                                     ITYPE_t k1g_idx,
+                                     DTYPE_F64_t[:] gal_shift,
+                                     DTYPE_F64_t[:] k1g_shift,
                                      DTYPE_F64_t[:] start_hole_center, 
                                      DTYPE_F64_t[:] search_unit_vector):
         """
@@ -1793,6 +1931,13 @@ cdef class SpatialMap:
             
         k1g_idx : int
             index of the 1st existing bounding point
+            
+        gal_shift : ndarray shape (3,)
+            In periodic mode, this galaxy may correspond to a galaxy which has been
+            shifted an integer multiple of the survey size
+        k1g_shift : ndarray shape (3,)
+            In periodic mode, this galaxy may correspond to a galaxy which has been
+            shifted an integer multiple of the survey size
             
         start_hole_center : ndarray shape (3,)
             xyz location of the existing sphere center bounded by k1g
@@ -1818,11 +1963,11 @@ cdef class SpatialMap:
     
         for jdx in range(3):
                         
-            self.neighbor_mem.candidate_minus_A[jdx] = self.points_xyz[gal_idx, jdx] - self.points_xyz[k1g_idx, jdx]
+            self.neighbor_mem.candidate_minus_A[jdx] = (self.points_xyz[gal_idx, jdx] + gal_shift[jdx]) - (self.points_xyz[k1g_idx, jdx] + k1g_shift[jdx])
                 
-            self.neighbor_mem.candidate_minus_center[jdx] = self.points_xyz[gal_idx, jdx] - start_hole_center[jdx]
+            self.neighbor_mem.candidate_minus_center[jdx] = (self.points_xyz[gal_idx, jdx] + gal_shift[jdx]) - start_hole_center[jdx]
             
-            self.neighbor_mem.A_minus_center[jdx] = self.points_xyz[k1g_idx, jdx] - start_hole_center[jdx]
+            self.neighbor_mem.A_minus_center[jdx] = (self.points_xyz[k1g_idx, jdx] + k1g_shift[jdx]) - start_hole_center[jdx]
     
     
     
@@ -1882,17 +2027,17 @@ cdef class SpatialMap:
         
         
         
-    cdef ITYPE_t find_first_neighbor(self, DTYPE_F64_t[:] query_location_xyz):
+    cdef GalIdxDescriptor find_first_neighbor(self, DTYPE_F64_t[:] query_location_xyz):
         '''
         Description
         ===========
         
         Given a query location, find the nearest neighbor.
         '''
-        cdef DistIdxPair query_vals
+        cdef GalIdxDescriptor query_val
         
-        query_vals = _query_first(self.reference_point_ijk,
-                                  self.grid_origin,
+        query_val = _query_first(self.reference_point_ijk,
+                                 self.grid_origin,
                                   self.dl,
                                   self.shell_boundaries_xyz,
                                   self.cell_center_xyz,
@@ -1900,7 +2045,7 @@ cdef class SpatialMap:
                                   self.cell_ID_mem,
                                   query_location_xyz)
         
-        return query_vals.idx
+        return query_val
     
     
         
@@ -1908,10 +2053,11 @@ cdef class SpatialMap:
         
         
     
-    cpdef FindNextReturnVal find_next_bounding_point(self, 
+    cpdef GalIdxDescriptor find_next_bounding_point(self,
+    #def find_next_bounding_point(self,
                                                      DTYPE_F64_t[:] start_hole_center,
                                                      DTYPE_F64_t[:] search_unit_vector,
-                                                     ITYPE_t[:] existing_bounding_idxs,
+                                                     GalIdxDescriptor[:] existing_bounding_idxs,
                                                      ITYPE_t num_neighbors,
                                                      MaskChecker mask_checker):
         """
@@ -1920,7 +2066,7 @@ cdef class SpatialMap:
         
         This method encodes the primary logic critical to sphere-growing: given a starting
         position, a vector along which to propagate the center of the sphere while it grows,
-        and the indices of the existing bounding, return the index of the next bounding galaxy
+        and the indices of the existing bounding points, return the index of the next bounding galaxy
         which corresponds to the smallest sphere whose center lies on the search vector, or
         return a failure code because the search left the valid region of space.
         
@@ -1994,16 +2140,25 @@ cdef class SpatialMap:
         """
         
         
-        cdef FindNextReturnVal retval
+        cdef GalIdxDescriptor retval
         
-        retval.nearest_neighbor_index = -1
+        retval.idx = -1
         retval.min_x_val = -1.0
         retval.failed = 0
         
         
-        cdef ITYPE_t k1g_idx = existing_bounding_idxs[0]
+        cdef GalIdxDescriptor k1g = existing_bounding_idxs[0]
+        
+        cdef GalIdxDescriptor check_gal
+        
+        cdef ITYPE_t k1g_idx = k1g.idx
         
         cdef DTYPE_F64_t[:] k1g_xyz = self.points_xyz[k1g_idx]
+        
+        cdef DTYPE_F64_t[:] k1g_shift = np.zeros(3, dtype=np.float64)
+        k1g_shift[0] = k1g.shift_x
+        k1g_shift[1] = k1g.shift_y
+        k1g_shift[2] = k1g.shift_z
         
         
         cdef DTYPE_F64_t[:] temp_sphere_center_xyz = np.empty(3, dtype=np.float64)
@@ -2037,6 +2192,8 @@ cdef class SpatialMap:
         
         cdef OffsetNumPair curr_offset_num_pair
         
+        cdef DTYPE_F64_t[:] shift_vals = np.empty(3, dtype=np.float64)
+        
         #cdef DistIdxPair return_vals
         
         cdef DTYPE_F64_t temp1, temp2, temp3, dist_sq
@@ -2065,16 +2222,35 @@ cdef class SpatialMap:
         #DEBUGGING
         #if np.isnan(search_unit_vector[0]):
         #    print("YEP ITS A PROBLEM", flush=True)
+        '''
+        print("Existing neighbors: ", num_neighbors)
         
+        cdef GalIdxDescriptor derpval
+        for derp in range(num_neighbors):
+            
+            derpval = existing_bounding_idxs[derp]
+            
+            print("K"+str(derp+1)+"g idx: ", derpval.idx, np.array(self.points_xyz[derpval.idx]), derpval.shift_x, derpval.shift_y, derpval.shift_z)
+            
+        print("Starting position", np.array(start_hole_center), np.array(starting_pqr), flush=True)
+        '''
+        
+        #n_cells_searched = 0
+        #n_searched = 0
         
         while searching:
             
             current_shell += 1
             
+            #print("Num cells, gals searched: ", n_cells_searched, n_searched, flush=True)
+            #print("Search level, starting pqr: ", current_shell, np.array(starting_pqr))
+            
             cell_start_row, cell_end_row = _gen_shell(starting_pqr, 
                                                       current_shell,
                                                       self.cell_ID_mem,
                                                       self)
+            
+            #print("Cell start, end row: ", cell_start_row, cell_end_row)
         
             for cell_ID_idx in range(<ITYPE_t>cell_start_row, <ITYPE_t>cell_end_row):
             
@@ -2087,6 +2263,21 @@ cdef class SpatialMap:
                 offset = curr_offset_num_pair.offset
                 
                 num_elements = curr_offset_num_pair.num_elements
+                
+                #n_cells_searched += 1
+                #n_searched += num_elements
+                
+                shift_vals[0] = curr_offset_num_pair.shift_x
+                shift_vals[1] = curr_offset_num_pair.shift_y
+                shift_vals[2] = curr_offset_num_pair.shift_z
+                
+                
+                #print("Cell: ", id1, id2, id3, offset, num_elements, np.array(shift_vals))
+                #print("Updated center: ", np.array(updated_sphere_center_xyz))
+                #time.sleep(0.1)
+                
+                #if num_elements < 0:
+                #    print("BAD NUM ELEMENTS", id1, id2, id3, flush=True)
     
                 
                 for idx in range(num_elements):
@@ -2095,9 +2286,10 @@ cdef class SpatialMap:
                     
                     potential_neighbor_xyz = self.points_xyz[potential_neighbor_idx]
                     
-                    temp1 = potential_neighbor_xyz[0] - updated_sphere_center_xyz[0]
-                    temp2 = potential_neighbor_xyz[1] - updated_sphere_center_xyz[1]
-                    temp3 = potential_neighbor_xyz[2] - updated_sphere_center_xyz[2]
+                    #shift_x, y, and z should always be 0 except in Periodic mode
+                    temp1 = (potential_neighbor_xyz[0] + shift_vals[0]) - updated_sphere_center_xyz[0]
+                    temp2 = (potential_neighbor_xyz[1] + shift_vals[1]) - updated_sphere_center_xyz[1]
+                    temp3 = (potential_neighbor_xyz[2] + shift_vals[2]) - updated_sphere_center_xyz[2]
                     
                     dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
                     
@@ -2107,6 +2299,8 @@ cdef class SpatialMap:
                     
                     x_val = self.calculate_x_val(potential_neighbor_idx, 
                                                  k1g_idx, 
+                                                 shift_vals,
+                                                 k1g_shift,
                                                  start_hole_center, 
                                                  search_unit_vector)
                 
@@ -2120,7 +2314,17 @@ cdef class SpatialMap:
                         
                         for ldx in range(num_neighbors):
                             
-                            if potential_neighbor_idx == existing_bounding_idxs[ldx]:
+                            check_gal = existing_bounding_idxs[ldx]
+                            
+                            #print("Potential neighbor: ", potential_neighbor_idx)
+                            #print("Existing neighbor: ", check_gal.idx)
+                            #print("Mods: ", curr_offset_num_pair.mod_i, curr_offset_num_pair.mod_j, curr_offset_num_pair.mod_k)
+                            #print("Mods: ", check_gal.mod_i, check_gal.mod_j, check_gal.mod_k)
+                            
+                            if potential_neighbor_idx == check_gal.idx and \
+                               curr_offset_num_pair.mod_i == check_gal.mod_i and \
+                               curr_offset_num_pair.mod_j == check_gal.mod_j and \
+                               curr_offset_num_pair.mod_k == check_gal.mod_k:
                                 
                                 already_found = True
                                 
@@ -2134,9 +2338,9 @@ cdef class SpatialMap:
                         updated_sphere_center_xyz[1] = start_hole_center[1] + x_val*search_unit_vector[1]
                         updated_sphere_center_xyz[2] = start_hole_center[2] + x_val*search_unit_vector[2]
                         
-                        temp1 = updated_sphere_center_xyz[0] - k1g_xyz[0]
-                        temp2 = updated_sphere_center_xyz[1] - k1g_xyz[1]
-                        temp3 = updated_sphere_center_xyz[2] - k1g_xyz[2]
+                        temp1 = updated_sphere_center_xyz[0] - (k1g_xyz[0] + k1g_shift[0])
+                        temp2 = updated_sphere_center_xyz[1] - (k1g_xyz[1] + k1g_shift[1])
+                        temp3 = updated_sphere_center_xyz[2] - (k1g_xyz[2] + k1g_shift[2])
                         
                         min_radius_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
                         
@@ -2144,9 +2348,16 @@ cdef class SpatialMap:
                         
                         found_neighbor_idx = potential_neighbor_idx
                         
-                        retval.nearest_neighbor_index = found_neighbor_idx
+                        retval.idx = found_neighbor_idx
                         
                         retval.min_x_val = min_x_val
+                        
+                        retval.shift_x = curr_offset_num_pair.shift_x
+                        retval.shift_y = curr_offset_num_pair.shift_y
+                        retval.shift_z = curr_offset_num_pair.shift_z
+                        retval.mod_i = curr_offset_num_pair.mod_i
+                        retval.mod_j = curr_offset_num_pair.mod_j
+                        retval.mod_k = curr_offset_num_pair.mod_k
                         
             
             ################################################################################
@@ -2201,6 +2412,11 @@ cdef class SpatialMap:
                     retval.failed = 1
                     
                     break
+                
+        #print("RETURNING AFTER: Num cells, gals searched: ", n_cells_searched, n_searched, flush=True)
+        #print("Retval: ", retval.idx, retval.failed)
+        #if retval.failed == 0:
+        #    print("Retval: ", np.array(self.points_xyz[retval.idx]), retval.shift_x, retval.shift_y, retval.shift_z)
                 
         return retval
         
@@ -2616,7 +2832,36 @@ cdef class SphereGrower:
         
         self.search_unit_vector = np.zeros(3, dtype=np.float64)
     
-        self.existing_bounding_idxs = np.zeros(4, dtype=np.intp)
+    
+    
+        cdef GalIdxDescriptor dummy_val
+    
+        '''
+        distidx_dtype = [("idx", np.int64, ()), #() indicates scalar, or length 1 shape
+                         ("dist", np.float64, ()),
+                         ("min_x_val", np.float64, ()),
+                         ("shift_x", np.float64, ()),
+                         ("shift_y", np.float64, ()),
+                         ("shift_z", np.float64, ()),
+                         ("mod_i", np.int16, ()),
+                         ("mod_j", np.int16, ()),
+                         ("mod_k", np.int16, ()),
+                         ("failed", np.uint8, ())]
+        # 8*6 + 3*2 +1 = 55 bytes per element
+        
+        numpy_dtype = np.dtype(distidx_dtype, align=False)
+        '''
+        
+        # Create a numpy dtype by casting the dummy val to an array of its type
+        # of length 1, creating a numpy array from that array, and getting dtype
+        numpy_dtype = np.asarray(<GalIdxDescriptor[:1]>(&dummy_val)).dtype
+        
+        self.existing_bounding_idxs = np.zeros(4, dtype=numpy_dtype)
+        
+        
+        
+        
+        
         
         self.midpoint_memview = np.zeros(3, dtype=np.float64)
         
@@ -2633,6 +2878,10 @@ cdef class SphereGrower:
         self.hole_center_k4g2 = np.zeros(3, dtype=np.float64)
         
         self.temp_vector = np.zeros(3, dtype=np.float64)
+        
+        self.k1g_pos_xyz = np.zeros(3, dtype=np.float64)
+        self.k2g_pos_xyz = np.zeros(3, dtype=np.float64)
+        self.k3g_pos_xyz = np.zeros(3, dtype=np.float64)
         
         
         
@@ -2752,22 +3001,60 @@ cdef class SphereGrower:
         
         
         if self.vector_modulus == 0.0:
+            
+            #print("Encountered coincident k1g-center-k2g case", np.array(self.search_unit_vector))
+            #print(np.array(k1g_xyz), np.array(k2g_xyz))
 
             #If k1g, k2g and the hole center are co-linear, then choose any arbitrary 
             #vector in the plane perpendicular to the colinear direction.  For now we 
             #choose this arbitrary vector using the simple formula for the 3d vector dot
             #product:  a*b + b*(-a) + c*0 = 0  where v1 = (a,b,c) and
             #v2 = (b, -a, 0)
+            #
+            # Womp womp - dont do this because if v1 = (a,b,c) and v2 = (a,b,d) then v3 = (0, -0, 0)!
+            #
             
-            self.search_unit_vector[0] = k1g_xyz[1] - k2g_xyz[1] #put b in a spot
-            self.search_unit_vector[1] = -1.0*(k1g_xyz[0] - k2g_xyz[0])
-            self.search_unit_vector[2] = 0.0
             
-        else:
+            
+            self.search_unit_vector[0] = k1g_xyz[0] - k2g_xyz[0]
+            self.search_unit_vector[1] = k1g_xyz[1] - k2g_xyz[1]
+            self.search_unit_vector[2] = k1g_xyz[2] - k2g_xyz[2]
+            
+            #Permute the axes to get a non-parallel vector
+            self.temp_vector[0] = self.search_unit_vector[2]
+            self.temp_vector[1] = self.search_unit_vector[0]
+            self.temp_vector[2] = self.search_unit_vector[1]
+            
+            # Only case the axes permute doesnt work is if If they 
+            # HAPPENED to all be EXACTLY THE SAME
+            if self.temp_vector[0] == self.temp_vector[1] and \
+               self.temp_vector[1] == self.temp_vector[2]:
+                self.temp_vector[2] += 1.0
+            
+            #print(np.array(self.search_unit_vector), np.array(self.temp_vector))
+            
+            cross = np.cross(self.search_unit_vector, self.temp_vector)
+            
+            #print("Cross: ", cross)
+            
+            self.search_unit_vector[0] = cross[0]
+            self.search_unit_vector[1] = cross[1]
+            self.search_unit_vector[2] = cross[2]
+            
+            self.temp_f64_accum = 0.0
+            
             for self.idx in range(3):
+            
+                self.temp_f64_accum += self.search_unit_vector[self.idx]*self.search_unit_vector[self.idx]
         
-                self.search_unit_vector[self.idx] /= self.vector_modulus
-                
+            self.vector_modulus = sqrt(self.temp_f64_accum)
+            
+            
+        
+        for self.idx in range(3):
+    
+            self.search_unit_vector[self.idx] /= self.vector_modulus
+            
                 
         #DEBUGGING
         #if np.isnan(self.search_unit_vector[0]):
@@ -2846,8 +3133,9 @@ cdef class SphereGrower:
         #    print(self.vector_modulus)
         #    print(np.array(k1g_xyz))
         #    print(np.array(k2g_xyz))
-        #    print(np.array(k3g_xyz))
-        #    raise RuntimeError
+        #   print(np.array(k3g_xyz))
+        #    print("-----")
+        #    #raise RuntimeError
 
 
         #-----------------------------------------------------------------------
@@ -2894,7 +3182,8 @@ cdef class SphereGrower:
 
 
 
-cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
+cpdef GalIdxDescriptor _query_first(CELL_ID_t[:] reference_point_pqr,
+#def _query_first(CELL_ID_t[:] reference_point_pqr,
                                DTYPE_F64_t[:] coord_min,
                                DTYPE_F64_t dl,
                                DTYPE_F64_t[:,:] shell_boundaries_xyz,
@@ -2904,7 +3193,7 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
                                DTYPE_F64_t[:] reference_point_xyz
                                ):
     """
-    Only called once in _voidfinder_cython.main_algorithm()
+    Only called once in SpatialMap.find_first_neighbor()
     
     Finds first nearest neighbor for the given reference point
     
@@ -2969,7 +3258,7 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
     
     cdef OffsetNumPair curr_offset_num_pair
     
-    cdef DistIdxPair return_vals
+    cdef GalIdxDescriptor return_vals
     
     cdef ITYPE_t idx
     
@@ -2993,6 +3282,9 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
     ############################################################################
 
 
+    return_vals.shift_x = 0.0
+    return_vals.shift_y = 0.0
+    return_vals.shift_z = 0.0
     
     ############################################################################
     # Iterate through the grid cells shell-by-shell growing outwards until we 
@@ -3034,6 +3326,9 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
             offset = curr_offset_num_pair.offset
             
             num_elements = curr_offset_num_pair.num_elements
+            
+            #if num_elements < 0:
+            #    print("BAD NUM ELEMENTS 2: ", id1, id2, id3, flush=True)
 
             #print(cell_ID_idx, num_elements)
             
@@ -3043,9 +3338,10 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
                 
                 potential_neighbor_xyz = galaxy_map.points_xyz[potential_neighbor_idx]
                 
-                temp1 = potential_neighbor_xyz[0] - reference_point_xyz[0]
-                temp2 = potential_neighbor_xyz[1] - reference_point_xyz[1]
-                temp3 = potential_neighbor_xyz[2] - reference_point_xyz[2]
+                #shift_x, y, and z should always be 0 except in periodic mode
+                temp1 = (potential_neighbor_xyz[0] + curr_offset_num_pair.shift_x) - reference_point_xyz[0]
+                temp2 = (potential_neighbor_xyz[1] + curr_offset_num_pair.shift_y) - reference_point_xyz[1]
+                temp3 = (potential_neighbor_xyz[2] + curr_offset_num_pair.shift_z) - reference_point_xyz[2]
                 
                 dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
                 
@@ -3056,6 +3352,13 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
                     neighbor_dist_xyz_sq = dist_sq
                     
                     neighbor_dist_xyz = sqrt(dist_sq)
+                    
+                    return_vals.shift_x = curr_offset_num_pair.shift_x
+                    return_vals.shift_y = curr_offset_num_pair.shift_y
+                    return_vals.shift_z = curr_offset_num_pair.shift_z
+                    return_vals.mod_i = curr_offset_num_pair.mod_i
+                    return_vals.mod_j = curr_offset_num_pair.mod_j
+                    return_vals.mod_k = curr_offset_num_pair.mod_k
                     
                     ############################################################
                     # Don't need to check against the min_containing_radius here 
@@ -3083,7 +3386,8 @@ cpdef DistIdxPair _query_first(CELL_ID_t[:] reference_point_pqr,
 
 
 
-cdef void _query_shell_radius(CELL_ID_t[:] reference_point_ijk,
+#cdef void _query_shell_radius(CELL_ID_t[:] reference_point_ijk,
+def now_unused_i_think(CELL_ID_t[:] reference_point_ijk,
                               DTYPE_F64_t[:] coord_min, 
                               DTYPE_F64_t dl,
                               SpatialMap galaxy_map,
@@ -3207,6 +3511,12 @@ cdef void _query_shell_radius(CELL_ID_t[:] reference_point_ijk,
         
         num_elements = curr_offset_num_pair.num_elements
         
+        
+        if num_elements < 0:
+            print("BAD NUM ELEMENTS 3 : ", id1, id2, id3, flush=True)
+        
+        
+        
         for idx in range(num_elements):
             
             curr_galaxy_idx = <ITYPE_t>galaxy_map.galaxy_map_array[offset+idx]
@@ -3224,9 +3534,9 @@ cdef void _query_shell_radius(CELL_ID_t[:] reference_point_ijk,
             
             galaxy_xyz = galaxy_map.points_xyz[curr_galaxy_idx]
             
-            temp1 = galaxy_xyz[0] - reference_point_xyz[0]
-            temp2 = galaxy_xyz[1] - reference_point_xyz[1]
-            temp3 = galaxy_xyz[2] - reference_point_xyz[2]
+            temp1 = (galaxy_xyz[0] + curr_offset_num_pair.shift_x) - reference_point_xyz[0]
+            temp2 = (galaxy_xyz[1] + curr_offset_num_pair.shift_y) - reference_point_xyz[1]
+            temp3 = (galaxy_xyz[2] + curr_offset_num_pair.shift_z) - reference_point_xyz[2]
             
             dist_sq = temp1*temp1 + temp2*temp2 + temp3*temp3
             

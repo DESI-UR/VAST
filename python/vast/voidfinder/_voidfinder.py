@@ -218,7 +218,7 @@ def _hole_finder(galaxy_coords,
                  use_start_checkpoint=False,
                  batch_size=1000,
                  verbose=0,
-                 print_after=10000,
+                 print_after=5.0,
                  num_cpus=None,
                  
                  SOCKET_PATH="/tmp/voidfinder.sock",
@@ -245,7 +245,7 @@ def _hole_finder(galaxy_coords,
     
     This function is designed to be run on Linux on an SMP (Symmetric 
     Multi-Processing) architecture.  It takes advantage of 2 Linux-specific 
-    properties: the /dev/shm filesystem and the fork() method of spawning 
+    properties: the /dev/shm filesystem and the fork() method of creating 
     processes. /dev/shm is used as the preferred location for creating memory 
     maps to share information between the worker processes since on Linux it is 
     a RAMdisk, and the implementation of fork() on Linux is used to share file 
@@ -795,6 +795,7 @@ def _hole_finder(galaxy_coords,
     # survey to make sure the virtual cells already exist, since that shell
     # will be the most used virtual locations
     #---------------------------------------------------------------------------
+    '''
     if mask_mode == 2:
         
         for i in range(-1, galaxy_map_grid_shape[0]+1):
@@ -807,7 +808,14 @@ def _hole_finder(galaxy_coords,
                     galaxy_map.contains(i,j,k)
                     #time.sleep(0.05)
                 
+        
+        if verbose > 0:
+            print("Filling in shell: (", -1, galaxy_map_grid_shape[0]+1, ")",
+                  "(", -1, galaxy_map_grid_shape[1]+1, ")",
+                  "(", -1, galaxy_map_grid_shape[2]+1, ")",
+                  )
     
+    '''
     
     if verbose > 0:
         
@@ -1010,7 +1018,7 @@ def _hole_finder(galaxy_coords,
     # do not get called on a SIGKILL, which kinda defeats their purpose anyway.
     #---------------------------------------------------------------------------
     
-        
+    '''
     def cleanup_socket():
         
         if os.path.exists(SOCKET_PATH):
@@ -1025,7 +1033,7 @@ def _hole_finder(galaxy_coords,
         
     
     atexit.register(cleanup_socket)
-    
+    '''
     ############################################################################
 
     
@@ -1872,7 +1880,7 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                                              dtype=np.float64)
                 
                 
-                
+                #print("Starting batch of: ", num_write, flush=True)
                     
                 grow_spheres(i_j_k_array[0:num_write],
                              num_write,
@@ -1880,6 +1888,8 @@ def _hole_finder_worker(worker_idx, ijk_start, write_start, config):
                              galaxy_map,
                              sphere_grower,
                              mask_checker)
+                
+                #time.sleep(1.0)
                 
                 num_cells_processed += num_write
                 

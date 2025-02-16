@@ -115,7 +115,7 @@ def load_void_data(infilename):
     holes_xyz[:,1] = holes_data['y']
     holes_xyz[:,2] = holes_data['z']
     hole_radii[:] = holes_data["radius"]
-    hole_flags[:] = holes_data["flag"]
+    hole_flags[:] = holes_data["void"]
 
     field_galaxy_data = format_galaxy_data(Table(catalog['FIELD'].data))
 
