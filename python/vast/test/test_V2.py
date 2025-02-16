@@ -70,6 +70,8 @@ class TestV2(unittest.TestCase):
         self.assertTrue(np.isclose(np.mean([len(zc) for zc in self.zones.zcell]), 87.23404255319149))
 
         # Test zone volumes
+        
+        print("TestZobov 2 Zones", np.mean(self.zones.zvols))
         self.assertTrue(np.isclose(np.mean(self.zones.zvols), 6897.767791048626))
 
         # Test zone links

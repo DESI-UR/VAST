@@ -43,4 +43,4 @@ jobs:
       run: |
         which python
         python -c "import vast; print(vast.__file__)"
-        python -m pytest
+        python -m pytest -s
