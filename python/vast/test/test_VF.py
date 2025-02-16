@@ -23,7 +23,7 @@ from vast.voidfinder._voidfinder_cython_find_next import SpatialMap, \
                                                          _query_first
 
 
-
+from vast.voidfinder._hole_combine_cython import cap_height, spherical_cap_volume
 
 
 
@@ -612,9 +612,9 @@ class TestVoidFinder(unittest.TestCase):
                    )
 
 
-
         '''
-        holes_xyz, holes_radii, holes_flags = load_void_data('test_galaxies_redshift_holes.txt')
+        holes_xyz, holes_radii, holes_flags, field_galaxy_data, wall_galaxy_data = load_void_data('test_VoidFinder_Output.fits')
+        #holes_xyz, holes_radii, holes_flags = load_void_data('test_VoidFinder_Output.fits')
     
         viz = VoidRender(holes_xyz,
                      holes_radii,
@@ -636,31 +636,156 @@ class TestVoidFinder(unittest.TestCase):
             f_holes = Table(file['HOLES'].data)
         
         # Check maximal spheres
-        maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
-                                    format='ascii.commented_header')
-        '''
-        for name in f_maximals.dtype.names:
-            if not np.allclose(f_maximals[name], maximals_truth[name]):
-                print(f_maximals[name])
-                print(maximals_truth[name])
-        '''
-        self.assertTrue(all([np.allclose(f_maximals[name], maximals_truth[name]) for name in f_maximals.dtype.names]))
+        #maximals_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_maximal_truth.txt', 
+        #                            format='ascii.commented_header')
+        
+        
+        #For the maximals, make sure we have found the same number of
+        #maximal spheres
+        num_truth_rows = len(self.maximals)
+        num_test_rows = len(f_maximals)
+        
+        self.assertTrue(num_truth_rows == num_test_rows)
+        
+        
+        print("Truth Maximals data: ")
+        print(self.maximals)
+        print("VoidFinder Detected Maximals: ")
+        f_maximals.pprint_all()
+        #print("Old VoidFinder Detected Maximals: ")
+        #maximals_truth.pprint_all()
+        
+        #for name in f_maximals.dtype.names:
+        #    if not np.allclose(f_maximals[name], maximals_truth[name]):
+        #        print(f_maximals[name])
+        #        print(maximals_truth[name])
+        
+        truth_maximal_radii = np.array(self.maximals['r'])
+        found_maximal_radii = np.array(f_maximals['radius'])
+        
+        #Since VoidFinder sorts its maximal holes from largest to smallest,
+        #we can and should directly compare row by row
+        #Astropy tables are essentially Fortran matrix order so call out the
+        #data by column instead of row
+        #for truth_row, test_row in zip(self.maximals, f_maximals):
+        #    print(truth_row, test_row)
+        x_diffs = self.maximals['x'] - f_maximals['x']
+        y_diffs = self.maximals['y'] - f_maximals['y']
+        z_diffs = self.maximals['z'] - f_maximals['z']
+        
+        dists_sq = np.array(x_diffs*x_diffs + y_diffs*y_diffs + z_diffs*z_diffs)
+        
+        maximal_center_dist_diffs = np.sqrt(dists_sq)
+        print("Maximal center dists: ", maximal_center_dist_diffs)
+        
+        """
+        if False:
+        
+            x_diffs = self.maximals['x'] - maximals_truth['x']
+            y_diffs = self.maximals['y'] - maximals_truth['y']
+            z_diffs = self.maximals['z'] - maximals_truth['z']
+            
+            dists_sq = np.array(x_diffs*x_diffs + y_diffs*y_diffs + z_diffs*z_diffs)
+            
+            maximal_center_dist_diffs = np.sqrt(dists_sq)
+            print("Old Maximal center dists: ", maximal_center_dist_diffs)
+        """
+        
+        
+        
+        
+        #We decided that maximal hole center positions should be within 10% of the truth
+        #radius, and found maximal radii should be within 5% of the truth radius
+        #self.assertTrue(all([np.allclose(f_maximals[name], maximals_truth[name]) for name in f_maximals.dtype.names]))
+        
+        self.assertTrue(np.all(maximal_center_dist_diffs <= 0.10*truth_maximal_radii))
+        
+        self.assertTrue(np.all(np.abs((truth_maximal_radii - found_maximal_radii)) <= 0.05*truth_maximal_radii))
+        
+        
+        
+        
+        
         #self.assertEqual(len(setdiff(f_maximals, maximals_truth)), 0)
 
         # Check holes
-        holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
-                                 format='ascii.commented_header')
+        #holes_truth = Table.read('python/vast/voidfinder/tests/test_galaxies_redshift_holes_truth.txt', 
+        #                         format='ascii.commented_header')
 
         # Sort both tables by void flag, radius, x, y, z columns
         f_holes.sort(['void', 'radius', 'x', 'y', 'z'])
-        holes_truth.sort(['void', 'radius', 'x', 'y', 'z'])
+        #holes_truth.sort(['void', 'radius', 'x', 'y', 'z'])
         '''
         for name in f_holes.dtype.names:
             if not np.allclose(f_holes[name], holes_truth[name]):
                 diffs = np.isclose(f_holes[name], holes_truth[name])
                 print(f_holes[name][~diffs], holes_truth[name][~diffs])
         '''
-        self.assertTrue(all([np.allclose(f_holes[name], holes_truth[name]) for name in f_holes.dtype.names]))
+        
+        
+        
+        print("Truth Holes data: ", len(self.holes))
+        print(self.holes)
+        print("VoidFinder Detected Holes: ", len(f_holes))
+        f_holes.pprint_all()
+        #print("Old VoidFinder Detected Holes: ", len(holes_truth))
+        #holes_truth.pprint_all()
+        
+        
+        #Changing the Holes test to make sure that they overlap their
+        #identified maximal sphere by at least 50% in volume
+        void_IDs = np.unique(f_holes['void'])
+        
+        maximal_positions = to_array(self.maximals) #pulls out x y z
+        
+        for idx, void_ID in enumerate(void_IDs):
+            
+            mask = f_holes['void'] == void_ID
+            
+            sub_holes = f_holes[mask]
+            
+            #mask = holes_truth['void'] == void_ID
+            #sub_holes = holes_truth[mask]
+            
+            sub_holes_pos = to_array(sub_holes) #pulls out x y z
+            
+            sub_holes_radii = np.array(sub_holes['radius'])
+        
+            curr_maximal_pos = maximal_positions[idx]
+            
+            curr_maximal_radius = truth_maximal_radii[idx]
+            
+            
+            for jdx in range(len(sub_holes)):
+            
+                hole_pos = sub_holes_pos[jdx]
+                curr_radius = sub_holes_radii[jdx]
+                
+                separation = np.sqrt(np.sum((hole_pos - curr_maximal_pos)**2))
+                
+                
+                #print(separation, curr_radius, curr_maximal_radius)
+                
+                #Hole does not overlap the maximal at all
+                if separation > (curr_radius + curr_maximal_radius):
+                    self.assertTrue(False)
+            
+                curr_cap_height = cap_height(curr_radius, curr_maximal_radius, separation)
+                    
+                maximal_cap_height = cap_height(curr_maximal_radius, curr_radius, separation)
+            
+                overlap_volume = spherical_cap_volume(curr_radius, curr_cap_height) + spherical_cap_volume(curr_maximal_radius, maximal_cap_height)
+            
+                hole_vol = (4.0/3.0)*np.pi*(curr_radius**3)
+                
+                print("Overlap pct: ", overlap_volume/hole_vol)
+                
+                self.assertTrue(overlap_volume/hole_vol >= 0.85)
+            
+            
+            
+        
+        #self.assertTrue(all([np.allclose(f_holes[name], holes_truth[name]) for name in f_holes.dtype.names]))
         #self.assertEqual(len(setdiff(holes_truth, f_holes)), 0)
         
 

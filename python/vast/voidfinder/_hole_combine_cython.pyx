@@ -123,7 +123,7 @@ cpdef np.ndarray remove_duplicates_2(DTYPE_F64_t[:,:] x_y_z_r_array,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-cdef DTYPE_F64_t cap_height(DTYPE_F64_t R, 
+cpdef DTYPE_F64_t cap_height(DTYPE_F64_t R, 
                             DTYPE_F64_t r, 
                             DTYPE_F64_t d):
     '''Calculate the height of a spherical cap.
@@ -159,7 +159,7 @@ cdef DTYPE_F64_t cap_height(DTYPE_F64_t R,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-cdef DTYPE_F64_t spherical_cap_volume(DTYPE_F64_t radius, 
+cpdef DTYPE_F64_t spherical_cap_volume(DTYPE_F64_t radius, 
                                       DTYPE_F64_t height):
     '''Calculate the volume of a spherical cap'''
 
