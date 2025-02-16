@@ -1,6 +1,12 @@
 # Change Log
 Log of changes for VAST versions.
 
+
+## 1.6.1
+- Updated VF unit tests to check maximal positions and radii and hole overlap
+  against designated maximals instead of utilizing the more brittle file
+  based output of previous VF runs
+
 ## 1.6.0
 - Feature: Added void catalog class for reading void-finding fits output and performing analysis.
 
