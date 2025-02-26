@@ -53,7 +53,7 @@ setup_keywords['setup_requires'] = ['Cython', 'numpy']
 class build_ext(_build_ext):
     def finalize_options(self):
         _build_ext.finalize_options(self)
-        __builtins__.__NUMPY_SETUP__ = False
+        #__builtins__.__NUMPY_SETUP__ = False
         import numpy
         print(numpy.get_include())
         self.include_dirs.append(numpy.get_include())
