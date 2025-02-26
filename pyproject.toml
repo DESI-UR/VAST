@@ -1,2 +1,2 @@
 [build-system]
-requires = ["Cython>=0.29.21"]
+requires = ['setuptools>=40.8.0', "Cython>=0.29.21"]
