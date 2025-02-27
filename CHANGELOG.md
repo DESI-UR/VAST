@@ -2,7 +2,11 @@
 Log of changes for VAST versions.
 
 
-## 1.6.1
+### 1.6.2
+- Updated V2 unit tests to work on Python 3.8, 3.9, 3.10, 3.11 with minor
+  change from np.isclose to checking for 1% differences between results
+
+### 1.6.1
 - Updated VF unit tests to check maximal positions and radii and hole overlap
   against designated maximals instead of utilizing the more brittle file
   based output of previous VF runs
