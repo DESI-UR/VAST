@@ -6,6 +6,7 @@ algorithm.
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from vast.vsquared.zobov import Zobov
+import cProfile
 
 p = ArgumentParser(description='Voronoi Voids (V^2) void finder.',
                    formatter_class=ArgumentDefaultsHelpFormatter)
@@ -25,16 +26,22 @@ req.add_argument('-c', '--config', dest='config_file', required=True, default="D
 
 args = p.parse_args()
 
-newZobov = Zobov(args.config_file, 0, 3,
-                 save_intermediate=args.save_intermediate,
-                 visualize=args.visualize,
-                 periodic=args.periodic)
 
-newZobov.sortVoids(method=args.method)
-
-newZobov.saveVoids()
-
-newZobov.saveZones()
-
-if args.visualize:
-    newZobov.preViz()
+if __name__ == "__main__":
+    
+    newZobov = Zobov(args.config_file, 
+                     #0, 3,
+                     #stages=[0,1,2,3],
+                     save_intermediate=args.save_intermediate,
+                     visualize=args.visualize,
+                     periodic=args.periodic,
+                     verbose=1)
+    
+    newZobov.sortVoids(method=args.method)
+    
+    newZobov.saveVoids()
+    
+    newZobov.saveZones()
+    
+    if args.visualize:
+        newZobov.preViz()
