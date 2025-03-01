@@ -19,6 +19,7 @@ class TestV2(unittest.TestCase):
         TestV2.catfile = 'python/vast/vsquared/tests/test_data.fits'
 
         TestV2.cat = None
+        TestV2.nside = 16
         TestV2.tess = None
         TestV2.zones = None
         TestV2.voids = None
@@ -30,7 +31,7 @@ class TestV2(unittest.TestCase):
         config = configparser.ConfigParser()
         config.read(TestV2.inifile)
         TestV2.zobov = zobov.Zobov(TestV2.inifile, save_intermediate=False)
-        TestV2.cat = classes.Catalog(TestV2.catfile, 16, 0.03, 0.1, config['Galaxy Column Names'],zobov=TestV2.zobov)
+        TestV2.cat = classes.Catalog(TestV2.catfile, TestV2.nside, 0.03, 0.1, config['Galaxy Column Names'],zobov=TestV2.zobov)
 
         mcoord = np.array([-158.0472400951847,-19.01100010666949,94.40978960900837])
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[0]), mcoord[0]))
@@ -56,7 +57,7 @@ class TestV2(unittest.TestCase):
     def test_zobov_1_tess(self):
         """Test ZOBOV tesselation
         """
-        TestV2.tess = classes.Tesselation(TestV2.cat)
+        TestV2.tess = classes.Tesselation(TestV2.cat, TestV2.nside)
 
         self.assertTrue(np.isclose(np.mean(TestV2.tess.volumes), 1600.190056988941))
         self.assertTrue(np.isclose(np.mean([len(nn) for nn in TestV2.tess.neighbors]), 16.06))
