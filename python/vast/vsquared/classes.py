@@ -386,8 +386,14 @@ class Tesselation:
         Outputs
         =======
         
-        self.volumes
-        self.neighbors
+        self.volumes : ndarray of shape (num_galaxies,)
+            volume of the voronoi cell for each input galaxy
+        
+        self.neighbors : list of lists
+            for each galaxy, a list of the indices of the neighbor galaxies
+            which belong to the same
+        
+        
         self.vecut
         self.verts
         self.vertIDs
@@ -452,7 +458,8 @@ class Tesselation:
             
             if verbose > 0:
                 print("Computing volumes...")
-                
+            '''
+            #See comments below - replacing this section with parallelized stuff
             vol = np.zeros(len(coords))
             cut = np.arange(len(coords))
             hul = []
@@ -465,7 +472,28 @@ class Tesselation:
             #hul = [ConvexHull(ver[r]) for r in reg[cut]]
             vol[cut] = np.array([h.volume for h in hul])
             self.volumes = vol
+            '''
+                
+            ################################################################################
+            # Tweaking this section to use the new parallelized infrastructure for
+            # volume calculation 
+            # use dummy radii of 1.0 and max/min of 2.0/0.0 so all
+            # radii fall within r_max and r_min
+            ################################################################################
+            vrh = np.ones(len(Vor.point_region), dtype=np.float64)
+            r_max = 2.0
+            r_min = 0.0
+            verticies_in_mask_uint8 = np.ones(len(Vor.point_region), dtype=np.uint8)
+                
+            output_volumes = self.calculate_region_volumes(Vor,
+                                                           ver.astype(np.float64),
+                                                           r_max,
+                                                           r_min,
+                                                           vrh,
+                                                           verticies_in_mask_uint8,
+                                                           )
             
+            self.volumes = output_volumes
             
         else:
             
@@ -504,30 +532,22 @@ class Tesselation:
             
             pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
             
-            in_mask = mask[pix_ids]
+            verticies_in_mask = mask[pix_ids]
             
-            in_mask_uint8 = in_mask.astype(np.uint8)
+            verticies_in_mask_uint8 = verticies_in_mask.astype(np.uint8)
             
             ################################################################################
             # We will also need some radial information about the verticies and galaxies
             ################################################################################
-            #vrh = np.sqrt(np.sum(vertices*vertices, axis=1)).astype(np.float64)
             vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
             
-            #radial distance to galaxies
-            #crh = np.sqrt(np.sum(coords*coords, axis=1))
             crh = np.linalg.norm(coords, axis=1).astype(np.float64)
             
             r_max = np.max(crh) 
             
             r_min = np.min(crh) 
             
-            
-            
-            #output_volume = np.zeros(num_gals, dtype=np.float64)
-            
             verticies64 = voronoi_graph.vertices.astype(np.float64)
-            
             
             output_volumes = self.calculate_region_volumes(voronoi_graph,
                                                            #output_volume,
@@ -535,7 +555,7 @@ class Tesselation:
                                                            r_max,
                                                            r_min,
                                                            vrh,
-                                                           in_mask_uint8,
+                                                           verticies_in_mask_uint8,
                                                            )
             
             self.volumes = output_volumes
@@ -551,15 +571,21 @@ class Tesselation:
             sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
         
         
+        ################################################################################
+        #
+        ################################################################################
+        
         neigh_time = time.time()
         
         nei = [] #for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra objects that it's part of
         lut = [[] for _ in range(len(self.volumes))] #for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's part of
         if verbose > 0:
             print("Consolidating neighbors...")
+            
         for i in range(len(sim)):
             for j in sim[i]:
                 lut[j].append(i)
+                
         for i in range(len(self.volumes)):
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))

@@ -89,15 +89,22 @@ cpdef void calculate_region_volume(ITYPE_t idx,
     # region extends out to infinity so we exclude it from volume calculations
     ################################################################################
 
-    if -1 in region_memview:
-        return
+    #Added this check below instead to avoid iterating the list twice
+    #if -1 in region_memview:
+    #    return
 
     ################################################################################
-    # Second & Third cuts - make sure the verticies all fall within the r_min and 
-    # r_max values, and also that all verticies are in the mask
+    # First cut - if there is a -1 in the region index list, that means that 
+    # region extends out to infinity so we exclude it from volume calculations
+    # Second cut - make sure the verticies all fall within the r_min and 
+    # r_max values
+    # Third cut - all verticies are in the mask
     ################################################################################
 
     for index in region_memview:
+        
+        if index == -1:
+            return
         
         curr_radius = vrh[index]
 
@@ -110,6 +117,20 @@ cpdef void calculate_region_volume(ITYPE_t idx,
 
     ################################################################################
     # Now get the volume and write out
+    #
+    # "In the particular case where the space is a finite-dimensional Euclidean 
+    # space, each site is a point, there are finitely many points and all of them 
+    # are different, then the Voronoi cells are convex polytopes and they can be 
+    # represented in a combinatorial way using their vertices, sides, 
+    # two-dimensional faces, etc. Sometimes the induced combinatorial structure is 
+    # referred to as the Voronoi diagram. In general however, the Voronoi cells may 
+    # not be convex or even connected. "
+    #
+    # we happen to be operating in the particular finite-dimension Euclidean
+    # space, so all our Voronoi cells are convex polyhedra, we should leverage 
+    # this information instead of using the scipy.spatial ConvexHull class
+    #
+    #
     ################################################################################
 
     voronoi_cell_verticies = vertices[region] #using the list not the memview since we cant fancy index with a memview

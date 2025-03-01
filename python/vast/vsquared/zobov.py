@@ -59,23 +59,19 @@ class Zobov:
         ==========
         
         configfile : str
-            Configuration file, in INI format.
+            Configuration file path, for a config file in INI format.
             
-        start : int
-            Analysis stages: 
-            0=generate catalog, 
-            1=load catalog, 
-            2=load tesselation, 
-            3=load zones, 
-            4=load voids.
-            
-        end :  int
-            Ending point: 
+        stages : list of integers
             0=generate catalog, 
             1=generate tesselation, 
             2=generate zones, 
             3=generate voids, 
-            4=load voids.
+            Example: stages=[1,2,3] will attempt to load a previously pickled
+            catalog object from a previous run with save_intermediate=True, and
+            then run the tesselation, zones creation, and voids creation stages
+            stages=[2,3] will attempt to load a previously pickled tesselation
+            object and then run the zones and voids creation
+            Default stages=[0,1,2,3] to run all four stages.
             
         save_intermediate : bool
             If true, pickle and save intermediate outputs.
