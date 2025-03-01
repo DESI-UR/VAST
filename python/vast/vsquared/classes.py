@@ -4,6 +4,7 @@ input catalog.
 
 import numpy as np
 import healpy as hp
+import time
 from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
@@ -36,8 +37,10 @@ class Catalog:
         Given a number of input physical parameters and data files, repackage
         important bits of information for later use as attributes of this class.
         
-        Also converts ra-dec-redshift into xyz coords
-
+        Also:
+            converts ra-dec-redshift into xyz coords
+            creates a mask for the survey using HEALPix
+          
         Parameters
         ==========
         
@@ -155,7 +158,7 @@ class Catalog:
             zcut = np.logical_and(z > zmin, z < zmax) # 1 if gal is in the zlims 0 if not
             
             if not zcut.any():
-                print("Choose valid redshift limits")
+                print("Choose valid redshift limits", z.min(), z.max())
                 return
             
             #alias for zcut, unless magnitude limit is used, in which case scut will be later set to mcut
@@ -178,7 +181,9 @@ class Catalog:
         # for further remaining galaxies
         # NNLS = "Nearest Neighbor Lookup Something"?
         ################################################################################
-        nnls = np.arange(len(self.coord)) 
+        num_gals = len(self.coord)
+        
+        nnls = np.arange(num_gals) 
         
         # Galaxies outside z/redshift limit are marked with -1
         # non-periodic mode only since periodic assume rectangular region
@@ -208,7 +213,7 @@ class Catalog:
             # `scut` a boolean array to identify desired galaxies
             scut = mcut 
             
-            ncut = np.arange(len(self.coord), dtype=int)[zcut][mcut[zcut]<1]  # indexes of galaxies in zcut but not in mcut
+            ncut = np.arange(num_gals, dtype=int)[zcut][mcut[zcut]<1]  # indexes of galaxies in zcut but not in mcut
             
             # These neighbor indices do not appear to be used anywhere so
             # for now, offsetting this code block to not run by default since
@@ -218,7 +223,7 @@ class Catalog:
                 
                 tree = KDTree(self.coord[mcut]) #kdtree of galaxies in mcut
                 
-                lut  = np.arange(len(self.coord), dtype=int)[mcut] #indexes of galaxies in mcut
+                lut  = np.arange(num_gals, dtype=int)[mcut] #indexes of galaxies in mcut
                 
                 # the nearest neighbor index for each galaxy in zcut but not in mcut, 
                 # and where the neighbors are in mcut
@@ -452,7 +457,19 @@ class Tesselation:
             if verbose > 0:
                 print("Tesselating...")
                 
+                
+            #Just for debugging
+            #derp_time = time.time()
+            #derp1 = Delaunay(coords, qhull_options='QJ')
+            #print("Derp1 time: ", time.time() - derp_time)
+                
+                
+            voronoi_time = time.time()
             Vor = Voronoi(coords)
+            print("Voronoi time: ", time.time() - voronoi_time)
+            
+            
+            other_time = time.time()
             
             # array of spatial/xyz vertex locations in the tessellation
             # the Vor.regions attribute references these values to create
@@ -463,6 +480,8 @@ class Tesselation:
             # to get the index of the Vor.region belonging to that point
             # 
             reg = np.array(Vor.regions, dtype=object)[Vor.point_region] 
+            
+            #print(reg[0:10])
             
             
             del Vor
@@ -531,6 +550,10 @@ class Tesselation:
             
             sub_regions3 = sub_regions2[cu3]
             
+            print("Other time: ", time.time() - other_time)
+            
+            cv_time = time.time()
+            
             hul = [] #list of convex hull objects 
             for r in sub_regions3:
                 try:
@@ -543,6 +566,9 @@ class Tesselation:
                     ch = ConvexHull(ver[r], qhull_options='QJ')
                 hul.append(ch.volume)
                 
+                
+            print("Convex hull time: ", time.time() - cv_time)
+            
             #hul = [ConvexHull(ver[r]) for r in reg[cut]]
             #vol[cut] = np.array([h.volume for h in hul]) #write the volumes from the convex hulls to vol
             vol[cut] = np.array(hul)
@@ -555,9 +581,13 @@ class Tesselation:
             
             if verbose > 0:
                 print("Triangulating...")
+            delaunay_time = time.time()
             Del = Delaunay(coords, qhull_options='QJ')
+            print("Delaunay time: ", time.time() - delaunay_time)
             sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
         
+        
+        neigh_time = time.time()
         
         nei = [] #for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra objects that it's part of
         lut = [[] for _ in range(len(vol))] #for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's part of
@@ -573,6 +603,8 @@ class Tesselation:
             
         #for each galaxy, list of neighbor galaxy coordinates (see above explanation)
         self.neighbors = np.array(nei, dtype=object) 
+        
+        print("Neighbor time: ", time.time() - neigh_time)
 
         #save vertices, regions,and the cut to select regions contained by the survey bounds
         if viz: 

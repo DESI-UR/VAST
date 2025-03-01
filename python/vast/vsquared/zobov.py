@@ -11,16 +11,28 @@ from astropy.cosmology import FlatLambdaCDM
 import time
 
 
-from vast.vsquared.util import toSky, inSphere, wCen, getSMA, P, flatten, open_fits_file_V2, mknumV2
-from vast.vsquared.classes import Catalog, Tesselation, Zones, Voids
+from vast.vsquared.util import toSky, \
+                               inSphere, \
+                               wCen, \
+                               getSMA, \
+                               P, \
+                               flatten, \
+                               open_fits_file_V2, \
+                               mknumV2
+                               
+from vast.vsquared.classes import Catalog, \
+                                  Tesselation, \
+                                  Zones, \
+                                  Voids
 
 class Zobov:
     """
     Description
     ===========
     Entrypoint to V^2.  Currently this class encapsulates the entirety
-    of V^2 from loading data, through tessellating, watershed, pruning,
-    and saving results.
+    of V^2 from loading a config file and data files, through tessellating, 
+    watershed, pruning, and saving results to disk.  The primary computational
+    methods are __init__() and sortVoids().
     
     """
     
@@ -308,6 +320,15 @@ class Zobov:
         
         
     def create_tessellation(self, run_stage, save_intermediate=False):
+        """
+        Description
+        ===========
+        
+        Given an indicator whether we're running this stage or loading
+        results from this stage from disk, do the appropriate running
+        or loading of data, and if running, potentially save the
+        output as an intermediate result
+        """
         
         if run_stage:
             
@@ -335,6 +356,15 @@ class Zobov:
 
 
     def create_zones(self, run_stage, save_intermediate=False):
+        """
+        Description
+        ===========
+        
+        Given an indicator whether we're running this stage or loading
+        results from this stage from disk, do the appropriate running
+        or loading of data, and if running, potentially save the
+        output as an intermediate result
+        """
         
         if run_stage:
             
@@ -357,6 +387,15 @@ class Zobov:
     
     
     def create_prevoids(self, run_stage, save_intermediate=False):
+        """
+        Description
+        ===========
+        
+        Given an indicator whether we're running this stage or loading
+        results from this stage from disk, do the appropriate running
+        or loading of data, and if running, potentially save the
+        output as an intermediate result
+        """
         
         if run_stage:
             
