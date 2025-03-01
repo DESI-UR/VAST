@@ -44,6 +44,7 @@ class Zobov:
                  save_intermediate=True,
                  visualize=False,
                  periodic=False, 
+                 num_cpus=1,
                  capitalize_colnames=False,
                  verbose=0):
         """
@@ -90,11 +91,16 @@ class Zobov:
             cartesian/xyz format.  In non-periodic mode, provide them in
             ra/dec/redshift
             
+        num_cpus : int
+            number of cpus to leverage for computations
+            
         capitalize_colnames : bool
             If True, column names in ouput file are capitalized. If False, column names are lowercase
         """
         
         self.verbose = verbose
+        
+        self.num_cpus = num_cpus
         
         ################################################################################
         # Some basic parameter sanity checks
@@ -339,6 +345,7 @@ class Zobov:
                                self.nside,
                                viz=self.visualize,
                                periodic=self.periodic,
+                               num_cpus=self.num_cpus, 
                                buff=self.buff,
                                verbose=self.verbose)
             

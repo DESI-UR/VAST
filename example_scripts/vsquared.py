@@ -35,6 +35,7 @@ if __name__ == "__main__":
                      save_intermediate=args.save_intermediate,
                      visualize=args.visualize,
                      periodic=args.periodic,
+                     num_cpus=4,
                      verbose=1)
     
     newZobov.sortVoids(method=args.method)

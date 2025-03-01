@@ -12,6 +12,16 @@ from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 from vast.vsquared.util import toCoord, getBuff, flatten, mknumV2
 from vast.voidfinder.preprocessing import load_data_to_Table
 
+from vast.vsquared.class_utils import calculate_region_volume
+
+import os
+import mmap
+import tempfile
+import multiprocessing
+from multiprocessing import Process, Value
+
+from ctypes import c_int64
+
 class Catalog:
     """Catalog data for void calculation.
     """
@@ -349,6 +359,7 @@ class Tesselation:
                  nside,
                  viz=False,
                  periodic=False,
+                 num_cpus=1,
                  buff=5.0,
                  verbose=0):
         """Initialize tesselation.
@@ -382,10 +393,14 @@ class Tesselation:
         self.vertIDs
         """
         
+        self.num_cpus = num_cpus
+        
         #the catalog.nnls index has been computed in the Catalog class such that
         #this selects the subset of galaxies in `zcut` if no magcut is used and 
         #selects galaxies in `mcut` if magcut is used
         coords = cat.coord[cat.nnls==np.arange(len(cat.nnls))] 
+        
+        self.num_gals = coords.shape[0]
         
         if periodic:
             
@@ -457,126 +472,75 @@ class Tesselation:
             if verbose > 0:
                 print("Tesselating...")
                 
-                
             #Just for debugging
             #derp_time = time.time()
             #derp1 = Delaunay(coords, qhull_options='QJ')
             #print("Derp1 time: ", time.time() - derp_time)
                 
+            
                 
             voronoi_time = time.time()
-            Vor = Voronoi(coords)
+            
+            voronoi_graph = Voronoi(coords)
+            
             print("Voronoi time: ", time.time() - voronoi_time)
             
             
             other_time = time.time()
             
-            # array of spatial/xyz vertex locations in the tessellation
-            # the Vor.regions attribute references these values to create
-            # the individual cells
-            ver = Vor.vertices 
-            
-            # for each input galaxy, use the Vor.point_region attribute
-            # to get the index of the Vor.region belonging to that point
-            # 
-            reg = np.array(Vor.regions, dtype=object)[Vor.point_region] 
-            
-            #print(reg[0:10])
-            
-            
-            del Vor
-            ve2 = ver.T
-            
-            #spherical coordinates in radians for voronoi vertices
-            #vertex lat and long values essentially
-            vth = np.arctan2(np.sqrt(ve2[0]**2. + ve2[1]**2.), ve2[2]) 
-            vph = np.arctan2(ve2[1], ve2[0])
-            
-            #vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
-            vrh = np.sqrt(np.sum(ver*ver, axis=1))
-            
-            #crh = np.array([np.sqrt((c**2.).sum()) for c in coords]) #radial distance to galaxies
-            crh = np.sqrt(np.sum(coords*coords, axis=1))
-            
-            r_max = np.max(crh) #radius max?
-            
-            r_min = np.min(crh) #radius min?
-            
-            
-            if verbose > 0:
-                print("Computing volumes...")
-                
-            vol = np.zeros(len(reg)) #initialize volumes to 0
-            
-            #cut selecting galaxies with finite voronoi cells
-            # a -1 in the indices of a region indicates the region is not finite
-            cu1 = np.array([-1 not in r for r in reg]) 
-            
-            #cut selecting galaxes whose voronoi coordinates are finite and are 
-            #within the survey distance limits
-            #`region` selectes three or more verticies
-            # we want to check that all the selected verticies are within the
-            #r min and r max
-            sub_regions1 = reg[cu1]
-            cu2 = np.zeros(len(sub_regions1), dtype=bool)
-            for idx, region in enumerate(sub_regions1):
-                val = np.prod(np.logical_and(vrh[region] > r_min, vrh[region] < r_max), dtype=bool)
-                cu2[idx] = val
-            #cu2 = np.array( [np.prod(np.logical_and(vrh[r] > rmn, vrh[r] < rmx), dtype=bool) for r in reg[cu1]] ).astype(bool) 
-            
-            
+            ################################################################################
+            # We will need to know whether the verticies are within the mask to include 
+            # those volumes or not, so calculate the sky angles of the vertex locations
+            # and throw them into the healpix utility function to get the mask values
+            # corresponding to those locations
+            ################################################################################
             mask = cat.mask
-            #nsd = hp.npix2nside(len(msk)) #goofy to recalculate this, just pass in
             
-            #Convert the angular locations of the voronoi vertices into index
-            #locations into the mask, then get that subset of locations within
-            #the mask saying whether that location is valid or not
-            pix_ids = hp.ang2pix(nside, vth, vph) 
-            imk = mask[pix_ids] 
+            vertices = voronoi_graph.vertices
             
-            #cut selecting voronoi vertexes inside survey mask
-            #cut selecting galaxies with finite voronoi coords that are within 
-            #the total survey bounds
-            sub_regions2 = sub_regions1[cu2]
-            cu3 = np.zeros(len(sub_regions2), dtype=bool)
-            for idx, region in enumerate(sub_regions2):
-                val = np.prod(imk[region], dtype=bool)
-                cu3[idx] = val
-            #cu3 = np.array([np.prod(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool) 
+            vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
             
-            cut = np.arange(len(vol))
-            cut = cut[cu1][cu2][cu3] #shortcut for cu3 but w/o having to stack [cu1][cu2][cu3] each time
+            verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
             
+            pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
             
-            sub_regions3 = sub_regions2[cu3]
+            in_mask = mask[pix_ids]
             
-            print("Other time: ", time.time() - other_time)
+            in_mask_uint8 = in_mask.astype(np.uint8)
             
-            cv_time = time.time()
+            ################################################################################
+            # We will also need some radial information about the verticies and galaxies
+            ################################################################################
+            #vrh = np.sqrt(np.sum(vertices*vertices, axis=1)).astype(np.float64)
+            vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
             
-            hul = [] #list of convex hull objects 
-            for r in sub_regions3:
-                try:
-                    ch = ConvexHull(ver[r])
-                except:
-                    #If failed,
-                    #Retry creating the convex hull using "Joggling" which is
-                    #a pertubation of the points which may result in better
-                    #numerical stability
-                    ch = ConvexHull(ver[r], qhull_options='QJ')
-                hul.append(ch.volume)
-                
-                
-            print("Convex hull time: ", time.time() - cv_time)
+            #radial distance to galaxies
+            #crh = np.sqrt(np.sum(coords*coords, axis=1))
+            crh = np.linalg.norm(coords, axis=1).astype(np.float64)
             
-            #hul = [ConvexHull(ver[r]) for r in reg[cut]]
-            #vol[cut] = np.array([h.volume for h in hul]) #write the volumes from the convex hulls to vol
-            vol[cut] = np.array(hul)
+            r_max = np.max(crh) 
             
-            self.volumes = vol
+            r_min = np.min(crh) 
             
             
             
+            #output_volume = np.zeros(num_gals, dtype=np.float64)
+            
+            verticies64 = voronoi_graph.vertices.astype(np.float64)
+            
+            
+            output_volumes = self.calculate_region_volumes(voronoi_graph,
+                                                           #output_volume,
+                                                           verticies64,
+                                                           r_max,
+                                                           r_min,
+                                                           vrh,
+                                                           in_mask_uint8,
+                                                           )
+            
+            self.volumes = output_volumes
+            
+            print("Cut+Convex Hull time: ", time.time() - other_time)
             
             
             if verbose > 0:
@@ -590,13 +554,13 @@ class Tesselation:
         neigh_time = time.time()
         
         nei = [] #for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra objects that it's part of
-        lut = [[] for _ in range(len(vol))] #for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's part of
+        lut = [[] for _ in range(len(self.volumes))] #for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's part of
         if verbose > 0:
             print("Consolidating neighbors...")
         for i in range(len(sim)):
             for j in sim[i]:
                 lut[j].append(i)
-        for i in range(len(vol)):
+        for i in range(len(self.volumes)):
             cut = np.array(lut[i])
             nei.append(np.unique(sim[cut]))
             
@@ -614,7 +578,158 @@ class Tesselation:
             self.vecut = vecut
             self.verts = ver
 
-
+    def calculate_region_volumes(self, 
+                                 voronoi_graph,
+                                 #output_volume,
+                                 verticies64,
+                                 r_max,
+                                 r_min,
+                                 vrh,
+                                 in_mask_uint8,
+                                 ):
+        """
+        This function essentially serves as a switch between single process
+        and multiprocess calculation for calculating the region volume
+        """
+        
+        
+        
+        if self.num_cpus == 1:
+            
+            output_volumes = np.zeros(self.num_gals, dtype=np.float64)
+            
+            for idx, region_idx in enumerate(voronoi_graph.point_region):
+                
+                region = voronoi_graph.regions[region_idx]
+                
+                calculate_region_volume(idx,
+                                        region,
+                                        output_volumes,
+                                        verticies64,
+                                        r_max,
+                                        r_min,
+                                        vrh,
+                                        in_mask_uint8)
+                
+            
+        elif self.num_cpus > 1:
+            
+            # We're going to use a very simply multiprocessing scheme here
+            # since the voronoi graph has already been calculated and we can
+            # essentially treat it as read-only
+            num_indices = len(voronoi_graph.point_region)
+            
+            index_coordinator = Value(c_int64, 0, lock=True)
+            
+            
+            volumes_fd, VOLUMES_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            volumes_buffer_length = self.num_gals*8
+            
+            os.ftruncate(volumes_fd, volumes_buffer_length)
+            
+            volumes_buffer = mmap.mmap(volumes_fd, 0)
+            
+            os.unlink(VOLUMES_BUFFER_PATH)
+            
+            output_volumes = np.frombuffer(volumes_buffer, dtype=np.float64)
+    
+            output_volumes.shape = (self.num_gals,)
+            
+            
+            
+            
+            
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+            #for proc_idx in range(1):
+                
+                #p = startup_context.Process(target=_hole_finder_worker_profile, 
+                p = startup_context.Process(target=self.volume_calculation_worker, 
+                                            args=(num_indices, 
+                                                  index_coordinator, 
+                                                  voronoi_graph,
+                                                  volumes_fd,
+                                                  verticies64,
+                                                  r_max,
+                                                  r_min,
+                                                  vrh,
+                                                  in_mask_uint8
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+        
+        return output_volumes
+        
+        
+    def volume_calculation_worker(self, 
+                                  max_indicies,
+                                  index_coordinator,
+                                  voronoi_graph,
+                                  volumes_fd,
+                                  verticies64,
+                                  r_max,
+                                  r_min,
+                                  vrh,
+                                  in_mask_uint8
+                                  ):
+        
+        #max_indices and num_gals are the same thing
+        volumes_buffer_length = max_indicies*8 #float64 so 8 bytes per element
+    
+        volumes_buffer = mmap.mmap(volumes_fd, volumes_buffer_length)
+        
+        output_volumes = np.frombuffer(volumes_buffer, dtype=np.float64)
+    
+        output_volumes.shape = (self.num_gals,)
+        
+        
+        curr_index = 0
+        
+        while True:
+            
+            index_coordinator.acquire()
+            
+            curr_index = index_coordinator.value
+            
+            index_coordinator.value += 1
+            
+            index_coordinator.release()
+        
+            if curr_index >= max_indicies:
+                break
+        
+            #print("Working index: ", curr_index, " of: ", max_indicies)
+        
+            region_idx = voronoi_graph.point_region[curr_index]
+                
+            region = voronoi_graph.regions[region_idx]
+            
+            calculate_region_volume(curr_index,
+                                    region,
+                                    output_volumes,
+                                    verticies64,
+                                    r_max,
+                                    r_min,
+                                    vrh,
+                                    in_mask_uint8)
+        
+        return None
+        
+        
 
 
 class Zones:
