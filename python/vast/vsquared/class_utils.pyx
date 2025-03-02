@@ -75,6 +75,13 @@ cpdef void calculate_region_volume(ITYPE_t idx,
     vrh : array of shape (K,)
         radii of the vertices to check against r_max and r_min
     
+    
+    Outputs
+    =======
+    
+    Writes the float volume value into output_volume[idx]
+    
+    
     """
     
     #convert to numpy array with specific dtype so we can leverage typing

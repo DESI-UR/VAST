@@ -495,6 +495,8 @@ class Tesselation:
             
             self.volumes = output_volumes
             
+            indptr, gal_indices =  Del.vertex_neighbor_vertices
+            
         else:
             
             if verbose > 0:
@@ -570,29 +572,84 @@ class Tesselation:
             print("Delaunay time: ", time.time() - delaunay_time)
             sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
         
+            indptr, gal_indices = Del.vertex_neighbor_vertices
         
         ################################################################################
         #
         ################################################################################
         
         neigh_time = time.time()
+        '''
+        # for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra 
+        # objects that it's part of
+        nei = [] 
         
-        nei = [] #for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra objects that it's part of
-        lut = [[] for _ in range(len(self.volumes))] #for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's part of
+        # for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's 
+        # part of
+        lut = [[] for _ in range(len(self.volumes))]
+        #tetrahedra_
+        
         if verbose > 0:
             print("Consolidating neighbors...")
             
         for i in range(len(sim)):
+            
+            #print(len(sim[i]))
             for j in sim[i]:
+                #print(i, j)
                 lut[j].append(i)
                 
-        for i in range(len(self.volumes)):
-            cut = np.array(lut[i])
-            nei.append(np.unique(sim[cut]))
+                
+        count = 0
+        for i in range(self.num_gals):
             
+            #if i == 0:
+            #    print(lut[i])
+            
+            cut = np.array(lut[i])
+            temp = np.unique(sim[cut])
+            
+            #if i == 0:
+            #    print(cut, temp)
+            #    print(sim[cut])
+            nei.append(temp)
+            count += len(temp)
+            
+            
+        print("Neigh: ", len(nei), count)
+        print("Derp1, 2: ", len(indptr), len(gal_indices))    
+        
+        #print(nei[0:5])
+        #print(derp1[0:5], derp1[-5:])
+        #print(derp2[0:25])
+        
+        for idx, row in enumerate(nei):
+            
+            derp_vals = gal_indices[indptr[idx]:indptr[idx+1]]
+            #print(derp_vals)
+            derp_vals2 = np.append([idx], derp_vals)
+            
+            set1 = set(row)
+            set2 = set(derp_vals2)
+            
+            if set1 != set2:
+                print(set1, set2)
+                
+            #if idx > 10:
+            #    break
+        
+        
             
         #for each galaxy, list of neighbor galaxy coordinates (see above explanation)
         self.neighbors = np.array(nei, dtype=object) 
+        '''
+        
+        # The Scipy Delaunay class has already done this for us - it provides
+        # two data structures: indptr which is shape (num_gals+1,) and
+        # gal_indices which is (total_neighbors,).  For the i'th galaxy, get
+        # its neighbors like so:
+        # neighbor_indices = gal_indices[indptr[idx]:indptr[idx+1]]
+        self.neighbors = (indptr, gal_indices)
         
         print("Neighbor time: ", time.time() - neigh_time)
 
@@ -778,7 +835,7 @@ class Zones:
             used to enable (>=1) or disable (0) print messages
         """
         vol   = tess.volumes
-        nei   = tess.neighbors
+        nei_ptr, neigh_indicies   = tess.neighbors
 
         # Sort the Voronoi cells by their volume
         if verbose > 0:
@@ -787,8 +844,8 @@ class Zones:
         #srt   = np.argsort(-1.*vol) # srt[5] gives the index in vol of the 5th largest volume (lowest density)
         srt = np.argsort(vol)[::-1] #largest to smallest
 
-        vol2  = vol[srt] # cell volumes sorted from largest to smallest (aka least dense to most dense region)
-        nei2  = nei[srt] # coordinates of tetrahedra that include each galaxy, sorted from least dense to most dense region
+        #vol2  = vol[srt] # cell volumes sorted from largest to smallest (aka least dense to most dense region)
+        #nei2  = nei[srt] # coordinates of tetrahedra that include each galaxy, sorted from least dense to most dense region
 
         # Build zones from the cells
         lut   = np.zeros(len(vol), dtype=int) #for each galaxy, the ID if the zone it belongs to
@@ -800,22 +857,27 @@ class Zones:
         if verbose > 0:
             print("Building zones...")
 
-        for i in range(len(vol)):
+        #for i in range(len(vol)):
+        for i, srt_i in enumerate(srt):
 
-            if vol2[i] == 0.:
-                lut[srt[i]] = -1
-                zcell[-1].append(srt[i])
+            if vol[srt_i] == 0.:
+                lut[srt_i] = -1
+                zcell[-1].append(srt_i)
                 continue
 
-            ns = nei2[i] # indexes of galaxies neigboring curent galaxy
+            #ns = nei2[i] # indexes of galaxies neigboring curent galaxy
+            ns = neigh_indicies[nei_ptr[srt_i]:nei_ptr[srt_i+1]]
+            #ns = np.append([srt_i], ns) #inefficient but just for testing
+            
             vs = vol[ns] # volumes of cells neighboring current cell
             n  = ns[np.argmax(vs)] #index of neigboring galaxy with largest volume
 
-            if n == srt[i]: # if current cell is larger than all it's neighbors (aka the center of a zone)
+            #if n == srt[i]: # if current cell is larger than all it's neighbors (aka the center of a zone)
+            if vol[srt_i] > vol[n]:
                 # This cell has the largest volume of its neighbors
-                lut[n] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
-                zcell.insert(-1,[n]) # create a new zone
-                zvols.insert(-1,vol[n]) # note the volume of the largest cell in the zone
+                lut[srt_i] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
+                zcell.insert(-1,[srt_i]) # create a new zone
+                zvols.insert(-1,vol[srt_i]) # note the volume of the largest cell in the zone
             else:
                 # This cell is put into its least-dense neighbor's zone
                 lut[srt[i]]   = lut[n] #the galaxy in this cell is given the zone ID of it's least dense neighbor
@@ -837,7 +899,8 @@ class Zones:
             print("Linking zones...")
 
         for i in range(len(vol)):
-            ns = nei[i]
+            #ns = nei[i]
+            ns = neigh_indicies[nei_ptr[i]:nei_ptr[i+1]]
             z1 = lut[i]
             if z1 == -1:
                 continue
