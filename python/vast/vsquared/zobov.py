@@ -45,6 +45,7 @@ class Zobov:
                  visualize=False,
                  periodic=False, 
                  num_cpus=1,
+                 xyz=False,
                  capitalize_colnames=False,
                  verbose=0):
         """
@@ -54,6 +55,7 @@ class Zobov:
         This __init__ method does not really initalize a class so much as
         actually run the whole V^2 pipeline given `start` and `end` parameters
         representing the starting and ending stages to run.
+        
 
         Parameters
         ==========
@@ -90,6 +92,9 @@ class Zobov:
         num_cpus : int
             number of cpus to leverage for computations
             
+         xyz : bool
+            Use rectangular boundary conditions.
+
         capitalize_colnames : bool
             If True, column names in ouput file are capitalized. If False, column names are lowercase
         """
@@ -115,10 +120,12 @@ class Zobov:
             self.visualize = visualize
             
         self.periodic = periodic
+        self.xyz = False if periodic*xyz or not xyz else True
 
         ################################################################################
         # Load the config INI file from disk
         ################################################################################
+
         
         config = configparser.ConfigParser()
         
@@ -187,70 +194,9 @@ class Zobov:
         
         self.initialize_fits_hdu_header(hduh)
 
-        ################################################################################
-        # Eeegads Holmes, I do believe we're running the various pipeline stages
-        # now
-        ################################################################################
-        '''
-        if start<4:
-            if start<3:
-                if start<2:
-                    
-                    
-                    if start<1:
-                        ctlg = Catalog(catfile=self.infile,
-                                       nside=self.nside,
-                                       zmin=self.zmin,
-                                       zmax=self.zmax,
-                                       column_names=config['Galaxy Column Names'], 
-                                       maglim=self.maglim,
-                                       H0=self.H0,
-                                       Om_m=self.Om_m,
-                                       periodic=self.periodic, 
-                                       cmin=self.cmin,
-                                       cmax=self.cmax, 
-                                       zobov=self)
-                        if save_intermediate:
-                            pickle.dump(ctlg,open(self.intloc+"_ctlg.pkl",'wb'))
-                            
-                    else:
-                        ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
-                        
-                    if end>0:
-                        tess = Tesselation(ctlg,
-                                           viz=self.visualize,
-                                           periodic=self.periodic,
-                                           buff=self.buff)
-                        if save_intermediate:
-                            pickle.dump(tess,open(self.intloc+"_tess.pkl",'wb'))
-                            
-                            
-                else:
-                    ctlg = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
-                    tess = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
-                    
-                if end>1:
-                    zones = Zones(tess, viz=visualize)
-                    if save_intermediate:
-                        pickle.dump(zones,open(self.intloc+"_zones.pkl",'wb'))
-                        
-            else:
-                ctlg  = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
-                tess  = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
-                zones = pickle.load(open(self.intloc+"_zones.pkl",'rb'))
-                
-            if end>2:
-                voids = Voids(zones)
-                if save_intermediate:
-                    pickle.dump(voids,open(self.intloc+"_voids.pkl",'wb'))
-                    
-        else:
-            ctlg  = pickle.load(open(self.intloc+"_ctlg.pkl",'rb'))
-            tess  = pickle.load(open(self.intloc+"_tess.pkl",'rb'))
-            zones = pickle.load(open(self.intloc+"_zones.pkl",'rb'))
-            voids = pickle.load(open(self.intloc+"_voids.pkl",'rb'))
-        '''
-        
+
+
+
         run_stage_0 = 0 in stages
         self.create_catalog(run_stage_0, save_intermediate)
         
@@ -302,7 +248,8 @@ class Zobov:
                            maglim=self.maglim,
                            H0=self.H0,
                            Om_m=self.Om_m,
-                           periodic=self.periodic, 
+                           periodic=self.periodic,
+                           xyz=self.xyz,
                            cmin=self.cmin,
                            cmax=self.cmax, 
                            zobov=self,
@@ -341,6 +288,7 @@ class Zobov:
                                self.nside,
                                viz=self.visualize,
                                periodic=self.periodic,
+                               xyz=self.xyz,
                                num_cpus=self.num_cpus, 
                                buff=self.buff,
                                verbose=self.verbose)
@@ -472,11 +420,12 @@ class Zobov:
         
         
         
-        
-        
 
-
-    def sortVoids(self, method=0, minsig=2, dc=0.2):
+    def sortVoids(self, 
+                  method=0, 
+                  minsig=2, 
+                  zone_linking_cut=0.2, 
+                  central_density_cut=0.2):
         """
         Sort voids according to one of several methods.
 
@@ -493,11 +442,17 @@ class Zobov:
         minsig : float
             Minimum significance threshold for selecting voids.
 
-        dc : float
+        zone_linking_cut : float
             Density cut for linking zones using VIDE method.
+            
+        central_density_cut : float
+            Density cut for filtering voids from the final catalog.
         """
 
-        #format method
+        # ------------------------------------------------------------------------------------------------------
+        # Ensure appropriate user settings
+        # ------------------------------------------------------------------------------------------------------
+       
         if isinstance(method, str):
             try:
                 method = int(method)
@@ -524,11 +479,13 @@ class Zobov:
         if self.verbose > 0:
             print("Selecting void candidates...")
             start_time = time.time()
+        
+        # mean cell volume / 0.2 aka 1 / (0.2 * mean density)
+        minvol = np.mean(self.tessellation.volumes[self.tessellation.volumes>0])/zone_linking_cut
 
         if method == 0: #VIDE
             
             voids  = []
-            minvol = np.mean(self.tessellation.volumes[self.tessellation.volumes>0])/dc
             for i in range(len(self.prevoids.ovols)):
                 vl = self.prevoids.ovols[i]
                 vbuff = []
@@ -601,6 +558,8 @@ class Zobov:
         if self.verbose > 0:
             print('Void candidates selected...')
 
+        
+        #for every void in hierarchy (VIDE) or for every zone (REVOLVER), the cells that compose it
         vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
@@ -608,16 +567,19 @@ class Zobov:
         cutco = self.catalog.coord[gcut]
 
         # Build array of void volumes
+        #for every void in hierarchy, its volume
         vvols = np.array([np.sum(self.tessellation.volumes[vcut]) for vcut in vcuts])
 
         # Calculate effective radius of voids
+        #for every void in hierarchy, its radius
         vrads = (vvols*3/(4*np.pi))**(1/3)
         if self.verbose > 0:
             print('Effective void radius calculated')
 
         # Locate all voids with radii smaller than set minimum
-        if method==4:
-            self.minrad = np.median(vrads)
+        # Old behavior for REVOLVER
+        #if method==4:
+        #    self.minrad = np.median(vrads)
         rcut  = vrads > self.minrad
         
         voids = np.array(voids, dtype=object)[rcut]
@@ -632,6 +594,13 @@ class Zobov:
         if self.verbose > 0:
             print("Finding void centers...")
         vcens = np.array([wCen(self.tessellation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
+        
+        
+        # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
+        minvol *= zone_linking_cut / central_density_cut
+        
+        """
+        OLD CODE: applies central density cut by removing voids that don't make the cut
         if method==0:
             dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
             vrads = vrads[dcut]
@@ -639,6 +608,43 @@ class Zobov:
             vrads = vrads[rcut]
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]
+        """
+        
+        # NEW CODE: applies central density cut by flagging voids that don't make the cut.
+        # The new code hasn't been set up to complete it's goal yet, so it is for the time being
+        # essentially equivalent to the old code, with the exception of adding a flag column to the
+        # data output
+        # -----------------------
+        dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
+        rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
+        self.dcut=dcut #DELETE
+        self.rcut=rcut #DELETE
+        self.minvol = minvol #DELETE
+        self.underdense = (dcut*rcut).astype(int)
+        # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
+        # TODO: make central density cut optional
+        if method == 0:
+            vrads = vrads[dcut*rcut]
+            vcens = vcens[dcut*rcut]
+            voids = voids[dcut*rcut]
+            self.underdense = self.underdense[dcut*rcut]
+        # -----------------------
+        
+        vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
+        if self.visualize:
+            varea_0 = [np.sum(self.zones.zarea_0[np.array(voi, dtype=int)]) for voi in voids]
+            varea_t = [np.sum(self.zones.zarea_t[np.array(voi, dtype=int)]) for voi in voids]
+            varea_s = np.zeros(len(voids))
+            for i in range(len(voids)):
+                if len(voids[i])==1:
+                    continue
+                for j in range(len(voids[i])-1):
+                    z1 = voids[i][j]
+                    for k in range(j+1,len(voids[i])):
+                        z2 = voids[i][k]
+                        if z2 in self.zones.zlinks[0][z1]:
+                            l = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
+                            varea_s[i] += self.zones.zarea_s[z1][l]
 
         # Identify eigenvectors of best-fit ellipsoid for each void.
         if self.verbose > 0:
@@ -647,8 +653,11 @@ class Zobov:
         vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
 
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
-
+        
+        #iterate over voids
         for i in range(len(voids)):
+            
+            #iterate over 
             for j in voids[i]:
                 if zvoid[j][0] > -0.5:
                     if len(voids[i]) < len(voids[zvoid[j][0]]):
@@ -659,18 +668,27 @@ class Zobov:
                     zvoid[j][0] = i
                     zvoid[j][1] = i
 
+        self.voids = voids #DELETE
         self.vrads = vrads
         self.vcens = vcens
         self.vaxes = vaxes
         self.zvoid = np.array(zvoid)
         self.method = method
         
+        
         if self.verbose > 0:
             print("SortVoids time: ", time.time() - start_time)
 
+        self.vhzn = (np.array(vhzn)).astype(bool)
+        if self.visualize:
+            self.varea_0 = np.array(varea_0)
+            self.varea_t = np.array(varea_t)-varea_s
+
+
 
     def saveVoids(self):
-        """Output calculated voids to an ASCII file [catalogname]_zonevoids.dat.
+        """Output calculated voids to a FITS file 
+        [catalogname]_V2_[pruning method]_Output.fits
         """
         
         if self.verbose > 0:
@@ -687,20 +705,36 @@ class Zobov:
 
         # format output tables
         if self.periodic:
-            names = ['x','y','z','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            names = ['void','x','y','z','radius', 'underdense', 'x1','y1','z1','x2','y2','z2','x3','y3','z3']
             if self.capitalize:
                 names = [name.upper() for name in names]
-            vT = Table([vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+            vT = Table([np.arange(len(self.vrads)),vcen[0],vcen[1],vcen[2],self.vrads,self.underdense,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
                     names = names,
-                    units = ['Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+                    units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
             names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
             if self.capitalize:
                 names = [name.upper() for name in names]
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
-            vT = Table([vcen[0],vcen[1],vcen[2],vz,vra,vdec,self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
-                    names = names,
-                    units = ['Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+            columns = [np.arange(len(self.vrads)), vcen[0], vcen[1], vcen[2], 
+                       vz, vra, vdec, self.vrads, self.underdense, 
+                       vax1[0], vax1[1], vax1[2], vax2[0], vax2[1], vax2[2], vax3[0], vax3[1], vax3[2]]
+            names = ['void','x','y','z',
+                     'redshift','ra','dec','radius', 'underdense','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            units = ['','Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h', '', 'Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h']
+
+            if self.visualize:
+                columns += [self.varea_t,self.varea_0]
+                names += ['tot_area','edge_area']
+                units += ['(Mpc/h)^2','(Mpc/h)^2']
+            else:
+                columns.append((self.vhzn).astype(int))
+                names.append('edge')
+                units.append('')
+            if self.capitalize:
+                names = [name.upper() for name in names]
+            
+            vT = Table(columns, names = names, units = units)
         
         names = ['zone','void0','void1']
         if self.capitalize:
@@ -712,7 +746,7 @@ class Zobov:
 
         # write to the output file
         hdul['PRIMARY'].header = self.hdu.header
-        if not self.periodic:
+        if not self.periodic and not self.xyz:
             hdul.append(self.maskHDU)
 
         hdu = fits.BinTableHDU()
@@ -740,8 +774,8 @@ class Zobov:
 
 
     def saveZones(self):
-        """Output calculated zones to a fits file
-        V2_{method_name}_Output.fits
+        """Output calculated zones to a FITS file 
+        [catalogname]_V2_[pruning method]_Output.fits
         """
 
         if self.verbose > 0:
@@ -775,8 +809,8 @@ class Zobov:
         elist[np.array(olist,dtype=bool)] = 0
 
         # format output tables
-        names = ['gal','zone','depth','edge','out']
-        columns = [self.catalog.galids,zlist,dlist,elist,olist]
+        names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
+        columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
         
         if hasattr(self.catalog, 'tarids'):
             names.insert(1, 'target')
@@ -809,8 +843,8 @@ class Zobov:
 
 
     def preViz(self):
-        """Pre-computations needed for zone and void visualizations. Produces
-        an ASCII file [catalogname]_galviz.dat.
+        """Pre-computations needed for zone and void visualizations. Outputs to
+        a FITS file [catalogname]_V2_[pruning method]_Output.fits
         """
         
         if self.verbose > 0:
@@ -875,7 +909,7 @@ class Zobov:
         vid = np.array(vid)
 
         # format output tables
-        names = ['void_id','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
+        names = ['void','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
         if self.capitalize:
             names = [name.upper() for name in names]
         vizT = Table([vid,norm[0],norm[1],norm[2],tri1[0],tri1[1],tri1[2],tri2[0],tri2[1],tri2[2],tri3[0],tri3[1],tri3[2]],

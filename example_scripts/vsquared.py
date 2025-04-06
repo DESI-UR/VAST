@@ -19,6 +19,8 @@ p.add_argument('-w', '--save_intermediate', action='store_true', default=False,
                help='Save intermediate files in void calculation.')
 p.add_argument('-p', '--periodic', action='store_true', default=False,
                help='Use periodic boundary contitions.')
+p.add_argument('-x', '--xyz', action='store_true', default=False,
+               help='Use cartesian coordinates.')
 
 req = p.add_argument_group('required named arguments')
 req.add_argument('-c', '--config', dest='config_file', required=True, default="DR7_config.ini",
@@ -35,6 +37,7 @@ if __name__ == "__main__":
                      save_intermediate=args.save_intermediate,
                      visualize=args.visualize,
                      periodic=args.periodic,
+                     xyz=args.xyz,
                      num_cpus=4,
                      verbose=1)
     
