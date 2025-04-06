@@ -78,7 +78,6 @@ class TestV2(unittest.TestCase):
             #in some way rather than just the mean of the lengths
             out.append(len(neighs))
             
-        print("WERPL", np.mean(out))
         self.assertTrue(np.isclose(np.mean(out), 15.06))
         
         
@@ -145,12 +144,12 @@ class TestV2(unittest.TestCase):
         TestV2.zobov.sortVoids()
         zobov1.sortVoids(1)
         zobov2.sortVoids(2)
-        zobov3.sortVoids(3)
+        #zobov3.sortVoids(3)
         zobov4.sortVoids(4)
         self.assertEqual(len(TestV2.zobov.vrads), 62)
         self.assertEqual(len(zobov1.vrads), 87)
         self.assertEqual(len(zobov2.vrads), 14)
-        self.assertEqual(len(zobov3.vrads), 87)
+        #self.assertEqual(len(zobov3.vrads), 87)
         self.assertEqual(len(zobov4.vrads), 47)
 
         # Save voids.

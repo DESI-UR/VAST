@@ -374,7 +374,9 @@ class Zobov:
             if self.verbose > 0:
                 start_time = time.time()
             
-            zones = Zones(self.tessellation, viz=self.visualize)
+            zones = Zones(self.tessellation, 
+                          viz=self.visualize,
+                          verbose=self.verbose)
             
             if self.verbose > 0:
                 print("Zones creation time: ", time.time() - start_time)
@@ -405,7 +407,8 @@ class Zobov:
             if self.verbose > 0:
                 start_time = time.time()
                 
-            voids = Voids(self.zones)
+            voids = Voids(self.zones,
+                          verbose=self.verbose)
             
             if self.verbose > 0:
                 print("Prevoids creation time: ", time.time() - start_time)

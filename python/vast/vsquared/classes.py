@@ -379,6 +379,9 @@ class Tesselation:
         buff : float
             Width of incremental buffer shells for periodic computation.
             
+        num_cpus : int
+            number of CPUs to use for computation
+            
         verbose : int
             used to enable (>=1) or disable (0) print messages
             
@@ -422,6 +425,7 @@ class Tesselation:
             
             if verbose > 0:
                 print("Finding periodic neighbors...")
+                
             n = 0
             
             # add a buffer of galaxies around the simulation edges
@@ -826,69 +830,114 @@ class Zones:
         """Implementation of zones: see arXiv:0712.3049 for details.
 
         Parameters
-        ----------
+        ==========
+        
         tess : Tesselation
             Voronoid tesselation of an object catalog.
+            
         viz : bool
             Compute visualization.
+            
         verbose : int
             used to enable (>=1) or disable (0) print messages
         """
-        vol   = tess.volumes
-        nei_ptr, neigh_indicies   = tess.neighbors
+        
+        vol = tess.volumes
+        
+        nei_ptr, neigh_indicies = tess.neighbors
+        
+        num_gals = tess.num_gals
 
         # Sort the Voronoi cells by their volume
         if verbose > 0:
             print("Sorting cells...")
 
         #srt   = np.argsort(-1.*vol) # srt[5] gives the index in vol of the 5th largest volume (lowest density)
-        srt = np.argsort(vol)[::-1] #largest to smallest
+        sort_order = np.argsort(vol)[::-1] #largest to smallest
 
         #vol2  = vol[srt] # cell volumes sorted from largest to smallest (aka least dense to most dense region)
         #nei2  = nei[srt] # coordinates of tetrahedra that include each galaxy, sorted from least dense to most dense region
 
         # Build zones from the cells
-        lut   = np.zeros(len(vol), dtype=int) #for each galaxy, the ID if the zone it belongs to
-        depth = np.zeros(len(vol), dtype=int) #for each galaxy, the number of adjacent cells between it and the largest cell in its zone
+        
+        
+        #for each galaxy, the ID if the zone it belongs to
+        gal_zone_IDs = np.zeros(len(vol), dtype=int) 
+        
+        #for each galaxy, the number of adjacent cells between it and the largest cell in its zone
+        depth = np.zeros(len(vol), dtype=int) 
 
-        zvols = [0.] # the volume of the largest cell in each zone?
-        zcell = [[]] #list of zones, where each zone is a list of cells
+        
+        
+        #each element of zcell is a zone, and the zone is a 
+        #list of the galaxy indices belonging to that zone
+        zcell = [[]] 
+        # the volume of the largest cell in each zone?
+        # this is initialized with a 0 and zcell with an empty
+        # list to capture any cells with 0 volume
+        zvols = [0.] 
 
         if verbose > 0:
             print("Building zones...")
 
-        #for i in range(len(vol)):
-        for i, srt_i in enumerate(srt):
+        
+        for srt_i in sort_order:
 
+            # Maybe keep some separate lists for the 0-vol 
+            # cells since we have to check it explicitly anyway
             if vol[srt_i] == 0.:
-                lut[srt_i] = -1
+                gal_zone_IDs[srt_i] = -1
                 zcell[-1].append(srt_i)
                 continue
 
             #ns = nei2[i] # indexes of galaxies neigboring curent galaxy
-            ns = neigh_indicies[nei_ptr[srt_i]:nei_ptr[srt_i+1]]
+            curr_neigh_idxs = neigh_indicies[nei_ptr[srt_i]:nei_ptr[srt_i+1]]
             #ns = np.append([srt_i], ns) #inefficient but just for testing
             
-            vs = vol[ns] # volumes of cells neighboring current cell
-            n  = ns[np.argmax(vs)] #index of neigboring galaxy with largest volume
+            neigh_vols = vol[curr_neigh_idxs] # volumes of cells neighboring current cell
+            
+            largest_neigh_vol_idx = curr_neigh_idxs[np.argmax(neigh_vols)] #index of neigboring galaxy with largest volume
 
-            #if n == srt[i]: # if current cell is larger than all it's neighbors (aka the center of a zone)
-            if vol[srt_i] > vol[n]:
-                # This cell has the largest volume of its neighbors
-                lut[srt_i] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
-                zcell.insert(-1,[srt_i]) # create a new zone
-                zvols.insert(-1,vol[srt_i]) # note the volume of the largest cell in the zone
+            # if current cell is larger than all it's neighbors (aka the center of a zone)
+            if vol[srt_i] > vol[largest_neigh_vol_idx]:
+                # Current cell has the largest volume of its neighbors
+                gal_zone_IDs[srt_i] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
+                
+                # create a new zone
+                # using insert(-1,...) instead of append to keep these lists
+                # sorted from largest zone to smallest zone
+                zcell.insert(-1, [srt_i]) 
+                
+                # note the volume of the largest cell in the zone
+                zvols.insert(-1, vol[srt_i]) 
+            
             else:
                 # This cell is put into its least-dense neighbor's zone
-                lut[srt[i]]   = lut[n] #the galaxy in this cell is given the zone ID of it's least dense neighbor
-                depth[srt[i]] = depth[n]+1 #the galaxy's depth = its least dense neighbor's depth + 1
-                zcell[lut[n]].append(srt[i]) #the galaxy is added to it's least dense neighbor's zone
+                gal_zone_IDs[srt_i] = gal_zone_IDs[largest_neigh_vol_idx] #the galaxy in this cell is given the zone ID of it's least dense neighbor
+                
+                depth[srt_i] = depth[largest_neigh_vol_idx]+1 #the galaxy's depth = its least dense neighbor's depth + 1
+                
+                zcell[gal_zone_IDs[largest_neigh_vol_idx]].append(srt_i) #the galaxy is added to it's least dense neighbor's zone
+
 
         self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
         self.depth = depth
+        
+        
+        #print("zvols: ", len(zvols))
+        #print(zvols)
+        #print("zcell: ", len(zcell))
+        #print(zcell)
+        
+        
 
         # Identify neighboring zones and the least-dense cells linking them
+        # shape (2, num_zones, X)
+        # neighbor_zone_IDs = zone_links[curr_zone_ID]
+        # zlinks[0,...] is zone IDs
+        # zlinks[1,...] is linkage volumes - watershed breakpoint for the
+        # boundary between current zone and neighbor zone
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
 
         if viz:
@@ -900,43 +949,108 @@ class Zones:
 
         for i in range(len(vol)):
             #ns = nei[i]
-            ns = neigh_indicies[nei_ptr[i]:nei_ptr[i+1]]
-            z1 = lut[i]
+            curr_neigh_idxs = neigh_indicies[nei_ptr[i]:nei_ptr[i+1]]
+            
+            z1 = gal_zone_IDs[i]
+            
             if z1 == -1:
                 continue
-            for n in ns:
-                z2 = lut[n]
+            
+            for n in curr_neigh_idxs:
+                
+                z2 = gal_zone_IDs[n]
+                
+                #Ensure zone2 is valid
                 if z2 == -1:
                     continue
-                if z1 != z2:
-                    # This neighboring cell is in a different zone
-                    if z2 not in zlinks[0][z1]:
-                        zlinks[0][z1].append(z2)
-                        zlinks[0][z2].append(z1)
-                        zlinks[1][z1].append(0.)
-                        zlinks[1][z2].append(0.)
-                    j  = np.where(zlinks[0][z1] == z2)[0][0]
-                    k  = np.where(zlinks[0][z2] == z1)[0][0]
-                    # Update maximum link volume if needed
-                    nl = np.amin([vol[i],vol[n]])
-                    ml = np.amax([zlinks[1][z1][j],nl])
-                    zlinks[1][z1][j] = ml
-                    zlinks[1][z2][k] = ml
-                    if viz and tess.vecut[i]:
-                        vts = tess.vertIDs[i].copy()
-                        vts.extend(tess.vertIDs[n])
-                        vts = np.array(vts)
-                        vts = vts[[len(vts[vts==v])==2 for v in vts]]
-                        #vts = np.unique(vts[vts!=-1])
-                        if len(vts)>2:
-                            try:
-                                vcs = (tess.verts[vts].T[0:2]).T
-                                zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
-                            except:
-                                vcs = (tess.verts[vts].T[1:3]).T
-                                zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
-                            znorms[z1].append([i,n])
+                
+                #Ensure neighboring cell is from a different zone
+                if z1 == z2:
+                    continue
+                
+                if z2 not in zlinks[0][z1]:
+                    zlinks[0][z1].append(z2)
+                    zlinks[0][z2].append(z1)
+                    zlinks[1][z1].append(0.)
+                    zlinks[1][z2].append(0.)
+                    
+                j  = np.where(zlinks[0][z1] == z2)[0][0]
+                k  = np.where(zlinks[0][z2] == z1)[0][0]
+                
+                
+                # Update maximum link volume if needed
+                nl = np.amin([vol[i], vol[n]])
+                ml = np.amax([zlinks[1][z1][j], nl])
+                
+                
+                zlinks[1][z1][j] = ml
+                zlinks[1][z2][k] = ml
+                
+                
+                if viz and tess.vecut[i]:
+                    vts = tess.vertIDs[i].copy()
+                    vts.extend(tess.vertIDs[n])
+                    vts = np.array(vts)
+                    vts = vts[[len(vts[vts==v])==2 for v in vts]]
+                    #vts = np.unique(vts[vts!=-1])
+                    if len(vts)>2:
+                        try:
+                            vcs = (tess.verts[vts].T[0:2]).T
+                            zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
+                        except:
+                            vcs = (tess.verts[vts].T[1:3]).T
+                            zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
+                        znorms[z1].append([i,n])
+        
+        
         self.zlinks = zlinks
+        
+        ################################################################################
+        # New implementation for zlinks
+        ################################################################################
+        '''
+        zone_links = {}
+        
+        zone_link_volumes = np.zeros(len(zvols))
+        
+        for idx in range(num_gals):
+            
+            curr_neigh_idxs = neigh_indicies[nei_ptr[i]:nei_ptr[i+1]]
+            
+            curr_zone_ID = gal_zone_IDs[i]
+            
+            if curr_zone_ID == -1:
+                continue
+            
+            for neigh_idx in curr_neigh_idxs:
+                
+                neigh_zone_ID = gal_zone_IDs[neigh_idx]
+                
+                #Ensure zone2 is valid
+                if neigh_zone_ID == -1:
+                    continue
+                
+                #Ensure neighboring cell is from a different zone
+                if curr_zone_ID == neigh_zone_ID:
+                    continue
+        
+                if curr_zone_ID not in zone_links:
+                    zone_links[curr_zone_ID] = []
+                    
+                if neigh_zone_ID not in zone_links:
+                    zone_links[neigh_zone_ID] = []
+        
+                zone_links[curr_zone_ID].append(neigh_zone_ID)
+                zone_links[neigh_zone_ID].append(curr_zone_ID)
+        
+        
+        '''
+        print("zlinks: ", len(zlinks), len(zlinks[0]), len(zlinks[1]), len(zlinks[0][0]), len(zlinks[0][1]))
+        print(zlinks[0][0])
+        print(zlinks[1][0])
+        
+        
+        
         if viz:
             self.zverts = zverts
             self.znorms = znorms
@@ -956,7 +1070,9 @@ class Voids:
         verbose : int
             used to enable (>=1) or disable (0) print messages
         """
-        zvols  = np.array(zones.zvols)
+        
+        
+        zvols  = np.array(zones.zvols) #Really the Zone Core(largest) Volumes
         zlinks = zones.zlinks
 
         # Sort zone links by volume, identify zones linked at each volume
@@ -965,16 +1081,32 @@ class Voids:
 
         zl0   = np.array(list(flatten(zlinks[0])))
         zl1   = np.array(list(flatten(zlinks[1])))
+        
+        print("Zl0")
+        print(zl0.shape)
+        print("Zl1")
+        print(zl1.shape)
 
-        zlu   = -1.*np.sort(-1.*np.unique(zl1))
-        zlut  = [np.unique(zl0[np.where(zl1==zl)[0]]).tolist() for zl in zlu]
-
+        #zlu   = -1.*np.sort(-1.*np.unique(zl1))
+        #largest to smallest zone max link volume
+        #these are essentially the breakpoints for the watershed algorithm
+        #for more dense zones to join into less dense zones
+        zlu = np.sort(np.unique(zl1))[::-1] 
+        print("ZLU: ", zlu.shape)
+        
+        #At each breakpoint, a list of the unique zone IDs which will
+        #begin to flow into someone else
+        zlut  = [ np.unique( zl0[np.where(zl1==zl)[0]] ).tolist() for zl in zlu ]
+        
+        
         voids = []
         mvols = []
         ovols = []
         vlut  = np.arange(len(zvols))
-        mvlut = np.array(zvols)
-        ovlut = np.array(zvols)
+        #mvlut = np.array(zvols)
+        #ovlut = np.array(zvols)
+        mvlut = zvols.copy()
+        ovlut = zvols.copy()
 
         # For each zone-linking by descending link volume, create void from     
         # all zones and groups of zones linked at this volume except for that   
@@ -983,38 +1115,111 @@ class Voids:
         if verbose > 0:
             print("Expanding voids...")
 
+        #At each watershed breakpoint
         for i in range(len(zlu)):
+            
+            #Get the breakpoint volume
             lvol  = zlu[i]
+            
+            #For each zone which flows at this breakpoint, get the 
+            #zone's largest cell volume
             mxvls = mvlut[zlut[i]]
+            
+            #Of the flowing zones, get the one with the largest
+            #core volume
             mvarg = np.argmax(mxvls)
+            
             mxvol = mxvls[mvarg]
+            
+            #For each zone which flows at this breakpoint
             for j in zlut[i]:
+                
+                # This is not the "deepest" zone or void being linked
+                # aka not the largest core voronoi volume
                 if mvlut[j] < mxvol:
-                    # This is not the "deepest" zone or void being linked
+                    
                     voids.append([])
                     ovols.append([])
+                    
+                    #Places where volumes match the flowing zone
+                    #volume comparison?
                     vcomp = np.where(vlut==vlut[j])[0]
+                    
+                    # largest to smallest, the unique zone core volumes
+                    # which match the current flowing zone
+                    something = np.sort(np.unique(ovlut[vcomp]))[::-1]
+                    
                     # Store void's "overflow" volumes, largest max cell volume, constituent zones
-                    for ov in -1.*np.sort(-1.*np.unique(ovlut[vcomp])):
+                    for ov in something:
+                        
+                        #places where zone 
                         ocomp = np.where(ovlut[vcomp]==ov)[0]
+                        
                         voids[-1].append(vcomp[ocomp].tolist())
+                        
                         ovols[-1].append(ov)
+                        
                     ovols[-1].append(lvol)
                     mvols.append(mvlut[j])
                     vlut[vcomp]  = vlut[zlut[i]][mvarg]
                     mvlut[vcomp] = mxvol
                     ovlut[vcomp] = lvol
         
+        
+        
+        
+        
+        
         # Include the "deepest" void in the survey and its subvoids
         voids.append([])
         ovols.append([])
-        for ov in -1.*np.sort(-1.*np.unique(ovlut)):
+        for ov in np.sort(np.unique(ovlut))[::-1]:
             ocomp = np.where(ovlut==ov)[0]
             voids[-1].append(ocomp.tolist())
             ovols[-1].append(ov)
         ovols[-1].append(0.)
         mvols.append(mvlut[0])
 
+        '''
+        ################################################################################
+        # New implementation 
+        ################################################################################
+        num_breakpoints = len(zlu)
+        
+        for idx in range(num_breakpoints):
+            
+            breakpoint_vol = zlu[idx]
+
+            flowing_zone_IDs = zlut[idx]
+
+            flowing_zone_core_vols = mvlut[flowing_zone_IDs]
+            
+            largest_core_vol_idx = np.argmax(flowing_zone_core_vols)
+            
+            largest_flowing_core_vol = flowing_zone_core_vols[largest_core_vol_idx]
+
+
+            for flowing_zone_ID in flowing_zone_IDs:
+
+                if mvlut[j] < largest_flowing_core_vol:
+                    pass
+        '''
+
+
+
         self.voids = voids
         self.mvols = mvols
         self.ovols = ovols
+        
+        print(len(voids))
+        print(len(mvols))
+        print(len(ovols))
+        print(voids[0:10])
+        print(mvols[0:10])
+        print(ovols[0:10])
+        
+        
+        
+        
+        
+        
