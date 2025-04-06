@@ -44,7 +44,11 @@ cpdef void calculate_region_volume(ITYPE_t idx,
                                    DTYPE_F64_t r_max,
                                    DTYPE_F64_t r_min,
                                    DTYPE_F64_t[:] vrh,
-                                   DTYPE_B_t[:] in_mask):
+                                   DTYPE_B_t[:] in_mask,
+                                   DTYPE_B_t xyz_mode,
+                                   object cmin,
+                                   object cmax,
+                                   ):
     """
     Description
     ===========
@@ -75,6 +79,16 @@ cpdef void calculate_region_volume(ITYPE_t idx,
     vrh : array of shape (K,)
         radii of the vertices to check against r_max and r_min
     
+    xyz_mode : bool
+        True to use xyz mode, in which case cmin and cmax must
+        have valid values\
+        
+    cmin : array of length 3 or None
+        min x,y,z values
+        
+    cmax : array of length 3 or None
+        max x,y,z values    
+
     
     Outputs
     =======
@@ -104,23 +118,36 @@ cpdef void calculate_region_volume(ITYPE_t idx,
     # First cut - if there is a -1 in the region index list, that means that 
     # region extends out to infinity so we exclude it from volume calculations
     # Second cut - make sure the verticies all fall within the r_min and 
-    # r_max values
+    # r_max values, or cmin and cmax for xyz mode
     # Third cut - all verticies are in the mask
     ################################################################################
 
     for index in region_memview:
         
-        if index == -1:
+        if index == -1:  
             return
         
-        curr_radius = vrh[index]
-
-        #using <= and >= since original code inversely checked just > and <
-        if curr_radius <= r_min or curr_radius >= r_max:
-            return
-
-        if in_mask[index] == 0:
-            return
+        
+        if xyz_mode:
+            
+            if vertices[index, 0] > cmin[0] and vertices[index, 0] < cmax[0] and \
+               vertices[index, 1] > cmin[1] and vertices[index, 1] < cmax[1] and \
+               vertices[index, 2] > cmin[2] and vertices[index, 2] < cmax[2]:
+                pass
+            else:
+                return
+            
+        else:
+            
+            
+            curr_radius = vrh[index]
+    
+            #using <= and >= since original code inversely checked just > and <
+            if curr_radius <= r_min or curr_radius >= r_max:
+                return
+    
+            if in_mask[index] == 0:
+                return
 
     ################################################################################
     # Now get the volume and write out
