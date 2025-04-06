@@ -749,7 +749,7 @@ class Tesselation:
             # if any of cell's neighbors have a volume of 0 (meaning cell extends outside survey bounds)
             if np.any(self.volumes[neigh_indices] == 0.0):
                 
-                hzn[idx] = True
+                self.hzn[idx] = True
         
         
         
