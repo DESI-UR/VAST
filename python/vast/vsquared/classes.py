@@ -294,18 +294,18 @@ class Tesselation:
             cut = np.arange(len(vol))
             if xyz:
                 cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies with finite voronoi cells
-                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cat.cmin[0],ve2[0][r]<cat.cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
-                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cat.cmin[1],ve2[1][r]<cat.cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
-                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cat.cmin[2],ve2[2][r]<cat.cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
+                cu2 = np.array([np.prod(np.logical_and(ve2[0][r]>cat.cmin[0],ve2[0][r]<cat.cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
+                cu3 = np.array([np.prod(np.logical_and(ve2[1][r]>cat.cmin[1],ve2[1][r]<cat.cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
+                cu4 = np.array([np.prod(np.logical_and(ve2[2][r]>cat.cmin[2],ve2[2][r]<cat.cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
                 cut = cut[cu1][cu2][cu3][cu4]
             else:
                 cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies with finite voronoi cells
-                cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool) #cut selecting galaxes whose voronoi coordinates are finite and are within the survey distance limits
+                cu2 = np.array([np.prod(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool) #cut selecting galaxes whose voronoi coordinates are finite and are within the survey distance limits
                 msk = cat.mask
                 nsd = hp.npix2nside(len(msk))
                 pid = hp.ang2pix(nsd,vth,vph)
                 imk = msk[pid] #cut selecting voronoi vertexes inside survey mask
-                cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool) #cut selecting galaxies with finite voronoi coords that are within the total survvey bounds
+                cu3 = np.array([np.prod(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool) #cut selecting galaxies with finite voronoi coords that are within the total survvey bounds
                 cut = cut[cu1][cu2][cu3] #shortcut for cu3 but w/o having to stack [cu1][cu2][cu3] each time
             
             hul = [] #list of convex hull objects 
