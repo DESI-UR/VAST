@@ -403,8 +403,10 @@ class Zobov:
         elist[np.array(olist,dtype=bool)] = 0
 
         # format output tables
-        names = ['gal','zone','depth','edge','out']
-        columns = [self.catalog.galids,zlist,dlist,elist,olist]
+        names = ['gal','x','y','z','zone','depth','edge','out']
+        columns = [self.catalog.galids, self.catalog.coord[:,0], 
+                   self.catalog.coord[:,1],self.catalog.coord[:,2],
+                   zlist,dlist,elist,olist]
         
         if hasattr(self.catalog, 'tarids'):
             names.insert(1, 'target')

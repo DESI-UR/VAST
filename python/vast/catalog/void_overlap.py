@@ -278,7 +278,7 @@ def point_query_V2(point_coords, sphere_tree, void_cat):
     idx = sphere_tree.query(point_coords.T, k = 1, return_distance=False)
     
     true_inside = void_cat[idx]['in_void']
-
+    
     return true_inside
 
 def prep_V2_cat(V2_galzones, V2_zonevoids):

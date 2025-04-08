@@ -745,7 +745,8 @@ class VoidMapV2():
         
         self.edge = {}
         for row in zbdata:
-            self.edge[row['void']] = row["edge_area"]/row['tot_area'] > edge_threshold
+            #self.edge[row['void']] = row["edge_area"]/row['tot_area'] > edge_threshold
+            self.edge[row['void']] = False
 
         self.tridat= tridata
         self.trivids = trivids
