@@ -139,6 +139,7 @@ def getBuff(cin,idsin,cmin,cmax,buff,n):
             for k in range(3):
                 if i==1 and j==1 and k==1:
                     continue
+                #create an offset copy of the box (c2)
                 c2 = cin+(np.array([i,j,k])-1)*(cmax-cmin)
                 c2d = np.amax(np.abs(c2-(cmax+cmin)/2.)-(cmax-cmin)/2.,axis=1)
                 cut = c2d<buff*(n+1)
@@ -314,3 +315,27 @@ def mknumV2 (flt):
     #otherwise round to two decimal places
     else:
         return float(f"{flt:.2f}")
+
+    
+def rotate(p):
+    """Rotates polygon into its plane.
+    Parameters
+    ----------
+    p : ndarray
+        Array of points making up polygon
+    Returns
+    -------
+    r : ndarray
+        Rotated array of points
+    """
+    p  = p-p[0]
+    n1 = p[1]
+    n2 = p[2]
+    n3 = np.cross(n1,n2)
+    n1 = n1/np.sqrt(np.sum(n1**2))
+    n3 = n3/np.sqrt(np.sum(n3**2))
+    n2 = np.cross(n3,n1)
+    m = np.linalg.inv(np.array([n1,n2,n3]).T)
+    r = np.matmul(m,p.T)[0:2].T
+    return r
+

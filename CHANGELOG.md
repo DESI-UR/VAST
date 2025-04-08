@@ -1,7 +1,9 @@
 # Change Log
 Log of changes for VAST versions.
 
-
+### 1.7.0
+- Feature: Added non-periodic xyz-mode and edge void calculation for V2
+  
 ### 1.6.2
 - Updated V2 unit tests to work on Python 3.8, 3.9, 3.10, 3.11 with minor
   change from np.isclose to checking for 1% differences between results
@@ -13,6 +15,9 @@ Log of changes for VAST versions.
 
 ## 1.6.0
 - Feature: Added void catalog class for reading void-finding fits output and performing analysis.
+
+## 1.6.0
+- Feature: Added non-periodic cubic mode and edge-void calculation for V2
 
 ## 1.5.0
 - Feature: Replaced the multiple txt output files for VoidFinder and V2 with a single fits file.

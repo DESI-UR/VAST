@@ -18,6 +18,8 @@ p.add_argument('-w', '--save_intermediate', action='store_true', default=False,
                help='Save intermediate files in void calculation.')
 p.add_argument('-p', '--periodic', action='store_true', default=False,
                help='Use periodic boundary contitions.')
+p.add_argument('-x', '--xyz', action='store_true', default=False,
+               help='Use cartesian coordinates.')
 
 req = p.add_argument_group('required named arguments')
 req.add_argument('-c', '--config', dest='config_file', required=True, default="DR7_config.ini",
@@ -28,7 +30,8 @@ args = p.parse_args()
 newZobov = Zobov(args.config_file, 0, 3,
                  save_intermediate=args.save_intermediate,
                  visualize=args.visualize,
-                 periodic=args.periodic)
+                 periodic=args.periodic,
+                 xyz=args.xyz)
 
 newZobov.sortVoids(method=args.method)
 
