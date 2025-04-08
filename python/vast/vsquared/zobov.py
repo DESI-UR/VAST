@@ -342,19 +342,12 @@ class Zobov:
             vcens = vcens[dcut][rcut]
             voids = (voids[dcut])[rcut]"""
         
-        # NEW CODE: applies central density cut by flagging voids that don't make the cut.
-        # The new code hasn't been set up to complete it's goal yet, so it is for the time being
-        # essentially equivalent to the old code, with the exception of adding a flag column to the
-        # data output
+        # TODO: apply central density cut by flagging voids that don't make the cut, rather than deleting them (current version)
         # -----------------------
         dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
         rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
-        self.dcut=dcut #DELETE
-        self.rcut=rcut #DELETE
-        self.minvol = minvol #DELETE
         self.underdense = (dcut*rcut).astype(int)
         # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
-        # TODO: make central density cut optional
         if method == 0:
             vrads = vrads[dcut*rcut]
             vcens = vcens[dcut*rcut]
@@ -399,7 +392,6 @@ class Zobov:
                     zvoid[j][0] = i
                     zvoid[j][1] = i
 
-        self.voids = voids #DELETE
         self.vrads = vrads
         self.vcens = vcens
         self.vaxes = vaxes
