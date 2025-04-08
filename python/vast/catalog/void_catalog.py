@@ -1120,8 +1120,8 @@ class V2Catalog(VoidCatalog):
         num_tot = len(vflag[vflag==0]) + num_in_void
         
         if return_selector:
-            #vflag[vflag!=1] = 0
-            membership = ( vflag, num_tot )
+            vflag[vflag!=1] = 0
+            membership = ( vflag.astype('bool'), num_tot )
         else:
             membership = ( num_in_void, num_tot )
             
@@ -1283,12 +1283,6 @@ class V2Catalog(VoidCatalog):
             print ('vflags already calculated. Run with overwrite=True to overwrite vflags')
             return
         
-
-        # Calculate xyz-coordinates
-        galaxies_x = galaxies['x']
-        galaxies_y = galaxies['y']
-        galaxies_z = galaxies['z']
-        
         #set up mask
         if cartesian:
             mask = np.ones ((360, 180))
@@ -1341,7 +1335,7 @@ class V2Catalog(VoidCatalog):
         #mark void galaxies
         self.galaxies['vflag'][selector] = 1"""
 
-        vflag = self._check_object_in_void(coordinates, mask, mask_res, rmin, rmax, edge_threshold=10)
+        vflag = self._check_object_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=10)
         vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
         self.galaxies['vflag'] = vflag
             

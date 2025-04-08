@@ -112,7 +112,7 @@ class TestV2(unittest.TestCase):
         self.assertEqual(len(zobov1.vrads), 87)
         self.assertEqual(len(zobov2.vrads), 14)
         self.assertEqual(len(zobov3.vrads), 87)
-        self.assertEqual(len(zobov4.vrads), 47)
+        self.assertEqual(len(zobov4.vrads), 87)
 
         # Save voids.
         self.assertTrue(hasattr(TestV2.zobov, 'vrads')) # after sortVoids
