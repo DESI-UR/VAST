@@ -1202,9 +1202,10 @@ class Zones:
         
         
         '''
-        print("zlinks: ", len(zlinks), len(zlinks[0]), len(zlinks[1]), len(zlinks[0][0]), len(zlinks[0][1]))
-        print(zlinks[0][0])
-        print(zlinks[1][0])
+        
+        #print("zlinks: ", len(zlinks), len(zlinks[0]), len(zlinks[1]), len(zlinks[0][0]), len(zlinks[0][1]))
+        #print(zlinks[0][0])
+        #print(zlinks[1][0])
         
         
         
@@ -1247,17 +1248,17 @@ class Voids:
         zl0   = np.array(list(flatten(zlinks[0])))
         zl1   = np.array(list(flatten(zlinks[1])))
         
-        print("Zl0")
-        print(zl0.shape)
-        print("Zl1")
-        print(zl1.shape)
+        #print("Zl0")
+        #print(zl0.shape)
+        #print("Zl1")
+        #print(zl1.shape)
 
         #zlu   = -1.*np.sort(-1.*np.unique(zl1))
         #largest to smallest zone max link volume
         #these are essentially the breakpoints for the watershed algorithm
         #for more dense zones to join into less dense zones
         zlu = np.sort(np.unique(zl1))[::-1] 
-        print("ZLU: ", zlu.shape)
+        #print("ZLU: ", zlu.shape)
         
         #At each breakpoint, a list of the unique zone IDs which will
         #begin to flow into someone else
@@ -1376,12 +1377,12 @@ class Voids:
         self.mvols = mvols
         self.ovols = ovols
         
-        print(len(voids))
-        print(len(mvols))
-        print(len(ovols))
-        print(voids[0:10])
-        print(mvols[0:10])
-        print(ovols[0:10])
+        #print(len(voids))
+        #print(len(mvols))
+        #print(len(ovols))
+        #print(voids[0:10])
+        #print(mvols[0:10])
+        #print(ovols[0:10])
         
         
         
