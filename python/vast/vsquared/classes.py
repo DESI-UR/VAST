@@ -476,10 +476,9 @@ class Tesselation:
                 
             if verbose > 0:
                 print("Tesselating...")
-            Vor = Voronoi(coords3)
-            ver = Vor.vertices
-            reg = np.array(Vor.regions)[Vor.point_region]
-            del Vor
+            voronoi_graph = Voronoi(coords3)
+            vertices = voronoi_graph.vertices
+            regions = np.array(voronoi_graph.regions, dtype=object)[voronoi_graph.point_region]
             
             
             if verbose > 0:
@@ -491,11 +490,11 @@ class Tesselation:
             hul = []
             for r in reg[cut]:
                 try:
-                    ch = ConvexHull(ver[r])
+                    ch = ConvexHull(vertices[r])
                 except:
-                    ch = ConvexHull(ver[r],qhull_options='QJ')
+                    ch = ConvexHull(vertices[r],qhull_options='QJ')
                 hul.append(ch)
-            #hul = [ConvexHull(ver[r]) for r in reg[cut]]
+            #hul = [ConvexHull(vertices[r]) for r in reg[cut]]
             vol[cut] = np.array([h.volume for h in hul])
             self.volumes = vol
             '''
@@ -506,13 +505,13 @@ class Tesselation:
             # use dummy radii of 1.0 and max/min of 2.0/0.0 so all
             # radii fall within r_max and r_min
             ################################################################################
-            vrh = np.ones(len(Vor.point_region), dtype=np.float64)
+            vrh = np.ones(len(voronoi_graph.point_region), dtype=np.float64)
             r_max = 2.0
             r_min = 0.0
-            verticies_in_mask_uint8 = np.ones(len(Vor.point_region), dtype=np.uint8)
+            verticies_in_mask_uint8 = np.ones(len(voronoi_graph.point_region), dtype=np.uint8)
                 
-            output_volumes = self.calculate_region_volumes(Vor,
-                                                           ver.astype(np.float64),
+            output_volumes = self.calculate_region_volumes(voronoi_graph,
+                                                           vertices.astype(np.float64),
                                                            r_max,
                                                            r_min,
                                                            vrh,
@@ -543,6 +542,7 @@ class Tesselation:
             voronoi_time = time.time()
             
             voronoi_graph = Voronoi(coords)
+            regions = np.array(voronoi_graph.regions, dtype=object)[voronoi_graph.point_region]
             
             print("Voronoi time: ", time.time() - voronoi_time)
             
@@ -758,11 +758,11 @@ class Tesselation:
 
         #save vertices, regions,and the cut to select regions contained by the survey bounds
         if viz: 
-            self.vertIDs = reg
-            vecut = np.zeros(len(vol), dtype=bool)
-            vecut[cut] = True
+            self.vertIDs = regions
+            vecut = np.zeros(self.num_gals, dtype=bool)
+            vecut[self.volumes > 0] = True
             self.vecut = vecut
-            self.verts = ver
+            self.verts = vertices
 
 
 
