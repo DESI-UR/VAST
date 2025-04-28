@@ -324,7 +324,7 @@ class Zobov:
             
             zones = Zones(self.tessellation, 
                           viz=self.visualize,
-                          coords = self.catalog.coord,
+                          catalog = self.catalog,
                           verbose=self.verbose)
             
             if self.verbose > 0:
@@ -851,14 +851,10 @@ class Zobov:
             print("Sort voids first")
             return
 
-        galc = self.catalog.coord[self.catalog.nnls==np.arange(len(self.catalog.coord))]
-        gids = np.arange(len(self.catalog.coord))
-        gids = gids[self.catalog.nnls==gids]
-        g2v = -1*np.ones(len(self.catalog.coord),dtype=int)
-        g2v2 = -1*np.ones(len(self.catalog.coord),dtype=int)
-        verc = self.tessellation.verts
-        #zverts = self.zones.zverts
-        #znorms = self.zones.znorms
+
+        from sklearn import neighbors
+
+        galaxy_coords = self.catalog.coord
         
         triangle_norms = self.zones.triangle_norms 
         triangles = self.zones.triangles
@@ -866,19 +862,20 @@ class Zobov:
         
         vertices = self.tessellation.verts[triangles]
 
-
-        # cut down triangle data to match void prunning
-
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname)
+
+        # generate the void ID (vid) for each triangle
 
         zones = hdul['ZONEVOID'].data['zone']
         containing_void = hdul['ZONEVOID'].data['void1'] 
         zones_to_voids = dict(zip(zones, containing_void))
 
-        vid = np.vectorize(zones_to_voids.get)(triangle_zones)
-        select_voids = vid != -1
+        vid = np.vectorize(zones_to_voids.get)(triangle_zones) 
 
+        # cut down triangle data to match void prunning
+
+        select_voids = vid != -1
         vid = vid[select_voids]
         vertices = vertices[select_voids]
         triangle_norms = triangle_norms[select_voids]
@@ -887,15 +884,22 @@ class Zobov:
             print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")
             return
         
-        # calculate galviz data
+        # Generate a lookup table (g2v) for converting galaxies to their containting voids
 
         galaxies_to_zones = hdul['GALZONE'].data['zone']
         zones_to_voids = np.concatenate((containing_void, [-1]))
         g2v = zones_to_voids[galaxies_to_zones]
-        # TODO: g2v2
 
-        # save triangle data to table
+        # Generate a lookup table (g2v2) for converting galaxies to the 
+        # containting voids of their nearest neighbor galaxies
 
+        galaxy_tree = neighbors.KDTree(galaxy_coords)
+        indices = galaxy_tree.query(galaxy_coords, k=2, return_distance=False)
+        neighbor_galaxies = indices[:,1]
+        g2v2 = zones_to_voids[galaxies_to_zones[neighbor_galaxies]]
+
+
+        # format data to an astropy table
 
         names = ['void','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
         if self.capitalize:
@@ -914,41 +918,6 @@ class Zobov:
         if self.capitalize:
             names = [name.upper() for name in names]
         g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=names)
-        
-        """
-        z2v = self.zvoid.T[1]
-        z2v3 = np.unique(z2v[z2v!=-1])
-        z2v2 = np.array([np.where(z2v==z2)[0] for z2 in z2v3])
-        zcut = [np.prod([np.prod(self.tessellation.vecut[self.zones.zcell[z]])>0 for z in z2])>0 for z2 in z2v2]
-
-        tri1 = []
-        tri2 = []
-        tri3 = []
-        norm = []
-        vid  = []
-
-        for k,v in enumerate(z2v2[zcut]):
-            for z in v:
-                for i in range(len(znorms[z])):
-                    p = znorms[z][i]
-                    n = galc[p[1]] - galc[p[0]]
-                    n = n/np.sqrt(np.sum(n**2.))
-                    polids = zverts[z][i]
-                    trids = [[polids[0],polids[j],polids[j+1]] for j in range(1,len(polids)-1)]
-                    for t in trids:
-                        tri1.append(verc[t[0]])
-                        tri2.append(verc[t[1]])
-                        tri3.append(verc[t[2]])
-                        norm.append(n)
-                        vid.append(z2v3[zcut][k])
-                    g2v[gids[p[0]]] = z2v3[zcut][k]
-        for k,v in enumerate(z2v2[zcut]):
-            for z in v:
-                for i in range(len(znorms[z])):
-                    if g2v[gids[p[1]]] != -1:
-                        g2v2[gids[p[1]]] = z2v3[zcut][k]
-
-        """
         
 
         # write to the output file

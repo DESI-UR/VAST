@@ -941,7 +941,7 @@ class Zones:
     def __init__(self,
                  tess,
                  viz=False,
-                 coords=None,
+                 catalog=None,
                  verbose=0):
         """Implementation of zones: see arXiv:0712.3049 for details.
 
@@ -957,6 +957,8 @@ class Zones:
         verbose : int
             used to enable (>=1) or disable (0) print messages
         """
+
+        coords = catalog.coord[catalog.nnls==np.arange(len(catalog.nnls))] 
         
         vol = tess.volumes
         
@@ -1176,7 +1178,7 @@ class Zones:
                     shared_vertices = vertices[np.isin(vertices, neighbor_vertices)]
                     
                     # record the surface area and triangle data of the boundary formed by the vertices
-                    if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>1 triangles)
+                    if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
                 
                         #rotate the cell boundary into the x-y plane and obtain the boundary's triangles
                         simplices = Delaunay(rotate(tess.verts[shared_vertices])).simplices
