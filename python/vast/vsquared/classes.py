@@ -1110,20 +1110,16 @@ class Zones:
                         # get the shared vertices between the current cell and the current neighbor cell
                         vertices = np.array(tess.vertIDs[i]) 
                         neighbor_vertices = np.array(tess.vertIDs[n])
-                        select_shared_vertices = np.isin(vertices, neighbor_vertices)
-                        shared_vertices = vertices[select_shared_vertices]
+                        shared_vertices = vertices[np.isin(vertices, neighbor_vertices)]
     			 
-                        # record the area
-                        if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>1 triangles)
-                            #vcs = rotate(tess.verts[shared_vertices]) #project the triangles onto a flat plane
-                            #chv = ConvexHull(vcs).volume #get the projection's area
+                        # record the surface area and triangle data of the boundary formed by the vertices
+                        if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
                             
-                            # get the triangles along the boundary ridge using a convex hull
-                            hull = ConvexHull(tess.verts[vertices])
-                            shared_simplex_ids = np.arange(len(vertices))[select_shared_vertices]
-                            select_shared_simplices = np.prod(np.isin(hull.simplices, shared_simplex_ids), axis=1, dtype=bool)
-                            shared_simplices = hull.simplices[select_shared_simplices]
-                            triangles = vertices[shared_simplices]
+                            
+                            ##rotate the cell boundary into the x-y plane and obtain the boundary's triangles
+                            simplices = Delaunay(rotate(tess.verts[shared_vertices])).simplices
+                            triangles = shared_vertices[simplices]
+                            
 
                             #calculate the triangle area
                             cell_center = coords[i] - tess.verts[triangles][:,0,:] #coordinates of voronoi cell center
@@ -1177,18 +1173,14 @@ class Zones:
                     # get the shared vertices between the current cell and the current neighbor cell
                     vertices = np.array(tess.vertIDs[i]) 
                     neighbor_vertices = np.array(tess.vertIDs[n])
-                    select_shared_vertices = np.isin(vertices, neighbor_vertices)
-                    shared_vertices = vertices[select_shared_vertices]
+                    shared_vertices = vertices[np.isin(vertices, neighbor_vertices)]
                     
-                    # record the area
+                    # record the surface area and triangle data of the boundary formed by the vertices
                     if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>1 triangles)
                 
-                        # get the triangles along the boundary ridge using a convex hull
-                        hull = ConvexHull(tess.verts[vertices])
-                        shared_simplex_ids = np.arange(len(vertices))[select_shared_vertices]
-                        select_shared_simplices = np.prod(np.isin(hull.simplices, shared_simplex_ids), axis=1, dtype=bool)
-                        shared_simplices = hull.simplices[select_shared_simplices]
-                        triangles = vertices[shared_simplices]
+                        #rotate the cell boundary into the x-y plane and obtain the boundary's triangles
+                        simplices = Delaunay(rotate(tess.verts[shared_vertices])).simplices
+                        triangles = shared_vertices[simplices]
 
 			            #calculate the triangle area
                         cell_center = coords[i] - tess.verts[triangles][:,0,:] #coordinates of voronoi cell center
