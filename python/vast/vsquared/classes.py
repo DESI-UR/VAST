@@ -480,7 +480,6 @@ class Tesselation:
             vertices = voronoi_graph.vertices
             regions = np.array(voronoi_graph.regions, dtype=object)[voronoi_graph.point_region]
             
-            
             if verbose > 0:
                 print("Computing volumes...")
             '''
@@ -942,6 +941,7 @@ class Zones:
     def __init__(self,
                  tess,
                  viz=False,
+                 coords=None,
                  verbose=0):
         """Implementation of zones: see arXiv:0712.3049 for details.
 
@@ -1071,18 +1071,24 @@ class Zones:
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
 
         if viz:
-            zverts = [[] for _ in range(len(zvols))]
-            znorms = [[] for _ in range(len(zvols))]
-            zarea_0 = np.zeros(len(zvols))
-            zarea_t = np.zeros(len(zvols))
-            zarea_s = [[] for _ in range(len(zvols))]
+            #zverts = [[] for _ in range(len(zvols))]
+            #znorms = [[] for _ in range(len(zvols))]
+            zarea_0 = np.zeros(len(zvols)) # zone edge surface areas
+            zarea_t = np.zeros(len(zvols)) # zone total surface areas
+            zarea_s = [[] for _ in range(len(zvols))] # shared zone surfaces areas for each zone link
+            
+            # zone triangle data
+            triangle_norms = []
+            triangles_verts = []
+            triangle_zones = []
+            
 
         if verbose > 0:
             print("Linking zones...")
 
 
 
-
+	#loop through cells
         for i in range(len(vol)):
             #ns = nei[i]
             curr_neigh_idxs = neigh_indicies[nei_ptr[i]:nei_ptr[i+1]]
@@ -1092,23 +1098,51 @@ class Zones:
             if z1 == -1:
                 continue
             
+            #loop though neighbor cells
             for n in curr_neigh_idxs:
                 
                 z2 = gal_zone_IDs[n]
                 
-                #Ensure zone2 is valid
+                #Calculate edge area for cells on survey edges (z2==-1)
                 if z2 == -1:
                     if viz:
-                        vts = tess.vertIDs[i].copy() #get indexes of vertices forming original neighbor
-                        vts.extend(tess.vertIDs[n]) #add indexes of vertices forming current neighbor
-                        vts = np.array(vts)
-                        vts = vts[[len(vts[vts==v])==2 for v in vts]] #select only vertices that are shared by the two cells?
-                        if len(vts)>2: #If there are 3 vertices shared between teh cells (a triangle)
-                            vcs = rotate(tess.verts[vts]) #rotate the triangle to be flat on the "ground"
-                            chv = ConvexHull(vcs).volume #get the triangle's area: TODO: this can surely be replaced with a simple area formula
-                            zarea_0[z1] += chv
-                            zarea_t[z1] += chv
                     
+                        # get the shared vertices between the current cell and the current neighbor cell
+                        vertices = np.array(tess.vertIDs[i]) 
+                        neighbor_vertices = np.array(tess.vertIDs[n])
+                        select_shared_vertices = np.isin(vertices, neighbor_vertices)
+                        shared_vertices = vertices[select_shared_vertices]
+    			 
+                        # record the area
+                        if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>1 triangles)
+                            #vcs = rotate(tess.verts[shared_vertices]) #project the triangles onto a flat plane
+                            #chv = ConvexHull(vcs).volume #get the projection's area
+                            
+                            # get the triangles along the boundary ridge using a convex hull
+                            hull = ConvexHull(tess.verts[vertices])
+                            shared_simplex_ids = np.arange(len(vertices))[select_shared_vertices]
+                            select_shared_simplices = np.prod(np.isin(hull.simplices, shared_simplex_ids), axis=1, dtype=bool)
+                            shared_simplices = hull.simplices[select_shared_simplices]
+                            triangles = vertices[shared_simplices]
+
+                            #calculate the triangle area
+                            cell_center = coords[i] - tess.verts[triangles][:,0,:] #coordinates of voronoi cell center
+                            edge_1 = tess.verts[triangles][:,1,:] - tess.verts[triangles][:,0,:] # triangle edges
+                            edge_2 = tess.verts[triangles][:,2,:] - tess.verts[triangles][:,0,:]
+                            cross = np.cross(edge_1, edge_2)
+                            area = np.linalg.norm(cross,axis=1) #triangle area
+                            normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
+                            normal *= np.expand_dims(np.sign(np.diag(np.dot(cell_center, normal.T))), axis=1) # flip normals as needed
+                            area_summed = np.sum(area) # ridge area where cells meet
+			     
+                            zarea_0[z1] += area_summed #add area to zone edge area
+                            zarea_t[z1] += area_summed #add area to zone total area
+                            
+                            #  record triangles info
+                            for normal_i, triangle_i in zip (normal, triangles):
+                                triangle_norms.append(normal_i)
+                                triangles_verts.append(triangle_i)
+                                triangle_zones.append(z1)
                     
                     continue
                 
@@ -1139,16 +1173,45 @@ class Zones:
                 
                 
                 if viz and tess.vecut[i]:
-                    vts = tess.vertIDs[i].copy()
-                    vts.extend(tess.vertIDs[n])
-                    vts = np.array(vts)
-                    vts = vts[[len(vts[vts==v])==2 for v in vts]]
-                    #vts = np.unique(vts[vts!=-1])
-                    if len(vts) > 2:
-                        vcs = rotate(tess.verts[vts])
-                        chv = ConvexHull(vcs).volume
-                        zarea_t[z1] += chv
-                        zarea_s[z1][j] += chv
+                
+                    # get the shared vertices between the current cell and the current neighbor cell
+                    vertices = np.array(tess.vertIDs[i]) 
+                    neighbor_vertices = np.array(tess.vertIDs[n])
+                    select_shared_vertices = np.isin(vertices, neighbor_vertices)
+                    shared_vertices = vertices[select_shared_vertices]
+                    
+                    # record the area
+                    if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>1 triangles)
+                
+                        # get the triangles along the boundary ridge using a convex hull
+                        hull = ConvexHull(tess.verts[vertices])
+                        shared_simplex_ids = np.arange(len(vertices))[select_shared_vertices]
+                        select_shared_simplices = np.prod(np.isin(hull.simplices, shared_simplex_ids), axis=1, dtype=bool)
+                        shared_simplices = hull.simplices[select_shared_simplices]
+                        triangles = vertices[shared_simplices]
+
+			            #calculate the triangle area
+                        cell_center = coords[i] - tess.verts[triangles][:,0,:] #coordinates of voronoi cell center
+                        edge_1 = tess.verts[triangles][:,1,:] - tess.verts[triangles][:,0,:] # triangle edges
+                        edge_2 = tess.verts[triangles][:,2,:] - tess.verts[triangles][:,0,:]
+                        cross = np.cross(edge_1, edge_2)
+                        area = np.linalg.norm(cross,axis=1) #triangle area
+                        normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
+                        normal *= np.expand_dims(np.sign(np.diag(np.dot(cell_center, normal.T))), axis=1) # flip normals as needed
+                        area_summed = np.sum(area) # ridge area where cells meet
+                    
+
+                        zarea_t[z1] += area_summed #add ridge area to total zone surface area
+                        zarea_s[z1][j] += area_summed # add ridge area to shared z1 z2 surface area
+                        
+                        # record triangles info
+                        for normal_i, triangle_i in zip (normal, triangles):
+
+                            triangle_norms.append(normal_i)
+                            triangles_verts.append(triangle_i)
+                            triangle_zones.append(z1)
+            		         
+                        """
                         try:
                             vcs = (tess.verts[vts].T[0:2]).T
                             zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
@@ -1156,7 +1219,7 @@ class Zones:
                             vcs = (tess.verts[vts].T[1:3]).T
                             zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
                         znorms[z1].append([i,n])
-        
+        		        """
         
 
 
@@ -1210,13 +1273,14 @@ class Zones:
         
         
         if viz:
-            self.zverts = zverts
-            self.znorms = znorms
-            self.zverts  = zverts
-            self.znorms  = znorms
+            #self.zverts = zverts
+            #self.znorms = znorms
             self.zarea_0 = zarea_0
             self.zarea_t = zarea_t
             self.zarea_s = zarea_s
+            self.triangle_norms = np.array(triangle_norms)
+            self.triangles = np.array(triangles_verts)	
+            self.triangle_zones = np.array(triangle_zones)     
 
 
 class Voids:

@@ -324,6 +324,7 @@ class Zobov:
             
             zones = Zones(self.tessellation, 
                           viz=self.visualize,
+                          coords = self.catalog.coord,
                           verbose=self.verbose)
             
             if self.verbose > 0:
@@ -856,8 +857,65 @@ class Zobov:
         g2v = -1*np.ones(len(self.catalog.coord),dtype=int)
         g2v2 = -1*np.ones(len(self.catalog.coord),dtype=int)
         verc = self.tessellation.verts
-        zverts = self.zones.zverts
-        znorms = self.zones.znorms
+        #zverts = self.zones.zverts
+        #znorms = self.zones.znorms
+        
+        triangle_norms = self.zones.triangle_norms 
+        triangles = self.zones.triangles
+        triangle_zones = self.zones.triangle_zones
+        
+        vertices = self.tessellation.verts[triangles]
+
+
+        # cut down triangle data to match void prunning
+
+        # read in the ouptput file
+        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname)
+
+        zones = hdul['ZONEVOID'].data['zone']
+        containing_void = hdul['ZONEVOID'].data['void1'] 
+        zones_to_voids = dict(zip(zones, containing_void))
+
+        vid = np.vectorize(zones_to_voids.get)(triangle_zones)
+        select_voids = vid != -1
+
+        vid = vid[select_voids]
+        vertices = vertices[select_voids]
+        triangle_norms = triangle_norms[select_voids]
+
+        if len(vid)==0:
+            print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")
+            return
+        
+        # calculate galviz data
+
+        galaxies_to_zones = hdul['GALZONE'].data['zone']
+        zones_to_voids = np.concatenate((containing_void, [-1]))
+        g2v = zones_to_voids[galaxies_to_zones]
+        # TODO: g2v2
+
+        # save triangle data to table
+
+
+        names = ['void','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
+        if self.capitalize:
+            names = [name.upper() for name in names]
+
+        vizT = Table([vid, triangle_norms[:,0], triangle_norms[:,1], triangle_norms[:,2],
+              vertices[:,0,0], vertices[:,0,1], vertices[:,0,2],
+              vertices[:,1,0], vertices[:,1,1], vertices[:,1,2],
+              vertices[:,2,0], vertices[:,2,1], vertices[:,2,2]
+             ],
+             names=names,
+             units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+
+
+        names = ['gid','g2v','g2v2']
+        if self.capitalize:
+            names = [name.upper() for name in names]
+        g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=names)
+        
+        """
         z2v = self.zvoid.T[1]
         z2v3 = np.unique(z2v[z2v!=-1])
         z2v2 = np.array([np.where(z2v==z2)[0] for z2 in z2v3])
@@ -890,31 +948,8 @@ class Zobov:
                     if g2v[gids[p[1]]] != -1:
                         g2v2[gids[p[1]]] = z2v3[zcut][k]
 
-        if len(vid)==0:
-            print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")
-            return
-
-        tri1 = np.array(tri1).T
-        tri2 = np.array(tri2).T
-        tri3 = np.array(tri3).T
-        norm = np.array(norm).T
-        vid = np.array(vid)
-
-        # format output tables
-        names = ['void','n_x','n_y','n_z','p1_x','p1_y','p1_z','p2_x','p2_y','p2_z','p3_x','p3_y','p3_z']
-        if self.capitalize:
-            names = [name.upper() for name in names]
-        vizT = Table([vid,norm[0],norm[1],norm[2],tri1[0],tri1[1],tri1[2],tri2[0],tri2[1],tri2[2],tri3[0],tri3[1],tri3[2]],
-                     names=names,
-                     units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+        """
         
-        names = ['gid','g2v','g2v2']
-        if self.capitalize:
-            names = [name.upper() for name in names]
-        g2vT = Table([np.arange(len(g2v)),g2v,g2v2],names=names)
-
-        # read in the ouptput file
-        hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
 
         # write to the output file
         hdu = fits.BinTableHDU()
