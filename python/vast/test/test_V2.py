@@ -88,7 +88,7 @@ class TestV2(unittest.TestCase):
     def test_zobov_2_zones(self):
         """Test ZOBOV zone formation
         """
-        TestV2.zones = classes.Zones(TestV2.tess)
+        TestV2.zones = classes.Zones(TestV2.tess, catalog=TestV2.cat)
 
         # Test zone cells
         
