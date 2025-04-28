@@ -1128,7 +1128,7 @@ class Zones:
                             edge_1 = tess.verts[triangles][:,1,:] - tess.verts[triangles][:,0,:] # triangle edges
                             edge_2 = tess.verts[triangles][:,2,:] - tess.verts[triangles][:,0,:]
                             cross = np.cross(edge_1, edge_2)
-                            area = np.linalg.norm(cross,axis=1) #triangle area
+                            area = 0.5 * np.linalg.norm(cross,axis=1) #triangle area
                             normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
                             normal *= np.expand_dims(np.sign(np.diag(np.dot(cell_center, normal.T))), axis=1) # flip normals as needed
                             area_summed = np.sum(area) # ridge area where cells meet
@@ -1189,7 +1189,7 @@ class Zones:
                         edge_1 = tess.verts[triangles][:,1,:] - tess.verts[triangles][:,0,:] # triangle edges
                         edge_2 = tess.verts[triangles][:,2,:] - tess.verts[triangles][:,0,:]
                         cross = np.cross(edge_1, edge_2)
-                        area = np.linalg.norm(cross,axis=1) #triangle area
+                        area = 0.5 * np.linalg.norm(cross,axis=1) #triangle area
                         normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
                         normal *= np.expand_dims(np.sign(np.diag(np.dot(cell_center, normal.T))), axis=1) # flip normals as needed
                         area_summed = np.sum(area) # ridge area where cells meet
@@ -1204,16 +1204,6 @@ class Zones:
                             triangle_norms.append(normal_i)
                             triangles_verts.append(triangle_i)
                             triangle_zones.append(z1)
-            		         
-                        """
-                        try:
-                            vcs = (tess.verts[vts].T[0:2]).T
-                            zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
-                        except:
-                            vcs = (tess.verts[vts].T[1:3]).T
-                            zverts[z1].append((vts[ConvexHull(vcs).vertices]).tolist())
-                        znorms[z1].append([i,n])
-        		        """
         
 
 
