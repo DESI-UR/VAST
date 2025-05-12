@@ -1,6 +1,8 @@
 # Change Log
 Log of changes for VAST versions.
 
+### 1.7.0
+- Feature: Added parallel computing features for V2. Added non-periodic cubic mode and edge-void calculation for V2
 
 ### 1.6.2
 - Updated V2 unit tests to work on Python 3.8, 3.9, 3.10, 3.11 with minor

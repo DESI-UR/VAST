@@ -64,7 +64,10 @@ class build_ext(_build_ext):
 # annoying numpy API warnings, and the extra_compile_args=["-Wno-maybe-uninitialized"]
 # removes all the warnings about using variables which may be uninitialized
 ext_modules = []
-extfiles = glob('python/vast/voidfinder/*.pyx') + glob('python/vast/voidfinder/*/*.pyx')
+extfiles = glob('python/vast/voidfinder/*.pyx') + \
+           glob('python/vast/voidfinder/*/*.pyx') + \
+           glob('python/vast/vsquared/*.pyx')
+           
 for extfile in extfiles:
     name = extfile.replace('python/', '').replace('/', '.').replace('.pyx', '')
     
