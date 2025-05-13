@@ -159,7 +159,7 @@ class VoidCatalog():
             recommended, in case one galaxy catalog is used to create multiple void catalogs (such as 
             catalogs with different magnitude/redshift limits, or different algorithm settings). If 
             no vflags are calculated the VoidCatalog class is capable of calcualting them and 
-            outputting to a new file (see calculate_vflags). Defaults to None, in which case no 
+            outputting to a new file (see calculate_vflag). Defaults to None, in which case no 
             pre-computed vflags are loaded.
 
         redshift_name (string): The name of the redshift column. Defaults to 'redshift'
@@ -430,8 +430,9 @@ class VoidFinderCatalog (VoidCatalog):
             self.holes = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['HOLES'] = self.holes
             self.headers['HOLES'] = self.holes_info
-            
+
         self.lower_col_names()
+        self.clear_catalog()
         
     def read_catalog(self, file_name):
         """
@@ -512,9 +513,12 @@ class VoidFinderCatalog (VoidCatalog):
             #format and save output
             if self.capitalize_colnames:
                 self.upper_col_names()
-
+                
+            self.read_catalog(self.file_name)
+            # TODO: does this overwrite header and units?
             self._catalog['MAXIMALS'].data = fits.BinTableHDU(self.maximals).data
             self._catalog.writeto(self.file_name, overwrite=True)
+            self.clear_catalog()
 
             if self.capitalize_colnames:
                 self.lower_col_names()
@@ -559,7 +563,7 @@ class VoidFinderCatalog (VoidCatalog):
                              cartesian = False):
         """
         Calculates whether given coordiantes are located inside or outside of voids (vflags). 
-        Equivalent to calculate_vflags, but for user specified coordinates, rather than for 
+        Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
         a galaxy catalog.
         
         params:
@@ -582,7 +586,15 @@ class VoidFinderCatalog (VoidCatalog):
 
         cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
             survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
-        
+
+
+        returns:
+        ---------------------------------------------------------------------------------------------
+        vflag (array of ints): The environment flags for the coordinates. The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
         """
         
         # determine coordinate system
@@ -681,7 +693,6 @@ class VoidFinderCatalog (VoidCatalog):
         galaxies = self.galaxies
         
         #ensure that vflag wasn't previously calculated
-        hdu_names = [self._catalog[i].name for i in range(len(self._catalog))]
         if not overwrite and hasattr(self, 'vflag'):
             print ('vflags already calculated. Run with overwrite=True to overwrite vflags')
             return
@@ -943,8 +954,9 @@ class V2Catalog(VoidCatalog):
         if 'MASK' in hdu_names:
             self.mask_info = self._catalog['MASK'].header
             self.mask = self._catalog['MASK'].data
-
+        
         self.lower_col_names()
+        self.clear_catalog()
         
     """def add_mask(self, voidfinder_cat):
         #copy over ask info from a voidfinder catalog
@@ -1131,8 +1143,8 @@ class V2Catalog(VoidCatalog):
                              x_pos=None, y_pos=None, z_pos=None, 
                              cartesian = False):
         """
-        Calculates whether given coordiantes are located inside or outside of voids (vflags). 
-        Equivalent to calculate_vflags, but for user specified coordinates, rather than for 
+        Calculates whether given coordinates are located inside or outside of voids (vflags). 
+        Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
         a galaxy catalog.
         
         params:
@@ -1155,7 +1167,15 @@ class V2Catalog(VoidCatalog):
 
         cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
             survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
-        
+
+
+        returns:
+        ---------------------------------------------------------------------------------------------
+        vflag (array of ints): The environment flags for the coordinates. The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
         """
 
                 # determine coordinate system
@@ -1243,7 +1263,7 @@ class V2Catalog(VoidCatalog):
         
         #mark void galaxies
         vflag[inside_void] = 1
-        vflag[inside_void*(~select_within_edge_buffer)] = -1 #voids near edge
+        #vflag[inside_void*(~select_within_edge_buffer)] = -1 #in voids but near edge (Don't use this in order to have consistent output with VoidFinder)
         
         return vflag
 
@@ -1278,7 +1298,6 @@ class V2Catalog(VoidCatalog):
         galaxies = self.galaxies
         
         #ensure that vflag wasn't previously calculated
-        hdu_names = [self._catalog[i].name for i in range(len(self._catalog))]
         if not overwrite and hasattr(self, 'vflag'):
             print ('vflags already calculated. Run with overwrite=True to overwrite vflags')
             return
