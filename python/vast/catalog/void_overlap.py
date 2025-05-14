@@ -278,7 +278,7 @@ def point_query_V2(point_coords, sphere_tree, void_cat):
     idx = sphere_tree.query(point_coords.T, k = 1, return_distance=False)
     
     true_inside = void_cat[idx]['in_void']
-
+    
     return true_inside
 
 def prep_V2_cat(V2_galzones, V2_zonevoids):
@@ -308,7 +308,7 @@ def prep_V2_cat(V2_galzones, V2_zonevoids):
     void_IDs = join(V2_galzones, zone_voids, keys='zone',  join_type='left')
     void_IDs.sort('__sort__')
     #mark void galaxies and wall galaxies
-    V2_galzones['in_void'] = (void_IDs['void0'] != -1)  #* np.isin(void_IDs['void0'], V2_zonevoids['void'])
+    V2_galzones['in_void'] = (void_IDs['void0'] != -1)
     
     return V2_galzones
 

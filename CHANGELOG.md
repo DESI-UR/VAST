@@ -1,6 +1,10 @@
 # Change Log
 Log of changes for VAST versions.
 
+### 1.7.1 
+- Updated void catalog class to let users search for the void membership of custom coordinates,
+  along with small bug fixes
+
 ### 1.7.0
 - Feature: Added parallel computing features for V2. Added non-periodic cubic mode and edge-void calculation for V2
 
