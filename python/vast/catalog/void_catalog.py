@@ -120,7 +120,6 @@ class VoidCatalog():
         for table_name, table in self.tables.items():
             
             try:
-                #TODO: replace with method that doesn't overwrite header and column units?
                 self._catalog[table_name].data = fits.BinTableHDU(table).data
                 
             except:
@@ -132,8 +131,8 @@ class VoidCatalog():
         #update each catalog header
         for header_name, header in self.headers.items():
 
-            #TODO: replace with method that doesn't overwrite header and column units?
-            self._catalog[header_name].header = header
+            if header_name not in self.tables.items(): # headers should automatically be updated for tables (see above code)
+                self._catalog[header_name].header = header
             
         #save catalog
         self._catalog.writeto(output_file_name, overwrite=True)
@@ -515,7 +514,6 @@ class VoidFinderCatalog (VoidCatalog):
                 self.upper_col_names()
                 
             self.read_catalog(self.file_name)
-            # TODO: does this overwrite header and units?
             self._catalog['MAXIMALS'].data = fits.BinTableHDU(self.maximals).data
             self._catalog.writeto(self.file_name, overwrite=True)
             self.clear_catalog()
@@ -564,7 +562,11 @@ class VoidFinderCatalog (VoidCatalog):
         """
         Calculates whether given coordiantes are located inside or outside of voids (vflags). 
         Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
-        a galaxy catalog.
+        a galaxy catalog. The possible vflag values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
         
         params:
         ---------------------------------------------------------------------------------------------
@@ -665,7 +667,11 @@ class VoidFinderCatalog (VoidCatalog):
  
     def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False):
         """
-        Calculates which galaxies are located inside or outside of voids (vflags).
+        Calculates which galaxies are located inside or outside of voids (vflags). The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
         
         params:
         ---------------------------------------------------------------------------------------------
@@ -832,10 +838,6 @@ class VoidFinderCatalog (VoidCatalog):
         
         num_in_void = np.sum(galaxies['vflag']==1) 
         
-        # This is redundant now, points_boolean already makes this selection 
-        # while correctly handling custom masks
-        # num_tot = np.sum((galaxies['vflag']==1) + (galaxies['vflag']==0)) 
-        # Instead we can simply do
         num_tot = len(galaxies)
         
         if return_selector:
@@ -1082,58 +1084,14 @@ class V2Catalog(VoidCatalog):
             raise AttributeError('V2 galaxy membership should have a custom mask to accurately exclude edge galaxies')
 
         
-        """
-        galaxies = select_mask(galaxies, mask, mask_res, rmin, rmax)
-        
-        # Cut galaxies within [self.edge_buffer] Mpc/h of survey border
-        # Note: we use the main survey mask rather than the custom mask option, 
-        # because were ony worried about galaxies near edge voids
-        points_boolean = np.zeros(len(galaxies), dtype = bool)
-
-        #Flag points that fall outside the main survey mask
-        for i in range(len(galaxies)):
-            # The current point
-            curr_pt = galaxies[i]
-
-            is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
-                                       mask, mask_res, rmin, rmax, self.edge_buffer)
-            points_boolean[i] = not is_edge
-
-
-        galaxies = galaxies[points_boolean]
-
-        
-        
-        #get indexes in full galaxy list of galaxies that make survey cuts
-        in_sample = np.isin(self.galaxies['gal'], galaxies['gal'])
-        # map the zonevoid void0 column onto every galaxy via the galaxies' zone membership
-        # then cut down to the galaxies that make the survey cuts
-        void0 = self.zonevoid[self.galzone['zone']]['void0'][in_sample]
-        void0[self.galzone[in_sample]['zone']==-1] = -1 #remove galaxies that are not in zones (otherwise erroneously maped to self.zonevoid['void0'][-1])
-
-        num_in_void = np.sum(void0!=-1)
-        num_tot = len(void0)
-
-        if return_selector:
-            #cut the galzone 'gal' column down to the survey masked galaxies and the galaxies in voids
-            selected_IDs = self.galzone['gal'][in_sample][void0!=-1]
-            #get boolean mask of galaxies in final cut
-            selector = np.isin(self.galaxies['gal'], selected_IDs)
-            membership = ( selector, num_tot )
-        else:
-            membership = ( num_in_void, num_tot )
-
-        return membership
-        """
-
-        
-        vflag = self._check_object_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=self.edge_buffer)
+        vflag = self._check_object_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=self.edge_buffer, flag_void_near_edge=True)
+        interior_to_survey = (vflag == 0) + (vflag==1)
         num_in_void = len(vflag[vflag==1])
-        num_tot = len(vflag[vflag==0]) + num_in_void
-        
+        num_tot = np.sum(interior_to_survey)
+
         if return_selector:
-            vflag[vflag!=1] = 0
-            membership = ( vflag.astype('bool'), num_tot )
+            selector = np.isin(self.galaxies['gal'], galaxies['gal'][vflag==1])
+            membership = ( selector, num_tot )
         else:
             membership = ( num_in_void, num_tot )
             
@@ -1145,7 +1103,11 @@ class V2Catalog(VoidCatalog):
         """
         Calculates whether given coordinates are located inside or outside of voids (vflags). 
         Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
-        a galaxy catalog.
+        a galaxy catalog. The possible vflag values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
         
         params:
         ---------------------------------------------------------------------------------------------
@@ -1229,7 +1191,7 @@ class V2Catalog(VoidCatalog):
         vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
         return vflag
 
-    def _check_object_in_void(self, coordinates, mask, mask_res, rmin, rmax, edge_threshold=10):
+    def _check_object_in_void(self, coordinates, mask, mask_res, rmin, rmax, edge_threshold=10, flag_void_near_edge = False):
 
         #calculate vflags
 
@@ -1256,21 +1218,26 @@ class V2Catalog(VoidCatalog):
         
         vflag[select_within_edge_buffer] = 0 #set to wall for now
 
-        # TODO: verify that this works
         data_table = vo.prep_V2_cat(self.galzone, self.zonevoid)
         nearest_galzone = vo.kd_tree(data_table)
         inside_void = vo.point_query_V2(np.array([coordinates['x'], coordinates['y'], coordinates['z']]), nearest_galzone, data_table).data.T[0]
         
         #mark void galaxies
         vflag[inside_void] = 1
-        #vflag[inside_void*(~select_within_edge_buffer)] = -1 #in voids but near edge (Don't use this in order to have consistent output with VoidFinder)
+        
+        if flag_void_near_edge:
+            vflag[inside_void*(~select_within_edge_buffer)] = -1 #in voids but near edge (desired for galaxy membership but not vflags)
         
         return vflag
 
         
     def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False):
         """
-        Calculates which galaxies are located inside or outside of voids (vflags).
+        Calculates which galaxies are located inside or outside of voids (vflags). The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
         
         params:
         ---------------------------------------------------------------------------------------------
