@@ -22,8 +22,6 @@ from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_INT8_t, \
                       CELL_ID_t
 
-#from numpy.math cimport NAN, INFINITY
-
 from libc.math cimport NAN, INFINITY, fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 
 #from ._voidfinder import find_next_prime

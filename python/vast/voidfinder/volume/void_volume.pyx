@@ -10,11 +10,6 @@ np.import_array()  # required in order to use C-API
 from ..typedefs cimport DTYPE_F32_t, \
                         DTYPE_INT32_t
 
-#from numpy.math cimport NAN, INFINITY
-
-#from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
-
-
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

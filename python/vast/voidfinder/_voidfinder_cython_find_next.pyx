@@ -30,8 +30,6 @@ from .typedefs cimport DTYPE_CP128_t, \
                        DTYPE_UINT16_t, \
                        CELL_ID_t
 
-#from numpy.math cimport NAN, INFINITY
-
 from libc.math cimport NAN, INFINITY, fabs, sqrt, asin, atan, ceil, floor#, exp, pow, cos, sin, asin
 
 #from libc.stdlib cimport malloc, free
