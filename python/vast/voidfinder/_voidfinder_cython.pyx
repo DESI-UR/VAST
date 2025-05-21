@@ -27,9 +27,7 @@ from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_INT8_t, \
                       CELL_ID_t
 
-from numpy.math cimport NAN, INFINITY
-
-from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
+from libc.math cimport NAN, INFINITY, fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 from ._voidfinder_cython_find_next cimport GalIdxDescriptor, \
                                            Cell_ID_Memory, \

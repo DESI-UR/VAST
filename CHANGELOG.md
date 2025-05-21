@@ -1,6 +1,10 @@
 # Change Log
 Log of changes for VAST versions.
 
+### 1.7.1
+
+- Bugfix: updated pyx files to account for changes in Cython math functions ([PR #127](https://github.com/DESI-UR/VAST/pull/127)).
+
 ### 1.7.0
 - Feature: Added parallel computing features for V2. Added non-periodic cubic mode and edge-void calculation for V2
 

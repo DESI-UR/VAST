@@ -28,9 +28,7 @@ from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_INT64_t, \
                       DTYPE_INT8_t
 
-from numpy.math cimport NAN, INFINITY
-
-from libc.math cimport fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
+from libc.math cimport NAN, INFINITY, fabs, sqrt, asin, atan, ceil#, exp, pow, cos, sin, asin
 
 
 from ._voidfinder_cython_find_next cimport not_in_mask as Not_In_Mask
