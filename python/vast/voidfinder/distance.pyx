@@ -22,9 +22,7 @@ from .typedefs cimport DTYPE_CP128_t, \
                       DTYPE_INT32_t, \
                       DTYPE_INT64_t
 
-from numpy.math cimport NAN, INFINITY
-
-from libc.math cimport fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
+from libc.math cimport NAN, INFINITY, fabs, sqrt, asin, atan#, exp, pow, cos, sin, asin
 
 from scipy.integrate import _quadpack
 
