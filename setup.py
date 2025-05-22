@@ -20,7 +20,7 @@ setup_keywords = dict()
 setup_keywords['name'] = 'vast'
 setup_keywords['version'] = get_version()
 setup_keywords['provides'] = [setup_keywords['name']]
-setup_keywords['python_requires'] = '>=3.7'
+setup_keywords['python_requires'] = '>=3.8'
 setup_keywords['zip_safe'] = False
 setup_keywords['packages'] = find_packages('python')
 setup_keywords['package_dir'] = {'': 'python'}
