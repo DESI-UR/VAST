@@ -18,25 +18,9 @@ from python.vast._git import get_version
 setup_keywords = dict()
 #
 setup_keywords['name'] = 'vast'
-setup_keywords['description'] = 'Void Analysis Software Toolkit (VAST)'
-setup_keywords['author'] = 'Kelly Douglass, University of Rochester'
-setup_keywords['author_email'] = 'kellyadouglass@rochester.edu'
-setup_keywords['license'] = 'BSD'
-setup_keywords['url'] = 'https://github.com/DESI-UR/VAST'
 setup_keywords['version'] = get_version()
-#
-# Use README.md as a long description
-#
-setup_keywords['long_description'] = ''
-if os.path.exists('README.md'):
-    with open('README.md') as readme:
-        setup_keywords['long_description'] = readme.read()
-    setup_keywords['long_description_content_type'] = 'text/markdown'
-#
-# Set other keywords for the setup function.
-#
 setup_keywords['provides'] = [setup_keywords['name']]
-setup_keywords['python_requires'] = '>=3.7'
+setup_keywords['python_requires'] = '>=3.8'
 setup_keywords['zip_safe'] = False
 setup_keywords['packages'] = find_packages('python')
 setup_keywords['package_dir'] = {'': 'python'}
@@ -79,22 +63,8 @@ for extfile in extfiles:
     
     ext_modules.append(curr_ext)
 
-
 setup_keywords['ext_modules'] = ext_modules
 setup_keywords['cmdclass'] = { 'build_ext' : build_ext }
-#
-# Package requirements
-#
-requires = []
-with open('requirements.txt', 'r') as f:
-    for line in f:
-        if line.strip():
-            requires.append(line.strip())
-setup_keywords['install_requires'] = requires
-setup_keywords['extras_require'] = {  # Optional
-    'dev': ['pytest', 'pytest-benchmark'],
-    'docs': ['numpydoc', 'sphinx-argparse', 'sphinx_rtd_theme']
-}
 #
 # Run the setup command
 #
