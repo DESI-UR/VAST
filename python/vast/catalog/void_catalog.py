@@ -144,7 +144,7 @@ class VoidCatalog():
         #free up memory    
         self.clear_catalog()
                 
-    def add_galaxies(self, galaxies_path, vflag_path = None, redshift_name='redshift', ra_name = 'ra', dec_name='dec', cartesian = False, x_name = 'x', y_name = 'y', z_name = 'z'):
+    def add_galaxies(self, galaxies_path, galaxies_table = None, vflag_path = None, redshift_name='redshift', ra_name = 'ra', dec_name='dec', cartesian = False, x_name = 'x', y_name = 'y', z_name = 'z'):
         """
         Reads in a galaxy catalog.
         
@@ -152,6 +152,9 @@ class VoidCatalog():
         ---------------------------------------------------------------------------------------------
         galaxies_path (string): The location of the galaxies file. The file should be in .dat, .txt, 
             .fits, or .h5 format.
+
+        galaxies_table (astropy table). A pre-created galaxy table. If not set to None, this table 
+            is used in place of the file at galaxies_path.
 
         vflag_path (string): The location of a file specifying which galaxies are in or outside of 
             voids (vflags). This can be the same as the galaxies_path, though this is not 
@@ -180,7 +183,10 @@ class VoidCatalog():
         """
 
         self.galaxies_path = galaxies_path
-        self.galaxies = load_data_to_Table(galaxies_path)
+        if galaxies_table is not None:
+            self.galaxies = galaxies_table
+        else:
+            self.galaxies = load_data_to_Table(galaxies_path)
         self.galaxies['gal'] = np.arange(len(self.galaxies)) 
         
         if cartesian:
@@ -1396,7 +1402,7 @@ class VoidCatalogStacked ():
         for cat in self._catalogs:
             self._catalogs[cat].upper_col_names()
                 
-    def add_galaxies(self, galaxies_paths, **kwargs):
+    def add_galaxies(self, galaxies_paths, galaxies_tables=None, vflag_paths = None, **kwargs):
         """
         Reads in a galaxy catalog.
         
@@ -1404,6 +1410,17 @@ class VoidCatalogStacked ():
         ---------------------------------------------------------------------------------------------
         galaxies_paths (list of strings): The locations of the galaxies file. The files should be in 
             .dat, .txt, .fits, or .h5 format.
+
+        galaxies_table (list of astropy table). A list of pre-created galaxy tables. If not set to 
+            None, this list is is used in place of the files in galaxies_paths.
+
+        vflag_paths (list of strings): A list of locations for files specifying which galaxies are in 
+            or outside of voids (vflags). This can be the same as the galaxies_path, though this is 
+            not recommended, in case one galaxy catalog is used to create multiple void catalogs 
+            (such as catalogs with different magnitude/redshift limits, or different algorithm 
+            settings). If no vflags are calculated the VoidCatalog class is capable of calcualting 
+            them and outputting to a new file (see calculate_vflag). Defaults to None, in which case 
+            no pre-computed vflags are loaded.
 
         kwargs:
         ---------------------------------------------------------------------------------------------
@@ -1424,9 +1441,14 @@ class VoidCatalogStacked ():
         z_name (string): The name of the z column. Defaults to 'z'
     
         """
+
         
-        for cat, path in zip(self._catalogs, galaxies_paths):
-            self._catalogs[cat].add_galaxies(path, **kwargs)
+        if galaxies_tables is None:
+            galaxies_tables = [None]*len(galaxies_paths)
+        if vflag_paths is None:
+            vflag_paths = [None]*len(galaxies_paths)
+        for cat, path, galaxies_table, vflag_path in zip(self._catalogs, galaxies_paths, galaxies_tables, vflag_paths):
+            self._catalogs[cat].add_galaxies(path, galaxies_table = galaxies_table, vflag_path = vflag_path, **kwargs)
             
     def get_single_overlap(self, mask_hdu=None): 
         """
@@ -1463,6 +1485,24 @@ class VoidCatalogStacked ():
             self._catalogs[cat].void_stats()
             print("")
         print("Combined")
+
+    def calculate_vflag(self, vflag_paths, **kwargs):
+        """
+        Calculates which galaxies are located inside or outside of voids.
+        
+        params:
+        ---------------------------------------------------------------------------------------------
+        overwrite (bool): Boolean that terminates the calculation if the void membership has
+            previously been calculated. When set to True, this behavior is disabled. Defaults to 
+            False.
+
+        cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
+            survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
+        
+        """
+        
+        for cat, path in zip(self._catalogs, vflag_paths):
+            self._catalogs[cat].calculate_vflag(path, **kwargs)
                     
     def galaxy_membership(self, custom_mask_hdu=None, return_selector=False, rmin=None, rmax=None, mag_lim=None):
         """
@@ -1618,24 +1658,6 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
         
         for cat in self._catalogs:
             self._catalogs[cat].calculate_r_eff(overwrite)
-            
-    def calculate_vflag(self, overwrite = False, cartesian=False):
-        """
-        Calculates which galaxies are located inside or outside of voids.
-        
-        params:
-        ---------------------------------------------------------------------------------------------
-        overwrite (bool): Boolean that terminates the calculation if the void membership has
-            previously been calculated. When set to True, this behavior is disabled. Defaults to 
-            False.
-
-        cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
-            survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
-        
-        """
-        
-        for cat in self._catalogs:
-            self._catalogs[cat].calculate_vflag(overwrite, cartesian)
             
         
 class V2CatalogStacked (VoidCatalogStacked):
