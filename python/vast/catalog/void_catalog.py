@@ -562,7 +562,7 @@ class VoidFinderCatalog (VoidCatalog):
         
         save_r_eff()
 
-    def check_object_in_void(self, ra=None, dec=None, redshift=None, 
+    def check_coords_in_void(self, ra=None, dec=None, redshift=None, 
                              x_pos=None, y_pos=None, z_pos=None, 
                              cartesian = False):
         """
@@ -1090,7 +1090,7 @@ class V2Catalog(VoidCatalog):
             raise AttributeError('V2 galaxy membership should have a custom mask to accurately exclude edge galaxies')
 
         
-        vflag = self._check_object_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=self.edge_buffer, flag_void_near_edge=True)
+        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=self.edge_buffer, flag_void_near_edge=True)
         interior_to_survey = (vflag == 0) + (vflag==1)
         num_in_void = len(vflag[vflag==1])
         num_tot = np.sum(interior_to_survey)
@@ -1103,7 +1103,7 @@ class V2Catalog(VoidCatalog):
             
         return membership
 
-    def check_object_in_void(self, ra=None, dec=None, redshift=None, 
+    def check_coords_in_void(self, ra=None, dec=None, redshift=None, 
                              x_pos=None, y_pos=None, z_pos=None, 
                              cartesian = False):
         """
@@ -1193,11 +1193,11 @@ class V2Catalog(VoidCatalog):
             rmin = self.info['DLIML']
             rmax = self.info['DLIMU']
 
-        vflag = self._check_object_in_void(coordinates, mask, mask_res, rmin, rmax, edge_threshold=10)
+        vflag = self._check_coords_in_void(coordinates, mask, mask_res, rmin, rmax, edge_threshold=10)
         vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
         return vflag
 
-    def _check_object_in_void(self, coordinates, mask, mask_res, rmin, rmax, edge_threshold=10, flag_void_near_edge = False):
+    def _check_coords_in_void(self, coordinates, mask, mask_res, rmin, rmax, edge_threshold=10, flag_void_near_edge = False):
 
         #calculate vflags
 
@@ -1327,7 +1327,7 @@ class V2Catalog(VoidCatalog):
         #mark void galaxies
         self.galaxies['vflag'][selector] = 1"""
 
-        vflag = self._check_object_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=10)
+        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=10)
         vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
         self.galaxies['vflag'] = vflag
             
