@@ -110,7 +110,7 @@ class VoidCatalog():
             output_file_name = self.file_name
             
         #read catalog
-        self.read_catalog()
+        self.read_catalog(self.file_name)
         
         #select formatting for column names
         if self.capitalize_colnames:
@@ -130,8 +130,9 @@ class VoidCatalog():
         
         #update each catalog header
         for header_name, header in self.headers.items():
-        
-            self._catalog[header_name].header = header
+
+            if header_name not in self.tables.items(): # headers should automatically be updated for tables (see above code)
+                self._catalog[header_name].header = header
             
         #save catalog
         self._catalog.writeto(output_file_name, overwrite=True)
@@ -143,7 +144,7 @@ class VoidCatalog():
         #free up memory    
         self.clear_catalog()
                 
-    def add_galaxies(self, galaxies_path, vflag_path = None, redshift_name='redshift', ra_name = 'ra', dec_name='dec', cartesian = False, x_name = 'x', y_name = 'y', z_name = 'z'):
+    def add_galaxies(self, galaxies_path, galaxies_table = None, vflag_path = None, redshift_name='redshift', ra_name = 'ra', dec_name='dec', cartesian = False, x_name = 'x', y_name = 'y', z_name = 'z'):
         """
         Reads in a galaxy catalog.
         
@@ -152,12 +153,15 @@ class VoidCatalog():
         galaxies_path (string): The location of the galaxies file. The file should be in .dat, .txt, 
             .fits, or .h5 format.
 
+        galaxies_table (astropy table). A pre-created galaxy table. If not set to None, this table 
+            is used in place of the file at galaxies_path.
+
         vflag_path (string): The location of a file specifying which galaxies are in or outside of 
             voids (vflags). This can be the same as the galaxies_path, though this is not 
             recommended, in case one galaxy catalog is used to create multiple void catalogs (such as 
             catalogs with different magnitude/redshift limits, or different algorithm settings). If 
             no vflags are calculated the VoidCatalog class is capable of calcualting them and 
-            outputting to a new file (see calculate_vflags). Defaults to None, in which case no 
+            outputting to a new file (see calculate_vflag). Defaults to None, in which case no 
             pre-computed vflags are loaded.
 
         redshift_name (string): The name of the redshift column. Defaults to 'redshift'
@@ -179,7 +183,10 @@ class VoidCatalog():
         """
 
         self.galaxies_path = galaxies_path
-        self.galaxies = load_data_to_Table(galaxies_path)
+        if galaxies_table is not None:
+            self.galaxies = galaxies_table
+        else:
+            self.galaxies = load_data_to_Table(galaxies_path)
         self.galaxies['gal'] = np.arange(len(self.galaxies)) 
         
         if cartesian:
@@ -222,6 +229,9 @@ class VoidCatalog():
         else:
             vflags = load_data_to_Table(vflag_path)
             self.vflag = vflags['gal','vflag']
+
+            from astropy.table import join
+            self.galaxies = join(self.galaxies, self.vflag, keys='gal')
                 
 
             
@@ -243,7 +253,7 @@ class VoidCatalog():
         
         if mask_hdu is None and hasattr(self, 'info') and hasattr(self, 'mask'):
             mask = self.mask
-            mask_res = self.info['MSKRES']
+            mask_res = self.mask_info['MSKRES']
         else:
             mask = mask_hdu.data.astype(bool) # convert from into to bool to avoid endian compiler error
             mask_res = mask_hdu.header['MSKRES']
@@ -274,7 +284,59 @@ class VoidCatalog():
 
         return overlap
     
-                
+    def plot_vflag(self, mask_title='Survey Mask', galaxies_title='Galaxy Distribution', file_prefix='vast', save_image = False):
+        """
+        Creates an output plot of (1) the mask and (2) the galaxies partitioned into void/wall/other 
+        types in ra-dec coordinates
+
+        params:
+        ---------------------------------------------------------------------------------------------
+        mask_title (string): The mask plot title
+            
+        galaxies_title (string): The galaxies plot title
+        
+        file_prefix (string): A name that is attached to the output png files to identify them
+
+        save_image (bool): Boolean that when true, saves the output to png files. Defaults to False
+        
+        """
+        
+        print('WARNING: ensure that the calculated vflags match the currently loaded galaxy file, as vflags are saved to the void file and not the galaxy file.')
+        
+        if not hasattr(self, 'vflag'):
+            raise ValueError('vflags not calculated for galaxies.')
+            
+        galaxies = self.galaxies
+        mask=self.mask
+        
+        #Save graphical information
+
+        #mask
+        plt.imshow(np.rot90(mask.astype(int)))
+        plt.xlabel("RA [pixels]")
+        plt.ylabel("Dec. [pixels]")
+        plt.title(mask_title)
+        plt.gca().invert_xaxis()
+        if save_image:
+            plt.savefig(file_prefix + "_classify_env_mask.png",dpi=100,bbox_inches="tight")
+
+        #galaxy catagories
+        walls=np.where(self.vflag['vflag']==0)
+        voids=np.where(self.vflag['vflag']==1)
+        wall_gals=np.array(galaxies)[walls]
+        void_gals=np.array(galaxies)[voids]
+        plt.figure(dpi=100)
+        plt.scatter(galaxies['ra'],galaxies['dec'],s=.5,label="excluded")
+        plt.scatter(void_gals['ra'],void_gals['dec'],color='r',s=.5,label="voids")
+        plt.scatter(wall_gals['ra'],wall_gals['dec'],color='k',s=.5,label="walls")
+        plt.legend(loc="upper right")
+        plt.xlabel("RA")
+        plt.ylabel("Dec.")
+        plt.title(galaxies_title)
+        plt.gca().invert_xaxis() # Reverse x axis
+        
+        if save_image:
+            plt.savefig(file_prefix + "_classify_env_gals.png",dpi=100,bbox_inches="tight")                   
 
 class VoidFinderCatalog (VoidCatalog):
     """
@@ -350,27 +412,32 @@ class VoidFinderCatalog (VoidCatalog):
             self.mask_info = self._catalog['MASK'].header
             self.mask = self._catalog['MASK'].data
         if 'WALL' in hdu_names:
-            self.wall_info = self._catalog['WALL'].header
-            self.wall = Table(self._catalog['WALL'].data)
+            hdu = self._catalog['WALL']
+            self.wall_info = hdu.header
+            self.wall = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['WALL'] = self.wall
             self.headers['WALL'] = self.wall_info
         if 'FIELD' in hdu_names:
-            self.field_info = self._catalog['FIELD'].header
-            self.field = Table(self._catalog['FIELD'].data)
+            hdu = self._catalog['FIELD']
+            self.field_info = hdu.header
+            self.field = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['FIELD'] = self.field
             self.headers['FIELD'] = self.field_info
         if 'MAXIMALS' in hdu_names:
-            self.maximals_info = self._catalog['MAXIMALS'].header
-            self.maximals = Table(self._catalog['MAXIMALS'].data)
+            hdu = self._catalog['MAXIMALS']
+            self.maximals_info = hdu.header
+            self.maximals = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['MAXIMALS'] = self.maximals
             self.headers['MAXIMALS'] = self.maximals_info
         if 'HOLES' in hdu_names:
-            self.holes_info = self._catalog['HOLES'].header
-            self.holes = Table(self._catalog['HOLES'].data)
+            hdu = self._catalog['HOLES']
+            self.holes_info = hdu.header
+            self.holes = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['HOLES'] = self.holes
             self.headers['HOLES'] = self.holes_info
-            
+
         self.lower_col_names()
+        self.clear_catalog()
         
     def read_catalog(self, file_name):
         """
@@ -397,7 +464,7 @@ class VoidFinderCatalog (VoidCatalog):
         print(len(self.maximals[edge==2]),'near-edge voids')
         print(len(self.maximals[edge==0]),'interior voids')
         
-        if np.product(np.isin(['r_eff','r_eff_uncert'], self.maximals.colnames)) > 0:
+        if np.prod(np.isin(['r_eff','r_eff_uncert'], self.maximals.colnames)) > 0:
             
             points_boolean = np.zeros(len(self.maximals), dtype = bool)
             
@@ -444,14 +511,18 @@ class VoidFinderCatalog (VoidCatalog):
             corresponding to the number of voids per save. If None, all void radii are calculated 
             with no intermediate saving.
         """
+
+        print('Calculating effective radii')
         
         def save_r_eff():
             #format and save output
             if self.capitalize_colnames:
                 self.upper_col_names()
-
+                
+            self.read_catalog(self.file_name)
             self._catalog['MAXIMALS'].data = fits.BinTableHDU(self.maximals).data
             self._catalog.writeto(self.file_name, overwrite=True)
+            self.clear_catalog()
 
             if self.capitalize_colnames:
                 self.lower_col_names()
@@ -465,13 +536,17 @@ class VoidFinderCatalog (VoidCatalog):
                 print ('R_eff already calculated. Run with overwrite=True to overwrite effective radii')
                 return
             self.maximals['r_eff'] = -1.
+            self.maximals['r_eff'].unit='Mpc/h'
             self.maximals['r_eff_uncert'] = -1.
+            self.maximals['r_eff_uncert'].unit='Mpc/h'
                     
             
         else:
             if not np.sum(np.isin(['r_eff','r_eff_uncert'],self.maximals.colnames))>0:
                 self.maximals['r_eff'] = -1.
+                self.maximals['r_eff'].unit='Mpc/h'
                 self.maximals['r_eff_uncert'] = -1.
+                self.maximals['r_eff_uncert'].unit='Mpc/h'
                     
         # calculate reff
         flags = self.maximals['void'][self.maximals['r_eff']==-1]
@@ -486,10 +561,123 @@ class VoidFinderCatalog (VoidCatalog):
                 save_r_eff()
         
         save_r_eff()
+
+    def check_coords_in_void(self, ra=None, dec=None, redshift=None, 
+                             x_pos=None, y_pos=None, z_pos=None, 
+                             cartesian = False):
+        """
+        Calculates whether given coordiantes are located inside or outside of voids (vflags). 
+        Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
+        a galaxy catalog. The possible vflag values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
+        
+        params:
+        ---------------------------------------------------------------------------------------------
+        ra (float or array of floats): The RA coordinates. Set to None if xyz coordinates are used. 
+
+        dec (float or array of floats): The Dec coordinates. Set to None if xyz coordinates are used. 
+
+        redshift (float or array of floats): The redshift coordinates. Set to None if xyz coordinates
+            are used. 
+
+        x_pos (float or array of floats): The x coordinates. Set to None if ra-dec-z coordinates are 
+            used. 
+
+        y_pos (float or array of floats): The y coordinates. Set to None if ra-dec-z coordinates are 
+            used. 
+
+        z_pos (float or array of floats): The z coordinates. Set to None if ra-dec-z coordinates are 
+            used. 
+
+        cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
+            survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
+
+
+        returns:
+        ---------------------------------------------------------------------------------------------
+        vflag (array of ints): The environment flags for the coordinates. The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
+        """
+        
+        # determine coordinate system
+        if ra is not None and dec is not None and redshift is not None:
+            use_radecz = True
+        else:
+            use_radecz = False
+        if x_pos is not None and y_pos is not None and z_pos is not None:
+            use_xyz = True
+        else:
+            use_xyz = False
+        if use_radecz == use_xyz:
+            raise ValueError('Either sky coordinates or cartesian coordinates must be exclusively specified')
+
+        #convert inputs to arrays
+        if use_radecz:
+            ra = ra if isinstance(ra, np.ndarray) else np.array(ra, ndmin=1)
+            dec = dec if isinstance(dec, np.ndarray) else np.array(dec, ndmin=1)
+            redshift = redshift if isinstance(redshift, np.ndarray) else np.array(redshift, ndmin=1)
+
+            coordinates = Table([ra, dec, redshift], names=['ra', 'dec', 'redshift'])
+            
+            coordinates['Rgal'] = z_to_comoving_dist(redshift.astype(np.float32), self.info['OMEGAM'],self.info['HP'])
+            
+            tmp = ra_dec_to_xyz(coordinates)
+            x_pos=tmp[:,0]
+            y_pos=tmp[:,1]
+            z_pos=tmp[:,2]
+            
+        elif use_xyz:
+            x_pos = x_pos if isinstance(x_pos, np.ndarray) else np.array(x_pos)
+            y_pos = y_pos if isinstance(y_pos, np.ndarray) else np.array(y_pos)
+            z_pos = z_pos if isinstance(z_pos, np.ndarray) else np.array(z_pos)
+        
+        #set up mask
+        if cartesian:
+            mask = np.ones ((360, 180))
+            mask_res = 1
+            rmin = -np.inf
+            rmax = np.inf
+        else:
+            mask = self.mask
+            mask_res = self.mask_info['MSKRES']
+            rmin = self.info['DLIML']
+            rmax = self.info['DLIMU']
+
+        #calculate vflags
+        voids = Table(self.holes)
+        vflag = []
+
+        for i in range(len(x_pos)):
+
+            #vflag : integer
+            #0 = wall galaxy
+            #1 = void galaxy
+            #2 = edge galaxy (too close to survey boundary to determine)
+            #9 = outside survey footprint
+
+            vflag.append(          determine_vflag(x_pos[i], 
+                                                   y_pos[i], 
+                                                   z_pos[i], 
+                                                   voids, 
+                                                   mask, 
+                                                   mask_res, 
+                                                   rmin,
+                                                   rmax))
+        return vflag
  
     def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False):
         """
-        Calculates which galaxies are located inside or outside of voids (vflags).
+        Calculates which galaxies are located inside or outside of voids (vflags). The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
         
         params:
         ---------------------------------------------------------------------------------------------
@@ -517,7 +705,6 @@ class VoidFinderCatalog (VoidCatalog):
         galaxies = self.galaxies
         
         #ensure that vflag wasn't previously calculated
-        hdu_names = [self._catalog[i].name for i in range(len(self._catalog))]
         if not overwrite and hasattr(self, 'vflag'):
             print ('vflags already calculated. Run with overwrite=True to overwrite vflags')
             return
@@ -585,58 +772,7 @@ class VoidFinderCatalog (VoidCatalog):
         
         """if self.capitalize_colnames:
             self.lower_col_names()"""
-            
-    def plot_vflag(self, mask_title='Survey Mask', galaxies_title='Galaxy Distribution', file_prefix='vast', save_image = False):
-        """
-        Creates an output plot of (1) the mask and (2) the galaxies partitioned into void/wall/other 
-        types in ra-dec coordinates
-
-        params:
-        ---------------------------------------------------------------------------------------------
-        mask_title (string): The mask plot title
-            
-        galaxies_title (string): The galaxies plot title
-        
-        file_prefix (string): A name that is attached to the output png files to identify them
-
-        save_image (bool): Boolean that when true, saves the output to png files. Defaults to False
-        
-        """
-        
-        print('WARNING: ensure that the calculated vflags match the currently loaded galaxy file, as vflags are saved to the void file and not the galaxy file.')
-        
-        if not hasattr(self, 'vflag'):
-            raise ValueError('vflags not calculated for galaxies.')
-            
-        galaxies = self.galaxies
-        mask=self.mask
-        
-        #Save graphical information
-
-        #mask
-        plt.imshow(np.rot90(mask.astype(int)))
-        plt.xlabel("RA [pixels]")
-        plt.ylabel("Dec. [pixels]")
-        plt.title(mask_title)
-        if save_image:
-            plt.savefig(file_prefix + "_classify_env_mask.png",dpi=100,bbox_inches="tight")
-
-        #galaxy catagories
-        walls=np.where(self.vflag['vflag']==0)
-        voids=np.where(self.vflag['vflag']==1)
-        wall_gals=np.array(galaxies)[walls]
-        void_gals=np.array(galaxies)[voids]
-        plt.figure(dpi=100)
-        plt.scatter(galaxies['ra'],galaxies['dec'],s=.5,label="excluded")
-        plt.scatter(void_gals['ra'],void_gals['dec'],color='r',s=.5,label="voids")
-        plt.scatter(wall_gals['ra'],wall_gals['dec'],color='k',s=.5,label="walls")
-        plt.legend(loc="upper right")
-        plt.xlabel("RA")
-        plt.ylabel("Dec.")
-        plt.title(galaxies_title)
-        
-        if save_image:
-            plt.savefig(file_prefix + "_classify_env_gals.png",dpi=100,bbox_inches="tight")      
+               
         
     def galaxy_membership(self, custom_mask_hdu=None, return_selector=False,
                          rmin = None, rmax = None, mag_lim = None):
@@ -690,7 +826,7 @@ class VoidFinderCatalog (VoidCatalog):
 
         galaxies = galaxies[galaxies['rabsmag'] < mag_lim]
         
-        # Cut galaxies down to those within 10 mpc/h of survey border
+        # Cut galaxies down to those within [self.edge_buffer] Mpc/h of survey border
         # Note: we use the main survey mask rather than the custom mask option, 
         # because were ony worried about galaxies near edge voids
         points_boolean = np.zeros(len(galaxies), dtype = bool)
@@ -708,10 +844,6 @@ class VoidFinderCatalog (VoidCatalog):
         
         num_in_void = np.sum(galaxies['vflag']==1) 
         
-        # This is redundant now, points_boolean already makes this selection 
-        # while correctly handling custom masks
-        # num_tot = np.sum((galaxies['vflag']==1) + (galaxies['vflag']==0)) 
-        # Instead we can simply do
         num_tot = len(galaxies)
         
         if return_selector:
@@ -798,32 +930,41 @@ class V2Catalog(VoidCatalog):
             self.info = self._catalog['PRIMARY'].header
             self.headers['PRIMARY'] = self.info
         if 'VOIDS' in hdu_names:
-            self.voids_info = self._catalog['VOIDS'].header
-            self.voids = Table(self._catalog['VOIDS'].data)
+            hdu = self._catalog['VOIDS']
+            self.voids_info = hdu.header
+            self.voids = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['VOIDS'] = self.voids
             self.headers['VOIDS'] = self.voids_info
         if 'ZONEVOID' in hdu_names:
-            self.zonevoid_info = self._catalog['ZONEVOID'].header
-            self.zonevoid = Table(self._catalog['ZONEVOID'].data)
+            hdu = self._catalog['ZONEVOID']
+            self.zonevoid_info = hdu.header
+            self.zonevoid = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['ZONEVOID'] = self.zonevoid
             self.headers['ZONEVOID'] = self.zonevoid_info
         if 'GALZONE' in hdu_names:
-            self.galzone_info = self._catalog['GALZONE'].header
-            self.galzone = Table(self._catalog['GALZONE'].data)   
+            hdu = self._catalog['GALZONE']
+            self.galzone_info = hdu.header
+            self.galzone = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)  
             self.tables['GALZONE'] = self.galzone
             self.headers['GALZONE'] = self.galzone_info
         if 'TRIANGLE' in hdu_names:
-            self.triangle_info = self._catalog['TRIANGLE'].header
-            self.triangle = Table(self._catalog['TRIANGLE'].data)
+            hdu = self._catalog['TRIANGLE']
+            self.triangle_info = hdu.header
+            self.triangle = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['TRIANGLE'] = self.triangle
             self.headers['TRIANGLE'] = self.triangle_info
         if 'GALVIZ' in hdu_names:
-            self.galviz_info = self._catalog['GALVIZ'].header
-            self.galviz = Table(self._catalog['GALVIZ'].data)
+            hdu = self._catalog['GALVIZ']
+            self.galviz_info = hdu.header
+            self.galviz = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)
             self.tables['GALVIZ'] = self.galviz
             self.headers['GALVIZ'] = self.galviz_info
-
+        if 'MASK' in hdu_names:
+            self.mask_info = self._catalog['MASK'].header
+            self.mask = self._catalog['MASK'].data
+        
         self.lower_col_names()
+        self.clear_catalog()
         
     """def add_mask(self, voidfinder_cat):
         #copy over ask info from a voidfinder catalog
@@ -856,7 +997,7 @@ class V2Catalog(VoidCatalog):
         
         num_voids = len(self.voids)
         print(num_voids, 'voids')
-        if np.product(np.isin(['tot_area','edge_area'], self.voids.colnames))>0:
+        if np.prod(np.isin(['tot_area','edge_area'], self.voids.colnames))>0:
             edge_area = self.voids['edge_area']
             tot_area = self.voids['tot_area']
             edge = edge_area/tot_area > 0.1
@@ -881,7 +1022,7 @@ class V2Catalog(VoidCatalog):
 
         voids = self.voids[points_boolean]
         
-        if np.product(np.isin(['tot_area','edge_area'], self.voids.colnames))>0:
+        if np.prod(np.isin(['tot_area','edge_area'], self.voids.colnames))>0:
             edge_area = voids['edge_area']
             tot_area = voids['tot_area']
             edge = edge_area/tot_area > 0.1
@@ -933,7 +1074,7 @@ class V2Catalog(VoidCatalog):
         if mag_lim is None:
             mag_lim = self.info['MAGLIM']
         
-        #select galaxies withing magnitude limit
+        #select galaxies within magnitude limit
         galaxies = self.galaxies
         galaxies = galaxies[galaxies['rabsmag'] < mag_lim]
         
@@ -946,51 +1087,269 @@ class V2Catalog(VoidCatalog):
             mask_res = self.mask_info['MSKRES']
         else:
             #This should never be the case (in current draft of code)
-            print('V2 galaxy membership should have a custom mask to accurately exclude edge galaxies')
-            assert 1==2
-            #galaxies = galaxies[(galaxies['Rgal'] >rmin)*(galaxies['Rgal'] < rmax)]
-            
-        galaxies = select_mask(galaxies, mask, mask_res, rmin, rmax)
-        
-        # Cut galaxies down to those within 10 mpc/h of survey border
-        # Note: we use the main survey mask rather than the custom mask option, 
-        # because were ony worried about galaxies near edge voids
-        points_boolean = np.zeros(len(galaxies), dtype = bool)
-
-        #Flag points that fall outside the main survey mask
-        for i in range(len(galaxies)):
-            # The current point
-            curr_pt = galaxies[i]
-
-            is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
-                                       mask, mask_res, rmin, rmax, self.edge_buffer)
-            points_boolean[i] = not is_edge
-
-
-        galaxies = galaxies[points_boolean]
+            raise AttributeError('V2 galaxy membership should have a custom mask to accurately exclude edge galaxies')
 
         
-        
-        #get indexes in full galaxy list of galaxies that make survey cuts
-        in_sample = np.isin(self.galaxies['gal'], galaxies['gal'])
-        # map the zonevoid void0 column onto every galaxy via the galaxies' zone membership
-        # then cut down to the galaxies that make the survey cuts
-        void0 = self.zonevoid[self.galzone['zone']]['void0'][in_sample]
-        void0[self.galzone[in_sample]['zone']==-1] = -1 #remove galaxies that are not in zones (otherwise erroneously maped to self.zonevoid['void0'][-1])
+        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=self.edge_buffer, flag_void_near_edge=True)
+        interior_to_survey = (vflag == 0) + (vflag==1)
+        num_in_void = len(vflag[vflag==1])
+        num_tot = np.sum(interior_to_survey)
 
-        num_in_void = np.sum(void0!=-1)
-        num_tot = len(void0)
-        
         if return_selector:
-            #cut the galzone 'gal' column down to the survey masked galaxies and the galaxies in voids
-            selected_IDs = self.galzone['gal'][in_sample][void0!=-1]
-            #get boolean mask of galaxies in final cut
-            selector = np.isin(self.galaxies['gal'], selected_IDs)
+            selector = np.isin(self.galaxies['gal'], galaxies['gal'][vflag==1])
             membership = ( selector, num_tot )
         else:
             membership = ( num_in_void, num_tot )
             
         return membership
+
+    def check_coords_in_void(self, ra=None, dec=None, redshift=None, 
+                             x_pos=None, y_pos=None, z_pos=None, 
+                             cartesian = False):
+        """
+        Calculates whether given coordinates are located inside or outside of voids (vflags). 
+        Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
+        a galaxy catalog. The possible vflag values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
+        
+        params:
+        ---------------------------------------------------------------------------------------------
+        ra (float or array of floats): The RA coordinates. Set to None if xyz coordinates are used. 
+
+        dec (float or array of floats): The Dec coordinates. Set to None if xyz coordinates are used. 
+
+        redshift (float or array of floats): The redshift coordinates. Set to None if xyz coordinates
+            are used. 
+
+        x_pos (float or array of floats): The x coordinates. Set to None if ra-dec-z coordinates are 
+            used. 
+
+        y_pos (float or array of floats): The y coordinates. Set to None if ra-dec-z coordinates are 
+            used. 
+
+        z_pos (float or array of floats): The z coordinates. Set to None if ra-dec-z coordinates are 
+            used. 
+
+        cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
+            survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
+
+
+        returns:
+        ---------------------------------------------------------------------------------------------
+        vflag (array of ints): The environment flags for the coordinates. The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
+        """
+
+                # determine coordinate system
+        if ra is not None and dec is not None and redshift is not None:
+            use_radecz = True
+        else:
+            use_radecz = False
+        if x_pos is not None and y_pos is not None and z_pos is not None:
+            use_xyz = True
+        else:
+            use_xyz = False
+        if use_radecz == use_xyz:
+            raise ValueError('Either sky coordinates or cartesian coordinates must be exclusively specified')
+
+        #convert inputs to arrays
+        if use_radecz:
+            ra = ra if isinstance(ra, np.ndarray) else np.array(ra, ndmin=1)
+            dec = dec if isinstance(dec, np.ndarray) else np.array(dec, ndmin=1)
+            redshift = redshift if isinstance(redshift, np.ndarray) else np.array(redshift, ndmin=1)
+
+            coordinates = Table([ra, dec, redshift], names=['ra', 'dec', 'redshift'])
+            
+            coordinates['Rgal'] = z_to_comoving_dist(redshift.astype(np.float32), self.info['OMEGAM'],self.info['HP'])
+            
+            tmp = ra_dec_to_xyz(coordinates)
+            x_pos=tmp[:,0]
+            y_pos=tmp[:,1]
+            z_pos=tmp[:,2]
+            coordinates = Table([x_pos, y_pos, z_pos, coordinates['Rgal']], names=['x', 'y', 'z', 'Rgal'])
+            
+        elif use_xyz:
+            x_pos = x_pos if isinstance(x_pos, np.ndarray) else np.array(x_pos, ndmin=1)
+            y_pos = y_pos if isinstance(y_pos, np.ndarray) else np.array(y_pos, ndmin=1)
+            z_pos = z_pos if isinstance(z_pos, np.ndarray) else np.array(z_pos, ndmin=1)
+            coordinates = Table([x_pos, y_pos, z_pos], names=['x', 'y', 'z'])
+            coordinates['Rgal'] = np.sqrt(x_pos**2 + y_pos**2 + z_pos**2)
+        
+        #set up mask
+        if cartesian:
+            mask = np.ones ((360, 180))
+            mask_res = 1
+            rmin = -np.inf
+            rmax = np.inf
+        else:
+            mask = self.mask
+            mask_res = self.mask_info['MSKRES']
+            rmin = self.info['DLIML']
+            rmax = self.info['DLIMU']
+
+        vflag = self._check_coords_in_void(coordinates, mask, mask_res, rmin, rmax, edge_threshold=10)
+        vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
+        return vflag
+
+    def _check_coords_in_void(self, coordinates, mask, mask_res, rmin, rmax, edge_threshold=10, flag_void_near_edge = False):
+
+        #calculate vflags
+
+        #set all coordinates outside survey mask
+        vflag = 9 * np.ones(len(coordinates), dtype=np.int64)
+
+        # Identify galaxies inside the survey mask
+        coordinates['gal']= np.arange(len(coordinates))
+        coordinates_masked = select_mask(coordinates, mask, mask_res, rmin, rmax)
+        vflag[np.isin(coordinates['gal'], coordinates_masked['gal'])] = 2 #set to edge galaxy for now
+        
+        # Identify edge galaxies (within 10 Mpc/h of survey border)
+        points_boolean = np.zeros(len(coordinates_masked), dtype = bool)
+        
+        for i in range(len(coordinates_masked)):
+            # The current point
+            curr_pt = coordinates_masked[i]
+
+            is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
+                                       mask, mask_res, rmin, rmax, edge_threshold)
+            points_boolean[i] = not is_edge
+
+        select_within_edge_buffer = np.isin(coordinates['gal'], coordinates_masked[points_boolean]['gal'])
+        
+        vflag[select_within_edge_buffer] = 0 #set to wall for now
+
+        data_table = vo.prep_V2_cat(self.galzone, self.zonevoid)
+        nearest_galzone = vo.kd_tree(data_table)
+        inside_void = vo.point_query_V2(np.array([coordinates['x'], coordinates['y'], coordinates['z']]), nearest_galzone, data_table).data.T[0]
+        
+        #mark void galaxies
+        vflag[inside_void] = 1
+        
+        if flag_void_near_edge:
+            vflag[inside_void*(~select_within_edge_buffer)] = -1 #in voids but near edge (desired for galaxy membership but not vflags)
+        
+        return vflag
+
+        
+    def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False):
+        """
+        Calculates which galaxies are located inside or outside of voids (vflags). The possible values are
+            0 = wall galaxy
+            1 = void galaxy
+            2 = edge galaxy (not in a detected void, but too close to the survey boundary to determine)
+            9 = outside survey footprint
+        
+        params:
+        ---------------------------------------------------------------------------------------------
+        vflag_path (string): The location to output the vflags to. This can be the same as 
+            self.galaxies_path, though this is not recommended, in case one galaxy catalog is used to 
+            create multiple void catalogs (such as catalogs with different magnitude/redshift limits, 
+            or different algorithm settings). 
+
+        astropy_file_format (string): The 'format' parameter taken by astropy.table.Table.write which
+            specifies the file format of the output. This format must be chosen to match the format 
+            of vflags_path, or a write error may occur. Defaults to 'fits'
+            
+        overwrite (bool): Boolean that terminates the calculation if the void membership has
+            previously been calculated. When set to True, this behavior is disabled. Defaults to 
+            False.
+
+        cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
+            survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
+        
+        """
+        # warning: no mask feature is used for cubic box simulations (cartesian = True). 
+        # All galaxies are assumed to be inside the mask. There is no option for a 
+        # periodic mode.
+        
+        galaxies = self.galaxies
+        
+        #ensure that vflag wasn't previously calculated
+        if not overwrite and hasattr(self, 'vflag'):
+            print ('vflags already calculated. Run with overwrite=True to overwrite vflags')
+            return
+        
+        #set up mask
+        if cartesian:
+            mask = np.ones ((360, 180))
+            mask_res = 1
+            rmin = -np.inf
+            rmax = np.inf
+        else:
+            mask = self.mask
+            mask_res = self.mask_info['MSKRES']
+            rmin = self.info['DLIML']
+            rmax = self.info['DLIMU']
+
+
+        """# Identify large-scale environment
+        
+        print('Identifying environment')
+
+        #set all galaxies outside survey mask
+        self.galaxies['vflag'] = 9
+
+        # Identify galaxies inside the survey mask
+        galaxies = select_mask(galaxies, mask, mask_res, rmin, rmax)
+        self.galaxies['vflag'][np.isin(self.galaxies['gal'], galaxies['gal'])] = 2 #set to edge galaxy for now
+        
+        # Identify edge galaxies (within 10 Mpc/h of survey border)
+        points_boolean = np.zeros(len(galaxies), dtype = bool)
+        
+        for i in range(len(galaxies)):
+            # The current point
+            curr_pt = galaxies[i]
+
+            is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
+                                       mask, mask_res, rmin, rmax, 10)
+            points_boolean[i] = not is_edge
+
+        select_within_edge_buffer = np.isin(self.galaxies['gal'], galaxies[points_boolean]['gal'])
+        
+        self.galaxies['vflag'][select_within_edge_buffer] = 0 #set to wall for now
+        
+        
+        # map the zonevoid void0 column onto every galaxy via the galaxies' zone membership
+        # then cut down to the galaxies that make the survey cuts
+        void0 = self.zonevoid[self.galzone['zone']]['void0']
+        void0[self.galzone['zone']==-1] = -1 #remove galaxies that are not in zones (otherwise erroneously maped to self.zonevoid['void0'][-1])
+        
+        #cut the galzone 'gal' column down to the survey masked galaxies and the galaxies in voids
+        selected_IDs = self.galzone['gal'][void0!=-1]
+        #get boolean mask of galaxies in final cut
+        selector = np.isin(self.galaxies['gal'], selected_IDs)
+        #mark void galaxies
+        self.galaxies['vflag'][selector] = 1"""
+
+        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=10)
+        vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
+        self.galaxies['vflag'] = vflag
+            
+        # Write output to the catalog object
+        
+        self.vflag = self.galaxies['gal','vflag']
+
+        # If user desires to output vflags to the galaxy file
+        if os.path.realpath(vflag_path) == os.path.realpath(self.galaxies_path):
+            self.galaxies.write(vflag_path, format=astropy_file_format, overwrite=True)
+            return
+
+        #If user desires to output vflags to seperate file (recommended)
+        
+        # Format and save output
+        """if self.capitalize_colnames:
+            self.upper_col_names()"""
+            
+        self.vflag.write(vflag_path, format=astropy_file_format, overwrite=True)
+        
+        """if self.capitalize_colnames:
+            self.lower_col_names()"""
 
 
 class VoidCatalogStacked ():
@@ -1043,7 +1402,7 @@ class VoidCatalogStacked ():
         for cat in self._catalogs:
             self._catalogs[cat].upper_col_names()
                 
-    def add_galaxies(self, galaxies_paths, **kwargs):
+    def add_galaxies(self, galaxies_paths, galaxies_tables=None, vflag_paths = None, **kwargs):
         """
         Reads in a galaxy catalog.
         
@@ -1051,6 +1410,17 @@ class VoidCatalogStacked ():
         ---------------------------------------------------------------------------------------------
         galaxies_paths (list of strings): The locations of the galaxies file. The files should be in 
             .dat, .txt, .fits, or .h5 format.
+
+        galaxies_table (list of astropy table). A list of pre-created galaxy tables. If not set to 
+            None, this list is is used in place of the files in galaxies_paths.
+
+        vflag_paths (list of strings): A list of locations for files specifying which galaxies are in 
+            or outside of voids (vflags). This can be the same as the galaxies_path, though this is 
+            not recommended, in case one galaxy catalog is used to create multiple void catalogs 
+            (such as catalogs with different magnitude/redshift limits, or different algorithm 
+            settings). If no vflags are calculated the VoidCatalog class is capable of calcualting 
+            them and outputting to a new file (see calculate_vflag). Defaults to None, in which case 
+            no pre-computed vflags are loaded.
 
         kwargs:
         ---------------------------------------------------------------------------------------------
@@ -1071,9 +1441,14 @@ class VoidCatalogStacked ():
         z_name (string): The name of the z column. Defaults to 'z'
     
         """
+
         
-        for cat, path in zip(self._catalogs, galaxies_paths):
-            self._catalogs[cat].add_galaxies(path, **kwargs)
+        if galaxies_tables is None:
+            galaxies_tables = [None]*len(galaxies_paths)
+        if vflag_paths is None:
+            vflag_paths = [None]*len(galaxies_paths)
+        for cat, path, galaxies_table, vflag_path in zip(self._catalogs, galaxies_paths, galaxies_tables, vflag_paths):
+            self._catalogs[cat].add_galaxies(path, galaxies_table = galaxies_table, vflag_path = vflag_path, **kwargs)
             
     def get_single_overlap(self, mask_hdu=None): 
         """
@@ -1094,7 +1469,7 @@ class VoidCatalogStacked ():
         res = []
         
         for cat in self._catalogs:
-            res.append(self._catalogs[cat].get_single_overlap(mask_hdu, self.edge_buffer))
+            res.append(self._catalogs[cat].get_single_overlap(mask_hdu))
             
         return res
             
@@ -1110,6 +1485,24 @@ class VoidCatalogStacked ():
             self._catalogs[cat].void_stats()
             print("")
         print("Combined")
+
+    def calculate_vflag(self, vflag_paths, **kwargs):
+        """
+        Calculates which galaxies are located inside or outside of voids.
+        
+        params:
+        ---------------------------------------------------------------------------------------------
+        overwrite (bool): Boolean that terminates the calculation if the void membership has
+            previously been calculated. When set to True, this behavior is disabled. Defaults to 
+            False.
+
+        cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
+            survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
+        
+        """
+        
+        for cat, path in zip(self._catalogs, vflag_paths):
+            self._catalogs[cat].calculate_vflag(path, **kwargs)
                     
     def galaxy_membership(self, custom_mask_hdu=None, return_selector=False, rmin=None, rmax=None, mag_lim=None):
         """
@@ -1233,7 +1626,7 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
         maximals = vstack([filter_maximals(self._catalogs[cat]) for cat in self._catalogs])
         
 
-        if np.product(np.isin(['r_eff','r_eff_uncert'], maximals.colnames)) > 0:
+        if np.prod(np.isin(['r_eff','r_eff_uncert'], maximals.colnames)) > 0:
             
             """edge = maximals['edge']
             print(len(maximals[edge==1]),'edge voids (V. Fid)')
@@ -1265,24 +1658,6 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
         
         for cat in self._catalogs:
             self._catalogs[cat].calculate_r_eff(overwrite)
-            
-    def calculate_vflag(self, overwrite = False, cartesian=False):
-        """
-        Calculates which galaxies are located inside or outside of voids.
-        
-        params:
-        ---------------------------------------------------------------------------------------------
-        overwrite (bool): Boolean that terminates the calculation if the void membership has
-            previously been calculated. When set to True, this behavior is disabled. Defaults to 
-            False.
-
-        cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
-            survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
-        
-        """
-        
-        for cat in self._catalogs:
-            self._catalogs[cat].calculate_vflag(overwrite, cartesian)
             
         
 class V2CatalogStacked (VoidCatalogStacked):
@@ -1372,7 +1747,7 @@ class V2CatalogStacked (VoidCatalogStacked):
         num_voids = len(voids)
         print(num_voids, 'voids')
         
-        if np.product(np.isin(['tot_area','edge_area'], voids.colnames))>0:
+        if np.prod(np.isin(['tot_area','edge_area'], voids.colnames))>0:
             edge_area = voids['edge_area']
             tot_area = voids['tot_area']
             edge = edge_area/tot_area > 0.1
