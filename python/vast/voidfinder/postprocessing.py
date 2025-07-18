@@ -649,7 +649,7 @@ def save_output_from_find_voids(
         Otherwise, the column names are lowercase
 
     save_missing_galaxies : bool
-        If True, and if the galaxies have not been previosly saved to the output 
+        If True, and if the galaxies have not been previously saved to the output 
         file during the the galaxy filtering stage, then galaxy input is saved 
         to the output
         
