@@ -243,7 +243,7 @@ def combine_holes_2(x_y_z_r_array,
     ############################################################################
 
     
-    
+    """ # COMMENTED OUT BY HERNAN
     ############################################################################
     # Using the list of maximals, build a group of holes (A void, finally!) 
     # around each maximal based on percent intersection
@@ -266,14 +266,14 @@ def combine_holes_2(x_y_z_r_array,
     holes_index = hole_flag_array[:,0]
     
     holes_flag_index = hole_flag_array[:,1]
-    
+    """
     maximals_xyzr = x_y_z_r_array[maximal_spheres_indices]
-    
+    """  # COMMENTED OUT BY HERNAN
     holes_xyzr = x_y_z_r_array[holes_index]
 
     boundary_voids = boundary_holes[holes_index]
     ############################################################################
-
+    """
 
     
     ############################################################################
@@ -281,9 +281,11 @@ def combine_holes_2(x_y_z_r_array,
     #---------------------------------------------------------------------------
     maximals_table = Table(maximals_xyzr, names=('x','y','z','radius'))
     maximals_table["void"] = np.arange(maximals_xyzr.shape[0])
-
+    """  # COMMENTED OUT BY HERNAN
     holes_table =  Table(holes_xyzr, names=('x','y','z','radius'))
     holes_table["void"] = holes_flag_index
+    """
+    holes_table =  Table(names=('x','y','z','radius','void')) #REPLACED BY HERNAN
     ############################################################################
 
 
@@ -292,7 +294,7 @@ def combine_holes_2(x_y_z_r_array,
     # Mark boundary voids
     #---------------------------------------------------------------------------
     maximals_table["edge"] = 0
-
+    """  # COMMENTED OUT BY HERNAN
     for i,void in enumerate(maximals_table["void"]):
 
         # Find all holes associated with this void
@@ -356,7 +358,7 @@ def combine_holes_2(x_y_z_r_array,
                         break
             #-------------------------------------------------------------------
     ############################################################################
-    
+    """;
     return maximals_table, holes_table
 
 
