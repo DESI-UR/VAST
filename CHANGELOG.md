@@ -1,6 +1,10 @@
 # Change Log
 Log of changes for VAST versions.
 
+### 1.7.2
+- Updated void catalog class to let users search for the void membership of custom coordinates,
+  along with small bug fixes
+
 ### 1.7.1
 
 - Bugfix: updated pyx files to account for changes in Cython math functions ([PR #127](https://github.com/DESI-UR/VAST/pull/127)).
