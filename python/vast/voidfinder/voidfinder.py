@@ -789,6 +789,7 @@ def find_voids(galaxy_coords_xyz,
                verbose=0,
                print_after=5.0,
                capitalize_colnames = False,
+               save_missing_galaxies = True,
                ):
     """
     Main entry point for VoidFinder.  
@@ -1013,6 +1014,11 @@ def find_voids(galaxy_coords_xyz,
     capitalize_colnames : bool
         If True, the column names in the void table outputs are capitalized. 
         Otherwise, the column names are lowercase
+
+    save_missing_galaxies : bool
+        If True, and if the galaxies have not been previously saved to the output 
+        file during the the galaxy filtering stage, then galaxy input is saved 
+        to the output
     
     
     Returns
@@ -1262,6 +1268,7 @@ def find_voids(galaxy_coords_xyz,
         num_cpus,
         batch_size,
         capitalize_colnames,
+        save_missing_galaxies,
         verbose=verbose
     )
     

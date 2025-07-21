@@ -543,6 +543,7 @@ def save_output_from_find_voids(
         num_cpus,
         batch_size,
         capitalize_colnames,
+        save_missing_galaxies,
         verbose=0):
     
     '''
@@ -646,6 +647,11 @@ def save_output_from_find_voids(
     capitalize_colnames : bool
         If True, the column names in the void table outputs are capitalized. 
         Otherwise, the column names are lowercase
+
+    save_missing_galaxies : bool
+        If True, and if the galaxies have not been previously saved to the output 
+        file during the the galaxy filtering stage, then galaxy input is saved 
+        to the output
         
     verbose : int or bool
         Level of verbosity to print during running, 0 indicates off, 1 indicates 
@@ -691,12 +697,14 @@ def save_output_from_find_voids(
     try:
         hdul.index_of('FIELD')
     except:
+        wall_galaxies = galaxy_coords_xyz if save_missing_galaxies else np.array([])
+
         append_wall_field_galaxies(
             hdul,   
-            galaxy_coords_xyz, 
+            wall_galaxies, 
             np.array([]),
             capitalize_colnames)
-
+        
     primaryHDU = hdul['PRIMARY']
     wallHDU = hdul['WALL']
     fieldHDU=hdul['FIELD']
@@ -725,7 +733,8 @@ def save_output_from_find_voids(
     primaryHDU.header['WALLNUM'] = (wallHDU.header['WALLNUM'], 'Wall Galaxy Count')
     primaryHDU.header['FIELDNUM'] = (fieldHDU.header['FIELDNUM'], 'Field Galaxy Count')
     primaryHDU.header['DENSITY'] = (mknum(num_gals/vol), 'Galaxy Count Density (Mpc/h)^-3')
-    primaryHDU.header['AVSEP'] = (mknum(np.power(vol/num_gals, 1/3)), 'Average Galaxy Separation (Mpc/h)')
+    if num_gals > 0: 
+        primaryHDU.header['AVSEP'] = (mknum(np.power(vol/num_gals, 1/3)), 'Average Galaxy Separation (Mpc/h)')
     primaryHDU.header['VOID'] = (maximalHDU.header['VOID'], 'Void Count')
     if dist_limits is not None:
         primaryHDU.header['DLIML'] = (mknum(dist_limits[0]), 'Lower Distance Limit (Mpc/h)')

@@ -1,6 +1,9 @@
 # Change Log
 Log of changes for VAST versions.
 
+### 1.7.3
+- Updated VoidFinder to allow option for not saving galaxies to void-finding output
+
 ### 1.7.2
 - Updated void catalog class to let users search for the void membership of custom coordinates,
   along with small bug fixes
