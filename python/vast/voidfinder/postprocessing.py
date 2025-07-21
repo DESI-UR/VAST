@@ -733,7 +733,8 @@ def save_output_from_find_voids(
     primaryHDU.header['WALLNUM'] = (wallHDU.header['WALLNUM'], 'Wall Galaxy Count')
     primaryHDU.header['FIELDNUM'] = (fieldHDU.header['FIELDNUM'], 'Field Galaxy Count')
     primaryHDU.header['DENSITY'] = (mknum(num_gals/vol), 'Galaxy Count Density (Mpc/h)^-3')
-    if num_gals > 0: primaryHDU.header['AVSEP'] = (mknum(np.power(vol/num_gals, 1/3)), 'Average Galaxy Separation (Mpc/h)')
+    if num_gals > 0: 
+        primaryHDU.header['AVSEP'] = (mknum(np.power(vol/num_gals, 1/3)), 'Average Galaxy Separation (Mpc/h)')
     primaryHDU.header['VOID'] = (maximalHDU.header['VOID'], 'Void Count')
     if dist_limits is not None:
         primaryHDU.header['DLIML'] = (mknum(dist_limits[0]), 'Lower Distance Limit (Mpc/h)')
