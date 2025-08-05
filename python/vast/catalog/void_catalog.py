@@ -800,8 +800,8 @@ class VoidFinderCatalog (VoidCatalog):
 
         returns:
         ---------------------------------------------------------------------------------------------
-        membership (tuple): The galaxy membership statistics, or the indices of galaxies in voids if
-            return_selector is True.
+        membership (tuple): The galaxy membership statistics, or the indices of galaxies in voids and
+            walls if return_selector is True.
         """
         
         print('WARNING: ensure that the calculated vflags match the currently loaded galaxy file, as vflags may be saved to their own file and not the galaxy file.')
@@ -842,15 +842,14 @@ class VoidFinderCatalog (VoidCatalog):
         
         galaxies = galaxies[points_boolean]
         
-        num_in_void = np.sum(galaxies['vflag']==1) 
-        
-        num_tot = len(galaxies)
-        
         if return_selector:
-            selector = np.isin(self.galaxies['gal'], galaxies['gal'][galaxies['vflag']==1])
-            membership = ( selector, num_tot )
+            select_void_galaxies = np.isin(self.galaxies['gal'], galaxies['gal'][galaxies['vflag']==1])
+            select_wall_galaxies = np.isin(self.galaxies['gal'], galaxies['gal'][galaxies['vflag']==0])
+            membership = ( select_void_galaxies, select_wall_galaxies )
         else:
-            membership = ( num_in_void, num_tot )
+            num_in_void = np.sum(galaxies['vflag']==1) 
+            num_in_wall = np.sum(galaxies['vflag']==0) 
+            membership = ( num_in_void, num_in_wall )
             
         return membership
 
@@ -1063,8 +1062,8 @@ class V2Catalog(VoidCatalog):
 
         returns:
         ---------------------------------------------------------------------------------------------
-        membership (tuple): The galaxy membership statistics, or the indices of galaxies in voids if
-            return_selector is True.
+        membership (tuple): The galaxy membership statistics, or the indices of galaxies in voids and
+            wall if return_selector is True.
         """
         
         if rmin is None:
@@ -1091,15 +1090,16 @@ class V2Catalog(VoidCatalog):
 
         
         vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=self.edge_buffer, flag_void_near_edge=True)
-        interior_to_survey = (vflag == 0) + (vflag==1)
-        num_in_void = len(vflag[vflag==1])
-        num_tot = np.sum(interior_to_survey)
 
         if return_selector:
-            selector = np.isin(self.galaxies['gal'], galaxies['gal'][vflag==1])
-            membership = ( selector, num_tot )
+            select_void_galaxies = np.isin(self.galaxies['gal'], galaxies['gal'][vflag==1])
+            select_wall_galaxies = np.isin(self.galaxies['gal'], galaxies['gal'][vflag==0])
+            membership = ( select_void_galaxies, select_wall_galaxies )
         else:
-            membership = ( num_in_void, num_tot )
+            interior_to_survey = (vflag == 0) + (vflag==1)
+            num_in_void = len(vflag[vflag==1])
+            num_in_wall = len(vflag[vflag==0])
+            membership = ( num_in_void, num_in_wall )
             
         return membership
 
