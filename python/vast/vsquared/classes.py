@@ -32,6 +32,7 @@ class Catalog:
                  zmin,
                  zmax,
                  column_names,
+                 galaxy_table=None,
                  maglim=None,
                  H0=100,
                  Om_m=0.3,
@@ -126,8 +127,9 @@ class Catalog:
         ################################################################################
         if verbose > 0:
             print("Extracting data...")
-        
-        galaxy_table = load_data_to_Table(catfile)
+
+        if galaxy_table is None:
+            galaxy_table = load_data_to_Table(catfile)
         
         if verbose > 0:
             print("Read in galaxy data (rows, cols): ", len(galaxy_table), len(galaxy_table.columns))
@@ -554,19 +556,25 @@ class Tesselation:
             # and throw them into the healpix utility function to get the mask values
             # corresponding to those locations
             ################################################################################
-            mask = cat.mask
-            
+
             vertices = voronoi_graph.vertices
             
-            vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
+            if not xyz:    
+                mask = cat.mask
+                
+                vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
+                
+                verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
+                
+                pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
+                
+                verticies_in_mask = mask[pix_ids]
+
+                verticies_in_mask_uint8 = verticies_in_mask.astype(np.uint8)
+                
+            else:
+                verticies_in_mask_uint8 = np.ones(len(voronoi_graph.point_region), dtype=np.uint8)
             
-            verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
-            
-            pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
-            
-            verticies_in_mask = mask[pix_ids]
-            
-            verticies_in_mask_uint8 = verticies_in_mask.astype(np.uint8)
             
             ################################################################################
             # We will also need some radial information about the verticies and galaxies

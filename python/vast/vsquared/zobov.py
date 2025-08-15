@@ -40,6 +40,8 @@ class Zobov:
                  configfile,
                  #start=0,
                  #end=3,
+                 galaxy_table = None,
+                 custom_cat_name=None,
                  stages=[0,1,2,3],
                  save_intermediate=True,
                  visualize=False,
@@ -136,8 +138,8 @@ class Zobov:
         # Extract some values from the config INI file 
         ################################################################################
         self.infile  = config['Paths']['Input Catalog']
-        
-        self.catname = config['Paths']['Survey Name']
+
+        self.catname = config['Paths']['Survey Name'] if custom_cat_name is None else custom_cat_name
         
         self.outdir  = config['Paths']['Output Directory']
         
@@ -198,7 +200,7 @@ class Zobov:
 
 
         run_stage_0 = 0 in stages
-        self.create_catalog(run_stage_0, save_intermediate)
+        self.create_catalog(run_stage_0, save_intermediate, galaxy_table=galaxy_table)
         
         run_stage_1 = 1 in stages
         self.create_tessellation(run_stage_1, save_intermediate)
@@ -224,7 +226,7 @@ class Zobov:
         self.capitalize = capitalize_colnames
 
 
-    def create_catalog(self, run_stage, save_intermediate=False):
+    def create_catalog(self, run_stage, save_intermediate=False, galaxy_table=None):
         """
         Description
         ===========
@@ -245,6 +247,7 @@ class Zobov:
                            zmin=self.zmin,
                            zmax=self.zmax,
                            column_names=self.column_names, 
+                           galaxy_table=galaxy_table,
                            maglim=self.maglim,
                            H0=self.H0,
                            Om_m=self.Om_m,
@@ -439,6 +442,7 @@ class Zobov:
             2 or ZOBOV2 or zobov2 = ZOBOV method; cut voids over a significance threshold.
             3 = not available
             4 or REVOLVER or revolver = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
+            5 or REVOLVER2 = REVOLVER method (VAST legacy version) with only the 50% largest voids returned
         
         minsig : float
             Minimum significance threshold for selecting voids.
@@ -466,6 +470,8 @@ class Zobov:
                     method = 2
                 if method == 'REVOLVER' or method == 'revolver':
                     method = 4
+                if method == 'REVOLVER2' or method == 'revolver2':
+                    method = 5
 
         if not hasattr(self, 'prevoids'):
             if method != 4:
@@ -548,7 +554,7 @@ class Zobov:
                             p1 = p2
             
         
-        elif method == 4: #REVOLVER
+        elif method == 4 or method == 5: #REVOLVER
             #print('Method 4')
             voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
 
@@ -579,8 +585,8 @@ class Zobov:
 
         # Locate all voids with radii smaller than set minimum
         # Old behavior for REVOLVER
-        #if method==4:
-        #    self.minrad = np.median(vrads)
+        if method==5:
+            self.minrad = np.median(vrads)
         rcut  = vrads > self.minrad
         
         voids = np.array(voids, dtype=object)[rcut]

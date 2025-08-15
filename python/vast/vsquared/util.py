@@ -283,6 +283,8 @@ def open_fits_file_V2(
         method_name = 'VIDE'
     elif method == 4:
         method_name = 'REVOLVER'
+    elif method == 5:
+        method_name = 'REVOLVER2'
     
     # format directory and file name appropriately
     return_file_path = False
