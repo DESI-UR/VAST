@@ -1,6 +1,9 @@
 # Change Log
 Log of changes for VAST versions.
 
+### 1.7.4
+- Updated galaxy_membership method in the void catalog classes to optionally return the indices of wall galaxies
+
 ### 1.7.3
 - Updated VoidFinder to allow option for not saving galaxies to void-finding output
 
