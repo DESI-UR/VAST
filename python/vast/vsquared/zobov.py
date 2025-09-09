@@ -64,6 +64,10 @@ class Zobov:
         
         configfile : str
             Configuration file path, for a config file in INI format.
+        
+        galaxy_table : astorpy table
+            If not None, the provided galaxy table is used for the voidfinding
+            rather than the galaxy input file in configfile
             
         stages : list of integers
             0=generate catalog, 
@@ -606,28 +610,15 @@ class Zobov:
         # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
         minvol *= zone_linking_cut / central_density_cut
         
-        """
-        OLD CODE: applies central density cut by removing voids that don't make the cut
-        if method==0:
-            dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
-            vrads = vrads[dcut]
-            rcut  = vrads>(minvol*dc)**(1./3)
-            vrads = vrads[rcut]
-            vcens = vcens[dcut][rcut]
-            voids = (voids[dcut])[rcut]
-        """
-        
-        # TODO: apply central density cut by flagging voids that don't make the cut, rather than deleting them (current version)
+        # Apply central density cut 
         # -----------------------
         dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
         rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
-        self.underdense = (dcut*rcut).astype(int)
         # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
         if method == 0:
             vrads = vrads[dcut*rcut]
             vcens = vcens[dcut*rcut]
             voids = voids[dcut*rcut]
-            self.underdense = self.underdense[dcut*rcut]
         # -----------------------
         
         vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
@@ -704,10 +695,10 @@ class Zobov:
 
         # format output tables
         if self.periodic:
-            names = ['void','x','y','z','radius', 'underdense', 'x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            names = ['void','x','y','z','radius', 'x1','y1','z1','x2','y2','z2','x3','y3','z3']
             if self.capitalize:
                 names = [name.upper() for name in names]
-            vT = Table([np.arange(len(self.vrads)),vcen[0],vcen[1],vcen[2],self.vrads,self.underdense,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+            vT = Table([np.arange(len(self.vrads)),vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
                     names = names,
                     units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
@@ -716,10 +707,10 @@ class Zobov:
                 names = [name.upper() for name in names]
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
             columns = [np.arange(len(self.vrads)), vcen[0], vcen[1], vcen[2], 
-                       vz, vra, vdec, self.vrads, self.underdense, 
+                       vz, vra, vdec, self.vrads,  
                        vax1[0], vax1[1], vax1[2], vax2[0], vax2[1], vax2[2], vax3[0], vax3[1], vax3[2]]
             names = ['void','x','y','z',
-                     'redshift','ra','dec','radius', 'underdense','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+                     'redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
             units = ['','Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h', '', 'Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h']
 
             if self.visualize:
