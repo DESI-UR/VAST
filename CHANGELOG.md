@@ -1,6 +1,12 @@
 # Change Log
 Log of changes for VAST versions.
 
+### 1.7.5
+- Expanded options for specifying the galaxy input to V2 and for plotting V2 voids with the slice plot code
+
+### 1.7.4
+- Updated galaxy_membership method in the void catalog classes to optionally return the indices of wall galaxies
+
 ### 1.7.3
 - Updated VoidFinder to allow option for not saving galaxies to void-finding output
 

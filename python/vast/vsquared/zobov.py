@@ -68,6 +68,10 @@ class Zobov:
         galaxy_table : astorpy table
             If not None, the provided galaxy table is used for the voidfinding
             rather than the galaxy input file in configfile
+
+        custom_cat_name : str
+            If not none, a custom survey name is used, overrriding the value
+            set in configfile
             
         stages : list of integers
             0=generate catalog, 
