@@ -558,10 +558,64 @@ class VoidMapVF():
     # Plot VoidFinder Voids from a Cubic Simulation (Version 2)
     def plot_xyz(self,plane_height,wdth,npc,chkdpth, 
                 title, h="x",v="y",n="z", h_range = (0,50), v_range = (0,50), graph = None, 
-                colors = ["blue","blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1):
+                colors = ["blue","blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1,
+                return_plot_data = False):
             '''
-            Plot VoidFinder voids wihtin a cubic simulation volume.
-            '''
+            Plot VoidFinder voids within a cubic simulation volume
+            
+            params:
+            ----------------------------------------------------------
+            plane_height (float): height of slice
+            
+            wdth (float): Distance from declination plane in Mpc/h 
+                within which galaxies are plotted
+
+            npc ():
+        
+            chkdpth ():
+                
+            title (string): the plot title
+
+            h (string): the horizontal coordinate (defaults to 'x')
+
+            v (string): the vertical coordinate (defaults to 'y')
+
+            n (string): the normal coordinate (defaults to 'z')
+
+            h_range (int tuple): the horizontal range to plot
+
+            v_range (int tuple): the vertical range to plot
+            
+            graph (list): list containing a pyplot figure (graph[1]), 
+                and axis (graph[2]).
+                Used for plotting voids over an already existing plot.
+                Defaults to none.
+                
+            colors (list): a three element list of strings specifying 
+                matplotlib colors for plotting edge voids (colors[0]), 
+                near-edge voids (colors[1]), and interior voids 
+                (colors[2]). Defaults to ["blue","blue","blue"]
+                
+            gal_colors (list): a two element list of strings specifying 
+                matplotlib colors for plotting wall galaxies 
+                (gal_colors[0]) and void galaxies (gal_colors[1])
+                
+            include_gals (bool): Demtermines if galaxies are plotted
+                        
+            alpha (float): The alpha value for the filled interiors of 
+                the plotted voids
+                
+            border_alpha: the alpha value for the borders of the
+                plotted voids
+
+            returns:
+            ----------------------------------------------------------
+            [fig, ax]: the graph's figure and axis
+
+            plot_data (list): the plotted data points. Only returned
+                if return_plot_data = True
+                
+            ''' 
             axes = {"x":self.vfx4, "y":self.vfy4, "z":self.vfz4}
             gal_axes = {"x":self.gx, "y":self.gy, "z":self.gz}
             vfh4 = axes[h]
@@ -570,6 +624,9 @@ class VoidMapVF():
             gh = gal_axes[h]
             gv = gal_axes[v]
             gn = gal_axes[n]
+
+            if return_plot_data:
+                    plot_data = []
                 
             if graph is None:
 
@@ -607,6 +664,9 @@ class VoidMapVF():
 
                     ax.plot(Cr2, Cra2, color=vcolor, alpha = border_alpha)
                     ax.fill(Cr2, Cra2, color=vcolor, alpha=alpha)
+
+                    if return_plot_data:
+                        plot_data.append([Cr2, Cra2])
                     #plt.scatter(vfh4[i], vfv4[i], color='orange',s=1) #debugging hole locations
 
                 #Cr2,Cra2 = gcp3(vfx4[i],vfy4[i],vfz4[i],vfr2[i],vfrad2[i],vfdec2[i],dec,npc,chkdpth)
@@ -622,12 +682,20 @@ class VoidMapVF():
                 gdcut = (gn[self.wflag_vf] - plane_height)**2. < wdth**2.
                 ax.scatter(gh[self.wflag_vf][gdcut], gv[self.wflag_vf][gdcut], color=gal_colors[0], s=1)
 
+                if return_plot_data:
+                    plot_data.append([gh[self.wflag_vf][gdcut], gv[self.wflag_vf][gdcut]])
+
                 # Void galaxies
                 gdcut = (gn[self.gflag_vf] - plane_height)**2. < wdth**2.
                 ax.scatter(gh[self.gflag_vf][gdcut], gv[self.gflag_vf][gdcut], color=gal_colors[1], s=1)
-
+                
+                if return_plot_data:
+                    plot_data.append([gh[self.gflag_vf][gdcut], gv[self.gflag_vf][gdcut])
             
             self.graph = [fig, ax]
+
+            if return_plot_data:
+                return self.graph, plot_data
 
             return self.graph
 
@@ -798,8 +866,12 @@ class VoidMapV2():
         elif coord==2:
             n0, n1, n2 = 0, 0, 1
             p2 = height
-        # TODO: handle case where normal_dot_diff == 0 (line in plane)
+        
         normal_dot_diff = n0*aa + n1*bb + n2*cc
+        
+        # if the line is flat in the plane, return its midpoint
+        if normal_dot_diff == 0:
+            return xx+aa/2, yy+bb/2, zz+cc/2, 
         w0, w1, w2 = xx - p0, yy - p1, zz - p2
         dot_ratio = (-n0*w0 - n1*w1 - n2*w2) / normal_dot_diff
         aaa, bbb, ccc = aa*dot_ratio, bb*dot_ratio, cc*dot_ratio
@@ -1212,18 +1284,69 @@ class VoidMapV2():
 
     def plot_xyz(self,plane_height,wdth,
                 title, h="x",v="y",n="z", h_range = (0,50), v_range = (0,50), graph = None, 
-                colors = ["blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1):
+                colors = ["blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1,
+                return_plot_data = False):
             '''
-            Plot V2 voids wihtin a cubic simulation volume.
+            Plot Vsquared voids within a cubic simulation volume
+            
+            params:
+            ----------------------------------------------------------
+            plane_height (float): height of slice
+            
+            wdth (float): Distance from declination plane in Mpc/h 
+                within which galaxies are plotted
+                
+            title (string): the plot title
+
+            h (string): the horizontal coordinate (defaults to 'x')
+
+            v (string): the vertical coordinate (defaults to 'y')
+
+            n (string): the normal coordinate (defaults to 'z')
+
+            h_range (int tuple): the horizontal range to plot
+
+            v_range (int tuple): the vertical range to plot
+            
+            graph (list): list containing a pyplot figure (graph[1]), 
+                and axis (graph[2]).
+                Used for plotting voids over an already existing plot.
+                Defaults to none.
+                
+            colors (list): a two element list of strings specifying 
+                matplotlib colors for plotting edge voids (colors[0]), 
+                and interior voids (colors[2]). Defaults to 
+                ["blue","blue"]
+                
+            gal_colors (list): a two element list of strings specifying 
+                matplotlib colors for plotting wall galaxies 
+                (gal_colors[0]) and void galaxies (gal_colors[1])
+                
+            include_gals (bool): Demtermines if galaxies are plotted
+                        
+            alpha (float): The alpha value for the filled interiors of 
+                the plotted voids
+                
+            border_alpha: the alpha value for the borders of the
+                plotted voids
+
+            returns:
+            ----------------------------------------------------------
+            [fig, ax]: the graph's figure and axis
+
+            plot_data (list): the plotted data points. Only returned
+                if return_plot_data = True
+                
             '''
-            # TODO: add reuern_plot_data (also to VF.plotxyz)
-            #TODO: remove uneeded parmas from method input
-            # TODO: docstring
+            
             gal_axes = {"x":self.gx, "y":self.gy, "z":self.gz}
             coord = {'x':0, 'y':1, 'z':2}
             gh = gal_axes[h]
             gv = gal_axes[v]
             gn = gal_axes[n]
+
+            if return_plot_data:
+                plot_data = []
                 
             if graph is None:
 
@@ -1247,9 +1370,7 @@ class VoidMapV2():
             # plot voids on axes
             #----------------
             Int_h,Int_v = self.trint_xyz(plane_height, n=coord[n], h=coord[h], v=coord[v])
-            """print(Int_h[136][:30])
-            print(Int_v[136][:30])
-            raise ValueError('')"""
+            
             #for every unique void ID
             for i in np.unique(self.trivids):
                 if len(Int_h[i])>0:
@@ -1267,6 +1388,9 @@ class VoidMapV2():
                         color = colors[0] if self.edge[i]==1 else colors[1]
                         ax.plot(Int_h2[j],Int_v2[j],alpha=border_alpha,color=color)
                         ax.fill(Int_h2[j],Int_v2[j],alpha=alpha,color=color)
+
+                        if return_plot_data:
+                            plot_data.append([Int_h2[j], Int_v2[j]])
                         
                         #if return_plot_data:
                         #    plot_data.append([Int_h2[j],Int_v2[j]])
@@ -1284,14 +1408,23 @@ class VoidMapV2():
                 # Wall galaxies
                 gdcut = (gn[self.wflag_v2] - plane_height)**2. < wdth**2.
                 ax.scatter(gh[self.wflag_v2][gdcut], gv[self.wflag_v2][gdcut], color=gal_colors[0], s=1)
+                
+                if return_plot_data:
+                    plot_data.append([gh[self.wflag_v2][gdcut], gv[self.wflag_v2][gdcut]])
 
                 # Void galaxies
                 gdcut = (gn[self.gflag_v2] - plane_height)**2. < wdth**2.
                 ax.scatter(gh[self.gflag_v2][gdcut], gv[self.gflag_v2][gdcut], color=gal_colors[1], s=1)
+                
+                if return_plot_data:
+                    plot_data.append([gh[self.gflag_v2][gdcut], gv[self.gflag_v2][gdcut]])
 
             
             self.graph = [fig, ax]
 
+            if return_plot_data:
+                return self.graph, plot_data
+        
             return self.graph
 
 

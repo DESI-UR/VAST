@@ -712,11 +712,6 @@ class Zobov:
                     names = names,
                     units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
-            """
-            names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
-            if self.capitalize:
-                names = [name.upper() for name in names]
-            """
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
             columns = [np.arange(len(self.vrads)), vcen[0], vcen[1], vcen[2], 
                        vz, vra, vdec, self.vrads,  
