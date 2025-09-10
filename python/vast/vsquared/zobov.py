@@ -40,7 +40,7 @@ class Zobov:
                  configfile,
                  #start=0,
                  #end=3,
-                 galaxy_table = None,
+                 custom_galaxy_table = None,
                  custom_cat_name=None,
                  stages=[0,1,2,3],
                  save_intermediate=True,
@@ -65,13 +65,19 @@ class Zobov:
         configfile : str
             Configuration file path, for a config file in INI format.
         
-        galaxy_table : astorpy table
+        custom_galaxy_table : astropy table
             If not None, the provided galaxy table is used for the voidfinding
-            rather than the galaxy input file in configfile
-
+            rather than the galaxy input file in configfile. This is a 
+            convenience feature meant for testing V2 in live environments 
+            without first needing to save the galaxy input to a file. Final 
+            runs should use the configfile settings instead.
+            
         custom_cat_name : str
             If not none, a custom survey name is used, overrriding the value
-            set in configfile
+            set in configfile. This is a convenience feature meant for testing 
+            V2 in live environments without first needing to save the galaxy 
+            input to a file. Final runs should use the configfile settings 
+            instead.
             
         stages : list of integers
             0=generate catalog, 
@@ -145,7 +151,7 @@ class Zobov:
         ################################################################################
         # Extract some values from the config INI file 
         ################################################################################
-        self.infile  = config['Paths']['Input Catalog']
+        self.infile  = config['Paths']['Input Catalog'] if custom_cat_name is None else 'None'
 
         self.catname = config['Paths']['Survey Name'] if custom_cat_name is None else custom_cat_name
         
@@ -208,7 +214,7 @@ class Zobov:
 
 
         run_stage_0 = 0 in stages
-        self.create_catalog(run_stage_0, save_intermediate, galaxy_table=galaxy_table)
+        self.create_catalog(run_stage_0, save_intermediate, custom_galaxy_table=custom_galaxy_table)
         
         run_stage_1 = 1 in stages
         self.create_tessellation(run_stage_1, save_intermediate)
@@ -234,7 +240,7 @@ class Zobov:
         self.capitalize = capitalize_colnames
 
 
-    def create_catalog(self, run_stage, save_intermediate=False, galaxy_table=None):
+    def create_catalog(self, run_stage, save_intermediate=False, custom_galaxy_table=None):
         """
         Description
         ===========
@@ -255,7 +261,7 @@ class Zobov:
                            zmin=self.zmin,
                            zmax=self.zmax,
                            column_names=self.column_names, 
-                           galaxy_table=galaxy_table,
+                           custom_galaxy_table=custom_galaxy_table,
                            maglim=self.maglim,
                            H0=self.H0,
                            Om_m=self.Om_m,

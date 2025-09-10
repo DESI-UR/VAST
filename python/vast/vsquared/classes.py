@@ -32,7 +32,7 @@ class Catalog:
                  zmin,
                  zmax,
                  column_names,
-                 galaxy_table=None,
+                 custom_galaxy_table=None,
                  maglim=None,
                  H0=100,
                  Om_m=0.3,
@@ -76,6 +76,12 @@ class Catalog:
             
         column_names : str
             'Galaxy Column Names' section of configuration file, in INI format
+
+        custom_galaxy_table : astorpy table
+            If not None, the provided galaxy table is used for the voidfinding rather than 
+            the catfile path . This is a convenience feature meant for testing V2 in live 
+            environments without first needing to save the galaxy input to a file. Final 
+            runs should use the catfile path instead.
             
         maglim : float or None
             Catalog object magnitude limit.
@@ -128,8 +134,10 @@ class Catalog:
         if verbose > 0:
             print("Extracting data...")
 
-        if galaxy_table is None:
+        if custom_galaxy_table is None:
             galaxy_table = load_data_to_Table(catfile)
+        else:
+            galaxy_table = custom_galaxy_table
         
         if verbose > 0:
             print("Read in galaxy data (rows, cols): ", len(galaxy_table), len(galaxy_table.columns))
