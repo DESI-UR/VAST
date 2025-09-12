@@ -40,6 +40,8 @@ class Zobov:
                  configfile,
                  #start=0,
                  #end=3,
+                 custom_galaxy_table = None,
+                 custom_cat_name=None,
                  stages=[0,1,2,3],
                  save_intermediate=True,
                  visualize=False,
@@ -62,6 +64,20 @@ class Zobov:
         
         configfile : str
             Configuration file path, for a config file in INI format.
+        
+        custom_galaxy_table : astropy table
+            If not None, the provided galaxy table is used for the voidfinding
+            rather than the galaxy input file in configfile. This is a 
+            convenience feature meant for testing V2 in live environments 
+            without first needing to save the galaxy input to a file. Final 
+            runs should use the configfile settings instead.
+            
+        custom_cat_name : str
+            If not none, a custom survey name is used, overrriding the value
+            set in configfile. This is a convenience feature meant for testing 
+            V2 in live environments without first needing to save the galaxy 
+            input to a file. Final runs should use the configfile settings 
+            instead.
             
         stages : list of integers
             0=generate catalog, 
@@ -135,9 +151,9 @@ class Zobov:
         ################################################################################
         # Extract some values from the config INI file 
         ################################################################################
-        self.infile  = config['Paths']['Input Catalog']
-        
-        self.catname = config['Paths']['Survey Name']
+        self.infile  = config['Paths']['Input Catalog'] if custom_cat_name is None else 'None'
+
+        self.catname = config['Paths']['Survey Name'] if custom_cat_name is None else custom_cat_name
         
         self.outdir  = config['Paths']['Output Directory']
         
@@ -198,7 +214,7 @@ class Zobov:
 
 
         run_stage_0 = 0 in stages
-        self.create_catalog(run_stage_0, save_intermediate)
+        self.create_catalog(run_stage_0, save_intermediate, custom_galaxy_table=custom_galaxy_table)
         
         run_stage_1 = 1 in stages
         self.create_tessellation(run_stage_1, save_intermediate)
@@ -224,7 +240,7 @@ class Zobov:
         self.capitalize = capitalize_colnames
 
 
-    def create_catalog(self, run_stage, save_intermediate=False):
+    def create_catalog(self, run_stage, save_intermediate=False, custom_galaxy_table=None):
         """
         Description
         ===========
@@ -245,6 +261,7 @@ class Zobov:
                            zmin=self.zmin,
                            zmax=self.zmax,
                            column_names=self.column_names, 
+                           custom_galaxy_table=custom_galaxy_table,
                            maglim=self.maglim,
                            H0=self.H0,
                            Om_m=self.Om_m,
@@ -439,6 +456,7 @@ class Zobov:
             2 or ZOBOV2 or zobov2 = ZOBOV method; cut voids over a significance threshold.
             3 = not available
             4 or REVOLVER or revolver = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
+            5 or REVOLVER2 = REVOLVER method (VAST legacy version) with only the 50% largest voids returned
         
         minsig : float
             Minimum significance threshold for selecting voids.
@@ -466,6 +484,8 @@ class Zobov:
                     method = 2
                 if method == 'REVOLVER' or method == 'revolver':
                     method = 4
+                if method == 'REVOLVER2' or method == 'revolver2':
+                    method = 5
 
         if not hasattr(self, 'prevoids'):
             if method != 4:
@@ -548,7 +568,7 @@ class Zobov:
                             p1 = p2
             
         
-        elif method == 4: #REVOLVER
+        elif method == 4 or method == 5: #REVOLVER
             #print('Method 4')
             voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
 
@@ -579,8 +599,8 @@ class Zobov:
 
         # Locate all voids with radii smaller than set minimum
         # Old behavior for REVOLVER
-        #if method==4:
-        #    self.minrad = np.median(vrads)
+        if method==5:
+            self.minrad = np.median(vrads)
         rcut  = vrads > self.minrad
         
         voids = np.array(voids, dtype=object)[rcut]
@@ -600,28 +620,15 @@ class Zobov:
         # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
         minvol *= zone_linking_cut / central_density_cut
         
-        """
-        OLD CODE: applies central density cut by removing voids that don't make the cut
-        if method==0:
-            dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
-            vrads = vrads[dcut]
-            rcut  = vrads>(minvol*dc)**(1./3)
-            vrads = vrads[rcut]
-            vcens = vcens[dcut][rcut]
-            voids = (voids[dcut])[rcut]
-        """
-        
-        # TODO: apply central density cut by flagging voids that don't make the cut, rather than deleting them (current version)
+        # Apply central density cut 
         # -----------------------
         dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
         rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
-        self.underdense = (dcut*rcut).astype(int)
         # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
         if method == 0:
             vrads = vrads[dcut*rcut]
             vcens = vcens[dcut*rcut]
             voids = voids[dcut*rcut]
-            self.underdense = self.underdense[dcut*rcut]
         # -----------------------
         
         vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
@@ -698,23 +705,20 @@ class Zobov:
 
         # format output tables
         if self.periodic:
-            names = ['void','x','y','z','radius', 'underdense', 'x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            names = ['void','x','y','z','radius', 'x1','y1','z1','x2','y2','z2','x3','y3','z3']
             if self.capitalize:
                 names = [name.upper() for name in names]
-            vT = Table([np.arange(len(self.vrads)),vcen[0],vcen[1],vcen[2],self.vrads,self.underdense,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
+            vT = Table([np.arange(len(self.vrads)),vcen[0],vcen[1],vcen[2],self.vrads,vax1[0],vax1[1],vax1[2],vax2[0],vax2[1],vax2[2],vax3[0],vax3[1],vax3[2]],
                     names = names,
-                    units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
+                    units = ['','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h'])
         else:
-            names = ['x','y','z','redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
-            if self.capitalize:
-                names = [name.upper() for name in names]
             vz,vra,vdec = toSky(self.vcens,self.H0,self.Om_m,self.zstep)
             columns = [np.arange(len(self.vrads)), vcen[0], vcen[1], vcen[2], 
-                       vz, vra, vdec, self.vrads, self.underdense, 
+                       vz, vra, vdec, self.vrads,  
                        vax1[0], vax1[1], vax1[2], vax2[0], vax2[1], vax2[2], vax3[0], vax3[1], vax3[2]]
             names = ['void','x','y','z',
-                     'redshift','ra','dec','radius', 'underdense','x1','y1','z1','x2','y2','z2','x3','y3','z3']
-            units = ['','Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h', '', 'Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h']
+                     'redshift','ra','dec','radius','x1','y1','z1','x2','y2','z2','x3','y3','z3']
+            units = ['','Mpc/h','Mpc/h','Mpc/h','','deg','deg','Mpc/h', 'Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h','Mpc/h']
 
             if self.visualize:
                 columns += [self.varea_t,self.varea_0]
