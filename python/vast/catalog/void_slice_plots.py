@@ -991,11 +991,6 @@ class VoidMapV2():
                 elif decsum[i][2]==0:
                     sss = getinx_xyz(p1_x[i],p3_x[i]-p1_x[i],p1_y[i],p3_y[i]-p1_y[i],p1_z[i],p3_z[i]-p1_z[i], height, n)
                     sst = getinx_xyz(p3_x[i],p2_x[i]-p3_x[i],p3_y[i],p2_y[i]-p3_y[i],p3_z[i],p2_z[i]-p3_z[i], height, n)
-            """print(p1_x[i], p2_x[i], p3_x[i])
-            print(p1_y[i], p2_y[i], p3_y[i])
-            print(p1_z[i], p2_z[i], p3_z[i])
-            print(sss, sst)
-            raise ValueError('')"""
             
             int_h[cv].append(sss[h])
             int_h[cv].append(sst[h])
