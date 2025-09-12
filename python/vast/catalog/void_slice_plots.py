@@ -147,6 +147,10 @@ class VoidMapVF():
         #    create ra, dec, r columns from x, y, z, data
         if radecr<3:
             self.gx,self.gy,self.gz = gdata['x'], gdata['y'], gdata['z']
+            galaxy_table = xyz_to_radecz(Table([self.gx,self.gy,self.gz], names=['x', 'y', 'z']))
+            self.gr = galaxy_table['r']
+            self.gra = galaxy_table['ra']
+            self.gdec = galaxy_table['dec']
         #Converting galaxy data to cartesian
         #cKDTree finds nearest neighbors to data point
         else:
@@ -690,7 +694,7 @@ class VoidMapVF():
                 ax.scatter(gh[self.gflag_vf][gdcut], gv[self.gflag_vf][gdcut], color=gal_colors[1], s=1)
                 
                 if return_plot_data:
-                    plot_data.append([gh[self.gflag_vf][gdcut], gv[self.gflag_vf][gdcut])
+                    plot_data.append([gh[self.gflag_vf][gdcut], gv[self.gflag_vf][gdcut]])
             
             self.graph = [fig, ax]
 
@@ -786,6 +790,10 @@ class VoidMapV2():
         #    create ra, dec, r columns from x, y, z, data
         if radecr<3:
             self.gx,self.gy,self.gz = gdata['x'], gdata['y'], gdata['z']
+            galaxy_table = xyz_to_radecz(Table([self.gx,self.gy,self.gz], names=['x', 'y', 'z']))
+            self.gr = galaxy_table['r']
+            self.gra = galaxy_table['ra']
+            self.gdec = galaxy_table['dec']
         #Converting galaxy data to cartesian
         #cKDTree finds nearest neighbors to data point
         else:
@@ -1391,9 +1399,7 @@ class VoidMapV2():
 
                         if return_plot_data:
                             plot_data.append([Int_h2[j], Int_v2[j]])
-                        
-                        #if return_plot_data:
-                        #    plot_data.append([Int_h2[j],Int_v2[j]])
+                            
                     #for j in range(len(Intr2)):
                     #    if Icut[j]:
                     #        aux_ax3.plot(Intra2[j],Intr2[j],color='blue')
