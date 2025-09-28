@@ -1,2 +1,54 @@
 [build-system]
-requires = ["setuptools>=40.8.0", "Cython>=0.29.21", "numpy>=1.19.4"]
+requires = ["setuptools >= 74.1", "cython >= 3.0", "numpy >= 1.19"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vast"
+dynamic = ["version"]
+description = "Void Analysis Software Toolkit (VAST)"
+authors = [
+     {name = "Kelly Douglass", email = "kellyadouglass@rochester.edu"},
+     {name = "Hernan Rincon", email = "hrincon@ur.rochester.edu"},
+     {name = "Dahlia Veyrat", email = "dveyrat@ur.rochester.edu"},
+     {name = "Segev BenZvi", email = "segev.benzvi@rochester.edu"},
+     {name = "Stephen W. O'Neill"}
+]
+license = "BSD-3-Clause"
+license-files = ["LICEN[CS]E*"]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+requires-python = ">=3.8"
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "astropy >= 4.3",
+    "Cython >= 3.0",
+    "h5py >= 3.1",
+    "matplotlib",
+    "psutil >= 5.7",
+    "PyOpenGL >= 3.1",
+    "PyOpenGL-accelerate >= 3.1",
+    "pyopengltk",
+    "vispy >= 0.7",
+    "healpy >= 1.15",
+    "scikit-learn >= 0.24",
+]
+
+[project.optional-dependencies]
+dev = ["hypothesis", "pytest", "pytest-benchmark"]
+docs = ["numpydoc", "sphinx-argparse", "sphinx_rtd_theme"]
+
+[project.urls]
+"Homepage" = "https://github.com/DESI-UR/VAST"
+"Bug Tracker" = "https://github.com/DESI-UR/VAST/issues"
+
+[tools.setuptools.dynamic]
+version = {attr = "vast.__version__"}
+
+[tools.setuptools.packages.find]
+where = ["python"]
+include = [
+    "vast",
+    "vast.*",
+]
