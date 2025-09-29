@@ -77,9 +77,9 @@ class Catalog:
         column_names : str
             'Galaxy Column Names' section of configuration file, in INI format
 
-        custom_galaxy_table : astorpy table
+        custom_galaxy_table : astropy table
             If not None, the provided galaxy table is used for the voidfinding rather than 
-            the catfile path . This is a convenience feature meant for testing V2 in live 
+            the catfile path. This is a convenience feature meant for testing V2 in live 
             environments without first needing to save the galaxy input to a file. Final 
             runs should use the catfile path instead.
             
