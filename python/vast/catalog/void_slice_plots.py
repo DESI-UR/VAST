@@ -147,6 +147,10 @@ class VoidMapVF():
         #    create ra, dec, r columns from x, y, z, data
         if radecr<3:
             self.gx,self.gy,self.gz = gdata['x'], gdata['y'], gdata['z']
+            galaxy_table = xyz_to_radecz(Table([self.gx,self.gy,self.gz], names=['x', 'y', 'z']))
+            self.gr = galaxy_table['r']
+            self.gra = galaxy_table['ra']
+            self.gdec = galaxy_table['dec']
         #Converting galaxy data to cartesian
         #cKDTree finds nearest neighbors to data point
         else:
@@ -558,10 +562,64 @@ class VoidMapVF():
     # Plot VoidFinder Voids from a Cubic Simulation (Version 2)
     def plot_xyz(self,plane_height,wdth,npc,chkdpth, 
                 title, h="x",v="y",n="z", h_range = (0,50), v_range = (0,50), graph = None, 
-                colors = ["blue","blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1):
+                colors = ["blue","blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1,
+                return_plot_data = False):
             '''
-            Plot VoidFinder voids wihtin a cubic simulation volume.
-            '''
+            Plot VoidFinder voids within a cubic simulation volume
+            
+            params:
+            ----------------------------------------------------------
+            plane_height (float): height of slice
+            
+            wdth (float): Distance from declination plane in Mpc/h 
+                within which galaxies are plotted
+
+            npc ():
+        
+            chkdpth ():
+                
+            title (string): the plot title
+
+            h (string): the horizontal coordinate (defaults to 'x')
+
+            v (string): the vertical coordinate (defaults to 'y')
+
+            n (string): the normal coordinate (defaults to 'z')
+
+            h_range (int tuple): the horizontal range to plot
+
+            v_range (int tuple): the vertical range to plot
+            
+            graph (list): list containing a pyplot figure (graph[1]), 
+                and axis (graph[2]).
+                Used for plotting voids over an already existing plot.
+                Defaults to none.
+                
+            colors (list): a three element list of strings specifying 
+                matplotlib colors for plotting edge voids (colors[0]), 
+                near-edge voids (colors[1]), and interior voids 
+                (colors[2]). Defaults to ["blue","blue","blue"]
+                
+            gal_colors (list): a two element list of strings specifying 
+                matplotlib colors for plotting wall galaxies 
+                (gal_colors[0]) and void galaxies (gal_colors[1])
+                
+            include_gals (bool): Demtermines if galaxies are plotted
+                        
+            alpha (float): The alpha value for the filled interiors of 
+                the plotted voids
+                
+            border_alpha: the alpha value for the borders of the
+                plotted voids
+
+            returns:
+            ----------------------------------------------------------
+            [fig, ax]: the graph's figure and axis
+
+            plot_data (list): the plotted data points. Only returned
+                if return_plot_data = True
+                
+            ''' 
             axes = {"x":self.vfx4, "y":self.vfy4, "z":self.vfz4}
             gal_axes = {"x":self.gx, "y":self.gy, "z":self.gz}
             vfh4 = axes[h]
@@ -570,6 +628,9 @@ class VoidMapVF():
             gh = gal_axes[h]
             gv = gal_axes[v]
             gn = gal_axes[n]
+
+            if return_plot_data:
+                    plot_data = []
                 
             if graph is None:
 
@@ -607,6 +668,9 @@ class VoidMapVF():
 
                     ax.plot(Cr2, Cra2, color=vcolor, alpha = border_alpha)
                     ax.fill(Cr2, Cra2, color=vcolor, alpha=alpha)
+
+                    if return_plot_data:
+                        plot_data.append([Cr2, Cra2])
                     #plt.scatter(vfh4[i], vfv4[i], color='orange',s=1) #debugging hole locations
 
                 #Cr2,Cra2 = gcp3(vfx4[i],vfy4[i],vfz4[i],vfr2[i],vfrad2[i],vfdec2[i],dec,npc,chkdpth)
@@ -622,12 +686,20 @@ class VoidMapVF():
                 gdcut = (gn[self.wflag_vf] - plane_height)**2. < wdth**2.
                 ax.scatter(gh[self.wflag_vf][gdcut], gv[self.wflag_vf][gdcut], color=gal_colors[0], s=1)
 
+                if return_plot_data:
+                    plot_data.append([gh[self.wflag_vf][gdcut], gv[self.wflag_vf][gdcut]])
+
                 # Void galaxies
                 gdcut = (gn[self.gflag_vf] - plane_height)**2. < wdth**2.
                 ax.scatter(gh[self.gflag_vf][gdcut], gv[self.gflag_vf][gdcut], color=gal_colors[1], s=1)
-
+                
+                if return_plot_data:
+                    plot_data.append([gh[self.gflag_vf][gdcut], gv[self.gflag_vf][gdcut]])
             
             self.graph = [fig, ax]
+
+            if return_plot_data:
+                return self.graph, plot_data
 
             return self.graph
 
@@ -699,12 +771,33 @@ class VoidMapV2():
         #gr   = gdata[1].data['Rgal']
         if np.isin('rabsmag', gdata.colnames):
             self.rmag = gdata['rabsmag']
-            
-        self.gr   = z_to_comoving_dist(gdata['redshift'].astype(np.float32), 0.315, 1)
-        self.gra  = gdata['ra']
-        self.gdec = gdata['dec']
 
-        self.gx,self.gy,self.gz = toCoord(self.gr,self.gra,self.gdec)
+
+        radecr = 0
+        if np.isin('r', gdata.colnames):
+            self.gr = gdata['r']
+            radecr+=1
+        elif np.isin('redshift', gdata.colnames):
+            self.gr=  z_to_comoving_dist(np.array(gdata['redshift'],dtype=np.float32),0.315,1)
+            radecr+=1
+        if np.isin('ra', gdata.colnames):
+            self.gra  = gdata['ra']
+            radecr+=1
+        if np.isin('dec', gdata.colnames):
+            self.gdec = gdata['dec']
+            radecr+=1
+        #else:
+        #    create ra, dec, r columns from x, y, z, data
+        if radecr<3:
+            self.gx,self.gy,self.gz = gdata['x'], gdata['y'], gdata['z']
+            galaxy_table = xyz_to_radecz(Table([self.gx,self.gy,self.gz], names=['x', 'y', 'z']))
+            self.gr = galaxy_table['r']
+            self.gra = galaxy_table['ra']
+            self.gdec = galaxy_table['dec']
+        #Converting galaxy data to cartesian
+        #cKDTree finds nearest neighbors to data point
+        else:
+            self.gx,self.gy,self.gz = toCoord(self.gr,self.gra,self.gdec)
         
         # Determine galaxy void Membership
         # ----------------------------
@@ -764,6 +857,34 @@ class VoidMapV2():
         else:
             tt = (negb-sqto)/twa
         return xx+aa*tt,yy+bb*tt,zz+cc*tt
+
+    def getinx_xyz(self, xx,aa,yy,bb,zz,cc, height, coord=0):
+        # get the cross section of a line within a plane
+        # the first point is <xx, yy, zz> and the second point minus the first point is <aa, bb, cc>
+        # the declination of the plane is dd = 1 / tan (dec)
+
+        #coordinate in plane p and normal vector n
+        p0, p1, p2 = 0, 0, 0
+        if coord==0:
+            n0, n1, n2 = 1, 0, 0
+            p0 = height
+        elif coord==1:
+            n0, n1, n2 = 0, 1, 0
+            p1 = height
+        elif coord==2:
+            n0, n1, n2 = 0, 0, 1
+            p2 = height
+        
+        normal_dot_diff = n0*aa + n1*bb + n2*cc
+        
+        # if the line is flat in the plane, return its midpoint
+        if normal_dot_diff == 0:
+            return xx+aa/2, yy+bb/2, zz+cc/2, 
+        w0, w1, w2 = xx - p0, yy - p1, zz - p2
+        dot_ratio = (-n0*w0 - n1*w1 - n2*w2) / normal_dot_diff
+        aaa, bbb, ccc = aa*dot_ratio, bb*dot_ratio, cc*dot_ratio
+        return xx + aaa, yy + bbb, zz + ccc
+
     
     def isin2(self, p,ps):
         nc = 1
@@ -826,6 +947,58 @@ class VoidMapV2():
             intra[cv].append((np.arccos(sst[0]/np.sqrt(sst[0]**2.+sst[1]**2.))*np.sign(sst[1])/D2R)%360)
         return intr,intra
 
+    def trint_xyz(self, height, n, h, v):
+        
+        # get triangles coordinates
+        p1_dec,  p2_dec,  p3_dec = self.p1_dec, self.p2_dec, self.p3_dec
+        p1_x,p1_y,p1_z = self.p1_x,self.p1_y,self.p1_z
+        p2_x,p2_y,p2_z = self.p2_x,self.p2_y,self.p2_z
+        p3_x,p3_y,p3_z = self.p3_x,self.p3_y,self.p3_z
+        p1_n = [p1_x,p1_y,p1_z][n]
+        p2_n = [p2_x,p2_y,p2_z][n]
+        p3_n = [p3_x,p3_y,p3_z][n]
+        trivids = self.trivids
+        getinx_xyz = self.getinx_xyz
+        # table of flags for if/how triangles cross plane
+        decsum = np.array([(p1_n>height).astype(int),(p2_n>height).astype(int),(p3_n>height).astype(int)]).T
+        int_h = [[] for _ in range(np.amax(trivids)+1)]
+        int_v = [[] for _ in range(np.amax(trivids)+1)]
+        #loop through every traingle and add its cross section (two points in u-v space) to the intr, intra tables
+        for i in range(len(trivids)):
+            if np.sum(decsum[i])==0:
+                continue
+            if np.sum(decsum[i])==3:
+                continue
+            cv = trivids[i]
+            if np.sum(decsum[i])==1:
+                if decsum[i][0]==1:
+                    sss = getinx_xyz(p1_x[i],p2_x[i]-p1_x[i],p1_y[i],p2_y[i]-p1_y[i],p1_z[i],p2_z[i]-p1_z[i], height, n)
+                    sst = getinx_xyz(p1_x[i],p3_x[i]-p1_x[i],p1_y[i],p3_y[i]-p1_y[i],p1_z[i],p3_z[i]-p1_z[i], height, n)
+                elif decsum[i][1]==1:
+                    sss = getinx_xyz(p1_x[i],p2_x[i]-p1_x[i],p1_y[i],p2_y[i]-p1_y[i],p1_z[i],p2_z[i]-p1_z[i], height, n)
+                    sst = getinx_xyz(p3_x[i],p2_x[i]-p3_x[i],p3_y[i],p2_y[i]-p3_y[i],p3_z[i],p2_z[i]-p3_z[i], height, n)
+                elif decsum[i][2]==1:
+                    sss = getinx_xyz(p1_x[i],p3_x[i]-p1_x[i],p1_y[i],p3_y[i]-p1_y[i],p1_z[i],p3_z[i]-p1_z[i], height, n)
+                    sst = getinx_xyz(p3_x[i],p2_x[i]-p3_x[i],p3_y[i],p2_y[i]-p3_y[i],p3_z[i],p2_z[i]-p3_z[i], height, n)
+            elif np.sum(decsum[i])==2:
+                if decsum[i][0]==0:
+                    #print('a')
+                    sss = getinx_xyz(p1_x[i],p2_x[i]-p1_x[i],p1_y[i],p2_y[i]-p1_y[i],p1_z[i],p2_z[i]-p1_z[i], height, n)
+                    sst = getinx_xyz(p1_x[i],p3_x[i]-p1_x[i],p1_y[i],p3_y[i]-p1_y[i],p1_z[i],p3_z[i]-p1_z[i], height, n)
+                elif decsum[i][1]==0:
+                    sss = getinx_xyz(p1_x[i],p2_x[i]-p1_x[i],p1_y[i],p2_y[i]-p1_y[i],p1_z[i],p2_z[i]-p1_z[i], height, n)
+                    sst = getinx_xyz(p3_x[i],p2_x[i]-p3_x[i],p3_y[i],p2_y[i]-p3_y[i],p3_z[i],p2_z[i]-p3_z[i], height, n)
+                elif decsum[i][2]==0:
+                    sss = getinx_xyz(p1_x[i],p3_x[i]-p1_x[i],p1_y[i],p3_y[i]-p1_y[i],p1_z[i],p3_z[i]-p1_z[i], height, n)
+                    sst = getinx_xyz(p3_x[i],p2_x[i]-p3_x[i],p3_y[i],p2_y[i]-p3_y[i],p3_z[i],p2_z[i]-p3_z[i], height, n)
+            
+            int_h[cv].append(sss[h])
+            int_h[cv].append(sst[h])
+            int_v[cv].append(sss[v])
+            int_v[cv].append(sst[v])
+            
+        return int_h,int_v
+
     def getorder(self, xs,ys):
         chains = []
         scut = np.zeros(len(xs),dtype=bool)
@@ -874,15 +1047,21 @@ class VoidMapV2():
                     chains[-1].append(chains[-1][0])
         return chains
 
-    def convint3(self, intr,intra):
-        intx = np.array(intr)*np.cos(np.array(intra)*D2R)
-        inty = np.array(intr)*np.sin(np.array(intra)*D2R)
+    def convint3(self, intr,intra, input_xyz = False):
+        if input_xyz:
+            intx = intr
+            inty = intra
+        else:
+            intx = np.array(intr)*np.cos(np.array(intra)*D2R)
+            inty = np.array(intr)*np.sin(np.array(intra)*D2R)
         chkl = []
         ccut = np.ones(len(intr),dtype=bool)
         for i in range(int(len(intr)/2)):
+            # sum of x coords of each triangle cross section?
             chkl.append(intx[2*i]+intx[2*i+1])
         chkl = np.array(chkl)
         for i in range(len(chkl)):
+            # length of each cross sectio
             if len(chkl[chkl==chkl[i]])>1:
                 ccut[2*i] = False
                 ccut[2*i+1] = False
@@ -1106,6 +1285,149 @@ class VoidMapV2():
         
         return self.graph
 
+    def plot_xyz(self,plane_height,wdth,
+                title, h="x",v="y",n="z", h_range = (0,50), v_range = (0,50), graph = None, 
+                colors = ["blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1,
+                return_plot_data = False):
+            '''
+            Plot Vsquared voids within a cubic simulation volume
+            
+            params:
+            ----------------------------------------------------------
+            plane_height (float): height of slice
+            
+            wdth (float): Distance from declination plane in Mpc/h 
+                within which galaxies are plotted
+                
+            title (string): the plot title
+
+            h (string): the horizontal coordinate (defaults to 'x')
+
+            v (string): the vertical coordinate (defaults to 'y')
+
+            n (string): the normal coordinate (defaults to 'z')
+
+            h_range (int tuple): the horizontal range to plot
+
+            v_range (int tuple): the vertical range to plot
+            
+            graph (list): list containing a pyplot figure (graph[1]), 
+                and axis (graph[2]).
+                Used for plotting voids over an already existing plot.
+                Defaults to none.
+                
+            colors (list): a two element list of strings specifying 
+                matplotlib colors for plotting edge voids (colors[0]), 
+                and interior voids (colors[2]). Defaults to 
+                ["blue","blue"]
+                
+            gal_colors (list): a two element list of strings specifying 
+                matplotlib colors for plotting wall galaxies 
+                (gal_colors[0]) and void galaxies (gal_colors[1])
+                
+            include_gals (bool): Demtermines if galaxies are plotted
+                        
+            alpha (float): The alpha value for the filled interiors of 
+                the plotted voids
+                
+            border_alpha: the alpha value for the borders of the
+                plotted voids
+
+            returns:
+            ----------------------------------------------------------
+            [fig, ax]: the graph's figure and axis
+
+            plot_data (list): the plotted data points. Only returned
+                if return_plot_data = True
+                
+            '''
+            
+            gal_axes = {"x":self.gx, "y":self.gy, "z":self.gz}
+            coord = {'x':0, 'y':1, 'z':2}
+            gh = gal_axes[h]
+            gv = gal_axes[v]
+            gn = gal_axes[n]
+
+            if return_plot_data:
+                plot_data = []
+                
+            if graph is None:
+
+                v_scale = (v_range[1]-v_range[0])/(h_range[1]-h_range[0])
+
+                fig, ax = plt.subplots(num=1, figsize=(scale*800/96, scale*v_scale*800/96))
+
+                ax.set_xlabel(h)
+                ax.set_ylabel(v)
+
+                ax.set_xlim(h_range)
+                ax.set_ylim(v_range)
+                
+                ax.set_aspect('equal', adjustable='box')
+
+                plt.title(f"{title} ${n}$ = {plane_height} [Mpc h$^{-1}$]")
+            else:
+                fig, ax = graph[0], graph[1]
+
+
+            # plot voids on axes
+            #----------------
+            Int_h,Int_v = self.trint_xyz(plane_height, n=coord[n], h=coord[h], v=coord[v])
+            
+            #for every unique void ID
+            for i in np.unique(self.trivids):
+                if len(Int_h[i])>0:
+                    #Intr2 = convint(Intr[i])
+                    #Intra2 = convint(Intra[i])
+                    #Intr2,Intra2 = convint2(Intr[i],Intra[i])
+                    Intc2,Icut = self.convint3(Int_h[i],Int_v[i])
+                    Int_h2 = [Intc[0] for Intc in Intc2]
+                    Int_v2 = [Intc[1] for Intc in Intc2]
+                    #print(Int_h2,'\n','\n',Int_v2)
+                    for j in range(len(Int_h2)):
+                        #if Icut[j]:
+                        #    continue
+                        
+                        color = colors[0] if self.edge[i]==1 else colors[1]
+                        ax.plot(Int_h2[j],Int_v2[j],alpha=border_alpha,color=color)
+                        ax.fill(Int_h2[j],Int_v2[j],alpha=alpha,color=color)
+
+                        if return_plot_data:
+                            plot_data.append([Int_h2[j], Int_v2[j]])
+                            
+                    #for j in range(len(Intr2)):
+                    #    if Icut[j]:
+                    #        aux_ax3.plot(Intra2[j],Intr2[j],color='blue')
+                    #        aux_ax3.fill(Intra2[j],Intr2[j],color='white')
+
+
+            if include_gals:
+                # Edge galaxies
+                #gdcut = (gr[eflag_vf]*np.sin((gdec[eflag_vf] - dec)*D2R))**2 < wdth**2
+                #aux_ax3.scatter(gra[eflag_vf][gdcut], gr[eflag_vf][gdcut], color='g', s=1, alpha=0.5)
+
+                # Wall galaxies
+                gdcut = (gn[self.wflag_v2] - plane_height)**2. < wdth**2.
+                ax.scatter(gh[self.wflag_v2][gdcut], gv[self.wflag_v2][gdcut], color=gal_colors[0], s=1)
+                
+                if return_plot_data:
+                    plot_data.append([gh[self.wflag_v2][gdcut], gv[self.wflag_v2][gdcut]])
+
+                # Void galaxies
+                gdcut = (gn[self.gflag_v2] - plane_height)**2. < wdth**2.
+                ax.scatter(gh[self.gflag_v2][gdcut], gv[self.gflag_v2][gdcut], color=gal_colors[1], s=1)
+                
+                if return_plot_data:
+                    plot_data.append([gh[self.gflag_v2][gdcut], gv[self.gflag_v2][gdcut]])
+
+            
+            self.graph = [fig, ax]
+
+            if return_plot_data:
+                return self.graph, plot_data
+        
+            return self.graph
+
 
 def setup_axes3(fig, rect, ra0, ra1, cz0, cz1, rot, set_bottom_invisible):
     """
@@ -1158,8 +1480,6 @@ def setup_axes3(fig, rect, ra0, ra1, cz0, cz1, rot, set_bottom_invisible):
     ax1.axis["left"].label.set_text(r"r [Mpc h$^{-1}$]")
     ax1.axis["top"].label.set_text(r"$\alpha$")
 
-    #print(ax1.axis["top"].major_ticklabels._grid_info)
-    #print(ax1.axis["left"].major_ticklabels)
     #ax1.axis["top"].major_ticklabels.set_visible(False)
     #ax1.axis["left"].major_ticklabels.set_visible(False)
     #ax1.set_xticks([1, 2, 3])
