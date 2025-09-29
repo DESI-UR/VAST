@@ -791,6 +791,7 @@ def find_voids(galaxy_coords_xyz,
                capitalize_colnames = False,
                save_missing_galaxies = True,
                SOCKET_PATH="/tmp/voidfinder.sock",
+               maximal_spheres_only = False
                ):
     """
     Main entry point for VoidFinder.  
@@ -1020,6 +1021,19 @@ def find_voids(galaxy_coords_xyz,
         If True, and if the galaxies have not been previously saved to the output 
         file during the the galaxy filtering stage, then galaxy input is saved 
         to the output
+
+    SOCKET_PATH : str
+        The socket path file used for multithreading, ending wiht a ".sock" file. 
+        Unique socket paths should be specified for simultaneous VoidFinder runs. 
+        Defaults to "/tmp/voidfinder.sock" Two unique socket paths are a used in 
+        each run, with the second socket path automatically appending a "2" to 
+        the first, e.g. "/tmp/voidfinder2.sock"
+
+    maximal_spheres_only : bool
+        If True, only maximal spheres are ourput by the algorithm. This mode is 
+        useful for runnning on large sets of thousands of mocks each of > Gpc 
+        sidelength, when the algoithm might otherwise be slowed down by hole
+        merging calculations
     
     
     Returns
@@ -1212,7 +1226,8 @@ def find_voids(galaxy_coords_xyz,
                                                            boundary_hole, 
                                                            mask_checker,
                                                            min_maximal_radius=min_maximal_radius,
-                                                           verbose=verbose)
+                                                           verbose=verbose,
+                                                           maximal_spheres_only = maximal_spheres_only)
     
     if verbose > 0:
         print("Combine time:", time.time() - combine_start, flush=True)
@@ -1231,18 +1246,22 @@ def find_voids(galaxy_coords_xyz,
     myvoids_table['z'].unit='Mpc/h'
     myvoids_table['radius'].unit='Mpc/h'
 
-    maximal_spheres_table = xyz_to_radecz(maximal_spheres_table)
+    if not maximal_spheres_only:
+        
+        maximal_spheres_table = xyz_to_radecz(maximal_spheres_table)
+
+        maximal_spheres_table['radius'].unit='Mpc/h'
+        maximal_spheres_table['r'].unit='Mpc/h'
+        maximal_spheres_table['ra'].unit='deg'
+        maximal_spheres_table['dec'].unit='deg'
 
     maximal_spheres_table['x'].unit='Mpc/h'
     maximal_spheres_table['y'].unit='Mpc/h'
     maximal_spheres_table['z'].unit='Mpc/h'
-    maximal_spheres_table['radius'].unit='Mpc/h'
-    maximal_spheres_table['r'].unit='Mpc/h'
-    maximal_spheres_table['ra'].unit='deg'
-    maximal_spheres_table['dec'].unit='deg'
+    
 
-    #ADDED BY HERNAN
-    maximal_spheres_table.remove_columns(['r', 'ra', 'dec', 'void', 'edge'])
+    #if maximal_spheres_only:
+    #    maximal_spheres_table.remove_columns(['r', 'ra', 'dec', 'void', 'edge'])
     
 
     if capitalize_colnames: 
