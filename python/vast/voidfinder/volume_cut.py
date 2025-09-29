@@ -230,7 +230,8 @@ def check_hole_bounds(x_y_z_r_array,
                       pts_per_unit_volume=3,
                       num_surf_pts=20,
                       num_cpus=1,
-                      verbose=0):
+                      verbose=0,
+                      SOCKET_PATH="/tmp/voidfinder2.sock"):
     """
     Remove holes from the output of _hole_finder() whose volume falls outside of 
     the mask by X % or more.  
@@ -291,7 +292,7 @@ def check_hole_bounds(x_y_z_r_array,
                                                   mask_checker,
                                                   cut_pct,
                                                   pts_per_unit_volume,
-                                                  num_surf_pts)
+                                                  num_surf_pts,) 
         
     else:
         
@@ -301,7 +302,8 @@ def check_hole_bounds(x_y_z_r_array,
                                                  pts_per_unit_volume,
                                                  num_surf_pts,
                                                  num_cpus,
-                                                 verbose=verbose)
+                                                 verbose=verbose,
+                                                SOCKET_PATH=SOCKET_PATH,)
         
     return valid_index, monte_index
     

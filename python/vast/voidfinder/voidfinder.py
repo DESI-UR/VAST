@@ -790,6 +790,7 @@ def find_voids(galaxy_coords_xyz,
                print_after=5.0,
                capitalize_colnames = False,
                save_missing_galaxies = True,
+               SOCKET_PATH="/tmp/voidfinder.sock",
                ):
     """
     Main entry point for VoidFinder.  
@@ -1083,7 +1084,8 @@ def find_voids(galaxy_coords_xyz,
                                           batch_size=batch_size,
                                           verbose=verbose,
                                           print_after=print_after,
-                                          num_cpus=num_cpus)
+                                          num_cpus=num_cpus,
+                                         SOCKET_PATH=SOCKET_PATH,)
 
     if verbose > 0:
         print('Found a total of', n_holes, 'potential voids.', flush=True)
@@ -1168,7 +1170,8 @@ def find_voids(galaxy_coords_xyz,
                                                pts_per_unit_volume=pts_per_unit_volume,
                                                num_surf_pts=20,
                                                num_cpus=num_cpus,
-                                               verbose=verbose)
+                                               verbose=verbose,
+                                              SOCKET_PATH=SOCKET_PATH[:-5]+'2'+SOCKET_PATH[-5:],)
     
     if verbose > 0:
         print("Found", np.sum(np.logical_not(valid_idx)), "holes to cut", 
@@ -1237,6 +1240,10 @@ def find_voids(galaxy_coords_xyz,
     maximal_spheres_table['r'].unit='Mpc/h'
     maximal_spheres_table['ra'].unit='deg'
     maximal_spheres_table['dec'].unit='deg'
+
+    #ADDED BY HERNAN
+    maximal_spheres_table.remove_columns(['r', 'ra', 'dec', 'void', 'edge'])
+    
 
     if capitalize_colnames: 
 
