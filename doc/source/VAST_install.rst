@@ -86,7 +86,11 @@ so clone the repository from https://github.com/DESI-UR/VAST.
 
 **VAST** will install like a normal python package via the shell command::
 
-    python setup.py install
+    pip install .
+    
+Older versions of python and VAST (prior to 2025 or so) used the `python setup.py install` method but the preferred python ecosystem method has changed to `pip install`
+    
+
     
 It is important to remember that this will attempt to install 
 `vast` into the ``site-packages`` directory of whatever python 
@@ -104,7 +108,9 @@ Developing VoidFinder
 
 If you are actively developing **VAST**, you can install the package via::
 
-    python setup.py develop
+    pip install -e .
+    
+This replaces the older `python setup.py develop` method.
     
 which installs a symlink into your python environment's ``site-packages`` 
 directory, and the symlink points back to wherever your local copy of the 
@@ -114,6 +120,8 @@ If you are developing **VAST** and need to rebuild the cython, from the
 ``VAST`` directory run::
 
     python setup.py build_ext --inplace
+
+In contrast to the newer `pip install` methods, this `python setup.py build_ext --inplace` method should still work fine for its purpose of just rebuilding the cython inplace.
 
 
 Occasionally, it can be helpful to know the following command::
@@ -132,4 +140,10 @@ If you are working in an environment where you cannot install **VAST**, or
 you do not have permissions to install it into the python environment that you 
 are using, add ``--user`` to your choice of build from above.  For example:: 
 
-    python setup.py develop --user
+    pip install . --user
+
+The old way was `python setup.py develop --user`
+    
+    
+    
+    
