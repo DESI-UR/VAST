@@ -5,9 +5,9 @@ name: tests
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   build:
@@ -16,7 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        #https://devguide.python.org/versions/ <- helpful link for what current python version status is
 
     steps:
     - uses: actions/checkout@v2
@@ -27,12 +28,13 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        python -m pip install --upgrade setuptools
         python -m pip install pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        #if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Install VAST
       run: |
         which python
-        python setup.py install --user
+        pip install . --user
 #    - name: Lint with flake8
 #      run: |
 #        # stop the build if there are Python syntax errors or undefined names

@@ -11,7 +11,7 @@ authors = [
      {name = "Hernan Rincon", email = "hrincon@ur.rochester.edu"},
      {name = "Dahlia Veyrat", email = "dveyrat@ur.rochester.edu"},
      {name = "Segev BenZvi", email = "segev.benzvi@rochester.edu"},
-     {name = "Stephen W. O'Neill"}
+     {name = "Stephen W. O'Neill", email = "soneill5045@gmail.com"}
 ]
 license = "BSD-3-Clause"
 license-files = ["LICEN[CS]E*"]
