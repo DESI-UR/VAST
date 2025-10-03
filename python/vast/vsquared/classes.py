@@ -22,6 +22,12 @@ from multiprocessing import Process, Value
 
 from ctypes import c_int64
 
+
+
+
+
+
+
 class Catalog:
     """Catalog data for void calculation.
     """
@@ -551,12 +557,134 @@ class Tesselation:
             voronoi_time = time.time()
             
             voronoi_graph = Voronoi(coords)
+            
             regions = np.array(voronoi_graph.regions, dtype=object)[voronoi_graph.point_region]
             
             print("Voronoi time: ", time.time() - voronoi_time)
             
             
             other_time = time.time()
+            
+            
+            
+            if True:
+                
+                print("Starting multivoro")
+                                
+                from multivoro import compute_voronoi
+                import matplotlib.pyplot as plt
+                from mpl_toolkits.mplot3d import Axes3D
+                
+                
+                multivoro_start = time.time()
+                
+                
+                radii = np.ones(coords.shape[0], dtype=np.float32)
+                
+                lower_min = coords.min(axis=0) - 2.0
+                
+                
+                
+                upper_max = coords.max(axis=0) + 2.0
+                
+                print("Lower min: ", lower_min)
+                print("Upper max: ", upper_max)
+                
+                
+                limits = np.empty((2,3), dtype=np.float32)
+                limits[0,0] = lower_min[0]
+                limits[0,1] = lower_min[1]
+                limits[0,2] = lower_min[2]
+                limits[1,0] = upper_max[0]
+                limits[1,1] = upper_max[1]
+                limits[1,2] = upper_max[2]
+                
+                
+                print("Radii: ", radii)
+                print("Limits: ", limits)
+                
+                cells = compute_voronoi(
+                                        points=coords,
+                                        radii=radii,
+                                        limits=limits,
+                                        n_threads=6,
+                                        )
+                
+                
+                print("Coords: ", coords.shape)
+                print("Num cells: ", len(cells))
+                
+                for idx, cell in enumerate(cells):
+                    
+                    
+                    #print(cell)
+                    #print(vars(cell))
+                    #print(dir(cell))
+                    
+                    if idx > 5:
+                        break
+                    
+                    
+                    print('#'*80)
+                    #print(cell.get_vertices())
+                    
+                    multivoro_verticies = cell.get_vertices()
+                    #print(cell.get_neighbors())
+                    #print(cell.get_face_vertices())
+                    
+                    
+                    scipy_verticies = voronoi_graph.vertices[voronoi_graph.regions[voronoi_graph.point_region[idx]]]
+                    
+                    print(multivoro_verticies.shape, scipy_verticies.shape)
+                    
+                    
+                    
+                    multivoro_unit = multivoro_verticies/np.linalg.norm(multivoro_verticies, axis=1, keepdims=True)
+                    scipy_unit = scipy_verticies/np.linalg.norm(scipy_verticies, axis=1, keepdims=True)
+                    
+                    #print(np.sum(multivoro_unit*multivoro_unit, axis=1))
+                    #print(np.sum(scipy_unit*scipy_unit, axis=1))
+                    
+                    
+                    
+                    
+                    matrix = np.matmul(multivoro_unit, scipy_unit.T)
+                    print(np.max(matrix, axis=0))
+                    
+                    
+                    fig = plt.figure(figsize=(20,10))
+                    ax1 = fig.add_axes([.05, .05, .45, .9], projection='3d')
+                    ax2 = fig.add_axes([.52, .05, .45, .9], projection='3d')
+                    
+                    ax1.scatter(multivoro_verticies[:,0],
+                                multivoro_verticies[:,1],
+                                multivoro_verticies[:,2],
+                                color='g')
+                    ax1.scatter(coords[idx,0],
+                                coords[idx,1],
+                                coords[idx,2],
+                                color='k')
+                    ax1.set_title("Multivoro: "+str(multivoro_verticies.shape)+" verticies")
+                    
+                    ax2.scatter(scipy_verticies[:,0],
+                                scipy_verticies[:,1],
+                                scipy_verticies[:,2],
+                                color='b')
+                    
+                    ax2.scatter(coords[idx,0],
+                                coords[idx,1],
+                                coords[idx,2],
+                                color='k')
+                    ax2.set_title("Scipy: "+str(scipy_verticies.shape)+" verticies")
+                    plt.show()
+                    
+                
+                print("Multivoro time: ", time.time() - multivoro_start)
+                
+                
+            
+            
+            
             
             ################################################################################
             # We will need to know whether the verticies are within the mask to include 
