@@ -581,11 +581,11 @@ class Tesselation:
                 
                 radii = np.ones(coords.shape[0], dtype=np.float32)
                 
-                lower_min = coords.min(axis=0) - 2.0
+                lower_min = coords.min(axis=0) - 100000.0
                 
                 
                 
-                upper_max = coords.max(axis=0) + 2.0
+                upper_max = coords.max(axis=0) + 100000.0
                 
                 print("Lower min: ", lower_min)
                 print("Upper max: ", upper_max)
@@ -610,9 +610,13 @@ class Tesselation:
                                         n_threads=6,
                                         )
                 
+                print("Multivoro sub-time: ", time.time() - multivoro_start)
+                
                 
                 print("Coords: ", coords.shape)
                 print("Num cells: ", len(cells))
+                
+                validation_list = []
                 
                 for idx, cell in enumerate(cells):
                     
@@ -621,11 +625,11 @@ class Tesselation:
                     #print(vars(cell))
                     #print(dir(cell))
                     
-                    if idx > 5:
-                        break
+                    #if idx > 10:
+                    #    break
                     
                     
-                    print('#'*80)
+                    #print('#'*80)
                     #print(cell.get_vertices())
                     
                     multivoro_verticies = cell.get_vertices()
@@ -635,7 +639,7 @@ class Tesselation:
                     
                     scipy_verticies = voronoi_graph.vertices[voronoi_graph.regions[voronoi_graph.point_region[idx]]]
                     
-                    print(multivoro_verticies.shape, scipy_verticies.shape)
+                    #print(multivoro_verticies.shape, scipy_verticies.shape)
                     
                     
                     
@@ -646,40 +650,62 @@ class Tesselation:
                     #print(np.sum(scipy_unit*scipy_unit, axis=1))
                     
                     
-                    
-                    
                     matrix = np.matmul(multivoro_unit, scipy_unit.T)
-                    print(np.max(matrix, axis=0))
+                    #print(np.max(matrix, axis=0))
+                    
+                    validate = np.max(matrix, axis=0)
+                    
+                    all_good = np.allclose(validate, 1.0)
+                    
+                    validation_list.append(all_good)
                     
                     
-                    fig = plt.figure(figsize=(20,10))
-                    ax1 = fig.add_axes([.05, .05, .45, .9], projection='3d')
-                    ax2 = fig.add_axes([.52, .05, .45, .9], projection='3d')
+                    if not all_good:
+                        print(idx)
+                        print(validate)
+                        print(multivoro_verticies.shape, scipy_verticies.shape)
+                        print(voronoi_graph.regions[voronoi_graph.point_region[idx]])
+                        #print(scipy_verticies)
+                        #print(multivoro_verticies)
+                        
+                        
                     
-                    ax1.scatter(multivoro_verticies[:,0],
-                                multivoro_verticies[:,1],
-                                multivoro_verticies[:,2],
-                                color='g')
-                    ax1.scatter(coords[idx,0],
-                                coords[idx,1],
-                                coords[idx,2],
-                                color='k')
-                    ax1.set_title("Multivoro: "+str(multivoro_verticies.shape)+" verticies")
                     
-                    ax2.scatter(scipy_verticies[:,0],
-                                scipy_verticies[:,1],
-                                scipy_verticies[:,2],
-                                color='b')
                     
-                    ax2.scatter(coords[idx,0],
-                                coords[idx,1],
-                                coords[idx,2],
-                                color='k')
-                    ax2.set_title("Scipy: "+str(scipy_verticies.shape)+" verticies")
-                    plt.show()
-                    
+                        
+                        
+                        fig = plt.figure(figsize=(20,10))
+                        ax1 = fig.add_axes([.05, .05, .45, .9], projection='3d')
+                        ax2 = fig.add_axes([.52, .05, .45, .9], projection='3d')
+                        
+                        ax1.scatter(multivoro_verticies[:,0],
+                                    multivoro_verticies[:,1],
+                                    multivoro_verticies[:,2],
+                                    color='g')
+                        ax1.scatter(coords[idx,0],
+                                    coords[idx,1],
+                                    coords[idx,2],
+                                    color='k')
+                        ax1.set_title("Multivoro: "+str(multivoro_verticies.shape)+" verticies")
+                        
+                        ax2.scatter(scipy_verticies[:,0],
+                                    scipy_verticies[:,1],
+                                    scipy_verticies[:,2],
+                                    color='b')
+                        
+                        ax2.scatter(coords[idx,0],
+                                    coords[idx,1],
+                                    coords[idx,2],
+                                    color='k')
+                        ax2.set_title("Scipy: "+str(scipy_verticies.shape)+" verticies")
+                        plt.show()
+                        
+                        
+                        
                 
                 print("Multivoro time: ", time.time() - multivoro_start)
+                
+                print("All good: ", all(validation_list))
                 
                 
             
