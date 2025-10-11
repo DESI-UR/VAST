@@ -2,6 +2,9 @@
 Log of changes for VAST versions.
 
 =======
+### 1.7.6
+- Option for fast, maximal-spheres-only version of VoidFinder suitable for forward modeling with large simulation suites
+
 ### 1.7.5
 - Expanded options for specifying the galaxy input to V2 and for plotting V2 voids with the slice plot code
 
