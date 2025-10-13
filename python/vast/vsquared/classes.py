@@ -579,13 +579,13 @@ class Tesselation:
                 multivoro_start = time.time()
                 
                 
-                radii = np.ones(coords.shape[0], dtype=np.float32)
+                radii = 1*np.ones(coords.shape[0], dtype=np.float32)
                 
-                lower_min = coords.min(axis=0) - 100000.0
+                lower_min = coords.min(axis=0) - 100.0
                 
                 
                 
-                upper_max = coords.max(axis=0) + 100000.0
+                upper_max = coords.max(axis=0) + 100.0
                 
                 print("Lower min: ", lower_min)
                 print("Upper max: ", upper_max)
@@ -617,6 +617,14 @@ class Tesselation:
                 print("Num cells: ", len(cells))
                 
                 validation_list = []
+
+                crh = np.linalg.norm(coords, axis=1).astype(np.float64)
+
+                r_max = np.max(crh) 
+                        
+                r_min = np.min(crh) 
+
+                num_cells_outside_mask = 0
                 
                 for idx, cell in enumerate(cells):
                     
@@ -638,6 +646,48 @@ class Tesselation:
                     
                     
                     scipy_verticies = voronoi_graph.vertices[voronoi_graph.regions[voronoi_graph.point_region[idx]]]
+
+                                                                            
+                    ################################################################################
+        		    # Check if scipy cell exceeds the mask
+        		    ################################################################################
+                    
+                    mask = cat.mask
+                    
+                    vertices_theta = np.arctan2(np.sqrt(scipy_verticies[:,0]**2. + scipy_verticies[:,1]**2.), scipy_verticies[:,2]) 
+                    verticies_phi = np.arctan2(scipy_verticies[:,1], scipy_verticies[:,0])
+                    
+                    pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
+
+                    vrh = np.linalg.norm(scipy_verticies, axis=1).astype(np.float64)
+                    
+                    verticies_in_mask = mask[pix_ids] * (vrh > r_min) * (vrh < r_max)
+                
+                    scipy_in_mask = np.all(verticies_in_mask)
+
+                    ################################################################################
+                    #check if multivoro cell also exceeds the mask
+                    ################################################################################
+
+                    vertices_theta = np.arctan2(np.sqrt(multivoro_verticies[:,0]**2. + multivoro_verticies[:,1]**2.), multivoro_verticies[:,2]) 
+                    verticies_phi = np.arctan2(multivoro_verticies[:,1], multivoro_verticies[:,0])
+                    
+                    pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
+
+                    vrh = np.linalg.norm(multivoro_verticies, axis=1).astype(np.float64)
+                    
+                    verticies_in_mask = mask[pix_ids] * (vrh > r_min) * (vrh < r_max)
+                
+                    multivoro_in_mask = np.all(verticies_in_mask)
+
+                    # report mismatched mask membership between tesselations
+                    if scipy_in_mask != multivoro_in_mask:
+                        raise ValueError(f'cell {idx}; scipy in mask: {scipy_in_mask}; multivoro in mask {multivoro_in_mask}')
+
+                    # ignore cells outside mask
+                    if not scipy_in_mask:
+                        num_cells_outside_mask +=1
+                        continue
                     
                     #print(multivoro_verticies.shape, scipy_verticies.shape)
                     
@@ -704,7 +754,8 @@ class Tesselation:
                         
                 
                 print("Multivoro time: ", time.time() - multivoro_start)
-                
+                print("Number of cells in mask:",len(validation_list))
+                print("Number of cells outside mask:",num_cells_outside_mask)
                 print("All good: ", all(validation_list))
                 
                 
