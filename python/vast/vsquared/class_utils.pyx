@@ -58,8 +58,8 @@ cpdef void calculate_region_volume(ITYPE_t idx,
         index to the current cell in the arrays:
         output_volume, 
         
-    cell : multivoro Cell
-        The mutlivoro cell corresponding to the region
+    vertices : numpy array
+        The vertices of the current cell
         
     output_volume : array of shape (N,)
         array to write final output values into 
@@ -67,10 +67,7 @@ cpdef void calculate_region_volume(ITYPE_t idx,
     r_max, r_min : float
         max and min radial values to compare against from the
         galaxy coordinates
-        
-    vrh : array of shape (K,)
-        radii of the vertices to check against r_max and r_min
-    
+
     xyz_mode : bool
         True to use xyz mode, in which case cmin and cmax must
         have valid values\
