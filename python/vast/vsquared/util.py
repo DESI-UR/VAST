@@ -348,3 +348,15 @@ def rotate(p):
     r = np.matmul(m,p.T)[0:2].T
     return r
 
+def partition_face_vertices(cell):
+    face_vertices = cell.get_face_vertices()
+    faces = []
+    start_index=0
+    end_index = 0
+    while end_index < len(face_vertices):
+        num_vertices_in_face = face_vertices[start_index]
+        start_index += 1
+        end_index = start_index+num_vertices_in_face
+        faces.append(face_vertices[start_index:end_index])
+        start_index = end_index
+    return faces

@@ -863,8 +863,14 @@ class Zobov:
         triangle_norms = self.zones.triangle_norms 
         triangles = self.zones.triangles
         triangle_zones = self.zones.triangle_zones
+        triangle_cells = self.zones.triangle_cells
+
+        vertices = []
+        for cell_idx, triangle in zip(triangle_cells, triangles):
+            vertices_of_triangle = self.tessellation.cells[cell_idx].get_vertices()[triangle]
+            vertices.append(vertices_of_triangle)
         
-        vertices = self.tessellation.verts[triangles]
+        vertices = np.array(vertices)
 
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname)

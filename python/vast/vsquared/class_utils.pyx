@@ -15,6 +15,7 @@ import numpy as np
 
 cimport numpy as np
 
+
 np.import_array()  # required in order to use C-API
 
 from vast.voidfinder.typedefs cimport DTYPE_CP128_t, \
@@ -34,15 +35,11 @@ from libc.math cimport NAN, INFINITY, fabs, sqrt, asin, atan#, exp, pow, cos, si
 from scipy.spatial import ConvexHull
 
 
-
 cpdef void calculate_region_volume(ITYPE_t idx,
-                                   list region,
-                                   DTYPE_F64_t[:] output_volume,
                                    np.ndarray vertices,
+                                   DTYPE_F64_t[:] output_volume,
                                    DTYPE_F64_t r_max,
                                    DTYPE_F64_t r_min,
-                                   DTYPE_F64_t[:] vrh,
-                                   DTYPE_B_t[:] in_mask,
                                    DTYPE_B_t xyz_mode,
                                    object cmin,
                                    object cmax,
@@ -61,15 +58,12 @@ cpdef void calculate_region_volume(ITYPE_t idx,
         index to the current cell in the arrays:
         output_volume, 
         
-    region : list of ints
-        indices to the verticies of the current voronoi cell
+    cell : multivoro Cell
+        The mutlivoro cell corresponding to the region
         
     output_volume : array of shape (N,)
         array to write final output values into 
         
-    vertices : array of shape (K, 3)
-        array of the verticies of the voronoi cells
-    
     r_max, r_min : float
         max and min radial values to compare against from the
         galaxy coordinates
@@ -95,57 +89,23 @@ cpdef void calculate_region_volume(ITYPE_t idx,
     
     
     """
-    
-    #convert to numpy array with specific dtype so we can leverage typing
-    #in loops below
-    #cdef DTYPE_F64_t[:,:] vertices_memview = verticies
-    cdef ITYPE_t[:] region_memview = np.array(region, dtype=np.intp)
-    cdef ITYPE_t index
-    cdef DTYPE_F64_t curr_radius
 
     ################################################################################
-    # First cut - if there is a -1 in the region index list, that means that 
-    # region extends out to infinity so we exclude it from volume calculations
+    # Cut regions that exceed xyz bounds
     ################################################################################
 
-    #Added this check below instead to avoid iterating the list twice
-    #if -1 in region_memview:
-    #    return
-
-    ################################################################################
-    # First cut - if there is a -1 in the region index list, that means that 
-    # region extends out to infinity so we exclude it from volume calculations
-    # Second cut - make sure the verticies all fall within the r_min and 
-    # r_max values, or cmin and cmax for xyz mode
-    # Third cut - all verticies are in the mask
-    ################################################################################
-
-    for index in region_memview:
+    if xyz_mode:
         
-        if index == -1:  
-            return
-        
-        
-        if xyz_mode:
-            
-            if vertices[index, 0] > cmin[0] and vertices[index, 0] < cmax[0] and \
-               vertices[index, 1] > cmin[1] and vertices[index, 1] < cmax[1] and \
-               vertices[index, 2] > cmin[2] and vertices[index, 2] < cmax[2]:
+        for vertex in vertices:
+
+            if vertex[0] > cmin[0] and vertex[0] < cmax[0] and \
+               vertex[1] > cmin[1] and vertex[1] < cmax[1] and \
+               vertex[2] > cmin[2] and vertex[2] < cmax[2]:
                 pass
             else:
                 return
-            
-        else:
-            
-            
-            curr_radius = vrh[index]
-    
-            #using <= and >= since original code inversely checked just > and <
-            if curr_radius <= r_min or curr_radius >= r_max:
-                return
-    
-            if in_mask[index] == 0:
-                return
+
+        
 
     ################################################################################
     # Now get the volume and write out
@@ -165,16 +125,16 @@ cpdef void calculate_region_volume(ITYPE_t idx,
     #
     ################################################################################
 
-    voronoi_cell_verticies = vertices[region] #using the list not the memview since we cant fancy index with a memview
+    #using the list not the memview since we cant fancy index with a memview
     
     try:
-        hull = ConvexHull(voronoi_cell_verticies)
+        hull = ConvexHull(vertices)
     except:
         #If failed,
         #Retry creating the convex hull using "Joggling" which is
         #a pertubation of the points which may result in better
         #numerical stability
-        hull = ConvexHull(voronoi_cell_verticies, qhull_options='QJ')
+        hull = ConvexHull(vertices, qhull_options='QJ')
         
     output_volume[idx] = hull.volume
     

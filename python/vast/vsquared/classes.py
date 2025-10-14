@@ -9,10 +9,12 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, getBuff, flatten, mknumV2, rotate
+from vast.vsquared.util import toCoord, getBuff, flatten, mknumV2, rotate, partition_face_vertices
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 from vast.vsquared.class_utils import calculate_region_volume
+
+from multivoro import compute_voronoi
 
 import os
 import mmap
@@ -427,14 +429,10 @@ class Tesselation:
         self.volumes : ndarray of shape (num_galaxies,)
             volume of the voronoi cell for each input galaxy
         
-        self.neighbors : list of lists
-            for each galaxy, a list of the indices of the neighbor galaxies
-            which belong to the same
+        self.cells : list of multivoro cells
+            The cells of the Voronoi tessellation 
         
         
-        self.vecut
-        self.verts
-        self.vertIDs
         """
         
         self.num_cpus = num_cpus
@@ -447,580 +445,184 @@ class Tesselation:
         self.num_gals = coords.shape[0]
         
         
-        
-        if periodic:
-            
-            if verbose > 0:
-                print("Triangulating...")
-                
-            # create an initial delaunay triangulation
-            Del = Delaunay(coords, incremental=True, qhull_options='QJ')
-            sim = Del.simplices
-            simlen = len(sim)
-            cids = np.arange(len(coords))
-            
-            
-            if verbose > 0:
-                print("Finding periodic neighbors...")
-                
-
-            n = 0
-            
-            # add a buffer of galaxies around the simulation edges
-            coords2, cids = getBuff(coords,cids,cat.cmin,cat.cmax,buff,n)
-            
-            coords3 = coords.tolist()
-            
-            coords3.extend(coords2)
-            
-            #Update the delaunay triangulation with these new points
-            Del.add_points(coords2)
-            
-            sim = Del.simplices
-            
-            #Keep adding points to the delaunay triangulation until?
-            while np.amin(sim[simlen:]) < len(coords):
-                n = n + 1
-                simlen = len(sim)
-                coords2, cids = getBuff(coords, cids, cat.cmin, cat.cmax, buff, n)
-                coords3.extend(coords2)
-                Del.add_points(coords2)
-                sim = Del.simplices
-                
-            for i in range(len(sim)):
-                sim[i] = cids[sim[i]]
-                
-            if verbose > 0:
-                print("Tesselating...")
-            voronoi_graph = Voronoi(coords3)
-            vertices = voronoi_graph.vertices
-            regions = np.array(voronoi_graph.regions, dtype=object)[voronoi_graph.point_region]
-            
-            if verbose > 0:
-                print("Computing volumes...")
-            '''
-            #See comments below - replacing this section with parallelized stuff
-            vol = np.zeros(len(coords))
-            cut = np.arange(len(coords))
-            hul = []
-            for r in reg[cut]:
-                try:
-                    ch = ConvexHull(vertices[r])
-                except:
-                    ch = ConvexHull(vertices[r],qhull_options='QJ')
-                hul.append(ch)
-            #hul = [ConvexHull(vertices[r]) for r in reg[cut]]
-            vol[cut] = np.array([h.volume for h in hul])
-            self.volumes = vol
-            '''
-                
-            ################################################################################
-            # Tweaking this section to use the new parallelized infrastructure for
-            # volume calculation 
-            # use dummy radii of 1.0 and max/min of 2.0/0.0 so all
-            # radii fall within r_max and r_min
-            ################################################################################
-            vrh = np.ones(len(voronoi_graph.point_region), dtype=np.float64)
-            r_max = 2.0
-            r_min = 0.0
-            verticies_in_mask_uint8 = np.ones(len(voronoi_graph.point_region), dtype=np.uint8)
-                
-            output_volumes = self.calculate_region_volumes(voronoi_graph,
-                                                           vertices.astype(np.float64),
-                                                           r_max,
-                                                           r_min,
-                                                           vrh,
-                                                           verticies_in_mask_uint8,
-                                                           xyz,
-                                                           cat.cmin,
-                                                           cat.cmax
-                                                           )
-            
-            self.volumes = output_volumes
-            
-            indptr, gal_indices =  Del.vertex_neighbor_vertices
-            
-            
-        # ra-dec-z and xyz mode
-        else:
-            
-            if verbose > 0:
-                print("Tesselating...")
-                
-            #Just for debugging
-            #derp_time = time.time()
-            #derp1 = Delaunay(coords, qhull_options='QJ')
-            #print("Derp1 time: ", time.time() - derp_time)
-                
-            
-                
-            voronoi_time = time.time()
-            
-            voronoi_graph = Voronoi(coords)
-            
-            regions = np.array(voronoi_graph.regions, dtype=object)[voronoi_graph.point_region]
-            
-            print("Voronoi time: ", time.time() - voronoi_time)
-            
-            
-            other_time = time.time()
-            
-            
-            
-            if True:
-                
-                print("Starting multivoro")
-                                
-                from multivoro import compute_voronoi
-                import matplotlib.pyplot as plt
-                from mpl_toolkits.mplot3d import Axes3D
-                
-                
-                multivoro_start = time.time()
-                
-                
-                radii = 1*np.ones(coords.shape[0], dtype=np.float32)
-                
-                lower_min = coords.min(axis=0) - 100.0
-                
-                
-                
-                upper_max = coords.max(axis=0) + 100.0
-                
-                print("Lower min: ", lower_min)
-                print("Upper max: ", upper_max)
-                
-                
-                limits = np.empty((2,3), dtype=np.float32)
-                limits[0,0] = lower_min[0]
-                limits[0,1] = lower_min[1]
-                limits[0,2] = lower_min[2]
-                limits[1,0] = upper_max[0]
-                limits[1,1] = upper_max[1]
-                limits[1,2] = upper_max[2]
-                
-                
-                print("Radii: ", radii)
-                print("Limits: ", limits)
-                
-                cells = compute_voronoi(
-                                        points=coords,
-                                        radii=radii,
-                                        limits=limits,
-                                        n_threads=6,
-                                        )
-                
-                print("Multivoro sub-time: ", time.time() - multivoro_start)
-                
-                
-                print("Coords: ", coords.shape)
-                print("Num cells: ", len(cells))
-                
-                validation_list = []
-
-                crh = np.linalg.norm(coords, axis=1).astype(np.float64)
-
-                r_max = np.max(crh) 
-                        
-                r_min = np.min(crh) 
-
-                num_cells_outside_mask = 0
-                
-                for idx, cell in enumerate(cells):
-                    
-                    
-                    #print(cell)
-                    #print(vars(cell))
-                    #print(dir(cell))
-                    
-                    #if idx > 10:
-                    #    break
-                    
-                    
-                    #print('#'*80)
-                    #print(cell.get_vertices())
-                    
-                    multivoro_verticies = cell.get_vertices()
-                    #print(cell.get_neighbors())
-                    #print(cell.get_face_vertices())
-                    
-                    
-                    scipy_verticies = voronoi_graph.vertices[voronoi_graph.regions[voronoi_graph.point_region[idx]]]
-
-                                                                            
-                    ################################################################################
-        		    # Check if scipy cell exceeds the mask
-        		    ################################################################################
-                    
-                    mask = cat.mask
-                    
-                    vertices_theta = np.arctan2(np.sqrt(scipy_verticies[:,0]**2. + scipy_verticies[:,1]**2.), scipy_verticies[:,2]) 
-                    verticies_phi = np.arctan2(scipy_verticies[:,1], scipy_verticies[:,0])
-                    
-                    pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
-
-                    vrh = np.linalg.norm(scipy_verticies, axis=1).astype(np.float64)
-                    
-                    verticies_in_mask = mask[pix_ids] * (vrh > r_min) * (vrh < r_max)
-                
-                    scipy_in_mask = np.all(verticies_in_mask)
-
-                    ################################################################################
-                    #check if multivoro cell also exceeds the mask
-                    ################################################################################
-
-                    vertices_theta = np.arctan2(np.sqrt(multivoro_verticies[:,0]**2. + multivoro_verticies[:,1]**2.), multivoro_verticies[:,2]) 
-                    verticies_phi = np.arctan2(multivoro_verticies[:,1], multivoro_verticies[:,0])
-                    
-                    pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
-
-                    vrh = np.linalg.norm(multivoro_verticies, axis=1).astype(np.float64)
-                    
-                    verticies_in_mask = mask[pix_ids] * (vrh > r_min) * (vrh < r_max)
-                
-                    multivoro_in_mask = np.all(verticies_in_mask)
-
-                    # report mismatched mask membership between tesselations
-                    if scipy_in_mask != multivoro_in_mask:
-                        raise ValueError(f'cell {idx}; scipy in mask: {scipy_in_mask}; multivoro in mask {multivoro_in_mask}')
-
-                    # ignore cells outside mask
-                    if not scipy_in_mask:
-                        num_cells_outside_mask +=1
-                        continue
-                    
-                    #print(multivoro_verticies.shape, scipy_verticies.shape)
-                    
-                    
-                    
-                    multivoro_unit = multivoro_verticies/np.linalg.norm(multivoro_verticies, axis=1, keepdims=True)
-                    scipy_unit = scipy_verticies/np.linalg.norm(scipy_verticies, axis=1, keepdims=True)
-                    
-                    #print(np.sum(multivoro_unit*multivoro_unit, axis=1))
-                    #print(np.sum(scipy_unit*scipy_unit, axis=1))
-                    
-                    
-                    matrix = np.matmul(multivoro_unit, scipy_unit.T)
-                    #print(np.max(matrix, axis=0))
-                    
-                    validate = np.max(matrix, axis=0)
-                    
-                    all_good = np.allclose(validate, 1.0)
-                    
-                    validation_list.append(all_good)
-                    
-                    
-                    if not all_good:
-                        print(idx)
-                        print(validate)
-                        print(multivoro_verticies.shape, scipy_verticies.shape)
-                        print(voronoi_graph.regions[voronoi_graph.point_region[idx]])
-                        #print(scipy_verticies)
-                        #print(multivoro_verticies)
-                        
-                        
-                    
-                    
-                    
-                        
-                        
-                        fig = plt.figure(figsize=(20,10))
-                        ax1 = fig.add_axes([.05, .05, .45, .9], projection='3d')
-                        ax2 = fig.add_axes([.52, .05, .45, .9], projection='3d')
-                        
-                        ax1.scatter(multivoro_verticies[:,0],
-                                    multivoro_verticies[:,1],
-                                    multivoro_verticies[:,2],
-                                    color='g')
-                        ax1.scatter(coords[idx,0],
-                                    coords[idx,1],
-                                    coords[idx,2],
-                                    color='k')
-                        ax1.set_title("Multivoro: "+str(multivoro_verticies.shape)+" verticies")
-                        
-                        ax2.scatter(scipy_verticies[:,0],
-                                    scipy_verticies[:,1],
-                                    scipy_verticies[:,2],
-                                    color='b')
-                        
-                        ax2.scatter(coords[idx,0],
-                                    coords[idx,1],
-                                    coords[idx,2],
-                                    color='k')
-                        ax2.set_title("Scipy: "+str(scipy_verticies.shape)+" verticies")
-                        plt.show()
-                        
-                        
-                        
-                
-                print("Multivoro time: ", time.time() - multivoro_start)
-                print("Number of cells in mask:",len(validation_list))
-                print("Number of cells outside mask:",num_cells_outside_mask)
-                print("All good: ", all(validation_list))
-                
-                
-            
-            
-            
-            
-            ################################################################################
-            # We will need to know whether the verticies are within the mask to include 
-            # those volumes or not, so calculate the sky angles of the vertex locations
-            # and throw them into the healpix utility function to get the mask values
-            # corresponding to those locations
-            ################################################################################
-
-            vertices = voronoi_graph.vertices
-            
-            if not xyz:    
-                mask = cat.mask
-                
-                vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
-                
-                verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
-                
-                pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
-                
-                verticies_in_mask = mask[pix_ids]
-
-                verticies_in_mask_uint8 = verticies_in_mask.astype(np.uint8)
-                
-            else:
-                verticies_in_mask_uint8 = np.ones(len(voronoi_graph.point_region), dtype=np.uint8)
-            
-            
-            ################################################################################
-            # We will also need some radial information about the verticies and galaxies
-            ################################################################################
-            vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
-            
-            crh = np.linalg.norm(coords, axis=1).astype(np.float64)
-            
-            r_max = np.max(crh) 
-            
-            r_min = np.min(crh) 
-            
-            verticies64 = voronoi_graph.vertices.astype(np.float64)
-            
-            output_volumes = self.calculate_region_volumes(voronoi_graph,
-                                                           #output_volume,
-                                                           verticies64,
-                                                           r_max,
-                                                           r_min,
-                                                           vrh,
-                                                           verticies_in_mask_uint8,
-                                                           xyz,
-                                                           cat.cmin,
-                                                           cat.cmax
-                                                           )
-            
-            self.volumes = output_volumes
-            
-            print("Cut+Convex Hull time: ", time.time() - other_time)
-            
-            
-            if verbose > 0:
-                print("Triangulating...")
-            delaunay_time = time.time()
-            Del = Delaunay(coords, qhull_options='QJ')
-            print("Delaunay time: ", time.time() - delaunay_time)
-            sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
-        
-            indptr, gal_indices = Del.vertex_neighbor_vertices
-        
-        ################################################################################
-        #
-        ################################################################################
-        
-        neigh_time = time.time()
-        '''
-        # for each galaxy, list of neighbor galaxy coordinates in the same tetrahedra 
-        # objects that it's part of
-        nei = [] 
-        
-        # for each galaxy, indexes (in tetreheda list sim) of tetrahedra that it's 
-        # part of
-        lut = [[] for _ in range(len(self.volumes))]
-        #tetrahedra_
-        
         if verbose > 0:
-            print("Consolidating neighbors...")
+            print("Tesselating...")
             
-            del Vor
-            ve2 = ver.T
-            if not xyz:
-                vth = np.arctan2(np.sqrt(ve2[0]**2.+ve2[1]**2.),ve2[2]) #spherical coordinates for voronoi vertices
-                vph = np.arctan2(ve2[1],ve2[0])
-                vrh = np.array([np.sqrt((v**2.).sum()) for v in ver])
-                crh = np.array([np.sqrt((c**2.).sum()) for c in coords]) #radial distance to galaxies
-                rmx = np.amax(crh)
-                rmn = np.amin(crh)
-            print("Computing volumes...")
-            vol = np.zeros(len(reg))
-            cut = np.arange(len(vol))
-            if xyz:
-                cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies with finite voronoi cells
-                cu2 = np.array([np.product(np.logical_and(ve2[0][r]>cat.cmin[0],ve2[0][r]<cat.cmax[0]),dtype=bool) for r in reg[cu1]]).astype(bool)
-                cu3 = np.array([np.product(np.logical_and(ve2[1][r]>cat.cmin[1],ve2[1][r]<cat.cmax[1]),dtype=bool) for r in reg[cu1][cu2]]).astype(bool)
-                cu4 = np.array([np.product(np.logical_and(ve2[2][r]>cat.cmin[2],ve2[2][r]<cat.cmax[2]),dtype=bool) for r in reg[cu1][cu2][cu3]]).astype(bool)
-                cut = cut[cu1][cu2][cu3][cu4]
-            else:
-                cu1 = np.array([-1 not in r for r in reg]) #cut selecting galaxies with finite voronoi cells
-                cu2 = np.array([np.product(np.logical_and(vrh[r]>rmn,vrh[r]<rmx),dtype=bool) for r in reg[cu1]]).astype(bool) #cut selecting galaxes whose voronoi coordinates are finite and are within the survey distance limits
-                msk = cat.mask
-                nsd = hp.npix2nside(len(msk))
-                pid = hp.ang2pix(nsd,vth,vph)
-                imk = msk[pid] #cut selecting voronoi vertexes inside survey mask
-                cu3 = np.array([np.product(imk[r],dtype=bool) for r in reg[cu1][cu2]]).astype(bool) #cut selecting galaxies with finite voronoi coords that are within the total survvey bounds
-                cut = cut[cu1][cu2][cu3] #shortcut for cu3 but w/o having to stack [cu1][cu2][cu3] each time
-            
-            hul = [] #list of convex hull objects 
-            for r in reg[cut]:
-                try:
-                    ch = ConvexHull(ver[r])
-                except:
-                    ch = ConvexHull(ver[r],qhull_options='QJ')
-                hul.append(ch)
-            #hul = [ConvexHull(ver[r]) for r in reg[cut]]
-            vol[cut] = np.array([h.volume for h in hul]) #write the volumes from the convex hulls to vol
-            self.volumes = vol
-            if viz: #save vertices, regions,and the cut to select regions contained by the surey bounds
-                self.vertIDs = reg
-                vecut = np.zeros(len(vol),dtype=bool)
-                vecut[cut] = True
-                self.vecut = vecut
-                self.verts = ver
-            print("Triangulating...")
-            Del = Delaunay(coords,qhull_options='QJ')
-            sim = Del.simplices #tetrahedra cells between galaxies (whereas voronoi cells were arbitrary shapes around galaxies)
+                    
+        print("Starting multivoro")
+                        
+        
+        multivoro_start = time.time()
+        
+        
+        radii = 1*np.ones(coords.shape[0], dtype=np.float32)
 
-        nei = [] #for each galaxy, list of indexes of neighbor galaxies in the same tetrahedra objects that it's part of
-        lut = [[] for _ in range(len(vol))] #same as nei but duplicate galaxy entries may appear
-        hzn = np.zeros(len(vol),dtype=bool) # for each galaxy, flags if teh galaxy is along edge of survey
-        print("Consolidating neighbors...")
+        if periodic:
 
+            periodic_boundaries = (True, True, True)
+            limits = np.array([self.cmin, self.cmax])
 
-        for i in range(len(sim)):
-            
-            #print(len(sim[i]))
-            for j in sim[i]:
-                #print(i, j)
-                lut[j].append(i)
-                
-                
-        count = 0
-        for i in range(self.num_gals):
-            
-            #if i == 0:
-            #    print(lut[i])
-            
-            cut = np.array(lut[i])
-<<<<<<< HEAD
-            temp = np.unique(sim[cut])
-            
-            #if i == 0:
-            #    print(cut, temp)
-            #    print(sim[cut])
-            nei.append(temp)
-            count += len(temp)
-            
-            
-        print("Neigh: ", len(nei), count)
-        print("Derp1, 2: ", len(indptr), len(gal_indices))    
+        else:
+
+            periodic_boundaries = (False, False, False)
         
-        #print(nei[0:5])
-        #print(derp1[0:5], derp1[-5:])
-        #print(derp2[0:25])
-        
-        for idx, row in enumerate(nei):
+            lower_min = coords.min(axis=0) - 100.0
             
-            derp_vals = gal_indices[indptr[idx]:indptr[idx+1]]
-            #print(derp_vals)
-            derp_vals2 = np.append([idx], derp_vals)
+            upper_max = coords.max(axis=0) + 100.0
             
-            set1 = set(row)
-            set2 = set(derp_vals2)
+            print("Lower min: ", lower_min)
+            print("Upper max: ", upper_max)
             
-            if set1 != set2:
-                print(set1, set2)
-                
-            #if idx > 10:
-            #    break
+            
+            limits = np.empty((2,3), dtype=np.float32)
+            limits[0,0] = lower_min[0]
+            limits[0,1] = lower_min[1]
+            limits[0,2] = lower_min[2]
+            limits[1,0] = upper_max[0]
+            limits[1,1] = upper_max[1]
+            limits[1,2] = upper_max[2]
         
         
-            
-        #for each galaxy, list of neighbor galaxy coordinates (see above explanation)
-        self.neighbors = np.array(nei, dtype=object) 
-        '''
+        print("Radii: ", radii)
+        print("Limits: ", limits)
+
         
-        # The Scipy Delaunay class has already done this for us - it provides
-        # two data structures: indptr which is shape (num_gals+1,) and
-        # gal_indices which is (total_neighbors,).  For the i'th galaxy, get
-        # its neighbors like so:
-        # neighbor_indices = gal_indices[indptr[idx]:indptr[idx+1]]
-        self.neighbors = (indptr, gal_indices)
+        cells = compute_voronoi(
+                                points=coords,
+                                radii=radii,
+                                limits=limits,
+                                n_threads=num_cpus,
+                                periodic_boundaries=periodic_boundaries,
+                                )
+        self.cells = cells
+        
+        print("Multivoro time: ", time.time() - multivoro_start)
+        
+        print("Num cells: ", len(cells))
+
+        
+        volume_time = time.time()
+        
+        ################################################################################
+        # Get information about survey mask
+        ################################################################################
+        
+        crh = np.linalg.norm(coords, axis=1).astype(np.float64)
+    
+        r_max = np.max(crh) 
+        
+        r_min = np.min(crh) 
+
+        if xyz or periodic:
+            # mask is not used, so set it to a one-element array
+            mask_uint8=np.ones((1,), dtype=np.uint8)
+        else:
+            mask = cat.mask
+            mask_uint8 = mask.astype(np.uint8)
+
+        ################################################################################
+        # Calculate volumes of cells
+        ################################################################################
+        
+        output_volumes = self.calculate_region_volumes(self.cells,
+                                                       r_max,
+                                                       r_min,
+                                                       mask_uint8,
+                                                       xyz,
+                                                       cat.cmin,
+                                                       cat.cmax,
+                                                       nside
+                                                       )
+        
+        self.volumes = output_volumes
+        
+        print("Cut+Convex Hull time: ", time.time() - volume_time)
+        
+
+        ################################################################################
+        # Flag galaxies along the survey edges
+        ################################################################################
+
+        neigh_time = time.time()
         
         self.hzn = np.zeros(self.num_gals, dtype=bool) # for each galaxy, flags if the galaxy is along edge of survey
         
         for idx in range(self.num_gals):
             
-            neigh_indices = gal_indices[indptr[idx]:indptr[idx+1]]
+            neigh_indices = self.cells[idx].get_neighbors()
             
             # if any of cell's neighbors have a volume of 0 (meaning cell extends outside survey bounds)
             if np.any(self.volumes[neigh_indices] == 0.0):
                 
                 self.hzn[idx] = True
         
-        
-        
-        
         print("Neighbor time: ", time.time() - neigh_time)
 
-        #save vertices, regions,and the cut to select regions contained by the survey bounds
-        if viz: 
-            self.vertIDs = regions
-            vecut = np.zeros(self.num_gals, dtype=bool)
-            vecut[self.volumes > 0] = True
-            self.vecut = vecut
-            self.verts = vertices
-
-
+        
 
     def calculate_region_volumes(self, 
-                                 voronoi_graph,
-                                 #output_volume,
-                                 verticies64,
+                                 cells,
                                  r_max,
                                  r_min,
-                                 vrh,
-                                 in_mask_uint8,
+                                 mask_uint8,
                                  xyz_mode,
                                  cmin,
-                                 cmax
+                                 cmax,
+                                 nside,
                                  ):
         """
         This function essentially serves as a switch between single process
         and multiprocess calculation for calculating the region volume
         """
-        
-        
+
         
         if self.num_cpus == 1:
             
             output_volumes = np.zeros(self.num_gals, dtype=np.float64)
-            
-            for idx, region_idx in enumerate(voronoi_graph.point_region):
+
+            for idx, cell in enumerate(cells):
+
+    
+                vertices = cell.get_vertices()
+    
+                ################################################################################
+                # We will need some radial information about the verticies to know whether to
+                # include those galaxies or not
+                ################################################################################
                 
-                region = voronoi_graph.regions[region_idx]
+                vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
                 
+                #using <= and >= since original code inversely checked just > and <
+                if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                    continue
+    
+                ################################################################################
+                # We will also need to know whether the verticies are within the mask to include 
+                # those volumes or not, so calculate the sky angles of the vertex locations
+                # and throw them into the healpix utility function to get the mask values
+                # corresponding to those locations
+                ################################################################################
+        
+                vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
+                        
+                verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
+                        
+                pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
+                        
+                verticies_in_mask = mask_uint8[pix_ids]
+        
+                if np.any(verticies_in_mask==0):
+                    continue
+
+                ################################################################################
+                # Calculate the region volume
+                ################################################################################
+                                    
                 calculate_region_volume(idx,
-                                        region,
+                                        vertices,
                                         output_volumes,
-                                        verticies64,
                                         r_max,
                                         r_min,
-                                        vrh,
-                                        in_mask_uint8,
                                         xyz_mode,
                                         cmin,
                                         cmax)
@@ -1031,7 +633,7 @@ class Tesselation:
             # We're going to use a very simply multiprocessing scheme here
             # since the voronoi graph has already been calculated and we can
             # essentially treat it as read-only
-            num_indices = len(voronoi_graph.point_region)
+            num_indices = len(cells)
             
             index_coordinator = Value(c_int64, 0, lock=True)
             
@@ -1070,16 +672,15 @@ class Tesselation:
                 p = startup_context.Process(target=self.volume_calculation_worker, 
                                             args=(num_indices, 
                                                   index_coordinator, 
-                                                  voronoi_graph,
+                                                  cells,
                                                   volumes_fd,
-                                                  verticies64,
                                                   r_max,
                                                   r_min,
-                                                  vrh,
-                                                  in_mask_uint8,
+                                                  mask_uint8,
                                                   xyz_mode,
                                                   cmin,
-                                                  cmax
+                                                  cmax,
+                                                  nside
                                                   ))
                 
                 p.start()
@@ -1097,16 +698,15 @@ class Tesselation:
     def volume_calculation_worker(self, 
                                   max_indicies,
                                   index_coordinator,
-                                  voronoi_graph,
+                                  cells,
                                   volumes_fd,
-                                  verticies64,
                                   r_max,
                                   r_min,
-                                  vrh,
-                                  in_mask_uint8,
+                                  mask_uint8,
                                   xyz_mode,
                                   cmin,
-                                  cmax
+                                  cmax,
+                                  nside
                                   ):
         
         #max_indices and num_gals are the same thing
@@ -1136,18 +736,48 @@ class Tesselation:
         
             #print("Working index: ", curr_index, " of: ", max_indicies)
         
-            region_idx = voronoi_graph.point_region[curr_index]
-                
-            region = voronoi_graph.regions[region_idx]
+            cell = cells[curr_index]
+
+            vertices = cell.get_vertices()
+
+            ################################################################################
+            # We will need some radial information about the verticies to know whether to
+            # include those galaxies or not
+            ################################################################################
+            
+            vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
+            
+            #using <= and >= since original code inversely checked just > and <
+            if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                continue
+
+            ################################################################################
+            # We will also need to know whether the verticies are within the mask to include 
+            # those volumes or not, so calculate the sky angles of the vertex locations
+            # and throw them into the healpix utility function to get the mask values
+            # corresponding to those locations
+            ################################################################################
+    
+            vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
+                    
+            verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
+                    
+            pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
+                    
+            verticies_in_mask = mask_uint8[pix_ids]
+    
+            if np.any(verticies_in_mask==0):
+                continue
+
+            ################################################################################
+            # Calculate the region volume
+            ################################################################################
             
             calculate_region_volume(curr_index,
-                                    region,
+                                    vertices,
                                     output_volumes,
-                                    verticies64,
                                     r_max,
                                     r_min,
-                                    vrh,
-                                    in_mask_uint8,
                                     xyz_mode,
                                     cmin,
                                     cmax)
@@ -1183,7 +813,7 @@ class Zones:
         
         vol = tess.volumes
         
-        nei_ptr, neigh_indicies = tess.neighbors
+        cells = tess.cells
         
         num_gals = tess.num_gals
         
@@ -1194,16 +824,14 @@ class Zones:
         if verbose > 0:
             print("Sorting cells...")
 
-        #srt   = np.argsort(-1.*vol) # srt[5] gives the index in vol of the 5th largest volume (lowest density)
-        sort_order = np.argsort(vol)[::-1] #largest to smallest
+        sort_order = np.argsort(vol)[::-1] #largest to smallest volume (aka lease dense to most dense)
 
         #vol2  = vol[srt] # cell volumes sorted from largest to smallest (aka least dense to most dense region)
         #nei2  = nei[srt] # coordinates of tetrahedra that include each galaxy, sorted from least dense to most dense region
 
         # Build zones from the cells
         
-        
-        #for each galaxy, the ID if the zone it belongs to
+        #for each galaxy, the ID of the zone it belongs to
         gal_zone_IDs = np.zeros(len(vol), dtype=int) 
         
         #for each galaxy, the number of adjacent cells between it and the largest cell in its zone
@@ -1224,6 +852,7 @@ class Zones:
         if verbose > 0:
             print("Building zones...")
 
+        build_time = time.time()
         
         for srt_i in sort_order:
 
@@ -1235,7 +864,7 @@ class Zones:
                 continue
 
             #ns = nei2[i] # indexes of galaxies neigboring curent galaxy
-            curr_neigh_idxs = neigh_indicies[nei_ptr[srt_i]:nei_ptr[srt_i+1]]
+            curr_neigh_idxs = cells[srt_i].get_neighbors()
             #ns = np.append([srt_i], ns) #inefficient but just for testing
             
             neigh_vols = vol[curr_neigh_idxs] # volumes of cells neighboring current cell
@@ -1267,18 +896,13 @@ class Zones:
                 
                 zhzn[gal_zone_IDs[largest_neigh_vol_idx]] += int(hzn[srt_i]) #increment the zone's edge flag if an edge cell is found (0 = no edge cells)
 
-
+        
+        print("Zone building time: ", time.time() - build_time)
 
         self.zcell = np.array(zcell, dtype=object)
         self.zvols = np.array(zvols)
         self.zhzn  = np.array(zhzn)
         self.depth = depth
-        
-        
-        #print("zvols: ", len(zvols))
-        #print(zvols)
-        #print("zcell: ", len(zcell))
-        #print(zcell)
         
         
 
@@ -1304,56 +928,59 @@ class Zones:
             triangle_norms = []
             triangles_verts = []
             triangle_zones = []
+            triangle_cells = []
             
 
         if verbose > 0:
             print("Linking zones...")
-
-
-
-	#loop through cells
+            
+        link_time = time.time()
+        
+    	#loop through cells
         for i in range(len(vol)):
             #ns = nei[i]
-            curr_neigh_idxs = neigh_indicies[nei_ptr[i]:nei_ptr[i+1]]
+            curr_neigh_idxs = cells[i].get_neighbors()
             
             z1 = gal_zone_IDs[i]
             
             if z1 == -1:
                 continue
+
+            # get cell info
+            cell = cells[i]
+            vertices = cell.get_vertices()
+            faces = partition_face_vertices(cell)
             
             #loop though neighbor cells
-            for n in curr_neigh_idxs:
+            for n, face in zip(curr_neigh_idxs, faces):
                 
                 z2 = gal_zone_IDs[n]
                 
                 #Calculate edge area for cells on survey edges (z2==-1)
                 if z2 == -1:
-                    if viz:
-                    
-                        # get the shared vertices between the current cell and the current neighbor cell
-                        vertices = np.array(tess.vertIDs[i]) 
-                        neighbor_vertices = np.array(tess.vertIDs[n])
-                        shared_vertices = vertices[np.isin(vertices, neighbor_vertices)]
-    			 
-                        # record the surface area and triangle data of the boundary formed by the vertices
-                        if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
-                            
-                            
-                            ##rotate the cell boundary into the x-y plane and obtain the boundary's triangles
-                            simplices = Delaunay(rotate(tess.verts[shared_vertices])).simplices
-                            triangles = shared_vertices[simplices]
-                            
 
+                    if viz:
+        
+                        # record the surface area and triangle data of the boundary formed by the vertices
+                        if len(face)>2: #If there are at least 3 vertices in teh face (>=1 triangles)
+    
+                            face_vertices = vertices[face]
+    
+                            ##rotate the cell boundary into the x-y plane and obtain the boundary's triangles
+                            simplices = Delaunay(rotate(face_vertices)).simplices
+    
+                            triangles = face[simplices]
+                                
                             #calculate the triangle area
-                            cell_center = coords[i] - tess.verts[triangles][:,0,:] #coordinates of voronoi cell center
-                            edge_1 = tess.verts[triangles][:,1,:] - tess.verts[triangles][:,0,:] # triangle edges
-                            edge_2 = tess.verts[triangles][:,2,:] - tess.verts[triangles][:,0,:]
+                            cell_center = coords[i] - vertices[triangles][:,0,:] #coordinates of voronoi cell center
+                            edge_1 = vertices[triangles][:,1,:] - vertices[triangles][:,0,:] # triangle edges
+                            edge_2 = vertices[triangles][:,2,:] - vertices[triangles][:,0,:]
                             cross = np.cross(edge_1, edge_2)
                             area = 0.5 * np.linalg.norm(cross,axis=1) #triangle area
                             normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
                             normal *= np.expand_dims(np.sign(np.diag(np.dot(cell_center, normal.T))), axis=1) # flip normals as needed
                             area_summed = np.sum(area) # ridge area where cells meet
-			     
+                 
                             zarea_0[z1] += area_summed #add area to zone edge area
                             zarea_t[z1] += area_summed #add area to zone total area
                             
@@ -1362,7 +989,8 @@ class Zones:
                                 triangle_norms.append(normal_i)
                                 triangles_verts.append(triangle_i)
                                 triangle_zones.append(z1)
-                    
+                                triangle_cells.append(i)
+                            
                     continue
                 
                 #Ensure neighboring cell is from a different zone
@@ -1391,24 +1019,22 @@ class Zones:
                 zlinks[1][z2][k] = ml
                 
                 
-                if viz and tess.vecut[i]:
-                
-                    # get the shared vertices between the current cell and the current neighbor cell
-                    vertices = np.array(tess.vertIDs[i]) 
-                    neighbor_vertices = np.array(tess.vertIDs[n])
-                    shared_vertices = vertices[np.isin(vertices, neighbor_vertices)]
-                    
+                if viz and vol[i] > 0:            
+
                     # record the surface area and triangle data of the boundary formed by the vertices
-                    if len(shared_vertices)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
-                
-                        #rotate the cell boundary into the x-y plane and obtain the boundary's triangles
-                        simplices = Delaunay(rotate(tess.verts[shared_vertices])).simplices
-                        triangles = shared_vertices[simplices]
+                    if len(face)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
+
+                        face_vertices = vertices[face]
+
+                        ##rotate the cell boundary into the x-y plane and obtain the boundary's triangles
+                        simplices = Delaunay(rotate(face_vertices)).simplices
+
+                        triangles = face[simplices]
 
 			            #calculate the triangle area
-                        cell_center = coords[i] - tess.verts[triangles][:,0,:] #coordinates of voronoi cell center
-                        edge_1 = tess.verts[triangles][:,1,:] - tess.verts[triangles][:,0,:] # triangle edges
-                        edge_2 = tess.verts[triangles][:,2,:] - tess.verts[triangles][:,0,:]
+                        cell_center = coords[i] - vertices[triangles][:,0,:] #coordinates of voronoi cell center
+                        edge_1 = vertices[triangles][:,1,:] - vertices[triangles][:,0,:] # triangle edges
+                        edge_2 = vertices[triangles][:,2,:] - vertices[triangles][:,0,:]
                         cross = np.cross(edge_1, edge_2)
                         area = 0.5 * np.linalg.norm(cross,axis=1) #triangle area
                         normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
@@ -1425,10 +1051,13 @@ class Zones:
                             triangle_norms.append(normal_i)
                             triangles_verts.append(triangle_i)
                             triangle_zones.append(z1)
+                            triangle_cells.append(i)
         
 
 
         self.zlinks = zlinks
+        
+        print("Zone linking time: ", time.time() - link_time)
         
         ################################################################################
         # New implementation for zlinks
@@ -1440,9 +1069,9 @@ class Zones:
         
         for idx in range(num_gals):
             
-            curr_neigh_idxs = neigh_indicies[nei_ptr[i]:nei_ptr[i+1]]
+            curr_neigh_idxs = cells[idx].get_neighbors()
             
-            curr_zone_ID = gal_zone_IDs[i]
+            curr_zone_ID = gal_zone_IDs[idx]
             
             if curr_zone_ID == -1:
                 continue
@@ -1485,7 +1114,8 @@ class Zones:
             self.zarea_s = zarea_s
             self.triangle_norms = np.array(triangle_norms)
             self.triangles = np.array(triangles_verts)	
-            self.triangle_zones = np.array(triangle_zones)     
+            self.triangle_zones = np.array(triangle_zones) 
+            self.triangle_cells = triangle_cells
 
 
 class Voids:
