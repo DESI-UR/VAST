@@ -964,30 +964,24 @@ class Zones:
                         # record the surface area and triangle data of the boundary formed by the vertices
                         if len(face)>2: #If there are at least 3 vertices in teh face (>=1 triangles)
     
+                            # ordered face vertices
                             face_vertices = vertices[face]
     
-                            ##rotate the cell boundary into the x-y plane and obtain the boundary's triangles
-                            simplices = Delaunay(rotate(face_vertices)).simplices
+                            #calculate surfacearea and normal
+                            normal_vector = np.sum(np.cross(face_vertices, np.roll(face_vertices, 1, axis=0)), axis=0)
+                            normal_mag = np.linalg.norm(normal_vector)
+                            area = 0.5 * normal_mag
+                            normal_vector=normal_vector/normal_mag
     
-                            triangles = face[simplices]
-                                
-                            #calculate the triangle area
-                            cell_center = coords[i] - vertices[triangles][:,0,:] #coordinates of voronoi cell center
-                            edge_1 = vertices[triangles][:,1,:] - vertices[triangles][:,0,:] # triangle edges
-                            edge_2 = vertices[triangles][:,2,:] - vertices[triangles][:,0,:]
-                            cross = np.cross(edge_1, edge_2)
-                            area = 0.5 * np.linalg.norm(cross,axis=1) #triangle area
-                            normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
-                            normal *= np.expand_dims(np.sign(np.diag(np.dot(cell_center, normal.T))), axis=1) # flip normals as needed
-                            area_summed = np.sum(area) # ridge area where cells meet
-                 
-                            zarea_0[z1] += area_summed #add area to zone edge area
-                            zarea_t[z1] += area_summed #add area to zone total area
-                            
-                            #  record triangles info
-                            for normal_i, triangle_i in zip (normal, triangles):
-                                triangle_norms.append(normal_i)
-                                triangles_verts.append(triangle_i)
+                            zarea_0[z1] += area #add area to zone edge area
+                            zarea_t[z1] += area #add area to zone total area
+    
+                            # get list of triangles
+                            for tri_idx in range(1, len(face_vertices) - 1):
+                                triangle = face_vertices[[0,tri_idx,tri_idx+1]]
+    
+                                triangle_norms.append(normal_vector)
+                                triangles_verts.append(triangle)
                                 triangle_zones.append(z1)
                                 triangle_cells.append(i)
                             
@@ -1024,36 +1018,31 @@ class Zones:
                     # record the surface area and triangle data of the boundary formed by the vertices
                     if len(face)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
 
+                        # ordered face vertices
                         face_vertices = vertices[face]
 
-                        ##rotate the cell boundary into the x-y plane and obtain the boundary's triangles
-                        simplices = Delaunay(rotate(face_vertices)).simplices
+                        #calculate surfacearea and normal
+                        normal_vector = np.sum(np.cross(face_vertices, np.roll(face_vertices, 1, axis=0)), axis=0)
+                        normal_mag = np.linalg.norm(normal_vector)
+                        area = 0.5 * normal_mag
+                        normal_vector=normal_vector/normal_mag
 
-                        triangles = face[simplices]
+                        zarea_t[z1] += area #add ridge area to total zone surface area
+                        zarea_s[z1][j] += area # add ridge area to shared z1 z2 surface area
 
-			            #calculate the triangle area
-                        cell_center = coords[i] - vertices[triangles][:,0,:] #coordinates of voronoi cell center
-                        edge_1 = vertices[triangles][:,1,:] - vertices[triangles][:,0,:] # triangle edges
-                        edge_2 = vertices[triangles][:,2,:] - vertices[triangles][:,0,:]
-                        cross = np.cross(edge_1, edge_2)
-                        area = 0.5 * np.linalg.norm(cross,axis=1) #triangle area
-                        normal = cross / np.expand_dims(area,axis=1) #triangle's normal vector
-                        normal *= np.expand_dims(np.sign(np.diag(np.dot(cell_center, normal.T))), axis=1) # flip normals as needed
-                        area_summed = np.sum(area) # ridge area where cells meet
-                    
+                        # get list of triangles
+                        for tri_idx in range(1, len(face_vertices) - 1):
+                            triangle = face_vertices[[0,tri_idx,tri_idx+1]]
 
-                        zarea_t[z1] += area_summed #add ridge area to total zone surface area
-                        zarea_s[z1][j] += area_summed # add ridge area to shared z1 z2 surface area
-                        
-                        # record triangles info
-                        for normal_i, triangle_i in zip (normal, triangles):
-
-                            triangle_norms.append(normal_i)
-                            triangles_verts.append(triangle_i)
+                            triangle_norms.append(normal_vector)
+                            triangles_verts.append(triangle)
                             triangle_zones.append(z1)
                             triangle_cells.append(i)
-        
+                        
+                        ##########################################
 
+        
+        #print(len(np.unique(triangle_cells)), np.unique(triangle_cells))
 
         self.zlinks = zlinks
         
