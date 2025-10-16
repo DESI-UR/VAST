@@ -16,7 +16,6 @@ from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 
 
-
 # Can't do 'from python.vast._git import get_version' since 'python' is just a 
 # folder in our repository, and not a python package itself
 # Instead, moving the two utility functions from the _git.py module directly 
