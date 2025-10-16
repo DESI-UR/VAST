@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 74.1", "cython >= 3.0", "numpy >= 1.19"]
+requires = ["setuptools >= 80.0", "cython >= 3.0", "numpy >= 2.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,13 +11,13 @@ authors = [
      {name = "Hernan Rincon", email = "hrincon@ur.rochester.edu"},
      {name = "Dahlia Veyrat", email = "dveyrat@ur.rochester.edu"},
      {name = "Segev BenZvi", email = "segev.benzvi@rochester.edu"},
-     {name = "Stephen W. O'Neill"}
+     {name = "Stephen W. O'Neill", email = "soneill5045@gmail.com"}
 ]
 license = "BSD-3-Clause"
 license-files = ["LICEN[CS]E*"]
 readme = {file = "README.md", content-type = "text/markdown"}
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 dependencies = [
     "numpy",
