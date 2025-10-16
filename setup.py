@@ -16,12 +16,12 @@ from setuptools.extension import Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 
 
-# Can't do 'rom python.vast._git import get_version' since 'python' is just a folder in our
-# repository, and not a python package itself
-# Instead, moving the two utility functions from the _git.py module directly here since
-# this is the only place they are used anyway, they are simple, and Segev wrote nice
-# docstrings.  If we need some more complex get_version() machinery we can revisit this 
-# at that time.
+# Can't do 'from python.vast._git import get_version' since 'python' is just a 
+# folder in our repository, and not a python package itself
+# Instead, moving the two utility functions from the _git.py module directly 
+# here since this is the only place they are used anyway, they are simple, and 
+# Segev wrote nice docstrings.  If we need some more complex get_version() 
+# machinery we can revisit this at that time.
 # from python.vast._git import get_version
 
 """Some code for interacting with git.
@@ -112,9 +112,10 @@ class build_ext(_build_ext):
 #
 # Identify all Cython extensions and add them to the extensions list.
 #
-# The define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")] gets rid of the
-# annoying numpy API warnings, and the extra_compile_args=["-Wno-maybe-uninitialized"]
-# removes all the warnings about using variables which may be uninitialized
+# The define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")] gets rid 
+# of the annoying numpy API warnings, and the 
+# extra_compile_args=["-Wno-maybe-uninitialized"] removes all the warnings about 
+# using variables which may be uninitialized
 ext_modules = []
 extfiles = glob('python/vast/voidfinder/*.pyx') + \
            glob('python/vast/voidfinder/*/*.pyx') + \
