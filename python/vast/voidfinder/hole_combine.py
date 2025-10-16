@@ -154,7 +154,7 @@ def combine_holes_2(x_y_z_r_array,
                     min_maximal_radius=10.0,
                     hole_join_frac=0.5,
                     verbose=0,
-                    maximal_spheres_only = False,
+                    maximal_spheres_only = False
                     ):
     """
     Perform 3 steps to unionize the found holes into Voids.
