@@ -159,9 +159,10 @@ def combine_holes_2(x_y_z_r_array,
     """
     Perform 3 steps to unionize the found holes into Voids.
     
-    1).  Remove specific duplicate holes
-    2).  Find holes which qualify as a Maximal
-    3).  Join all other holes to the Maximals to form Voids.
+    1)  Remove specific duplicate holes.
+    2)  Find holes which qualify as a Maximal.
+    3)  Join all other holes to the Maximals to form Voids 
+        (if maximal_spheres_only == False).
     
 
     PARAMETERS
@@ -173,7 +174,9 @@ def combine_holes_2(x_y_z_r_array,
     boundary_holes : ndarray of shape (N,)
         whether or not the hole is on the survey boundary
 
-    mask_checker : 
+    mask_checker : _voidfinder_cython_find_next.MaskChecker
+        class which can be used to determine if a spatial location has left the 
+        valid areas of space
         
     dup_tol : float 
         the tolerance in units of distance to check 2 hole centers
@@ -190,7 +193,16 @@ def combine_holes_2(x_y_z_r_array,
         
     hole_join_frac : float in [0,1.0)
         the fraction of the hole's volume required to overlap for a maximal
-        for the hole to join that maximal's Void    
+        for the hole to join that maximal's Void
+
+    verbose : integer
+        Determines how much of various progress statements are printed while 
+        running.  Default is 0 (minimal messages printed)
+
+    maximal_spheres_only : boolean
+        Determines whether only the maximal spheres are returned.  Default is 
+        False (maximals + all holes returned).  If true, maximal spheres are not 
+        checked for how close they are to the boundary.
     
 
     RETURNS
@@ -202,7 +214,8 @@ def combine_holes_2(x_y_z_r_array,
 
     holes_table : astropy table of length P
         Table containing the holes from x_y_z_r_array that are part of a void, 
-        including the maximal spheres.
+        including the maximal spheres.  If maximal_spheres_only == True, this 
+        table is empty.
     """
     
     if verbose > 0:
@@ -285,12 +298,13 @@ def combine_holes_2(x_y_z_r_array,
     #---------------------------------------------------------------------------
     maximals_table = Table(maximals_xyzr, names=('x','y','z','radius'))
     maximals_table["void"] = np.arange(maximals_xyzr.shape[0])
+
+    # Initialize holes_table (empty if we are only finding maximals)
+    holes_table =  Table(names=('x','y','z','radius','void'))
     
     if not maximal_spheres_only:
         holes_table =  Table(holes_xyzr, names=('x','y','z','radius'))
         holes_table["void"] = holes_flag_index
-    
-    holes_table =  Table(names=('x','y','z','radius','void')) #REPLACED BY HERNAN
     ############################################################################
 
 

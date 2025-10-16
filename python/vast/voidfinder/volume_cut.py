@@ -292,7 +292,7 @@ def check_hole_bounds(x_y_z_r_array,
                                                   mask_checker,
                                                   cut_pct,
                                                   pts_per_unit_volume,
-                                                  num_surf_pts,) 
+                                                  num_surf_pts) 
         
     else:
         
@@ -303,7 +303,7 @@ def check_hole_bounds(x_y_z_r_array,
                                                  num_surf_pts,
                                                  num_cpus,
                                                  verbose=verbose,
-                                                SOCKET_PATH=SOCKET_PATH,)
+                                                 SOCKET_PATH=SOCKET_PATH)
         
     return valid_index, monte_index
     
