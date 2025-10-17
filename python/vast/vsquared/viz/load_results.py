@@ -55,7 +55,7 @@ if __name__ == "__main__":
     print(voids_data)
 """
 
-def load_void_data(catalog):
+def load_void_data(infilename):
     '''
     Load voids as formatted for Vsquared
 
@@ -84,11 +84,13 @@ def load_void_data(catalog):
         the void ID of each galaxy's nearest neighbor
 
     '''
-    #read in voids file  
-    voids_data = catalog.triangle
-    gv_data = catalog.galviz
+    #read in voids file
+    catalog = open_fits_file_V2(infilename)
+    
+    voids_data = Table(catalog['TRIANGLE'].data)
+    gv_data = Table(catalog['GALVIZ'].data)
 
-    #del catalog
+    del catalog
     #make column names lowercase
     for colname in voids_data.colnames:
         voids_data[colname].name = colname.lower()
@@ -121,7 +123,7 @@ def load_void_data(catalog):
     voids_norm[:,0] = voids_data['n_x']
     voids_norm[:,1] = voids_data['n_y']
     voids_norm[:,2] = voids_data['n_z']
-    voids_id[:] = voids_data["void"]
+    voids_id[:] = voids_data["void_id"]
 
     # gal_viz contains the void ID of each galaxy
     gal_viz = gv_data['g2v']

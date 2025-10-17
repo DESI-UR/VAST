@@ -5,7 +5,7 @@
 # Import modules
 #-------------------------------------------------------------------------------
 from vast.vsquared.viz import VoidRender, load_void_data, load_galaxy_data
-from vast.catalog.void_catalog import V2Catalog
+
 import numpy as np
 
 from vispy.color import Colormap
@@ -16,9 +16,7 @@ from vispy.color import Colormap
 ################################################################################
 # Load data
 #-------------------------------------------------------------------------------
-vsquared_voids_path = 'DR7_V2_VIDE_Output.fits'
-vsquared_catalog = V2Catalog(vsquared_voids_path)
-voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data(vsquared_catalog)
+voids_tri_x, voids_tri_y, voids_tri_z, voids_norm, voids_id, gal_viz, gal_opp = load_void_data("DR7_V2_VIDE_Output.fits")
 
 galaxy_data = load_galaxy_data("vollim_dr7_cbp_102709.fits")
 
