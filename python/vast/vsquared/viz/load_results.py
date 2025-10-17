@@ -123,7 +123,7 @@ def load_void_data(infilename):
     voids_norm[:,0] = voids_data['n_x']
     voids_norm[:,1] = voids_data['n_y']
     voids_norm[:,2] = voids_data['n_z']
-    voids_id[:] = voids_data["void_id"]
+    voids_id[:] = voids_data["void"]
 
     # gal_viz contains the void ID of each galaxy
     gal_viz = gv_data['g2v']
