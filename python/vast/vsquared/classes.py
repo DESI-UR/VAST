@@ -928,7 +928,7 @@ class Zones:
             triangle_norms = []
             triangles_verts = []
             triangle_zones = []
-            triangle_cells = []
+            triangle_zone_links = []
             
 
         if verbose > 0:
@@ -983,7 +983,7 @@ class Zones:
                                 triangle_norms.append(normal_vector)
                                 triangles_verts.append(triangle)
                                 triangle_zones.append(z1)
-                                triangle_cells.append(i)
+                                triangle_zone_links.append(z2)
                             
                     continue
                 
@@ -1037,13 +1037,11 @@ class Zones:
                             triangle_norms.append(normal_vector)
                             triangles_verts.append(triangle)
                             triangle_zones.append(z1)
-                            triangle_cells.append(i)
+                            triangle_zone_links.append(z2)
                         
                         ##########################################
 
         
-        #print(len(np.unique(triangle_cells)), np.unique(triangle_cells))
-
         self.zlinks = zlinks
         
         print("Zone linking time: ", time.time() - link_time)
@@ -1104,7 +1102,7 @@ class Zones:
             self.triangle_norms = np.array(triangle_norms)
             self.triangles = np.array(triangles_verts)	
             self.triangle_zones = np.array(triangle_zones) 
-            self.triangle_cells = triangle_cells
+            self.triangle_zone_links = np.array(triangle_zone_links)
 
 
 class Voids:

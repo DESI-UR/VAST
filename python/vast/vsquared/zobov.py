@@ -863,18 +863,8 @@ class Zobov:
         triangle_norms = self.zones.triangle_norms 
         vertices = self.zones.triangles
         triangle_zones = self.zones.triangle_zones
-        triangle_cells = self.zones.triangle_cells
-
+        triangle_zone_links = self.zones.triangle_zone_links
         
-        """
-        vertices = []
-        for cell_idx, triangle in zip(triangle_cells, triangles):
-            vertices_of_triangle = self.tessellation.cells[cell_idx].get_vertices()[triangle]
-            vertices.append(vertices_of_triangle)
-        
-        vertices = np.array(vertices)
-        """
-
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname)
 
@@ -885,10 +875,16 @@ class Zobov:
         zones_to_voids = dict(zip(zones, containing_void))
 
         vid = np.vectorize(zones_to_voids.get)(triangle_zones) 
-
+        triangle_neighbor_voids = np.full(vid.shape,-1)
+        select_voids = (vid != -1)
+        sub_links = np.vectorize(zones_to_voids.get)(triangle_zone_links[select_voids]) 
+        combined_mask = np.zeros_like(select_voids, dtype=bool)
+        combined_mask[np.where(select_voids)] = sub_links!=None
+        triangle_neighbor_voids[combined_mask] = sub_links[sub_links!=None]
         # cut down triangle data to match void prunning
-
-        select_voids = vid != -1
+        # triangles are in a valid void and do not border a zone in the same void
+        select_voids = (vid != -1) * (vid != triangle_neighbor_voids)
+        
         vid = vid[select_voids]
         vertices = vertices[select_voids]
         triangle_norms = triangle_norms[select_voids]
