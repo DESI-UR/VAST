@@ -128,7 +128,7 @@ class Zobov:
         #if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
         #    print("Choose valid stages")
         #    return
-
+        
         if visualize*periodic:
             print("Visualization not implemented for periodic boundary conditions: changing to false")
             self.visualize = False
@@ -873,22 +873,17 @@ class Zobov:
         zones = hdul['ZONEVOID'].data['zone']
         containing_void = hdul['ZONEVOID'].data['void1'] 
         zones_to_voids = dict(zip(zones, containing_void))
+        zones_to_voids[-1]=-1
 
         vid = np.vectorize(zones_to_voids.get)(triangle_zones) 
-        triangle_neighbor_voids = np.full(vid.shape,-1)
-        select_voids = (vid != -1)
-        sub_links = np.vectorize(zones_to_voids.get)(triangle_zone_links[select_voids]) 
-        combined_mask = np.zeros_like(select_voids, dtype=bool)
-        combined_mask[np.where(select_voids)] = sub_links!=None
-        triangle_neighbor_voids[combined_mask] = sub_links[sub_links!=None]
+        triangle_neighbor_voids = np.vectorize(zones_to_voids.get)(triangle_zone_links) 
+
         # cut down triangle data to match void prunning
         # triangles are in a valid void and do not border a zone in the same void
         select_voids = (vid != -1) * (vid != triangle_neighbor_voids)
-        
         vid = vid[select_voids]
         vertices = vertices[select_voids]
         triangle_norms = triangle_norms[select_voids]
-
         if len(vid)==0:
             print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")
             return

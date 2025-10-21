@@ -460,7 +460,7 @@ class Tesselation:
         if periodic:
 
             periodic_boundaries = (True, True, True)
-            limits = np.array([self.cmin, self.cmax])
+            limits = np.array([cat.cmin, cat.cmax])
 
         else:
 
@@ -529,6 +529,7 @@ class Tesselation:
                                                        r_min,
                                                        mask_uint8,
                                                        xyz,
+                                                       periodic,
                                                        cat.cmin,
                                                        cat.cmax,
                                                        nside
@@ -566,6 +567,7 @@ class Tesselation:
                                  r_min,
                                  mask_uint8,
                                  xyz_mode,
+                                 periodic_mode,
                                  cmin,
                                  cmax,
                                  nside,
@@ -584,35 +586,37 @@ class Tesselation:
 
     
                 vertices = cell.get_vertices()
+
+                if not xyz_mode and not periodic_mode:
     
-                ################################################################################
-                # We will need some radial information about the verticies to know whether to
-                # include those galaxies or not
-                ################################################################################
-                
-                vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
-                
-                #using <= and >= since original code inversely checked just > and <
-                if np.any(vrh <= r_min) or np.any(vrh >= r_max):
-                    continue
-    
-                ################################################################################
-                # We will also need to know whether the verticies are within the mask to include 
-                # those volumes or not, so calculate the sky angles of the vertex locations
-                # and throw them into the healpix utility function to get the mask values
-                # corresponding to those locations
-                ################################################################################
+                    ################################################################################
+                    # We will need some radial information about the verticies to know whether to
+                    # include those galaxies or not
+                    ################################################################################
+                    
+                    vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
+                    
+                    #using <= and >= since original code inversely checked just > and <
+                    if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                        continue
         
-                vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
-                        
-                verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
-                        
-                pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
-                        
-                verticies_in_mask = mask_uint8[pix_ids]
-        
-                if np.any(verticies_in_mask==0):
-                    continue
+                    ################################################################################
+                    # We will also need to know whether the verticies are within the mask to include 
+                    # those volumes or not, so calculate the sky angles of the vertex locations
+                    # and throw them into the healpix utility function to get the mask values
+                    # corresponding to those locations
+                    ################################################################################
+            
+                    vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
+                            
+                    verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
+                            
+                    pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
+                            
+                    verticies_in_mask = mask_uint8[pix_ids]
+            
+                    if np.any(verticies_in_mask==0):
+                        continue
 
                 ################################################################################
                 # Calculate the region volume
@@ -678,6 +682,7 @@ class Tesselation:
                                                   r_min,
                                                   mask_uint8,
                                                   xyz_mode,
+                                                  periodic_mode,
                                                   cmin,
                                                   cmax,
                                                   nside
@@ -704,6 +709,7 @@ class Tesselation:
                                   r_min,
                                   mask_uint8,
                                   xyz_mode,
+                                  periodic_mode,
                                   cmin,
                                   cmax,
                                   nside
@@ -740,34 +746,36 @@ class Tesselation:
 
             vertices = cell.get_vertices()
 
-            ################################################################################
-            # We will need some radial information about the verticies to know whether to
-            # include those galaxies or not
-            ################################################################################
-            
-            vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
-            
-            #using <= and >= since original code inversely checked just > and <
-            if np.any(vrh <= r_min) or np.any(vrh >= r_max):
-                continue
+            if not xyz_mode and not periodic_mode:
 
-            ################################################################################
-            # We will also need to know whether the verticies are within the mask to include 
-            # those volumes or not, so calculate the sky angles of the vertex locations
-            # and throw them into the healpix utility function to get the mask values
-            # corresponding to those locations
-            ################################################################################
+                ################################################################################
+                # We will need some radial information about the verticies to know whether to
+                # include those galaxies or not
+                ################################################################################
+                
+                vrh = np.linalg.norm(vertices, axis=1).astype(np.float64)
+                
+                #using <= and >= since original code inversely checked just > and <
+                if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                    continue
     
-            vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
-                    
-            verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
-                    
-            pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
-                    
-            verticies_in_mask = mask_uint8[pix_ids]
-    
-            if np.any(verticies_in_mask==0):
-                continue
+                ################################################################################
+                # We will also need to know whether the verticies are within the mask to include 
+                # those volumes or not, so calculate the sky angles of the vertex locations
+                # and throw them into the healpix utility function to get the mask values
+                # corresponding to those locations
+                ################################################################################
+        
+                vertices_theta = np.arctan2(np.sqrt(vertices[:,0]**2. + vertices[:,1]**2.), vertices[:,2]) 
+                        
+                verticies_phi = np.arctan2(vertices[:,1], vertices[:,0])
+                        
+                pix_ids = hp.ang2pix(nside, vertices_theta, verticies_phi) 
+                        
+                verticies_in_mask = mask_uint8[pix_ids]
+        
+                if np.any(verticies_in_mask==0):
+                    continue
 
             ################################################################################
             # Calculate the region volume
