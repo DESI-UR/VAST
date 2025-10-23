@@ -623,7 +623,7 @@ class Zobov:
         
         # Apply central density cut 
         # -----------------------
-        dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
+        dcut  = np.array([64.*len(cutco[inSphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)])/vvols[i] for i in range(len(vrads))])<1./minvol
         rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
         # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
         if method == 0:

@@ -82,7 +82,7 @@ def toSky(cs,H0,Om_m,zstep):
     return z,ra,dec
 
 
-def inSphere(cs, r, coords):
+def inSphere(cs, r, coords, periodic, cmin, cmax):
     """
     Checks if a set of comoving coordinates are within a sphere.
 
@@ -98,13 +98,33 @@ def inSphere(cs, r, coords):
     coords : list or ndarray
         Comoving xyz-coordinates.
 
+    periodic: boolean
+        Flag indicating periodic mode
+
+    cmin: array
+        Minimum coordinates
+        
+    cmin: array
+        Maximum coordinates
+
     Returns
     =======
 
     inSphere : bool
         True if abs(coords - cs) < r.
     """
-    return np.sum((cs.reshape(3,1) - coords.T)**2., axis=0)<r**2.
+    if not periodic:
+        return np.sum((cs.reshape(3,1) - coords.T)**2., axis=0)<r**2.
+
+    box_size = (cmax - cmin)
+
+    transformed_coords = np.array(coords)
+
+    transformed_coords = transformed_coords - cs + box_size / 2
+
+    transformed_coords = transformed_coords % box_size
+
+    return np.sum((box_size.reshape(3,1) / 2 - transformed_coords.T)**2., axis=0)<r**2.
 
 
 def getBuff(cin, idsin, cmin, cmax, buff, n):
@@ -228,13 +248,15 @@ def getSMA(vrad,coords, periodic, cmin, cmax):
         #raise ValueError('periodic mode not implimented')
         box_size = (cmax - cmin)
 
-        coords = coords - coords[0] + box_size / 2
+        transformed_coords = np.array(coords)
 
-        coords = coords % box_size
+        transformed_coords = transformed_coords - coords[0] + box_size / 2
+
+        transformed_coords = transformed_coords % box_size
 
     
     iTen = np.zeros((3,3))
-    for p in coords:
+    for p in transformed_coords:
         iTen = iTen + np.array([[p[1]**2.+p[2]**2.,0,0],[0,p[0]**2.+p[2]**2.,0],[0,0,p[0]**2.+p[1]**2.]])
         iTen = iTen - np.array([[0,p[0]*p[1],p[0]*p[2]],[p[0]*p[1],0,p[1]*p[2]],[p[0]*p[2],p[1]*p[2],0]])
     eival,eivec = np.linalg.eig(iTen)
