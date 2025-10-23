@@ -129,11 +129,11 @@ class Zobov:
         #    print("Choose valid stages")
         #    return
         
-        """if visualize*periodic:
+        if visualize*periodic:
             print("Visualization not implemented for periodic boundary conditions: changing to false")
             self.visualize = False
-        else:"""
-        self.visualize = visualize
+        else:
+            self.visualize = visualize
             
         self.periodic = periodic
         self.xyz = False if periodic*xyz or not xyz else True
