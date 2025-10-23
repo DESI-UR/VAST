@@ -201,7 +201,6 @@ def wCen(vols,coords, periodic, cmin, cmax):
     if not periodic:
         return np.sum(vols.reshape(len(vols),1)*coords,axis=0)/np.sum(vols)
 
-    #raise ValueError('periodic mode not implimented')
     transformed_coords = np.array(coords)
 
     box_size = (cmax - cmin)
@@ -245,7 +244,7 @@ def getSMA(vrad,coords, periodic, cmin, cmax):
         Ellipsoid semi-major axes for voids.
     """
     if periodic:
-        #raise ValueError('periodic mode not implimented')
+        
         box_size = (cmax - cmin)
 
         transformed_coords = np.array(coords)
@@ -253,7 +252,8 @@ def getSMA(vrad,coords, periodic, cmin, cmax):
         transformed_coords = transformed_coords - coords[0] + box_size / 2
 
         transformed_coords = transformed_coords % box_size
-
+    else:
+        transformed_coords = coords
     
     iTen = np.zeros((3,3))
     for p in transformed_coords:

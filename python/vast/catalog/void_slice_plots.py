@@ -1224,6 +1224,8 @@ class VoidMapV2():
                     
                     if return_plot_data:
                         plot_data.append([Intra2[j],Intr2[j]])
+                # This code appears to be designed to fill in small holes in voids with the backround color (white)
+                # but it doesn't work as intended and instead fills entire voids with white
                 #for j in range(len(Intr2)):
                 #    if Icut[j]:
                 #        aux_ax3.plot(Intra2[j],Intr2[j],color='blue')
