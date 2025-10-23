@@ -157,7 +157,7 @@ def getBuff(cin, idsin, cmin, cmax, buff, n):
     return cout, np.array(idsout)
 
 
-def wCen(vols,coords):
+def wCen(vols,coords, periodic, cmin, cmax):
     """Find the weighted center of tracers' Voronoi cells.
 
     Parameters
@@ -166,16 +166,44 @@ def wCen(vols,coords):
         Array of Voronoi volumes.
     coords : ndarray
         Array of cells' positions.
-
+    periodic: boolean
+        Flag indicating periodic mode
+    cmin: array
+        Minimum coordinates
+    cmin: array
+        Maximum coordinates
+        
     Returns
     -------
     wCen : ndarray
         Weighted center of tracers' Voronoi cells.
     """
-    return np.sum(vols.reshape(len(vols),1)*coords,axis=0)/np.sum(vols)
+    if not periodic:
+        return np.sum(vols.reshape(len(vols),1)*coords,axis=0)/np.sum(vols)
+
+    #raise ValueError('periodic mode not implimented')
+    transformed_coords = np.array(coords)
+
+    box_size = (cmax - cmin)
+
+    transformed_coords = transformed_coords - coords[0] + box_size / 2
+    transformed_coords = transformed_coords % box_size
+    
+    center = np.sum(vols.reshape(len(vols),1)*transformed_coords,axis=0)/np.sum(vols)
+        
+    center = center + coords[0] - box_size / 2
+    
+    center = center - cmin
+    center = center % box_size
+    center = center + cmin
+
+    if np.any((np.max(transformed_coords, axis=0) - np.min(transformed_coords, axis=0)) >= box_size/2):
+        print('WARNING: A void has been detected in periodic mode that is longer in at least one dimension than half the simulation width. The void center and best fit ellipsoid may not be accurately caclulated.')
+
+    return center
 
 
-def getSMA(vrad,coords):
+def getSMA(vrad,coords, periodic, cmin, cmax):
     """Convert tracers and void effective radius to ellipsoid semi-major axes.
 
     Parameters
@@ -184,12 +212,27 @@ def getSMA(vrad,coords):
         List of void radii.
     coords : ndarray
         Array of void coordinates.
+    periodic: boolean
+        Flag indicating periodic mode
+    cmin: array
+        Minimum coordinates
+    cmin: array
+        Maximum coordinates
 
     Returns
     -------
     sma : ndarray
         Ellipsoid semi-major axes for voids.
     """
+    if periodic:
+        #raise ValueError('periodic mode not implimented')
+        box_size = (cmax - cmin)
+
+        coords = coords - coords[0] + box_size / 2
+
+        coords = coords % box_size
+
+    
     iTen = np.zeros((3,3))
     for p in coords:
         iTen = iTen + np.array([[p[1]**2.+p[2]**2.,0,0],[0,p[0]**2.+p[2]**2.,0],[0,0,p[0]**2.+p[1]**2.]])

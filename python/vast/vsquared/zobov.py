@@ -129,11 +129,11 @@ class Zobov:
         #    print("Choose valid stages")
         #    return
         
-        if visualize*periodic:
+        """if visualize*periodic:
             print("Visualization not implemented for periodic boundary conditions: changing to false")
             self.visualize = False
-        else:
-            self.visualize = visualize
+        else:"""
+        self.visualize = visualize
             
         self.periodic = periodic
         self.xyz = False if periodic*xyz or not xyz else True
@@ -614,7 +614,8 @@ class Zobov:
         # Identify void centers.
         if self.verbose > 0:
             print("Finding void centers...")
-        vcens = np.array([wCen(self.tessellation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
+        
+        vcens = np.array([wCen(self.tessellation.volumes[vcut], cutco[vcut], self.periodic, self.cmin, self.cmax) for vcut in vcuts])
         
         
         # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
@@ -651,7 +652,7 @@ class Zobov:
         if self.verbose > 0:
             print("Calculating ellipsoid axes...")
 
-        vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
+        vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]], self.periodic, self.cmin, self.cmax) for i in range(len(vrads))])
 
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
         
