@@ -9,12 +9,19 @@ from astropy.table import Table
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM
 import time
+import os
+import mmap
+import tempfile
+import multiprocessing
+from multiprocessing import Value, Process# Pool, shared_memory
+from ctypes import c_int64
 
+#from itertools import repeat
 
 from vast.vsquared.util import toSky, \
-                               inSphere, \
-                               wCen, \
-                               getSMA, \
+                               num_coords_in_sphere, dcut_worker,\
+                               wCen, wCen_worker,\
+                               getSMA, getSMA_worker,\
                                P, \
                                flatten, \
                                open_fits_file_V2, \
@@ -157,7 +164,7 @@ class Zobov:
         
         self.outdir  = config['Paths']['Output Directory']
         
-        self.intloc  = "../../intermediate/" + self.catname
+        self.intloc  = self.outdir +"/intermediate/" + self.catname
         
         self.H0   = float(config['Cosmology']['H_0'])
         
@@ -614,16 +621,124 @@ class Zobov:
         # Identify void centers.
         if self.verbose > 0:
             print("Finding void centers...")
-        
-        vcens = np.array([wCen(self.tessellation.volumes[vcut], cutco[vcut], self.periodic, self.cmin, self.cmax) for vcut in vcuts])
+        if self.num_cpus == 1:
+            vcens = np.array([wCen(self.tessellation.volumes[vcut], cutco[vcut], self.periodic, self.cmin, self.cmax) for vcut in vcuts])
+        else:
+            
+            num_voids = len(vcuts)
+            
+            index_coordinator = Value(c_int64, 0, lock=True)
+
+            buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_vol", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            buffer_length = num_voids*8*3
+            
+            os.ftruncate(buffer_directory, buffer_length)
+            
+            array_buffer = mmap.mmap(buffer_directory, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vcens = np.frombuffer(array_buffer, dtype=np.float64)
+            
+            vcens[:] = 0
+    
+            vcens.shape = (num_voids, 3)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+
+                p = startup_context.Process(target=wCen_worker, 
+                                            args=(num_voids, 
+                                                  index_coordinator, 
+                                                  buffer_directory,
+                                                  vcuts,
+                                                  self.tessellation.volumes, 
+                                                  cutco, 
+                                                  self.periodic, 
+                                                  self.cmin, 
+                                                  self.cmax
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
         
         
         # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
         minvol *= zone_linking_cut / central_density_cut
+
+        if self.verbose > 0:
+            print("Cutting on central density...")
         
         # Apply central density cut 
         # -----------------------
-        dcut  = np.array([64.*len(cutco[inSphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)])/vvols[i] for i in range(len(vrads))])<1./minvol
+        if self.num_cpus == 1:
+            dcut = np.array([64.*num_coords_in_sphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)/vvols[i] for i in range(len(vrads))])<1./minvol
+        else:
+            
+            num_voids = len(vrads)
+            
+            index_coordinator = Value(c_int64, 0, lock=True)
+
+            buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_dcut", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            buffer_length = num_voids # 1 byte bool
+            
+            os.ftruncate(buffer_directory, buffer_length)
+            
+            array_buffer = mmap.mmap(buffer_directory, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            dcut = np.frombuffer(array_buffer, dtype=np.bool)
+            
+            dcut[:] = 0
+    
+            dcut.shape = (num_voids,)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+
+                p = startup_context.Process(target=dcut_worker, 
+                                            args=(num_voids, 
+                                                  index_coordinator, 
+                                                  buffer_directory,
+                                                  vcens,
+                                                  vrads,
+                                                  cutco,
+                                                  vvols,
+                                                  minvol,
+                                                  self.periodic, 
+                                                  self.cmin, 
+                                                  self.cmax
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+            
+        #dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco, self.periodic, self.cmin, self.cmax)])/vvols[i] for i in range(len(vrads))])<1./minvol
         rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
         # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
         if method == 0:
@@ -631,8 +746,11 @@ class Zobov:
             vcens = vcens[dcut*rcut]
             voids = voids[dcut*rcut]
         # -----------------------
+
+        if self.verbose > 0:
+            print("Determining edge voids...")
         
-        vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
+        
         if self.visualize:
             varea_0 = [np.sum(self.zones.zarea_0[np.array(voi, dtype=int)]) for voi in voids]
             varea_t = [np.sum(self.zones.zarea_t[np.array(voi, dtype=int)]) for voi in voids]
@@ -647,13 +765,69 @@ class Zobov:
                         if z2 in self.zones.zlinks[0][z1]:
                             l = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
                             varea_s[i] += self.zones.zarea_s[z1][l]
+        else:
+            vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
 
         # Identify eigenvectors of best-fit ellipsoid for each void.
         if self.verbose > 0:
             print("Calculating ellipsoid axes...")
 
-        vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]], self.periodic, self.cmin, self.cmax) for i in range(len(vrads))])
+        if self.num_cpus == 1:
+            vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]], self.periodic, self.cmin, self.cmax) for i in range(len(vrads))])
+        else:
+            
+            num_voids = len(vrads)
+            
+            index_coordinator = Value(c_int64, 0, lock=True)
 
+            buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_ell", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            buffer_length = num_voids*8*3*3
+            
+            os.ftruncate(buffer_directory, buffer_length)
+            
+            array_buffer = mmap.mmap(buffer_directory, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vaxes = np.frombuffer(array_buffer, dtype=np.float64)
+            
+            vaxes[:] = 0
+    
+            vaxes.shape = (num_voids, 3,3)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+
+                p = startup_context.Process(target=getSMA_worker, 
+                                            args=(num_voids,
+                                                index_coordinator,
+                                                buffer_directory,
+                                                vrads,
+                                                vcuts,
+                                                cutco, 
+                                                self.periodic, 
+                                                self.cmin, 
+                                                self.cmax,
+                                               ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+
+        if self.verbose > 0:
+            print("Calculating zone information...")
+            
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
         
         #iterate over voids
@@ -680,10 +854,11 @@ class Zobov:
         if self.verbose > 0:
             print("SortVoids time: ", time.time() - start_time)
 
-        self.vhzn = (np.array(vhzn)).astype(bool)
         if self.visualize:
             self.varea_0 = np.array(varea_0)
             self.varea_t = np.array(varea_t)-varea_s
+        else:
+            self.vhzn = (np.array(vhzn)).astype(bool)
 
 
 

@@ -5,6 +5,8 @@ from astropy.cosmology import FlatLambdaCDM, z_at_value
 from scipy import interpolate
 from astropy.io import fits
 import os
+import mmap
+
 
 c    = 3e5
 D2R  = np.pi/180.
@@ -81,8 +83,122 @@ def toSky(cs,H0,Om_m,zstep):
     #z = H0*r/c
     return z,ra,dec
 
+def dcut_worker(num_voids,
+                index_coordinator,
+                buffer_directory,
+                vcens,
+                vrads,
+                coords, 
+                vvols,
+                minvol,
+                periodic, 
+                cmin, 
+                cmax,
+               ):
+    """Find the weighted center of tracers' Voronoi cells.
 
+    Parameters
+    ----------
+    vols : ndarray
+        Array of Voronoi volumes.
+    coords : ndarray
+        Array of cells' positions.
+    periodic: boolean
+        Flag indicating periodic mode
+    cmin: array
+        Minimum coordinates
+    cmin: array
+        Maximum coordinates
+        
+    Returns
+    -------
+    wCen : ndarray
+        Weighted center of tracers' Voronoi cells.
+    """
+   
+                                 
+    
+    buffer_length = num_voids #bool so 1 bytes per element
+
+    buffer = mmap.mmap(buffer_directory, buffer_length)
+    
+    dcut = np.frombuffer(buffer, dtype=np.bool)
+
+    dcut.shape = (num_voids,)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= num_voids:
+            break
+
+        vcen = vcens[curr_index]
+        vrad = vrads[curr_index]
+        vvol = vvols[curr_index]
+
+        void_cut = 64.* num_coords_in_sphere(vcen, vrad/4., coords, periodic, cmin, cmax) / vvol <1./ minvol
+    
+        dcut[curr_index] = void_cut
+        
+
+"""
 def inSphere(cs, r, coords, periodic, cmin, cmax):
+    '''
+    Checks if a set of comoving coordinates are within a sphere.
+
+    Parameters
+    ==========
+
+    cs : list or ndarray
+        Center of sphere.
+
+    r : float
+        Sphere volume.
+
+    coords : list or ndarray
+        Comoving xyz-coordinates.
+
+    periodic: boolean
+        Flag indicating periodic mode
+
+    cmin: array
+        Minimum coordinates
+        
+    cmin: array
+        Maximum coordinates
+
+    Returns
+    =======
+
+    inSphere : bool array
+        True if abs(coords - cs) < r.
+    '''
+    if not periodic:
+        #return np.sum((cs.reshape(3,1) - coords.T)**2., axis=0)<r**2.
+        return np.sum((cs - coords)**2., axis=1)<r**2.
+
+    box_size = (cmax - cmin)
+
+    transformed_coords = np.array(coords)
+
+    transformed_coords = transformed_coords - cs + box_size / 2
+
+    transformed_coords = transformed_coords % box_size
+
+    return np.sum((box_size.reshape(3,1) / 2 - transformed_coords.T)**2., axis=0)<r**2.
+"""
+
+
+def num_coords_in_sphere(cs, r, coords, periodic, cmin, cmax):
     """
     Checks if a set of comoving coordinates are within a sphere.
 
@@ -110,21 +226,34 @@ def inSphere(cs, r, coords, periodic, cmin, cmax):
     Returns
     =======
 
-    inSphere : bool
-        True if abs(coords - cs) < r.
+    num_in_sphere : int
+        The number of coords that meet the condition abs(coords - cs) < r.
     """
     if not periodic:
-        return np.sum((cs.reshape(3,1) - coords.T)**2., axis=0)<r**2.
 
-    box_size = (cmax - cmin)
+        #in_sphere = np.sum((cs.reshape(3,1) - coords.T)**2., axis=0)<r**2.
+        diff = cs - coords
+        
+    else:
+        box_size = (cmax - cmin)
+    
+        transformed_coords = np.array(coords)
+    
+        transformed_coords = transformed_coords - cs + box_size / 2
+    
+        transformed_coords = transformed_coords % box_size
+    
+        #in_sphere = np.sum((box_size.reshape(3,1) / 2 - transformed_coords.T)**2., axis=0)<r**2.
+        diff = box_size / 2 - transformed_coords
+    
+    diff = np.power(diff, 2)
+    diff = np.sum(diff, axis = 1)
+    in_sphere = diff < r**2
 
-    transformed_coords = np.array(coords)
+    num_in_sphere = np.sum(in_sphere)
+    
+    return num_in_sphere
 
-    transformed_coords = transformed_coords - cs + box_size / 2
-
-    transformed_coords = transformed_coords % box_size
-
-    return np.sum((box_size.reshape(3,1) / 2 - transformed_coords.T)**2., axis=0)<r**2.
 
 
 def getBuff(cin, idsin, cmin, cmax, buff, n):
@@ -176,7 +305,68 @@ def getBuff(cin, idsin, cmin, cmax, buff, n):
                 
     return cout, np.array(idsout)
 
+def wCen_worker(num_voids,
+                index_coordinator,
+                buffer_directory,
+                vcuts,
+                vols,
+                coords, 
+                periodic, 
+                cmin, 
+                cmax,
+               ):
+    """Find the weighted center of tracers' Voronoi cells.
 
+    Parameters
+    ----------
+    vols : ndarray
+        Array of Voronoi volumes.
+    coords : ndarray
+        Array of cells' positions.
+    periodic: boolean
+        Flag indicating periodic mode
+    cmin: array
+        Minimum coordinates
+    cmin: array
+        Maximum coordinates
+        
+    Returns
+    -------
+    wCen : ndarray
+        Weighted center of tracers' Voronoi cells.
+    """
+   
+                                 
+    
+    buffer_length = num_voids*8*3 #float64 so 8 bytes per element
+
+    buffer = mmap.mmap(buffer_directory, buffer_length)
+    
+    vcens = np.frombuffer(buffer, dtype=np.float64)
+
+    vcens.shape = (num_voids, 3)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= num_voids:
+            break
+
+        vcut = vcuts[curr_index]
+    
+        void_center = wCen(vols[vcut],coords[vcut], periodic, cmin, cmax)
+        vcens[curr_index] = void_center
+    
+    
 def wCen(vols,coords, periodic, cmin, cmax):
     """Find the weighted center of tracers' Voronoi cells.
 
@@ -221,7 +411,68 @@ def wCen(vols,coords, periodic, cmin, cmax):
 
     return center
 
+def getSMA_worker(num_voids,
+                index_coordinator,
+                buffer_directory,
+                vrads,
+                vcuts,
+                coords, 
+                periodic, 
+                cmin, 
+                cmax,
+               ):
+    """Find the weighted center of tracers' Voronoi cells.
 
+    Parameters
+    ----------
+    vols : ndarray
+        Array of Voronoi volumes.
+    coords : ndarray
+        Array of cells' positions.
+    periodic: boolean
+        Flag indicating periodic mode
+    cmin: array
+        Minimum coordinates
+    cmin: array
+        Maximum coordinates
+        
+    Returns
+    -------
+    wCen : ndarray
+        Weighted center of tracers' Voronoi cells.
+    """
+   
+                                 
+    # need to edit for 2D array...
+    buffer_length = num_voids*8*3*3 #float64 so 8 bytes per element
+
+    buffer = mmap.mmap(buffer_directory, buffer_length)
+    
+    ellipses = np.frombuffer(buffer, dtype=np.float64)
+
+    ellipses.shape = (num_voids,3,3)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= num_voids:
+            break
+
+        vrad = vrads[curr_index]
+        vcut = vcuts[curr_index]
+    
+        eigenvalue = getSMA(vrad, coords[vcut], periodic, cmin, cmax)
+        ellipses[curr_index] = eigenvalue
+        
 def getSMA(vrad,coords, periodic, cmin, cmax):
     """Convert tracers and void effective radius to ellipsoid semi-major axes.
 
