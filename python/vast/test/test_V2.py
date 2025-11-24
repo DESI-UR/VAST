@@ -60,7 +60,23 @@ class TestV2(unittest.TestCase):
         TestV2.tess = classes.Tesselation(TestV2.cat, TestV2.nside)
 
         self.assertTrue(np.isclose(np.mean(TestV2.tess.volumes), 1600.190056988941))
+
+        # version with multivoro data structures
+        cells = tess.cells
+        num_gals = TestV2.tess.num_gals
         
+        out = []
+        for idx in range(num_gals):
+            
+            neighs = cells[idx].get_neighbors()
+            
+            #Should really be checking that these are the correct neighbors
+            #in some way rather than just the mean of the lengths
+            out.append(len(neighs))
+            
+        self.assertTrue(np.isclose(np.mean(out), 15.06))
+
+        """
         # Switched over to using the scipy data structures for this, so this
         # assertion will just not pass anymore, replaced it with code below
         #self.assertTrue(np.isclose(np.mean([len(nn) for nn in TestV2.tess.neighbors]), 16.06))
@@ -79,6 +95,8 @@ class TestV2(unittest.TestCase):
             out.append(len(neighs))
             
         self.assertTrue(np.isclose(np.mean(out), 15.06))
+        """
+        
         
         
         
@@ -137,10 +155,18 @@ class TestV2(unittest.TestCase):
         # Sort voids.
         self.assertFalse(hasattr(TestV2.zobov, 'vrads')) # before sortVoids
 
+        """
+        #mutlivoro objects can't be pickled, replace with duplicate creation
         zobov1 = copy.deepcopy(TestV2.zobov)
         zobov2 = copy.deepcopy(TestV2.zobov)
         zobov3 = copy.deepcopy(TestV2.zobov)
         zobov4 = copy.deepcopy(TestV2.zobov)
+        """
+        zobov1 = zobov.Zobov(TestV2.inifile, save_intermediate=False)
+        zobov2 = zobov.Zobov(TestV2.inifile, save_intermediate=False)
+        zobov3 = zobov.Zobov(TestV2.inifile, save_intermediate=False)
+        zobov4 = zobov.Zobov(TestV2.inifile, save_intermediate=False)
+        
         TestV2.zobov.sortVoids()
         zobov1.sortVoids(1)
         zobov2.sortVoids(2)

@@ -32,8 +32,8 @@ class TestV2Util(unittest.TestCase):
         c2 = np.array([0., 0., 0.5, 1.])
         c3 = np.array([-1., -1., -0.5, 0.])
         coord = np.array([c1,c2,c3]).T
-        insph = util.inSphere(cs, 1., coord)
-        self.assertTrue((insph == np.array([True, False, True, False])).all())
+        num_insph = util.num_coords_in_sphere(cs, 1., coord, False, [-3,-3,-3], [3,3,3])
+        self.assertTrue(num_insph == 2)
 
     def test_wCen(self):
         vols = np.array([1., 2., 3., 4.])
@@ -42,7 +42,7 @@ class TestV2Util(unittest.TestCase):
         c3 = np.array([0., 0., -100., 0.])
         coord = np.array([1000., 1000., 1000.]) + np.array([c1,c2,c3]).T
         wc = np.array([900., 1070., 970.])
-        wcen = util.wCen(vols, coord)
+        wcen = util.wCen(vols, coord, False, [-400,-400,-400], [400,400,400])
         self.assertTrue(np.isclose(wcen, wc).all())
 
     def test_SMA(self):
@@ -51,7 +51,7 @@ class TestV2Util(unittest.TestCase):
         c3 = np.array([0., 0., -100., 0.])
         coord = np.array([1000., 1000., 1000.]) + np.array([c1,c2,c3]).T
         ax2 = np.array([-12.3314653, 7.39154934, 4.1289785])
-        SMA = util.getSMA(10., coord)
+        SMA = util.getSMA(10., coord, False, [-400,-400,-400], [400,400,400])
         self.assertTrue(np.isclose(SMA[1],ax2).all())
 
     def test_prob_false_voids(self):
