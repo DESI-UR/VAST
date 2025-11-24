@@ -625,7 +625,10 @@ class Zobov:
         if self.num_cpus == 1:
             vcens = np.array([wCen(self.tessellation.volumes[vcut], cutco[vcut], self.periodic, self.cmin, self.cmax) for vcut in vcuts])
         else:
-            
+            #parallel version
+
+            # set up shared memory for parallel processes and then run processes
+                
             num_voids = len(vcuts)
             
             index_coordinator = Value(c_int64, 0, lock=True)
@@ -689,6 +692,9 @@ class Zobov:
             if self.num_cpus == 1:
                 dcut = np.array([64.*num_coords_in_sphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)/vvols[i] for i in range(len(vrads))])<1./minvol
             else:
+                #parallel version
+
+                # set up shared memory for parallel processes and then run processes
                 
                 num_voids = len(vrads)
                 
@@ -778,7 +784,10 @@ class Zobov:
         if self.num_cpus == 1:
             vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]], self.periodic, self.cmin, self.cmax) for i in range(len(vrads))])
         else:
-            
+            #parallel version
+
+            # set up shared memory for parallel processes and then run processes
+                
             num_voids = len(vrads)
             
             index_coordinator = Value(c_int64, 0, lock=True)
@@ -1003,7 +1012,10 @@ class Zobov:
                         # mark as edge galaxy
                         elist[glut2[c]] = 1
         else:
-            #parallel            
+            #parallel version
+
+            # set up shared memory for parallel processes and then run processes
+                           
             index_coordinator = Value(c_int64, 0, lock=True)
 
             zlist_buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_zlist", 

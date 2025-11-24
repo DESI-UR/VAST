@@ -62,7 +62,7 @@ class TestV2(unittest.TestCase):
         self.assertTrue(np.isclose(np.mean(TestV2.tess.volumes), 1600.190056988941))
 
         # version with multivoro data structures
-        cells = tess.cells
+        cells = TestV2.tess.cells
         num_gals = TestV2.tess.num_gals
         
         out = []
