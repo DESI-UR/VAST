@@ -122,7 +122,7 @@ def dcut_worker(num_voids,
 
     buffer = mmap.mmap(buffer_directory, buffer_length)
     
-    dcut = np.frombuffer(buffer, dtype=np.bool)
+    dcut = np.frombuffer(buffer, dtype=bool)
 
     dcut.shape = (num_voids,)
     
