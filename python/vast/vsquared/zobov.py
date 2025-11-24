@@ -679,70 +679,72 @@ class Zobov:
         # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
         minvol *= zone_linking_cut / central_density_cut
 
-        if self.verbose > 0:
-            print("Cutting on central density...")
-        
-        # Apply central density cut 
-        # -----------------------
-        if self.num_cpus == 1:
-            dcut = np.array([64.*num_coords_in_sphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)/vvols[i] for i in range(len(vrads))])<1./minvol
-        else:
-            
-            num_voids = len(vrads)
-            
-            index_coordinator = Value(c_int64, 0, lock=True)
-
-            buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_dcut", 
-                                                               dir="/dev/shm", 
-                                                               text=False)
-            
-            buffer_length = num_voids # 1 byte bool
-            
-            os.ftruncate(buffer_directory, buffer_length)
-            
-            array_buffer = mmap.mmap(buffer_directory, 0)
-            
-            os.unlink(ARRAY_BUFFER_PATH)
-            
-            dcut = np.frombuffer(array_buffer, dtype=bool)
-            
-            dcut[:] = 0
-    
-            dcut.shape = (num_voids,)
-            
-            startup_context = multiprocessing.get_context("fork")
-                
-            processes = []
-            
-            for proc_idx in range(self.num_cpus):
-
-                p = startup_context.Process(target=dcut_worker, 
-                                            args=(num_voids, 
-                                                  index_coordinator, 
-                                                  buffer_directory,
-                                                  vcens,
-                                                  vrads,
-                                                  cutco,
-                                                  vvols,
-                                                  minvol,
-                                                  self.periodic, 
-                                                  self.cmin, 
-                                                  self.cmax
-                                                  ))
-                
-                p.start()
-                
-                processes.append(p)
-                
-            
-            for p in processes:
-            
-                p.join(None) #block till join
-            
-        #dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco, self.periodic, self.cmin, self.cmax)])/vvols[i] for i in range(len(vrads))])<1./minvol
-        rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
-        # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
         if method == 0:
+
+            if self.verbose > 0:
+                print("Cutting on central density...")
+            
+            # Apply central density cut 
+            # -----------------------
+            if self.num_cpus == 1:
+                dcut = np.array([64.*num_coords_in_sphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)/vvols[i] for i in range(len(vrads))])<1./minvol
+            else:
+                
+                num_voids = len(vrads)
+                
+                index_coordinator = Value(c_int64, 0, lock=True)
+    
+                buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_dcut", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+                
+                buffer_length = num_voids # 1 byte bool
+                
+                os.ftruncate(buffer_directory, buffer_length)
+                
+                array_buffer = mmap.mmap(buffer_directory, 0)
+                
+                os.unlink(ARRAY_BUFFER_PATH)
+                
+                dcut = np.frombuffer(array_buffer, dtype=bool)
+                
+                dcut[:] = 0
+        
+                dcut.shape = (num_voids,)
+                
+                startup_context = multiprocessing.get_context("fork")
+                    
+                processes = []
+                
+                for proc_idx in range(self.num_cpus):
+    
+                    p = startup_context.Process(target=dcut_worker, 
+                                                args=(num_voids, 
+                                                      index_coordinator, 
+                                                      buffer_directory,
+                                                      vcens,
+                                                      vrads,
+                                                      cutco,
+                                                      vvols,
+                                                      minvol,
+                                                      self.periodic, 
+                                                      self.cmin, 
+                                                      self.cmax
+                                                      ))
+                    
+                    p.start()
+                    
+                    processes.append(p)
+                    
+                
+                for p in processes:
+                
+                    p.join(None) #block till join
+                
+            #dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco, self.periodic, self.cmin, self.cmax)])/vvols[i] for i in range(len(vrads))])<1./minvol
+            rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
+            # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
+
             vrads = vrads[dcut*rcut]
             vcens = vcens[dcut*rcut]
             voids = voids[dcut*rcut]
@@ -968,12 +970,18 @@ class Zobov:
         dlist = -1 * np.ones(ngal,dtype=int)
         
         print('Debug: glut2')
-        
-        for i,l in enumerate(glut2):
-            # for current cell, add all galaxy IDs of contained galaxies to to glut2
-            l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
-            dlist[l] = self.zones.depth[i]
-            
+
+        if len(glut1) == ngal:
+            # case of no cuts on galaxies
+            glut2 = glut1
+            dlist = self.zones.depth
+        else:
+            # Warning: time instensive fo large data sets
+            for i,l in enumerate(glut2):
+                # for current cell, add all galaxy IDs of contained galaxies to to glut2
+                l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
+                dlist[l] = self.zones.depth[i]
+                
         print('Debug: zcell')
         #each element of zcell is a zone, and the zone is a 
         #list of the galaxy indices belonging to that zone
