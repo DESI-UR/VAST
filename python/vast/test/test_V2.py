@@ -73,7 +73,7 @@ class TestV2(unittest.TestCase):
             #Should really be checking that these are the correct neighbors
             #in some way rather than just the mean of the lengths
             out.append(len(neighs))
-            
+        print(np.mean(out))
         self.assertTrue(np.isclose(np.mean(out), 15.06))
 
         """
