@@ -2,6 +2,8 @@
 Log of changes for VAST versions.
 
 =======
+### 1.7.7
+- Parallelized Voronoi tessellation for V2
 ### 1.7.6
 - Option for fast, maximal-spheres-only version of VoidFinder suitable for forward modeling with large simulation suites
 
