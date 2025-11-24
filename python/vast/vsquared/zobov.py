@@ -704,7 +704,7 @@ class Zobov:
             
             os.unlink(ARRAY_BUFFER_PATH)
             
-            dcut = np.frombuffer(array_buffer, dtype=np.bool)
+            dcut = np.frombuffer(array_buffer, dtype=bool)
             
             dcut[:] = 0
     
