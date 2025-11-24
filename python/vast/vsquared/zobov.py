@@ -960,7 +960,7 @@ class Zobov:
         if not hasattr(self,'zones'):
             print("Build zones first")
             return
-        print('Debug: ngal')
+        #print('Debug: ngal')
         ngal  = len(self.catalog.coord)
         glist = np.arange(ngal)
         # indices of galaxies that make pre-tessellation cuts
@@ -969,7 +969,7 @@ class Zobov:
         glut2 = [[] for _ in glut1]
         dlist = -1 * np.ones(ngal,dtype=int)
         
-        print('Debug: glut2')
+        #print('Debug: glut2')
 
         if len(glut1) == ngal:
             # case of no cuts on galaxies
@@ -982,7 +982,7 @@ class Zobov:
                 l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
                 dlist[l] = self.zones.depth[i]
                 
-        print('Debug: zcell')
+        #print('Debug: zcell')
         #each element of zcell is a zone, and the zone is a 
         #list of the galaxy indices belonging to that zone
         zcell = self.zones.zcell
@@ -1070,7 +1070,7 @@ class Zobov:
                 
         elist[np.array(olist,dtype=bool)] = 0
             
-        print('Debug: names')
+        #print('Debug: names')
         # format output tables
         names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
         columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
@@ -1086,7 +1086,7 @@ class Zobov:
         
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
-        print('Debug: write out')
+        #print('Debug: write out')
         # write to the output file
         hdu = fits.BinTableHDU()
         hdu.name = 'GALZONE'
