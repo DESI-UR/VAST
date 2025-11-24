@@ -23,6 +23,7 @@ from vast.vsquared.util import toSky, \
                                wCen, wCen_worker,\
                                getSMA, getSMA_worker,\
                                P, \
+                               galzone_worker, \
                                flatten, \
                                open_fits_file_V2, \
                                mknumV2
@@ -957,30 +958,111 @@ class Zobov:
         if not hasattr(self,'zones'):
             print("Build zones first")
             return
-
+        print('Debug: ngal')
         ngal  = len(self.catalog.coord)
         glist = np.arange(ngal)
+        # indices of galaxies that make pre-tessellation cuts
         glut1 = glist[self.catalog.nnls==glist]
+        # for each cell center, all galaxies in its cell
         glut2 = [[] for _ in glut1]
         dlist = -1 * np.ones(ngal,dtype=int)
-
+        
+        print('Debug: glut2')
+        
         for i,l in enumerate(glut2):
+            # for current cell, add all galaxy IDs of contained galaxies to to glut2
             l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
             dlist[l] = self.zones.depth[i]
-
-        zlist = -1 * np.ones(ngal,dtype=int)
+            
+        print('Debug: zcell')
+        #each element of zcell is a zone, and the zone is a 
+        #list of the galaxy indices belonging to that zone
         zcell = self.zones.zcell
-
+        # inverted imsk, 1 means galaxy outside survey mask, 0 means galaxy in survey mask
         olist = 1-np.array(self.catalog.imsk,dtype=int)
-        elist = np.zeros(ngal,dtype=int)
+        if self.num_cpus == 1:
+            # list of zone IDs for each galaxy, initalized to -1
+            zlist = -1 * np.ones(ngal,dtype=int)
+            elist = np.zeros(ngal,dtype=int)
+            # loop through zone IDs and galaxy IDs in zones
+            for i,cl in enumerate(zcell):
+                # loop through galaxy IDs in current zone
+                for c in cl:
+                    # write the zone ID for the current galaxy
+                    zlist[glut2[c]] = i
+                    # if galaxy is on edge of survey (cell volume=0) and is inside the mask
+                    if self.tessellation.volumes[c]==0. and not olist[glut2[c]].all():
+                        # mark as edge galaxy
+                        elist[glut2[c]] = 1
+        else:
+            #parallel            
+            index_coordinator = Value(c_int64, 0, lock=True)
 
-        for i,cl in enumerate(zcell):
-            for c in cl:
-                zlist[glut2[c]] = i
-                if self.tessellation.volumes[c]==0. and not olist[glut2[c]].all():
-                    elist[glut2[c]] = 1
+            zlist_buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_zlist", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            zlist_buffer_length = ngal*4
+            
+            os.ftruncate(zlist_buffer_directory, zlist_buffer_length)
+            
+            array_buffer = mmap.mmap(zlist_buffer_directory, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            zlist = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            zlist[:] = -1
+    
+            zlist.shape = (ngal,)
+
+            elist_buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_elist", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            elist_buffer_length = ngal*4
+            
+            os.ftruncate(elist_buffer_directory, elist_buffer_length)
+            
+            array_buffer = mmap.mmap(elist_buffer_directory, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            elist = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            elist[:] = 0
+    
+            zlist.shape = (ngal,)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+
+                p = startup_context.Process(target=galzone_worker, 
+                                            args=(ngal,
+                                                index_coordinator,
+                                                zlist_buffer_directory,
+                                                elist_buffer_directory,
+                                                zcell,
+                                                glut2,
+                                                self.tessellation.volumes,
+                                                olist 
+                                               ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+                
         elist[np.array(olist,dtype=bool)] = 0
-
+            
+        print('Debug: names')
         # format output tables
         names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
         columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
@@ -996,7 +1078,7 @@ class Zobov:
         
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
-
+        print('Debug: write out')
         # write to the output file
         hdu = fits.BinTableHDU()
         hdu.name = 'GALZONE'

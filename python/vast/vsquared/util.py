@@ -676,3 +676,60 @@ def partition_face_vertices(cell):
         faces.append(face_vertices[start_index:end_index])
         start_index = end_index
     return faces
+
+def galzone_worker(ngal,
+                
+                index_coordinator,
+                zlist_buffer_directory,
+                elist_buffer_directory,
+                zcell,
+                glut,
+                volumes,
+                olist 
+            ):
+    
+    buffer_length = ngal*4 #int so 4 bytes per element
+
+    buffer = mmap.mmap(zlist_buffer_directory, buffer_length)
+    
+    zlist = np.frombuffer(buffer, dtype=np.int32)
+
+    zlist.shape = (ngal,)
+
+    buffer = mmap.mmap(elist_buffer_directory, buffer_length)
+    
+    elist = np.frombuffer(buffer, dtype=np.int32)
+
+    elist.shape = (ngal,)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= len(zcell):
+            break
+
+        #each element of zcell is a zone, and the zone is a 
+        #list of the galaxy indices belonging to that zone
+        cl = zcell[curr_index]
+
+        # glut transfers array index to galaxy ID
+        # aka glut gives the indices of galaxies that make pre-tessellation cuts
+
+        # for galaxy index c in zone cl
+        for c in cl:
+            # record the zone ID of the galaxy
+            zlist[glut[c]] = curr_index
+            # if galaxy is on edge of survey (cell volume=0) and is inside the mask
+            if volumes[c]==0. and not olist[glut[c]].all():
+                # mark as edge galaxy
+                elist[glut[c]] = 1
+
