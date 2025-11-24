@@ -73,8 +73,9 @@ class TestV2(unittest.TestCase):
             #Should really be checking that these are the correct neighbors
             #in some way rather than just the mean of the lengths
             out.append(len(neighs))
-        print(np.mean(out))
-        self.assertTrue(np.isclose(np.mean(out), 15.06))
+        #print('Debug tess out:', np.mean(out))
+        #slight differneces in mutlivoro and scipy versions caused by different treatment of edge cells
+        self.assertTrue(np.isclose(np.mean(out), 15.011463414634147))
 
         """
         # Switched over to using the scipy data structures for this, so this
