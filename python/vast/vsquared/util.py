@@ -443,8 +443,7 @@ def getSMA_worker(num_voids,
     """
    
                                  
-    # need to edit for 2D array...
-    buffer_length = num_voids*8*3*3 #float64 so 8 bytes per element
+    buffer_length = num_voids*8*3*3 #float64 so 8 bytes per element and 3 by 3 table for each void
 
     buffer = mmap.mmap(buffer_directory, buffer_length)
     

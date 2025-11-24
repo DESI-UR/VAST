@@ -454,16 +454,17 @@ class Tesselation:
         
         multivoro_start = time.time()
         
-        
+        # set mutlivoro radii values to a common value
         radii = 1*np.ones(coords.shape[0], dtype=np.float32)
 
         if periodic:
-
+            # periodic mode
             periodic_boundaries = (True, True, True)
             limits = np.array([cat.cmin, cat.cmax])
 
         else:
-
+            # survey and xyz mode
+            # multivoro needs xyz limits for tessellation, so draw a box around the survey
             periodic_boundaries = (False, False, False)
         
             lower_min = coords.min(axis=0) - 100.0
@@ -486,6 +487,9 @@ class Tesselation:
         print("Radii: ", radii)
         print("Limits: ", limits)
 
+        ################################################################################
+        # Compute Voronoi tessellation
+        ################################################################################
         
         cells = compute_voronoi(
                                 points=coords,
