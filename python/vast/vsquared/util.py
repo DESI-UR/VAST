@@ -415,6 +415,7 @@ def getSMA_worker(num_voids,
                 index_coordinator,
                 buffer_directory,
                 vrads,
+                vcens,
                 vcuts,
                 coords, 
                 periodic, 
@@ -468,25 +469,26 @@ def getSMA_worker(num_voids,
 
         vrad = vrads[curr_index]
         vcut = vcuts[curr_index]
+        vcen = vcens[curr_index]
     
-        eigenvalue = getSMA(vrad, coords[vcut], periodic, cmin, cmax)
+        eigenvalue = getSMA(vrad, vcen, coords[vcut], periodic, cmin, cmax)
         ellipses[curr_index] = eigenvalue
         
-def getSMA(vrad,coords, periodic, cmin, cmax):
+def getSMA(vrad, vcen, coords, periodic, cmin, cmax):
     """Convert tracers and void effective radius to ellipsoid semi-major axes.
 
     Parameters
     ----------
-    vrad : ndarray
-        List of void radii.
+    vrad : float
+        Void radius
     coords : ndarray
-        Array of void coordinates.
+        Array of void cell center coordinates.
     periodic: boolean
         Flag indicating periodic mode
     cmin: array
-        Minimum coordinates
+        Minimum coordinates of box
     cmin: array
-        Maximum coordinates
+        Maximum coordinates of box
 
     Returns
     -------
@@ -502,17 +504,31 @@ def getSMA(vrad,coords, periodic, cmin, cmax):
         transformed_coords = transformed_coords - coords[0] + box_size / 2
 
         transformed_coords = transformed_coords % box_size
+
+        void_center = void_center - coords[0] + box_size / 2
+
+        void_center = void_center % box_size
+
+        transformed_coords = transformed_coords - void_center
     else:
-        transformed_coords = coords
+        transformed_coords = np.array(coords) - void_center
+    # tensor components
+    comp_Ixx = np.sum(transformed_coords[:,[1,2]]**2)
+    comp_Iyy = np.sum(transformed_coords[:,[0,2]]**2)
+    comp_Izz = np.sum(transformed_coords[:,[0,1]]**2)
+    comp_Ixy = -np.sum(np.product(transformed_coords[:,[0,1]], axis=1))
+    comp_Ixz = -np.sum(np.product(transformed_coords[:,[0,2]], axis=1))
+    comp_Iyz = -np.sum(np.product(transformed_coords[:,[1,2]], axis=1))
     
-    iTen = np.zeros((3,3))
-    for p in transformed_coords:
-        iTen = iTen + np.array([[p[1]**2.+p[2]**2.,0,0],[0,p[0]**2.+p[2]**2.,0],[0,0,p[0]**2.+p[1]**2.]])
-        iTen = iTen - np.array([[0,p[0]*p[1],p[0]*p[2]],[p[0]*p[1],0,p[1]*p[2]],[p[0]*p[2],p[1]*p[2],0]])
-    eival,eivec = np.linalg.eig(iTen)
+    # tensor
+    tensor_I = np.array([[comp_Ixx, comp_Ixy, comp_Ixz],[comp_Ixy, comp_Iyy, comp_Iyz],[comp_Ixz, comp_Iyz, comp_Izz]])
+
+    # eigenvalues
+    eival,eivec = np.linalg.eig(tensor_I)
     eival = eival**.25
     rfac = vrad/(np.prod(eival)**(1./3))
     eival = eival*rfac
+    
     return eival.reshape(3,1)*eivec.T
 
 
