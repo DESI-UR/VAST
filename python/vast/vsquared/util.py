@@ -95,25 +95,33 @@ def dcut_worker(num_voids,
                 cmin, 
                 cmax,
                ):
-    """Find the weighted center of tracers' Voronoi cells.
+    """Apply central density cuts to the void catalog in parallel.
 
     Parameters
     ----------
-    vols : ndarray
-        Array of Voronoi volumes.
+    num_voids : int
+        The total number of voids in the catalog
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    buffer_directory : string
+        The file path where shared memory is stored for parallel processes
+    vcens : ndarray
+        The void centers
+    vrads : ndarray
+        The void raddii
     coords : ndarray
-        Array of cells' positions.
+        The coordinates of the Vornoi cell centers
+    vvols : ndarray
+        Array of void volumes.
+    minvol : float
+        The threshold central density (given as a volume) used for cutting voids
     periodic: boolean
         Flag indicating periodic mode
     cmin: array
-        Minimum coordinates
+        Minimum coordinates of survey
     cmin: array
-        Maximum coordinates
+        Maximum coordinates of survey
         
-    Returns
-    -------
-    wCen : ndarray
-        Weighted center of tracers' Voronoi cells.
     """
    
                                  
@@ -145,6 +153,8 @@ def dcut_worker(num_voids,
         vrad = vrads[curr_index]
         vvol = vvols[curr_index]
 
+        # number of galaxies within 1/4th of the void radius divided by volume 4/3*pi*(R/4)^3
+        # should be less than the user specified fraction of the mean density
         void_cut = 64.* num_coords_in_sphere(vcen, vrad/4., coords, periodic, cmin, cmax) / vvol <1./ minvol
     
         dcut[curr_index] = void_cut
@@ -218,10 +228,10 @@ def num_coords_in_sphere(cs, r, coords, periodic, cmin, cmax):
         Flag indicating periodic mode
 
     cmin: array
-        Minimum coordinates
+        Minimum coordinates of the survey
         
     cmin: array
-        Maximum coordinates
+        Maximum coordinates of the survey
 
     Returns
     =======
@@ -255,7 +265,7 @@ def num_coords_in_sphere(cs, r, coords, periodic, cmin, cmax):
     return num_in_sphere
 
 
-
+'''
 def getBuff(cin, idsin, cmin, cmax, buff, n):
     """Identify tracers contained in buffer shell around periodic boundary.
 
@@ -304,7 +314,7 @@ def getBuff(cin, idsin, cmin, cmax, buff, n):
                 idsout.extend(idsin[:len(cin)][cut].tolist())
                 
     return cout, np.array(idsout)
-
+'''
 def wCen_worker(num_voids,
                 index_coordinator,
                 buffer_directory,
@@ -315,28 +325,30 @@ def wCen_worker(num_voids,
                 cmin, 
                 cmax,
                ):
-    """Find the weighted center of tracers' Voronoi cells.
+    """Find the weighted center of tracers' Voronoi cells in parallel
 
     Parameters
     ----------
+    num_voids : int
+        The total number of voids in the catalog
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    buffer_directory : string
+        The file path where shared memory is stored for parallel processes
+    vcuts : list of lists
+        Cuts to select the appopriate coordinates and cell volumes for each void
     vols : ndarray
-        Array of Voronoi volumes.
+        Array of Voronoi cell volumes.
     coords : ndarray
-        Array of cells' positions.
+        The coordinates of the Vornoi cell centers
     periodic: boolean
         Flag indicating periodic mode
     cmin: array
-        Minimum coordinates
+        Minimum coordinates of survey
     cmin: array
-        Maximum coordinates
-        
-    Returns
-    -------
-    wCen : ndarray
-        Weighted center of tracers' Voronoi cells.
-    """
-   
-                                 
+        Maximum coordinates of survey
+
+    """                      
     
     buffer_length = num_voids*8*3 #float64 so 8 bytes per element
 
@@ -373,15 +385,15 @@ def wCen(vols,coords, periodic, cmin, cmax):
     Parameters
     ----------
     vols : ndarray
-        Array of Voronoi volumes.
+        Array of Voronoi cell volumes.
     coords : ndarray
         Array of cells' positions.
     periodic: boolean
         Flag indicating periodic mode
     cmin: array
-        Minimum coordinates
+        Minimum coordinates of survey
     cmin: array
-        Maximum coordinates
+        Maximum coordinates of survey
         
     Returns
     -------
@@ -415,31 +427,38 @@ def getSMA_worker(num_voids,
                 index_coordinator,
                 buffer_directory,
                 vrads,
+                vcens,
                 vcuts,
                 coords, 
                 periodic, 
                 cmin, 
                 cmax,
                ):
-    """Find the weighted center of tracers' Voronoi cells.
+    """Convert tracers and void effective radius to ellipsoid semi-major axes in parallel.
 
     Parameters
     ----------
-    vols : ndarray
-        Array of Voronoi volumes.
+    num_voids : int
+        The total number of voids in the catalog
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    buffer_directory : string
+        The file path where shared memory is stored for parallel processes
+    vrads : ndarray
+        The void raddii
+    vcens : ndarray
+        The void centers
+    vcuts : list of lists
+        Cuts to select the appopriate coordinates and cell volumes for each void
     coords : ndarray
-        Array of cells' positions.
+        The coordinates of the Vornoi cell centers
     periodic: boolean
         Flag indicating periodic mode
     cmin: array
-        Minimum coordinates
+        Minimum coordinates of survey
     cmin: array
-        Maximum coordinates
-        
-    Returns
-    -------
-    wCen : ndarray
-        Weighted center of tracers' Voronoi cells.
+        Maximum coordinates of survey
+
     """
    
                                  
@@ -468,25 +487,28 @@ def getSMA_worker(num_voids,
 
         vrad = vrads[curr_index]
         vcut = vcuts[curr_index]
+        vcen = vcens[curr_index]
     
-        eigenvalue = getSMA(vrad, coords[vcut], periodic, cmin, cmax)
+        eigenvalue = getSMA(vrad, vcen, coords[vcut], periodic, cmin, cmax)
         ellipses[curr_index] = eigenvalue
         
-def getSMA(vrad,coords, periodic, cmin, cmax):
+def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
     """Convert tracers and void effective radius to ellipsoid semi-major axes.
 
     Parameters
     ----------
-    vrad : ndarray
-        List of void radii.
+    vrad : float
+        Void radius
+    void_center : nfdarray
+        The cooordinates of the void center
     coords : ndarray
-        Array of void coordinates.
+        Array of void cell center coordinates.
     periodic: boolean
         Flag indicating periodic mode
     cmin: array
-        Minimum coordinates
+        Minimum coordinates of box
     cmin: array
-        Maximum coordinates
+        Maximum coordinates of box
 
     Returns
     -------
@@ -502,17 +524,31 @@ def getSMA(vrad,coords, periodic, cmin, cmax):
         transformed_coords = transformed_coords - coords[0] + box_size / 2
 
         transformed_coords = transformed_coords % box_size
+
+        void_center = void_center - coords[0] + box_size / 2
+
+        void_center = void_center % box_size
+
+        transformed_coords = transformed_coords - void_center
     else:
-        transformed_coords = coords
+        transformed_coords = np.array(coords) - void_center
+    # tensor components
+    comp_Ixx = np.sum(transformed_coords[:,[1,2]]**2)
+    comp_Iyy = np.sum(transformed_coords[:,[0,2]]**2)
+    comp_Izz = np.sum(transformed_coords[:,[0,1]]**2)
+    comp_Ixy = -np.sum(np.prod(transformed_coords[:,[0,1]], axis=1))
+    comp_Ixz = -np.sum(np.prod(transformed_coords[:,[0,2]], axis=1))
+    comp_Iyz = -np.sum(np.prod(transformed_coords[:,[1,2]], axis=1))
     
-    iTen = np.zeros((3,3))
-    for p in transformed_coords:
-        iTen = iTen + np.array([[p[1]**2.+p[2]**2.,0,0],[0,p[0]**2.+p[2]**2.,0],[0,0,p[0]**2.+p[1]**2.]])
-        iTen = iTen - np.array([[0,p[0]*p[1],p[0]*p[2]],[p[0]*p[1],0,p[1]*p[2]],[p[0]*p[2],p[1]*p[2],0]])
-    eival,eivec = np.linalg.eig(iTen)
+    # tensor
+    tensor_I = np.array([[comp_Ixx, comp_Ixy, comp_Ixz],[comp_Ixy, comp_Iyy, comp_Iyz],[comp_Ixz, comp_Iyz, comp_Izz]])
+
+    # eigenvalues
+    eival,eivec = np.linalg.eig(tensor_I)
     eival = eival**.25
     rfac = vrad/(np.prod(eival)**(1./3))
     eival = eival*rfac
+    
     return eival.reshape(3,1)*eivec.T
 
 
@@ -630,7 +666,16 @@ def open_fits_file_V2(
 
 # (Make Number) Format floats for headers
 def mknumV2 (flt):
-
+    """Formats a float for fits headers
+    Parameters
+    ----------
+    flt : float
+        float to be formatted
+    Returns
+    -------
+    float
+        Formatted float
+    """
     if flt is None:
         return None
 
@@ -664,6 +709,16 @@ def rotate(p):
     return r
 
 def partition_face_vertices(cell):
+    """Obtains faces form a multivoro Cell object
+    Parameters
+    ----------
+    cell : multivoro Cell
+        Voronoi cell
+    Returns
+    -------
+    faces : list of lists
+        List of face coordinate indexes for each cell face
+    """
     face_vertices = cell.get_face_vertices()
     faces = []
     start_index=0
@@ -677,7 +732,6 @@ def partition_face_vertices(cell):
     return faces
 
 def galzone_worker(ngal,
-                
                 index_coordinator,
                 zlist_buffer_directory,
                 elist_buffer_directory,
@@ -686,6 +740,29 @@ def galzone_worker(ngal,
                 volumes,
                 olist 
             ):
+
+    """Records zone IDs for the catalog galaxies in parallel.
+
+    Parameters
+    ----------
+    num_voids : int
+        The total number of voids in the catalog
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    zlist_buffer_directory : string
+        The file path where shared memory is stored for parallel processes for the zone list
+    elist_buffer_directory : string
+        The file path where shared memory is stored for parallel processes for the edge cell list
+    zcell : list of list
+        For each zone, the list of galaxy indexes belonging to it
+    glut : ndarray or list of lists
+        For each Voronoi cell, the list of galaxy indexes for galaxies found within it
+    volumes : ndarray
+        The Voronoi cell volumes
+    olist: ndarray
+        Boolean mask flagging galaxies that fall outside the survey mask
+
+    """
     
     buffer_length = ngal*4 #int so 4 bytes per element
 
