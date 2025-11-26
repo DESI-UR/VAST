@@ -536,9 +536,9 @@ def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
     comp_Ixx = np.sum(transformed_coords[:,[1,2]]**2)
     comp_Iyy = np.sum(transformed_coords[:,[0,2]]**2)
     comp_Izz = np.sum(transformed_coords[:,[0,1]]**2)
-    comp_Ixy = -np.sum(np.product(transformed_coords[:,[0,1]], axis=1))
-    comp_Ixz = -np.sum(np.product(transformed_coords[:,[0,2]], axis=1))
-    comp_Iyz = -np.sum(np.product(transformed_coords[:,[1,2]], axis=1))
+    comp_Ixy = -np.sum(np.prod(transformed_coords[:,[0,1]], axis=1))
+    comp_Ixz = -np.sum(np.prod(transformed_coords[:,[0,2]], axis=1))
+    comp_Iyz = -np.sum(np.prod(transformed_coords[:,[1,2]], axis=1))
     
     # tensor
     tensor_I = np.array([[comp_Ixx, comp_Ixy, comp_Ixz],[comp_Ixy, comp_Iyy, comp_Iyz],[comp_Ixz, comp_Iyz, comp_Izz]])
