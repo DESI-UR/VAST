@@ -169,10 +169,10 @@ class TestV2(unittest.TestCase):
         zobov4 = zobov.Zobov(TestV2.inifile, save_intermediate=False)
         
         TestV2.zobov.sortVoids(method=0, central_density_cut=0.2, apply_mgs_cut=True)
-        zobov1.sortVoids(method=1, central_density_cut=0.2, apply_mgs_cut=True)
-        zobov2.sortVoids(method=2, central_density_cut=0.2, apply_mgs_cut=True)
+        zobov1.sortVoids(method=1, central_density_cut=None, apply_mgs_cut=True)
+        zobov2.sortVoids(method=2, central_density_cut=None, apply_mgs_cut=True)
         #zobov3.sortVoids(3)
-        zobov4.sortVoids(method=4, central_density_cut=0.2, apply_mgs_cut=True)
+        zobov4.sortVoids(method=4, central_density_cut=None, apply_mgs_cut=True)
         self.assertEqual(len(TestV2.zobov.vrads), 62)
         self.assertEqual(len(zobov1.vrads), 87)
         self.assertEqual(len(zobov2.vrads), 14)
