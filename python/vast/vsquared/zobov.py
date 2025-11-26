@@ -535,11 +535,15 @@ class Zobov:
             minvol_scaled = minvol/zone_linking_cut
             
             voids  = []
+            #print('lv0',len(self.prevoids.ovols))
+            # for each void candidate
             for i in range(len(self.prevoids.ovols)):
                 vl = self.prevoids.ovols[i]
                 vbuff = []
-
+                # for each child void bordering the link
                 for j in range(len(vl)-1):
+                    # add the deepest child to the void and any other
+                    # children that meet the threshold condition
                     if j > 0 and vl[j] < minvol_scaled:
                         break
                     vbuff.extend(self.prevoids.voids[i][j])
@@ -790,7 +794,7 @@ class Zobov:
             vcens = vcens[dcut]
             voids = voids[dcut]
             del vvols # vvols is not needed anymore so delete it rather than propogating cuts
-
+        
         # ------------------------------------------------------------------------------------------------------
         # Edge-void calculations
         # ------------------------------------------------------------------------------------------------------

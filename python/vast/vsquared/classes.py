@@ -921,12 +921,9 @@ class Zones:
         # Identify neighboring zones and the least-dense cells linking them
         # shape (2, num_zones, X)
         # neighbor_zone_IDs = zone_links[curr_zone_ID]
-        # zlinks[0,...] is zone IDs
-        # zlinks[1,...] is linkage volumes - watershed breakpoint for the
-        # boundary between current zone and neighbor zone
-        # For each zone i and its neighbors j
-        # Identify neighboring zones (zlinks[0][i] has j in once it for every cell on their border?)
-        # and the least-dense cells linking them (zlinks[1][i] has j copies of the maximum link volume between the zones?)
+        # zlinks[0,i] is list of zone IDs fo zones bordering current zone i
+        # zlinks[1,i] is linkage volumes - watershed breakpoint for the
+        # boundary between current zone i and neighbor zones
         zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
 
         if viz:
@@ -1002,8 +999,9 @@ class Zones:
                 #Ensure neighboring cell is from a different zone
                 if z1 == z2:
                     continue
-                
+                # if zone 2 is not already in the list of linked zones for zone 1
                 if z2 not in zlinks[0][z1]:
+                    # add zones to each others' lists
                     zlinks[0][z1].append(z2)
                     zlinks[0][z2].append(z1)
                     zlinks[1][z1].append(0.)
@@ -1133,36 +1131,30 @@ class Voids:
         """
         
         
-        zvols  = np.array(zones.zvols) #Really the Zone Core(largest) Volumes
+        zvols  = np.array(zones.zvols) #largest cell volume for each zone
         zlinks = zones.zlinks
-
+        
         # Sort zone links by volume, identify zones linked at each volume
         if verbose > 0:
             print("Sorting links...")
 
         # For each zone i and its neighbors j
-        # Identify neighboring zones (zlinks[0][i] has j in once it for every cell on their border?)
-        # and the least-dense cells linking them (zlinks[1][i] has j copies of the maximum link volume between the zones?)
+        # zlinks[0,i] is list of zone IDs for zones bordering current zone i
+        # zlinks[1,i] is linkage volumes - watershed breakpoint for the
+        # boundary between current zone i and neighbor zones
         zl0   = np.array(list(flatten(zlinks[0])))
         zl1   = np.array(list(flatten(zlinks[1])))
-        
-        #print("Zl0")
-        #print(zl0.shape)
-        #print("Zl1")
-        #print(zl1.shape)
 
-        #zlu   = -1.*np.sort(-1.*np.unique(zl1))
+        #watershed_breakpoints   = -1.*np.sort(-1.*np.unique(zl1))
         #largest to smallest zone max link volume
         #these are essentially the breakpoints for the watershed algorithm
         #for more dense zones to join into less dense zones
-        zlu = np.sort(np.unique(zl1))[::-1] 
-        #print("ZLU: ", zlu.shape)
+        watershed_breakpoints = np.sort(np.unique(zl1))[::-1] 
+        #print("watershed breakpoints: ", watershed_breakpoints.shape)
         
-        #At each breakpoint, a list of the unique zone IDs which will
-        #begin to flow into someone else
-        zlut  = [ np.unique( zl0[np.where(zl1==zl)[0]] ).tolist() for zl in zlu ]
-        
-        
+        #At each breakpoint, a list of the unique zone IDs which border the breakpoint
+        zlut  = [ np.unique( zl0[np.where(zl1==link_volume)[0]] ).tolist() for link_volume in watershed_breakpoints ]
+        #print('lv1',len(zlinks[0]))
         voids = []
         mvols = []
         ovols = []
@@ -1179,68 +1171,76 @@ class Voids:
         if verbose > 0:
             print("Expanding voids...")
 
-        #At each watershed breakpoint
-        for i in range(len(zlu)):
+        # At each watershed breakpoint in order of increasing density
+        for i in range(len(watershed_breakpoints)):
             
             #Get the breakpoint volume
-            lvol  = zlu[i]
+            link_volume  = watershed_breakpoints[i]
             
-            #For each zone which flows at this breakpoint, get the 
-            #zone's largest cell volume
+            #For each child void which borders this breakpoint, get the 
+            # child's core volume
             mxvls = mvlut[zlut[i]]
             
-            #Of the flowing zones, get the one with the largest
+            #Of the selected children, get the one with the largest
             #core volume
             mvarg = np.argmax(mxvls)
             
             mxvol = mxvls[mvarg]
             
-            #For each zone which flows at this breakpoint
+            #For each child which borders this breakpoint
             for j in zlut[i]:
                 
-                # This is not the "deepest" zone or void being linked
-                # aka not the largest core voronoi volume
+                # if the child doesn't have the largest core volume of the children
                 if mvlut[j] < mxvol:
-                    
+
+                    # create a new void in the hierarchy
                     voids.append([])
                     ovols.append([])
-                    
-                    #Places where volumes match the flowing zone
-                    #volume comparison?
+
+                    # for the current water height, get all zones that can be sequentially 
+                    # linked to reach the current break point
                     vcomp = np.where(vlut==vlut[j])[0]
                     
-                    # largest to smallest, the unique zone core volumes
-                    # which match the current flowing zone
-                    something = np.sort(np.unique(ovlut[vcomp]))[::-1]
+                    # largest to smallest, the unique core volumes for each child void
+                    # linked at the break point
+                    core_volumes = np.sort(np.unique(ovlut[vcomp]))[::-1]
                     
-                    # Store void's "overflow" volumes, largest max cell volume, constituent zones
-                    for ov in something:
+                    # For each chid void core volume
+                    for core_volume in core_volumes:
                         
-                        #places where zone 
-                        ocomp = np.where(ovlut[vcomp]==ov)[0]
+                        #select the zones that constitute the child and add them as a list to the parent
+                        ocomp = np.where(ovlut[vcomp]==core_volume)[0]
                         
                         voids[-1].append(vcomp[ocomp].tolist())
+                        # add the child's core cell volume to the parent's list of core cell volumes
+                        ovols[-1].append(core_volume)
                         
-                        ovols[-1].append(ov)
-                        
-                    ovols[-1].append(lvol)
+                    ovols[-1].append(link_volume)
                     mvols.append(mvlut[j])
                     vlut[vcomp]  = vlut[zlut[i]][mvarg]
                     mvlut[vcomp] = mxvol
-                    ovlut[vcomp] = lvol
+                    ovlut[vcomp] = link_volume
         
+        """
+        # TODO: there are a few zones (e.g. 5 out of 600) that have no
+        # zone links. These zones are discarded by VIDE but are made into 
+        # voids by REVOLVER. Do we want to change this behavior at all?
         
-        
-        
-        
+        # isolated voids
+        for i in range(len(zlinks[0])):
+            if len(zlinks[0][i])==0:
+                if zvols[i] > 0:
+                    pass
+        """
+                
         
         # Include the "deepest" void in the survey and its subvoids
         voids.append([])
         ovols.append([])
-        for ov in np.sort(np.unique(ovlut))[::-1]:
-            ocomp = np.where(ovlut==ov)[0]
+        for core_volume in np.sort(np.unique(ovlut))[::-1]:
+            ocomp = np.where(ovlut==core_volume)[0]
             voids[-1].append(ocomp.tolist())
-            ovols[-1].append(ov)
+            ovols[-1].append(core_volume)
         ovols[-1].append(0.)
         mvols.append(mvlut[0])
 
@@ -1248,11 +1248,11 @@ class Voids:
         ################################################################################
         # New implementation 
         ################################################################################
-        num_breakpoints = len(zlu)
+        num_breakpoints = len(watershed_breakpoints)
         
         for idx in range(num_breakpoints):
             
-            breakpoint_vol = zlu[idx]
+            breakpoint_vol = watershed_breakpoints[idx]
 
             flowing_zone_IDs = zlut[idx]
 
