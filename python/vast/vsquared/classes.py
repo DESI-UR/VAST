@@ -471,8 +471,8 @@ class Tesselation:
             
             upper_max = coords.max(axis=0) + 100.0
             
-            print("Lower min: ", lower_min)
-            print("Upper max: ", upper_max)
+            print("Lower min of bounding box: ", lower_min)
+            print("Upper max of bounding box: ", upper_max)
             
             
             limits = np.empty((2,3), dtype=np.float32)
@@ -484,8 +484,8 @@ class Tesselation:
             limits[1,2] = upper_max[2]
         
         
-        print("Radii: ", radii)
-        print("Limits: ", limits)
+        #print("Radii: ", radii)
+        #print("Limits: ", limits)
 
         ################################################################################
         # Compute Voronoi tessellation
@@ -502,7 +502,7 @@ class Tesselation:
         
         print("Multivoro time: ", time.time() - multivoro_start)
         
-        print("Num cells: ", len(cells))
+        print("Number of cells: ", len(cells))
 
         
         volume_time = time.time()

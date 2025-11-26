@@ -492,13 +492,15 @@ def getSMA_worker(num_voids,
         eigenvalue = getSMA(vrad, vcen, coords[vcut], periodic, cmin, cmax)
         ellipses[curr_index] = eigenvalue
         
-def getSMA(vrad, vcen, coords, periodic, cmin, cmax):
+def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
     """Convert tracers and void effective radius to ellipsoid semi-major axes.
 
     Parameters
     ----------
     vrad : float
         Void radius
+    void_center : nfdarray
+        The cooordinates of the void center
     coords : ndarray
         Array of void cell center coordinates.
     periodic: boolean
