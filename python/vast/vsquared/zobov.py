@@ -597,9 +597,9 @@ class Zobov:
             
         
         elif method == 4: #REVOLVER
-            #print('Method 4')
+            
             voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
-
+            
         else:
             print("Choose a valid method")
             return
@@ -627,7 +627,9 @@ class Zobov:
         # User-defined cuts on void radii
         # ------------------------------------------------------------------------------------------------------
        
-        # Cut all voids with radii smaller than set minimum         
+        # Cut all voids with radii smaller than set minimum  
+        # note: if self.minrad = 0, then one zone will still be cut, corresponding to galaxies with 0 cell volume
+        # (aka edge galaxies that are not placed in voids). This behavior is intended.
         rcut  = vrads > self.minrad
 
         # optionally cut on median radius
@@ -639,6 +641,7 @@ class Zobov:
             rcut *= vrads>(minvol)**(1./3)
         
         # apply radial cuts
+        
         voids = np.array(voids, dtype=object)[rcut]
         vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]] # vcuts is a list
         vvols = vvols[rcut]
