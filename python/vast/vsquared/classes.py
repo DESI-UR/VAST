@@ -9,7 +9,7 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, getBuff, flatten, mknumV2, rotate, partition_face_vertices
+from vast.vsquared.util import toCoord, flatten, mknumV2, rotate, partition_face_vertices
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 from vast.vsquared.class_utils import calculate_region_volume

@@ -265,7 +265,7 @@ def num_coords_in_sphere(cs, r, coords, periodic, cmin, cmax):
     return num_in_sphere
 
 
-
+'''
 def getBuff(cin, idsin, cmin, cmax, buff, n):
     """Identify tracers contained in buffer shell around periodic boundary.
 
@@ -314,7 +314,7 @@ def getBuff(cin, idsin, cmin, cmax, buff, n):
                 idsout.extend(idsin[:len(cin)][cut].tolist())
                 
     return cout, np.array(idsout)
-
+'''
 def wCen_worker(num_voids,
                 index_coordinator,
                 buffer_directory,
@@ -664,7 +664,16 @@ def open_fits_file_V2(
 
 # (Make Number) Format floats for headers
 def mknumV2 (flt):
-
+    """Formats a float for fits headers
+    Parameters
+    ----------
+    flt : float
+        float to be formatted
+    Returns
+    -------
+    float
+        Formatted float
+    """
     if flt is None:
         return None
 
