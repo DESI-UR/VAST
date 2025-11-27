@@ -1201,19 +1201,19 @@ class Voids:
                     # linked to reach the current break point
                     vcomp = np.where(vlut==vlut[j])[0]
                     
-                    # largest to smallest, the unique core volumes for each child void
-                    # linked at the break point
-                    core_volumes = np.sort(np.unique(ovlut[vcomp]))[::-1]
+                    # ordered largest to smallest, the linking volumes used to form each child void
+                    # (or the core density in the case of an unlinked zone) 
+                    overflow_volumes = np.sort(np.unique(ovlut[vcomp]))[::-1]
                     
-                    # For each chid void core volume
-                    for core_volume in core_volumes:
+                    # For each overflow volume
+                    for overflow_volume in overflow_volumes:
                         
-                        #select the zones that constitute the child and add them as a list to the parent
-                        ocomp = np.where(ovlut[vcomp]==core_volume)[0]
+                        #select the zones that constitute the child void and add them as a list to the parent void
+                        ocomp = np.where(ovlut[vcomp]==overflow_volume)[0]
                         
                         voids[-1].append(vcomp[ocomp].tolist())
-                        # add the child's core cell volume to the parent's list of core cell volumes
-                        ovols[-1].append(core_volume)
+                        # add the child's overflow volume to the parent's list of overflow volumes
+                        ovols[-1].append(overflow_volume)
                         
                     ovols[-1].append(link_volume)
                     mvols.append(mvlut[j])
@@ -1237,10 +1237,10 @@ class Voids:
         # Include the "deepest" void in the survey and its subvoids
         voids.append([])
         ovols.append([])
-        for core_volume in np.sort(np.unique(ovlut))[::-1]:
-            ocomp = np.where(ovlut==core_volume)[0]
+        for overflow_volume in np.sort(np.unique(ovlut))[::-1]:
+            ocomp = np.where(ovlut==overflow_volume)[0]
             voids[-1].append(ocomp.tolist())
-            ovols[-1].append(core_volume)
+            ovols[-1].append(overflow_volume)
         ovols[-1].append(0.)
         mvols.append(mvlut[0])
 
