@@ -515,6 +515,14 @@ def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
     sma : ndarray
         Ellipsoid semi-major axes for voids.
     """
+    
+    # Handle zones with < 3 cells
+    # This can occur for cells near the edge of the survey mask whose neighbors are all discarded out-of-mask cells,
+    # leaving an isolated cell or two cells as consituting a zone. These zones should not be present if an appropriate minimum
+    # size cut is used for the voids
+    if coords.shape[0] < 3:
+        return np.full((3, 3), np.inf)
+    
     if periodic:
         
         box_size = (cmax - cmin)
@@ -548,7 +556,7 @@ def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
     eival = eival**.25
     rfac = vrad/(np.prod(eival)**(1./3))
     eival = eival*rfac
-    
+        
     return eival.reshape(3,1)*eivec.T
 
 
