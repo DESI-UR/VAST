@@ -85,7 +85,7 @@ def toSky(cs,H0,Om_m,zstep):
 
 def dcut_worker(num_voids,
                 index_coordinator,
-                buffer_directory,
+                file_descriptor,
                 vcens,
                 vrads,
                 coords, 
@@ -103,8 +103,8 @@ def dcut_worker(num_voids,
         The total number of voids in the catalog
     index_coordinator : multiprocessing.Value
         Index for coordinating void selection between parallel processes
-    buffer_directory : string
-        The file path where shared memory is stored for parallel processes
+    file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes
     vcens : ndarray
         The void centers
     vrads : ndarray
@@ -128,7 +128,7 @@ def dcut_worker(num_voids,
     
     buffer_length = num_voids #bool so 1 bytes per element
 
-    buffer = mmap.mmap(buffer_directory, buffer_length)
+    buffer = mmap.mmap(file_descriptor, buffer_length)
     
     dcut = np.frombuffer(buffer, dtype=bool)
 
@@ -317,7 +317,7 @@ def getBuff(cin, idsin, cmin, cmax, buff, n):
 '''
 def wCen_worker(num_voids,
                 index_coordinator,
-                buffer_directory,
+                file_descriptor,
                 vcuts,
                 vols,
                 coords, 
@@ -333,8 +333,8 @@ def wCen_worker(num_voids,
         The total number of voids in the catalog
     index_coordinator : multiprocessing.Value
         Index for coordinating void selection between parallel processes
-    buffer_directory : string
-        The file path where shared memory is stored for parallel processes
+    file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes
     vcuts : list of lists
         Cuts to select the appopriate coordinates and cell volumes for each void
     vols : ndarray
@@ -352,7 +352,7 @@ def wCen_worker(num_voids,
     
     buffer_length = num_voids*8*3 #float64 so 8 bytes per element
 
-    buffer = mmap.mmap(buffer_directory, buffer_length)
+    buffer = mmap.mmap(file_descriptor, buffer_length)
     
     vcens = np.frombuffer(buffer, dtype=np.float64)
 
@@ -425,7 +425,7 @@ def wCen(vols,coords, periodic, cmin, cmax):
 
 def getSMA_worker(num_voids,
                 index_coordinator,
-                buffer_directory,
+                file_descriptor,
                 vrads,
                 vcens,
                 vcuts,
@@ -442,8 +442,8 @@ def getSMA_worker(num_voids,
         The total number of voids in the catalog
     index_coordinator : multiprocessing.Value
         Index for coordinating void selection between parallel processes
-    buffer_directory : string
-        The file path where shared memory is stored for parallel processes
+    file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes
     vrads : ndarray
         The void raddii
     vcens : ndarray
@@ -464,7 +464,7 @@ def getSMA_worker(num_voids,
                                  
     buffer_length = num_voids*8*3*3 #float64 so 8 bytes per element and 3 by 3 table for each void
 
-    buffer = mmap.mmap(buffer_directory, buffer_length)
+    buffer = mmap.mmap(file_descriptor, buffer_length)
     
     ellipses = np.frombuffer(buffer, dtype=np.float64)
 
@@ -741,8 +741,8 @@ def partition_face_vertices(cell):
 
 def galzone_worker(ngal,
                 index_coordinator,
-                zlist_buffer_directory,
-                elist_buffer_directory,
+                zlist_file_descriptor,
+                elist_file_descriptor,
                 zcell,
                 glut,
                 volumes,
@@ -757,10 +757,10 @@ def galzone_worker(ngal,
         The total number of voids in the catalog
     index_coordinator : multiprocessing.Value
         Index for coordinating void selection between parallel processes
-    zlist_buffer_directory : string
-        The file path where shared memory is stored for parallel processes for the zone list
-    elist_buffer_directory : string
-        The file path where shared memory is stored for parallel processes for the edge cell list
+    zlist_file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes for the zone list
+    elist_file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes for the edge cell list
     zcell : list of list
         For each zone, the list of galaxy indexes belonging to it
     glut : ndarray or list of lists
@@ -774,13 +774,13 @@ def galzone_worker(ngal,
     
     buffer_length = ngal*4 #int so 4 bytes per element
 
-    buffer = mmap.mmap(zlist_buffer_directory, buffer_length)
+    buffer = mmap.mmap(zlist_file_descriptor, buffer_length)
     
     zlist = np.frombuffer(buffer, dtype=np.int32)
 
     zlist.shape = (ngal,)
 
-    buffer = mmap.mmap(elist_buffer_directory, buffer_length)
+    buffer = mmap.mmap(elist_file_descriptor, buffer_length)
     
     elist = np.frombuffer(buffer, dtype=np.int32)
 

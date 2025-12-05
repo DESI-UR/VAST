@@ -671,15 +671,15 @@ class Zobov:
             
             index_coordinator = Value(c_int64, 0, lock=True)
 
-            buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_vol", 
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_vol", 
                                                                dir="/dev/shm", 
                                                                text=False)
             
             buffer_length = num_voids*8*3
             
-            os.ftruncate(buffer_directory, buffer_length)
+            os.ftruncate(file_descriptor, buffer_length)
             
-            array_buffer = mmap.mmap(buffer_directory, 0)
+            array_buffer = mmap.mmap(file_descriptor, 0)
             
             os.unlink(ARRAY_BUFFER_PATH)
             
@@ -698,7 +698,7 @@ class Zobov:
                 p = startup_context.Process(target=wCen_worker, 
                                             args=(num_voids, 
                                                   index_coordinator, 
-                                                  buffer_directory,
+                                                  file_descriptor,
                                                   vcuts,
                                                   self.tessellation.volumes, 
                                                   cutco, 
@@ -742,15 +742,15 @@ class Zobov:
                 
                 index_coordinator = Value(c_int64, 0, lock=True)
     
-                buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_dcut", 
+                file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_dcut", 
                                                                    dir="/dev/shm", 
                                                                    text=False)
                 
                 buffer_length = num_voids # 1 byte bool
                 
-                os.ftruncate(buffer_directory, buffer_length)
+                os.ftruncate(file_descriptor, buffer_length)
                 
-                array_buffer = mmap.mmap(buffer_directory, 0)
+                array_buffer = mmap.mmap(file_descriptor, 0)
                 
                 os.unlink(ARRAY_BUFFER_PATH)
                 
@@ -769,7 +769,7 @@ class Zobov:
                     p = startup_context.Process(target=dcut_worker, 
                                                 args=(num_voids, 
                                                       index_coordinator, 
-                                                      buffer_directory,
+                                                      file_descriptor,
                                                       vcens,
                                                       vrads,
                                                       cutco,
@@ -837,15 +837,15 @@ class Zobov:
             
             index_coordinator = Value(c_int64, 0, lock=True)
 
-            buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_ell", 
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_ell", 
                                                                dir="/dev/shm", 
                                                                text=False)
             
             buffer_length = num_voids*8*3*3
             
-            os.ftruncate(buffer_directory, buffer_length)
+            os.ftruncate(file_descriptor, buffer_length)
             
-            array_buffer = mmap.mmap(buffer_directory, 0)
+            array_buffer = mmap.mmap(file_descriptor, 0)
             
             os.unlink(ARRAY_BUFFER_PATH)
             
@@ -864,7 +864,7 @@ class Zobov:
                 p = startup_context.Process(target=getSMA_worker, 
                                             args=(num_voids,
                                                 index_coordinator,
-                                                buffer_directory,
+                                                file_descriptor,
                                                 vrads,
                                                 vcens,
                                                 vcuts,
@@ -1083,15 +1083,15 @@ class Zobov:
                            
             index_coordinator = Value(c_int64, 0, lock=True)
 
-            zlist_buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_zlist", 
+            zlist_file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_zlist", 
                                                                dir="/dev/shm", 
                                                                text=False)
             
             zlist_buffer_length = ngal*4
             
-            os.ftruncate(zlist_buffer_directory, zlist_buffer_length)
+            os.ftruncate(zlist_file_descriptor, zlist_buffer_length)
             
-            array_buffer = mmap.mmap(zlist_buffer_directory, 0)
+            array_buffer = mmap.mmap(zlist_file_descriptor, 0)
             
             os.unlink(ARRAY_BUFFER_PATH)
             
@@ -1101,15 +1101,15 @@ class Zobov:
     
             zlist.shape = (ngal,)
 
-            elist_buffer_directory, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_elist", 
+            elist_file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_elist", 
                                                                dir="/dev/shm", 
                                                                text=False)
             
             elist_buffer_length = ngal*4
             
-            os.ftruncate(elist_buffer_directory, elist_buffer_length)
+            os.ftruncate(elist_file_descriptor, elist_buffer_length)
             
-            array_buffer = mmap.mmap(elist_buffer_directory, 0)
+            array_buffer = mmap.mmap(elist_file_descriptor, 0)
             
             os.unlink(ARRAY_BUFFER_PATH)
             
@@ -1128,8 +1128,8 @@ class Zobov:
                 p = startup_context.Process(target=galzone_worker, 
                                             args=(ngal,
                                                 index_coordinator,
-                                                zlist_buffer_directory,
-                                                elist_buffer_directory,
+                                                zlist_file_descriptor,
+                                                elist_file_descriptor,
                                                 zcell,
                                                 glut2,
                                                 self.tessellation.volumes,
