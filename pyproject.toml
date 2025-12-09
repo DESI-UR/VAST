@@ -33,6 +33,7 @@ dependencies = [
     "vispy >= 0.7",
     "healpy >= 1.15",
     "scikit-learn >= 0.24",
+    "multivoro",
 ]
 
 [project.optional-dependencies]

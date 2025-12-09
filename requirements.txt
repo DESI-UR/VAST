@@ -13,3 +13,4 @@ scikit-learn>=0.24.2; python_version>='3.8'
 vispy>=0.7.0
 healpy>=1.15.0
 pyopengltk
+multivoro

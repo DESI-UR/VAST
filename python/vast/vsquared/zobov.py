@@ -9,13 +9,21 @@ from astropy.table import Table
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM
 import time
+import os
+import mmap
+import tempfile
+import multiprocessing
+from multiprocessing import Value, Process# Pool, shared_memory
+from ctypes import c_int64
 
+#from itertools import repeat
 
 from vast.vsquared.util import toSky, \
-                               inSphere, \
-                               wCen, \
-                               getSMA, \
+                               num_coords_in_sphere, dcut_worker,\
+                               wCen, wCen_worker,\
+                               getSMA, getSMA_worker,\
                                P, \
+                               galzone_worker, \
                                flatten, \
                                open_fits_file_V2, \
                                mknumV2
@@ -128,7 +136,7 @@ class Zobov:
         #if start not in [0,1,2,3,4] or end not in [0,1,2,3,4] or end<start:
         #    print("Choose valid stages")
         #    return
-
+        
         if visualize*periodic:
             print("Visualization not implemented for periodic boundary conditions: changing to false")
             self.visualize = False
@@ -157,7 +165,7 @@ class Zobov:
         
         self.outdir  = config['Paths']['Output Directory']
         
-        self.intloc  = "../../intermediate/" + self.catname
+        self.intloc  = self.outdir +"/intermediate/" + self.catname
         
         self.H0   = float(config['Cosmology']['H_0'])
         
@@ -443,7 +451,10 @@ class Zobov:
                   method=0, 
                   minsig=2, 
                   zone_linking_cut=0.2, 
-                  central_density_cut=0.2):
+                  central_density_cut=None,
+                  apply_mgs_cut = False,
+                  apply_median_radius_cut = False
+                 ):
         """
         Sort voids according to one of several methods.
 
@@ -451,21 +462,36 @@ class Zobov:
         ==========
 
         method : int or string
-            0 or VIDE or vide = VIDE method (arXiv:1406.1191); link zones with density <1/5 mean density, and remove voids with density >1/5 mean density.
+            0 or VIDE or vide = VIDE method (arXiv:1406.1191); link zones with density less than zone_linking_cut * mean density
             1 or ZOBOV or zobov = ZOBOV method (arXiv:0712.3049); keep full void hierarchy.
             2 or ZOBOV2 or zobov2 = ZOBOV method; cut voids over a significance threshold.
             3 = not available
             4 or REVOLVER or revolver = REVOLVER method (arXiv:1904.01030); every zone below mean density is a void.
-            5 or REVOLVER2 = REVOLVER method (VAST legacy version) with only the 50% largest voids returned
         
         minsig : float
-            Minimum significance threshold for selecting voids.
+            Minimum significance threshold for selecting voids. This value is only used when method=2
 
         zone_linking_cut : float
-            Density cut for linking zones using VIDE method.
+            Density cut for linking zones using VIDE method. This value is only used when method=0. When used,
+            zone_linking_cut should be set to a value between 0 and 1, representing the fraction of the mean density
+            used for the zone-linking threshold. A value of 0.2 may be used to match the VIDE pruning choices found 
+            in arXiv:1406.1191 and arXiv:2202.01226
             
-        central_density_cut : float
-            Density cut for filtering voids from the final catalog.
+        central_density_cut : float or None
+            Density cut for filtering voids from the final catalog. If set to None (default value), no cut is applied.
+            If set to a float between 0 and 1, central_density_cut represents the fraction of the mean density used as 
+            the threshold for filtering voids. Voids whose central densities are more dense than the threshold will be 
+            cut. A value of 0.2 may be used to match the VIDE pruning choices found in arXiv:1406.1191 and 
+            arXiv:2202.01226
+
+        apply_mgs_cut : bool
+            If True, voids with radii smaller than the mean galaxy separation are cut from the catalog.
+            Defaults to False, meaning no cut is applied. Setting the cut to True will match the VIDE pruning choices 
+            found in arXiv:1406.1191 and arXiv:2202.01226
+
+        apply_median_radius_cut : bool
+            If True, only the 50% largest voids returned. Defaults to False. Setting the cut to True will match the 
+            analysis choices made in arXiv:1904.01030 and the REVOVLER pruning definiton used in arXiv:2202.01226
         """
 
         # ------------------------------------------------------------------------------------------------------
@@ -484,8 +510,6 @@ class Zobov:
                     method = 2
                 if method == 'REVOLVER' or method == 'revolver':
                     method = 4
-                if method == 'REVOLVER2' or method == 'revolver2':
-                    method = 5
 
         if not hasattr(self, 'prevoids'):
             if method != 4:
@@ -501,18 +525,26 @@ class Zobov:
             print("Selecting void candidates...")
             start_time = time.time()
         
-        # mean cell volume / 0.2 aka 1 / (0.2 * mean density)
-        minvol = np.mean(self.tessellation.volumes[self.tessellation.volumes>0])/zone_linking_cut
+        # mean cell volume 
+        # TODO: for sky surveys, make this a function of the radial dnesity profile
+        # rahter than a fixed value
+        minvol = np.mean(self.tessellation.volumes[self.tessellation.volumes>0])
 
         if method == 0: #VIDE
+            # zone-linking theshold
+            minvol_scaled = minvol/zone_linking_cut
             
             voids  = []
+            #print('lv0',len(self.prevoids.ovols))
+            # for each void candidate
             for i in range(len(self.prevoids.ovols)):
                 vl = self.prevoids.ovols[i]
                 vbuff = []
-
+                # for each child void bordering the link
                 for j in range(len(vl)-1):
-                    if j > 0 and vl[j] < minvol:
+                    # add the deepest child to the void and any other
+                    # children that meet the threshold condition
+                    if j > 0 and vl[j] < minvol_scaled:
                         break
                     vbuff.extend(self.prevoids.voids[i][j])
                 voids.append(vbuff)
@@ -568,10 +600,10 @@ class Zobov:
                             p1 = p2
             
         
-        elif method == 4 or method == 5: #REVOLVER
-            #print('Method 4')
+        elif method == 4: #REVOLVER
+            
             voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
-
+            
         else:
             print("Choose a valid method")
             return
@@ -588,50 +620,188 @@ class Zobov:
         cutco = self.catalog.coord[gcut]
 
         # Build array of void volumes
-        #for every void in hierarchy, its volume
         vvols = np.array([np.sum(self.tessellation.volumes[vcut]) for vcut in vcuts])
 
-        # Calculate effective radius of voids
-        #for every void in hierarchy, its radius
+        # Calculate effective radii of the voids
         vrads = (vvols*3/(4*np.pi))**(1/3)
         if self.verbose > 0:
             print('Effective void radius calculated')
 
-        # Locate all voids with radii smaller than set minimum
-        # Old behavior for REVOLVER
-        if method==5:
-            self.minrad = np.median(vrads)
+        # ------------------------------------------------------------------------------------------------------
+        # User-defined cuts on void radii
+        # ------------------------------------------------------------------------------------------------------
+       
+        # Cut all voids with radii smaller than set minimum  
+        # note: if self.minrad = 0, then one zone will still be cut, corresponding to galaxies with 0 cell volume
+        # (aka edge galaxies that are not placed in voids). This behavior is intended.
         rcut  = vrads > self.minrad
+
+        # optionally cut on median radius
+        if apply_median_radius_cut:
+            rcut *= vrads > np.median(vrads)
+
+        # optionally remove voids smaller than the mean cell size
+        if apply_mgs_cut:
+            rcut *= vrads>(minvol)**(1./3)
+        
+        # apply radial cuts
         
         voids = np.array(voids, dtype=object)[rcut]
-
-        vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]]
+        vcuts = [vcuts[i] for i in np.arange(len(rcut))[rcut]] # vcuts is a list
         vvols = vvols[rcut]
         vrads = vrads[rcut]
+        
         if self.verbose > 0:
             print('Removed voids smaller than', self.minrad, 'Mpc/h')
 
+        # ------------------------------------------------------------------------------------------------------
         # Identify void centers.
+        # ------------------------------------------------------------------------------------------------------
+       
         if self.verbose > 0:
             print("Finding void centers...")
-        vcens = np.array([wCen(self.tessellation.volumes[vcut],cutco[vcut]) for vcut in vcuts])
+        if self.num_cpus == 1:
+            vcens = np.array([wCen(self.tessellation.volumes[vcut], cutco[vcut], self.periodic, self.cmin, self.cmax) for vcut in vcuts])
+        else:
+            #parallel version
+
+            # set up shared memory for parallel processes and then run processes
+                
+            num_voids = len(vcuts)
+            
+            index_coordinator = Value(c_int64, 0, lock=True)
+
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_vol", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            buffer_length = num_voids*8*3
+            
+            os.ftruncate(file_descriptor, buffer_length)
+            
+            array_buffer = mmap.mmap(file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vcens = np.frombuffer(array_buffer, dtype=np.float64)
+            
+            vcens[:] = 0
+    
+            vcens.shape = (num_voids, 3)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+
+                p = startup_context.Process(target=wCen_worker, 
+                                            args=(num_voids, 
+                                                  index_coordinator, 
+                                                  file_descriptor,
+                                                  vcuts,
+                                                  self.tessellation.volumes, 
+                                                  cutco, 
+                                                  self.periodic, 
+                                                  self.cmin, 
+                                                  self.cmax
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
         
+        # ------------------------------------------------------------------------------------------------------
+        # Apply central density cut
+        # ------------------------------------------------------------------------------------------------------
         
-        # mean zone volume / 0.2 aka 1 / (0.2 * mean density)
-        minvol *= zone_linking_cut / central_density_cut
+        if central_density_cut is not None:
+            # central density threshold 
+            minvol_scaled = minvol / central_density_cut
+
+            if self.verbose > 0:
+                print("Cutting on central density...")
+            
+            # Apply central density cut 
+            # -----------------------
+            if self.num_cpus == 1:
+                # number of galaxies within 1/4th of the void radius divided by volume 4/3*pi*(R/4)^3
+                # should be less than the user specified fraction of the mean density
+                dcut = np.array([64.*num_coords_in_sphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)/vvols[i] for i in range(len(vrads))])<1./minvol_scaled
+            else:
+                #parallel version
+
+                # set up shared memory for parallel processes and then run processes
+                
+                num_voids = len(vrads)
+                
+                index_coordinator = Value(c_int64, 0, lock=True)
+    
+                file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_dcut", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+                
+                buffer_length = num_voids # 1 byte bool
+                
+                os.ftruncate(file_descriptor, buffer_length)
+                
+                array_buffer = mmap.mmap(file_descriptor, 0)
+                
+                os.unlink(ARRAY_BUFFER_PATH)
+                
+                dcut = np.frombuffer(array_buffer, dtype=bool)
+                
+                dcut[:] = 0
         
-        # Apply central density cut 
-        # -----------------------
-        dcut  = np.array([64.*len(cutco[inSphere(vcens[i],vrads[i]/4.,cutco)])/vvols[i] for i in range(len(vrads))])<1./minvol
-        rcut  = vrads>(minvol*central_density_cut)**(1./3) # is void larger than the cell volume
-        # For now, we remove all VIDE voids that don't pass the central density cut. Eventually, we will make this cut optional.
-        if method == 0:
-            vrads = vrads[dcut*rcut]
-            vcens = vcens[dcut*rcut]
-            voids = voids[dcut*rcut]
-        # -----------------------
+                dcut.shape = (num_voids,)
+                
+                startup_context = multiprocessing.get_context("fork")
+                    
+                processes = []
+                
+                for proc_idx in range(self.num_cpus):
+    
+                    p = startup_context.Process(target=dcut_worker, 
+                                                args=(num_voids, 
+                                                      index_coordinator, 
+                                                      file_descriptor,
+                                                      vcens,
+                                                      vrads,
+                                                      cutco,
+                                                      vvols,
+                                                      minvol_scaled,
+                                                      self.periodic, 
+                                                      self.cmin, 
+                                                      self.cmax
+                                                      ))
+                    
+                    p.start()
+                    
+                    processes.append(p)
+                    
+                
+                for p in processes:
+                
+                    p.join(None) #block till join
+
+            vcuts = [vcuts[i] for i in np.arange(len(dcut))[dcut]] # vcuts is a list
+            vrads = vrads[dcut]
+            vcens = vcens[dcut]
+            voids = voids[dcut]
+            del vvols # vvols is not needed anymore so delete it rather than propogating cuts
         
-        vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
+        # ------------------------------------------------------------------------------------------------------
+        # Edge-void calculations
+        # ------------------------------------------------------------------------------------------------------
+        
+        if self.verbose > 0:
+            print("Determining edge voids...")
+        
         if self.visualize:
             varea_0 = [np.sum(self.zones.zarea_0[np.array(voi, dtype=int)]) for voi in voids]
             varea_t = [np.sum(self.zones.zarea_t[np.array(voi, dtype=int)]) for voi in voids]
@@ -646,29 +816,111 @@ class Zobov:
                         if z2 in self.zones.zlinks[0][z1]:
                             l = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
                             varea_s[i] += self.zones.zarea_s[z1][l]
+        else:
+            vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
 
+        # ------------------------------------------------------------------------------------------------------
         # Identify eigenvectors of best-fit ellipsoid for each void.
+        # ------------------------------------------------------------------------------------------------------
+        
         if self.verbose > 0:
             print("Calculating ellipsoid axes...")
 
-        vaxes = np.array([getSMA(vrads[i],cutco[vcuts[i]]) for i in range(len(vrads))])
+        if self.num_cpus == 1:
+            vaxes = np.array([getSMA(vrads[i], vcens[i], cutco[vcuts[i]], self.periodic, self.cmin, self.cmax) for i in range(len(vrads))])
+        else:
+            #parallel version
 
+            # set up shared memory for parallel processes and then run processes
+                
+            num_voids = len(vrads)
+            
+            index_coordinator = Value(c_int64, 0, lock=True)
+
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_ell", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            buffer_length = num_voids*8*3*3
+            
+            os.ftruncate(file_descriptor, buffer_length)
+            
+            array_buffer = mmap.mmap(file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vaxes = np.frombuffer(array_buffer, dtype=np.float64)
+            
+            vaxes[:] = 0
+    
+            vaxes.shape = (num_voids, 3,3)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+
+                p = startup_context.Process(target=getSMA_worker, 
+                                            args=(num_voids,
+                                                index_coordinator,
+                                                file_descriptor,
+                                                vrads,
+                                                vcens,
+                                                vcuts,
+                                                cutco, 
+                                                self.periodic, 
+                                                self.cmin, 
+                                                self.cmax,
+                                               ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+
+        # ------------------------------------------------------------------------------------------------------
+        # Calculate zone information
+        # ------------------------------------------------------------------------------------------------------
+
+        if self.verbose > 0:
+            print("Calculating zone information...")
+
+        # zvoid holds smallest parent void in void hierarchy and largest parent void in void hierarchy
+        # for each zone
         zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
         
         #iterate over voids
         for i in range(len(voids)):
             
-            #iterate over 
+            #iterate over zones in void
             for j in voids[i]:
+                
+                # if the zone is marked as in a void
                 if zvoid[j][0] > -0.5:
+                    
+                    # if the current void has fewer zones than the marked void
                     if len(voids[i]) < len(voids[zvoid[j][0]]):
+                        
+                        #update the lowest level void in the hierarchy that contains the zone
                         zvoid[j][0] = i
+                        
+                    # if the current void has more zones than the marked void
                     elif len(voids[i]) > len(voids[zvoid[j][1]]):
+                        
+                        #update the highest level void in the hierarchy that contains the zone
                         zvoid[j][1] = i
+                
+                # if the zone not is marked as in a void, update both entries in zvoid
                 else:
                     zvoid[j][0] = i
                     zvoid[j][1] = i
 
+        # record the calculated info
         self.vrads = vrads
         self.vcens = vcens
         self.vaxes = vaxes
@@ -679,10 +931,11 @@ class Zobov:
         if self.verbose > 0:
             print("SortVoids time: ", time.time() - start_time)
 
-        self.vhzn = (np.array(vhzn)).astype(bool)
         if self.visualize:
             self.varea_0 = np.array(varea_0)
             self.varea_t = np.array(varea_t)-varea_s
+        else:
+            self.vhzn = (np.array(vhzn)).astype(bool)
 
 
 
@@ -781,30 +1034,120 @@ class Zobov:
         if not hasattr(self,'zones'):
             print("Build zones first")
             return
-
+        #print('Debug: ngal')
         ngal  = len(self.catalog.coord)
         glist = np.arange(ngal)
+        # indices of galaxies that make pre-tessellation cuts
         glut1 = glist[self.catalog.nnls==glist]
+        # for each cell center, all galaxies in its cell
         glut2 = [[] for _ in glut1]
         dlist = -1 * np.ones(ngal,dtype=int)
+        
+        #print('Debug: glut2')
 
-        for i,l in enumerate(glut2):
-            l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
-            dlist[l] = self.zones.depth[i]
-
-        zlist = -1 * np.ones(ngal,dtype=int)
+        if len(glut1) == ngal:
+            # case of no cuts on galaxies
+            glut2 = glut1
+            dlist = self.zones.depth
+        else:
+            # Warning: time instensive fo large data sets
+            for i,l in enumerate(glut2):
+                # for current cell, add all galaxy IDs of contained galaxies to to glut2
+                l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
+                dlist[l] = self.zones.depth[i]
+                
+        #print('Debug: zcell')
+        #each element of zcell is a zone, and the zone is a 
+        #list of the galaxy indices belonging to that zone
         zcell = self.zones.zcell
-
+        # inverted imsk, 1 means galaxy outside survey mask, 0 means galaxy in survey mask
         olist = 1-np.array(self.catalog.imsk,dtype=int)
-        elist = np.zeros(ngal,dtype=int)
+        if self.num_cpus == 1:
+            # list of zone IDs for each galaxy, initalized to -1
+            zlist = -1 * np.ones(ngal,dtype=int)
+            elist = np.zeros(ngal,dtype=int)
+            # loop through zone IDs and galaxy IDs in zones
+            for i,cl in enumerate(zcell):
+                # loop through galaxy IDs in current zone
+                for c in cl:
+                    # write the zone ID for the current galaxy
+                    zlist[glut2[c]] = i
+                    # if galaxy is on edge of survey (cell volume=0) and is inside the mask
+                    if self.tessellation.volumes[c]==0. and not olist[glut2[c]].all():
+                        # mark as edge galaxy
+                        elist[glut2[c]] = 1
+        else:
+            #parallel version
 
-        for i,cl in enumerate(zcell):
-            for c in cl:
-                zlist[glut2[c]] = i
-                if self.tessellation.volumes[c]==0. and not olist[glut2[c]].all():
-                    elist[glut2[c]] = 1
+            # set up shared memory for parallel processes and then run processes
+                           
+            index_coordinator = Value(c_int64, 0, lock=True)
+
+            zlist_file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_zlist", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            zlist_buffer_length = ngal*4
+            
+            os.ftruncate(zlist_file_descriptor, zlist_buffer_length)
+            
+            array_buffer = mmap.mmap(zlist_file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            zlist = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            zlist[:] = -1
+    
+            zlist.shape = (ngal,)
+
+            elist_file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_elist", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
+            
+            elist_buffer_length = ngal*4
+            
+            os.ftruncate(elist_file_descriptor, elist_buffer_length)
+            
+            array_buffer = mmap.mmap(elist_file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            elist = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            elist[:] = 0
+    
+            zlist.shape = (ngal,)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+            
+            for proc_idx in range(self.num_cpus):
+
+                p = startup_context.Process(target=galzone_worker, 
+                                            args=(ngal,
+                                                index_coordinator,
+                                                zlist_file_descriptor,
+                                                elist_file_descriptor,
+                                                zcell,
+                                                glut2,
+                                                self.tessellation.volumes,
+                                                olist 
+                                               ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+                
         elist[np.array(olist,dtype=bool)] = 0
-
+            
+        #print('Debug: names')
         # format output tables
         names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
         columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
@@ -820,7 +1163,7 @@ class Zobov:
         
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
-
+        #print('Debug: write out')
         # write to the output file
         hdu = fits.BinTableHDU()
         hdu.name = 'GALZONE'
@@ -861,11 +1204,10 @@ class Zobov:
         galaxy_coords = self.catalog.coord
         
         triangle_norms = self.zones.triangle_norms 
-        triangles = self.zones.triangles
+        vertices = self.zones.triangles
         triangle_zones = self.zones.triangle_zones
+        triangle_zone_links = self.zones.triangle_zone_links
         
-        vertices = self.tessellation.verts[triangles]
-
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname)
 
@@ -874,16 +1216,17 @@ class Zobov:
         zones = hdul['ZONEVOID'].data['zone']
         containing_void = hdul['ZONEVOID'].data['void1'] 
         zones_to_voids = dict(zip(zones, containing_void))
+        zones_to_voids[-1]=-1
 
         vid = np.vectorize(zones_to_voids.get)(triangle_zones) 
+        triangle_neighbor_voids = np.vectorize(zones_to_voids.get)(triangle_zone_links) 
 
         # cut down triangle data to match void prunning
-
-        select_voids = vid != -1
+        # triangles are in a valid void and do not border a zone in the same void
+        select_voids = (vid != -1) * (vid != triangle_neighbor_voids)
         vid = vid[select_voids]
         vertices = vertices[select_voids]
         triangle_norms = triangle_norms[select_voids]
-
         if len(vid)==0:
             print("Error: largest void found encompasses entire survey (try using a method other than 1 or 2)")
             return

@@ -1003,10 +1003,14 @@ class VoidMapV2():
         chains = []
         scut = np.zeros(len(xs),dtype=bool)
         for i in range(len(xs)):
-            if len(xs[xs==xs[i]])==1:
+            cut_condition = len(xs[xs==[xs[i]]]) #np.sum(np.isclose(xs[i], xs))
+            if cut_condition==1:
                 scut[i] = True
-            elif len(xs[xs==xs[i]])>2:
+            elif cut_condition>2:
                 print("0",end='',flush=True)
+            else:
+                #print("1",end='',flush=True)
+                pass
         dists = []
         pairs = []
         for i in range(len(xs)):
@@ -1038,7 +1042,7 @@ class VoidMapV2():
                 j = i + 1 - 2*(i%2)
                 while xs2[j] != xs2[i]:
                     lcut[j] = False
-                    k = np.where(xs2==xs2[j])[0]
+                    k = np.where(xs2==xs2[j])[0]#np.where(np.isclose(xs2[j], xs2))[0]#np.where(xs2==xs2[j])[0]
                     k = k[k != j][0]
                     chains[-1].append(cmp[k])
                     lcut[k] = False
@@ -1061,8 +1065,8 @@ class VoidMapV2():
             chkl.append(intx[2*i]+intx[2*i+1])
         chkl = np.array(chkl)
         for i in range(len(chkl)):
-            # length of each cross sectio
-            if len(chkl[chkl==chkl[i]])>1:
+            # length of each cross section
+            if len(chkl[chkl==chkl[i]])>1:#np.sum(np.isclose(chkl[i], chkl))>1:
                 ccut[2*i] = False
                 ccut[2*i+1] = False
         intx = intx[ccut]
@@ -1220,6 +1224,8 @@ class VoidMapV2():
                     
                     if return_plot_data:
                         plot_data.append([Intra2[j],Intr2[j]])
+                # This code appears to be designed to fill in small holes in voids with the backround color (white)
+                # but it doesn't work as intended and instead fills entire voids with white
                 #for j in range(len(Intr2)):
                 #    if Icut[j]:
                 #        aux_ax3.plot(Intra2[j],Intr2[j],color='blue')

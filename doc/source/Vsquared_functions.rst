@@ -56,18 +56,24 @@ V\ :sup:`2` API
 .. autofunction:: vast.vsquared.util.toSky
 
 
+``util.dcut_worker``
+==============
 
-``util.inSphere``
+.. autofunction:: vast.vsquared.util.dcut_worker
+
+
+
+``util.num_coords_in_sphere``
 =================
 
-.. autofunction:: vast.vsquared.util.inSphere
+.. autofunction:: vast.vsquared.util.num_coords_in_sphere
 
 
 
-``util.getBuff``
+``util.wCen_worker``
 ================
 
-.. autofunction:: vast.vsquared.util.getBuff
+.. autofunction:: vast.vsquared.util.wCen_worker
 
 
 
@@ -76,6 +82,11 @@ V\ :sup:`2` API
 
 .. autofunction:: vast.vsquared.util.wCen
 
+
+``util.getSMA_worker``
+===============
+
+.. autofunction:: vast.vsquared.util.getSMA_worker
 
 
 ``util.getSMA``
@@ -96,3 +107,32 @@ V\ :sup:`2` API
 ================
 
 .. autofunction:: vast.vsquared.util.flatten
+
+
+``util.open_fits_file_V2``
+================
+
+.. autofunction:: vast.vsquared.util.open_fits_file_V2
+
+
+``util.mknumV2``
+================
+
+.. autofunction:: vast.vsquared.util.mknumV2
+
+
+``util.rotate``
+================
+
+.. autofunction:: vast.vsquared.util.rotate
+
+
+``util.partition_face_vertices``
+================
+
+.. autofunction:: vast.vsquared.util.partition_face_vertices
+
+``util.galzone_worker``
+================
+
+.. autofunction:: vast.vsquared.util.galzone_worker
