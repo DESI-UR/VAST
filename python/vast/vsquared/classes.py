@@ -924,14 +924,15 @@ class Zones:
         # zlinks[0,i] is list of zone IDs fo zones bordering current zone i
         # zlinks[1,i] is linkage volumes - watershed breakpoint for the
         # boundary between current zone i and neighbor zones
-        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
+        #zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
 
         if viz:
             #zverts = [[] for _ in range(len(zvols))]
             #znorms = [[] for _ in range(len(zvols))]
             zarea_0 = np.zeros(len(zvols)) # zone edge surface areas
             zarea_t = np.zeros(len(zvols)) # zone total surface areas
-            zarea_s = [[] for _ in range(len(zvols))] # shared zone surfaces areas for each zone link
+            #zarea_s = [[] for _ in range(len(zvols))] # shared zone surfaces areas for each zone link
+            zarea_s = {}
             
             # zone triangle data
             triangle_norms = []
@@ -944,6 +945,10 @@ class Zones:
             print("Linking zones...")
             
         link_time = time.time()
+        
+        '''
+        
+        # OLD VERSION
         
     	#loop through cells
         for i in range(len(vol)):
@@ -1052,17 +1057,15 @@ class Zones:
                         ##########################################
 
         
-        self.zlinks = zlinks
-        
-        print("Zone linking time: ", time.time() - link_time)
+        '''
         
         ################################################################################
         # New implementation for zlinks
         ################################################################################
-        '''
+        
         zone_links = {}
         
-        zone_link_volumes = np.zeros(len(zvols))
+        zone_link_volumes = {} #np.zeros(len(zvols))
         
         for idx in range(num_gals):
             
@@ -1072,14 +1075,48 @@ class Zones:
             
             if curr_zone_ID == -1:
                 continue
+                
+            curr_cell = cells[idx]
             
-            for neigh_idx in curr_neigh_idxs:
+            curr_vertices = curr_cell.get_vertices()
+            
+            curr_faces = partition_face_vertices(curr_cell)
+            
+            for neigh_idx, neigh_face in zip(curr_neigh_idxs, curr_faces):
                 
                 neigh_zone_ID = gal_zone_IDs[neigh_idx]
                 
-                #Ensure zone2 is valid
+                #Calculate edge area for cells on survey edges (neigh_zone_ID==-1)
                 if neigh_zone_ID == -1:
+                
+                    if viz:
+        
+                        # record the surface area and triangle data of the boundary formed by the vertices
+                        if len(neigh_face)>2: #If there are at least 3 vertices in teh face (>=1 triangles)
+    
+                            # ordered face vertices
+                            face_vertices = curr_vertices[neigh_face]
+    
+                            #calculate surfacearea and normal
+                            normal_vector = np.sum(np.cross(face_vertices, np.roll(face_vertices, 1, axis=0)), axis=0)
+                            normal_mag = np.linalg.norm(normal_vector)
+                            area = 0.5 * normal_mag
+                            normal_vector=normal_vector/normal_mag
+    
+                            zarea_0[z1] += area #add area to zone edge area
+                            zarea_t[z1] += area #add area to zone total area
+    
+                            # get list of triangles
+                            for tri_idx in range(1, len(face_vertices) - 1):
+                                triangle = face_vertices[[0,tri_idx,tri_idx+1]]
+    
+                                triangle_norms.append(normal_vector)
+                                triangles_verts.append(triangle)
+                                triangle_zones.append(z1)
+                                triangle_zone_links.append(z2)
+                                
                     continue
+                    
                 
                 #Ensure neighboring cell is from a different zone
                 if curr_zone_ID == neigh_zone_ID:
@@ -1091,17 +1128,59 @@ class Zones:
                 if neigh_zone_ID not in zone_links:
                     zone_links[neigh_zone_ID] = []
         
-                zone_links[curr_zone_ID].append(neigh_zone_ID)
-                zone_links[neigh_zone_ID].append(curr_zone_ID)
+        	if neigh_zone_ID not in zone_links[curr_zone_ID]:
+                    zone_links[curr_zone_ID].append(neigh_zone_ID)
+                    zone_links[neigh_zone_ID].append(curr_zone_ID)
+                    zone_link_volumes[curr_zone_ID] = {neigh_zone_ID:0.}
+                    zone_link_volumes[neigh_zone_ID] = {curr_zone_ID:0.}
+                    if viz:
+                        zarea_s[curr_zone_ID] = {neigh_zone_ID:0.}
+                        zarea_s[neigh_zone_ID] = {curr_zone_ID:0.}
+                    
+                
+                # Update maximum link volume if needed
+                nl = np.amin([vol[idx], vol[neigh_idx]])
+                ml = np.amax([zone_link_volumes[curr_zone_ID][neigh_zone_ID], nl]) # TODO: 
+                
+                
+                zone_link_volumes[curr_zone_ID][neigh_zone_ID] = ml
+                zone_link_volumes[neigh_zone_ID][curr_zone_ID] = ml
+                
+                if viz and vol[i] > 0:            
+
+                    # record the surface area and triangle data of the boundary formed by the vertices
+                    if len(face)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
+
+                        # ordered face vertices
+                        face_vertices = vertices[neigh_face]
+
+                        #calculate surfacearea and normal
+                        normal_vector = np.sum(np.cross(face_vertices, np.roll(face_vertices, 1, axis=0)), axis=0)
+                        normal_mag = np.linalg.norm(normal_vector)
+                        area = 0.5 * normal_mag
+                        normal_vector=normal_vector/normal_mag
+
+                        zarea_t[curr_zone_ID] += area #add ridge area to total zone surface area
+                        zarea_s[curr_zone_ID][neigh_zone_ID] += area # add ridge area to shared z1 z2 surface area
+
+                        # get list of triangles
+                        for tri_idx in range(1, len(face_vertices) - 1):
+                            triangle = face_vertices[[0,tri_idx,tri_idx+1]]
+
+                            triangle_norms.append(normal_vector)
+                            triangles_verts.append(triangle)
+                            triangle_zones.append(z1)
+                            triangle_zone_links.append(z2)
         
         
-        '''
+        
         
         #print("zlinks: ", len(zlinks), len(zlinks[0]), len(zlinks[1]), len(zlinks[0][0]), len(zlinks[0][1]))
         #print(zlinks[0][0])
         #print(zlinks[1][0])
-        
-        
+
+        self.zone_links = zone_links
+        self.zone_link_volumes = zone_link_volumes
         
         if viz:
             #self.zverts = zverts
@@ -1132,7 +1211,8 @@ class Voids:
         
         
         zvols  = np.array(zones.zvols) #largest cell volume for each zone
-        zlinks = zones.zlinks
+        zone_links = zones.zone_links
+        zone_link_volumes = self.zone_link_volumes
         
         # Sort zone links by volume, identify zones linked at each volume
         if verbose > 0:
