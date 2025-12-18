@@ -9,7 +9,7 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, flatten, mknumV2, rotate, partition_face_vertices
+from vast.vsquared.util import toCoord, mknumV2, rotate, partition_face_vertices
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 from vast.vsquared.class_utils import calculate_region_volume
@@ -1139,12 +1139,14 @@ class Zones:
                     
                 
                 # Update maximum link volume if needed
-                nl = np.amin([vol[idx], vol[neigh_idx]])
-                ml = np.amax([zone_link_volumes[curr_zone_ID][neigh_zone_ID], nl]) # TODO: is this needed?
-                
-                
-                zone_link_volumes[curr_zone_ID][neigh_zone_ID] = ml
-                zone_link_volumes[neigh_zone_ID][curr_zone_ID] = ml
+                # get the highest density cell bordering the face 
+                link_volume = np.amin([vol[idx], vol[neigh_idx]])
+                # check if the chosen cell is less dense than the curent least dense cell connecting the two zones
+                #ml = np.amax([zone_link_volumes[curr_zone_ID][neigh_zone_ID], link_volume])
+                if link_volume > zone_link_volumes[curr_zone_ID][neigh_zone_ID]:
+                    # update the least dense cell connecting the two zones
+                    zone_link_volumes[curr_zone_ID][neigh_zone_ID] = link_volume
+                    zone_link_volumes[neigh_zone_ID][curr_zone_ID] = link_volume
                 
                 if viz and vol[idx] > 0:            
 
@@ -1211,19 +1213,19 @@ class Voids:
         
         
         zvols  = np.array(zones.zvols) #largest cell volume for each zone
+        # For each zone i and its neighbors j
+        # zone_links[i] is list of zone IDs for zones bordering current zone i
         zone_links = zones.zone_links
+        # zone_link_volumes[i] is linkage volumes - watershed breakpoint for the
+        # boundary between current zone i and neighbor zones
         zone_link_volumes = zones.zone_link_volumes
         
         # Sort zone links by volume, identify zones linked at each volume
         if verbose > 0:
             print("Sorting links...")
 
-        # For each zone i and its neighbors j
-        # zlinks[0,i] is list of zone IDs for zones bordering current zone i
-        # zlinks[1,i] is linkage volumes - watershed breakpoint for the
-        # boundary between current zone i and neighbor zones
+        
         zones = list(zone_links.keys())
-        # TODO: fix the below
         flat_zone_links   = np.array([link for zone in zones for link in zone_links[zone]])
         flat_zone_link_volumes   = np.array([volume for zone in zones for volume in zone_link_volumes[zone]])
 
