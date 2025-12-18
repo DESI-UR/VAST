@@ -548,7 +548,7 @@ class Zobov:
                         break
                     vbuff.extend(self.prevoids.voids[i][j])
                 voids.append(vbuff)
-            print('DEBUG', voids)
+            
         elif method == 1: #ZOBOV
             
             voids = [[c for q in v for c in q] for v in self.prevoids.voids]

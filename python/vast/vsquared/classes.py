@@ -1062,28 +1062,37 @@ class Zones:
         ################################################################################
         # New implementation for zlinks
         ################################################################################
-        
-        zone_links = {}
-        
+
+        # zone_link_volumes has one entry for each zone, each entry is a dictionary of adjacent zones (keys)
+        # and the least dense cell volume connecting them (values)
         zone_link_volumes = {zone_ID : {} for zone_ID in gal_zone_IDs} #np.zeros(len(zvols))
-        
+
+        # for every galaxy
         for idx in range(num_gals):
-            
+
+            # get neigboring cells
             curr_neigh_idxs = cells[idx].get_neighbors()
-            
+
+            # get current galaxy's zone ID
             curr_zone_ID = gal_zone_IDs[idx]
-            
+
+            # ignore galaxies that are not in zones
             if curr_zone_ID == -1:
                 continue
-                
+
+            # get current galaxy's cell
             curr_cell = cells[idx]
-            
+
+            # get current cell's vertices
             curr_vertices = curr_cell.get_vertices()
-            
+
+            # get current cell's faces
             curr_faces = partition_face_vertices(curr_cell)
-            
+
+            # loop through neigboring cells and their adjacent faces to current cell
             for neigh_idx, neigh_face in zip(curr_neigh_idxs, curr_faces):
-                
+
+                # get the neighboring cell's zone ID
                 neigh_zone_ID = gal_zone_IDs[neigh_idx]
                 
                 #Calculate edge area for cells on survey edges (neigh_zone_ID==-1)
@@ -1121,32 +1130,27 @@ class Zones:
                 #Ensure neighboring cell is from a different zone
                 if curr_zone_ID == neigh_zone_ID:
                     continue
-        
-                if curr_zone_ID not in zone_links:
-                    zone_links[curr_zone_ID] = []
-                    
-                if neigh_zone_ID not in zone_links:
-                    zone_links[neigh_zone_ID] = []
 
-                if neigh_zone_ID not in zone_links[curr_zone_ID]:
-                    zone_links[curr_zone_ID].append(neigh_zone_ID)
-                    zone_links[neigh_zone_ID].append(curr_zone_ID)
+                if neigh_zone_ID not in zone_link_volumes[curr_zone_ID].keys():
                     zone_link_volumes[curr_zone_ID][neigh_zone_ID] = 0.
-                    zone_link_volumes[neigh_zone_ID][curr_zone_ID] = 0.
+                    # redundant line
+                    #zone_link_volumes[neigh_zone_ID][curr_zone_ID] = 0.
                     if viz:
                         zarea_s[curr_zone_ID][neigh_zone_ID] = 0.
-                        zarea_s[neigh_zone_ID][curr_zone_ID] = 0.
+                        # redundant line
+                        #zarea_s[neigh_zone_ID][curr_zone_ID] = 0.
                     
-                
+                # --------------------------------------
                 # Update maximum link volume if needed
+                # --------------------------------------
                 # get the highest density cell bordering the face 
                 link_volume = np.amin([vol[idx], vol[neigh_idx]])
-                # check if the chosen cell is less dense than the curent least dense cell connecting the two zones
-                ml = np.amax([zone_link_volumes[curr_zone_ID][neigh_zone_ID], link_volume])
-                #if link_volume > zone_link_volumes[curr_zone_ID][neigh_zone_ID]:
-                #    # update the least dense cell connecting the two zones
-                zone_link_volumes[curr_zone_ID][neigh_zone_ID] = ml#link_volume
-                zone_link_volumes[neigh_zone_ID][curr_zone_ID] = ml#link_volume
+                # if the chosen cell is less dense than the curent least dense cell connecting the two zones
+                if link_volume > zone_link_volumes[curr_zone_ID][neigh_zone_ID]:
+                    # update the least dense cell connecting the two zones
+                    zone_link_volumes[curr_zone_ID][neigh_zone_ID] = link_volume
+                    # redundant line
+                    #zone_link_volumes[neigh_zone_ID][curr_zone_ID] = link_volume
                 
                 if viz and vol[idx] > 0:            
 
@@ -1181,7 +1185,6 @@ class Zones:
         #print(zlinks[0][0])
         #print(zlinks[1][0])
 
-        self.zone_links = zone_links
         self.zone_link_volumes = zone_link_volumes
         
         if viz:
@@ -1213,12 +1216,8 @@ class Voids:
         
         
         zvols  = np.array(zones.zvols) #largest cell volume for each zone
-        # For each zone i and its neighbors j
-        # zone_links[i] is list of zone IDs for zones bordering current zone i
-        zone_links = zones.zone_links
-        print(len(zone_links), len(zone_links[0]))
-        # zone_link_volumes[i] is linkage volumes - watershed breakpoint for the
-        # boundary between current zone i and neighbor zones
+        # zone_link_volumes has one entry for each zone, each entry is a dictionary of adjacent zones (keys)
+        # and the least dense cell volume connecting them (values)
         zone_link_volumes = zones.zone_link_volumes
         
         # Sort zone links by volume, identify zones linked at each volume
@@ -1226,16 +1225,13 @@ class Voids:
             print("Sorting links...")
 
         
-        zones = list(zone_links.keys())
-        flat_zone_links   = np.array([link for zone in zones for link in zone_links[zone]])
-        flat_zone_link_volumes   = np.array([volume for zone in zones for volume in zone_link_volumes[zone]])
+        zones = list(zone_link_volumes.keys())
+        flat_zone_links   = np.array([link for zone in zones for link in zone_link_volumes[zone].keys()])
+        flat_zone_link_volumes   = np.array([volume for zone in zones for volume in zone_link_volumes[zone].values()])
 
         #watershed_breakpoints   = -1.*np.sort(-1.*np.unique(flat_zone_link_volumes))
-        #largest to smallest zone max link volume
-        #these are essentially the breakpoints for the watershed algorithm
-        #for more dense zones to join into less dense zones
+        #largest to smallest zone linking volume
         watershed_breakpoints = np.sort(np.unique(flat_zone_link_volumes))[::-1] 
-        #print("watershed breakpoints: ", watershed_breakpoints.shape)
         
         #At each breakpoint, a list of the unique zone IDs which border the breakpoint
         zlut  = [ np.unique( flat_zone_links[np.where(flat_zone_link_volumes==link_volume)[0]] ).tolist() for link_volume in watershed_breakpoints ]
@@ -1312,8 +1308,8 @@ class Voids:
         # voids by REVOLVER. Do we want to change this behavior at all?
         
         # isolated voids
-        for i in range(len(zlinks[0])):
-            if len(zlinks[0][i])==0:
+        for i in zone_link_volumes.keys():
+            if len(zone_link_volumes[i])==0:
                 if zvols[i] > 0:
                     pass
         """
