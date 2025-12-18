@@ -1142,11 +1142,11 @@ class Zones:
                 # get the highest density cell bordering the face 
                 link_volume = np.amin([vol[idx], vol[neigh_idx]])
                 # check if the chosen cell is less dense than the curent least dense cell connecting the two zones
-                #ml = np.amax([zone_link_volumes[curr_zone_ID][neigh_zone_ID], link_volume])
-                if link_volume > zone_link_volumes[curr_zone_ID][neigh_zone_ID]:
-                    # update the least dense cell connecting the two zones
-                    zone_link_volumes[curr_zone_ID][neigh_zone_ID] = link_volume
-                    zone_link_volumes[neigh_zone_ID][curr_zone_ID] = link_volume
+                ml = np.amax([zone_link_volumes[curr_zone_ID][neigh_zone_ID], link_volume])
+                #if link_volume > zone_link_volumes[curr_zone_ID][neigh_zone_ID]:
+                #    # update the least dense cell connecting the two zones
+                zone_link_volumes[curr_zone_ID][neigh_zone_ID] = ml#link_volume
+                zone_link_volumes[neigh_zone_ID][curr_zone_ID] = ml#link_volume
                 
                 if viz and vol[idx] > 0:            
 
@@ -1216,6 +1216,7 @@ class Voids:
         # For each zone i and its neighbors j
         # zone_links[i] is list of zone IDs for zones bordering current zone i
         zone_links = zones.zone_links
+        print(len(zone_links), len(zone_links[0]))
         # zone_link_volumes[i] is linkage volumes - watershed breakpoint for the
         # boundary between current zone i and neighbor zones
         zone_link_volumes = zones.zone_link_volumes
