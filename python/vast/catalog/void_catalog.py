@@ -999,9 +999,9 @@ class V2Catalog(VoidCatalog):
         Calculates voronoi void ellipticity following the definiton used in 
         https://arxiv.org/abs/1406.1191
 
-        ellipticity = 1 - (J_1/J_3)^(1/4)
+        ellipticity = 1 - A_1/A_3
 
-        where J_1 is the minor axis of the best fit ellipsoid, and J_3 is the major axis of the best 
+        where A_1 is the minor axis of the best fit ellipsoid, and A_3 is the major axis of the best 
         fit ellipsoid
 
         params:
@@ -1029,12 +1029,12 @@ class V2Catalog(VoidCatalog):
                                      self.voids['x2']**2 + self.voids['y2']**2 + self.voids['z2']**2,
                                      self.voids['x3']**2 + self.voids['y3']**2 + self.voids['z3']**2])
         
-        # calculate the J_1 and J_3 terms
-        axis_j1_square = np.min(axis_mag_squared, axis=0)
-        axis_j3_square = np.max(axis_mag_squared, axis=0)
+        # calculate the A_1 and A_3 terms
+        axis_a1_square = np.min(axis_mag_squared, axis=0)
+        axis_a3_square = np.max(axis_mag_squared, axis=0)
 
         #calculate the ellipticity
-        ellipticity = 1 - np.power(axis_j1_square/axis_j3_square, 1/8) # (J_1^2 / J_3^2)^(1/8) = (J_1 / J_3)^(1/4)
+        ellipticity = 1 - np.sqrt(axis_a1_square/axis_a3_square)
 
         self.voids['ellip'] = ellipticity
         
