@@ -151,7 +151,7 @@ class Catalog:
             print("Read in galaxy data (rows, cols): ", len(galaxy_table), len(galaxy_table.columns))
             print(galaxy_table.columns)
         
-        
+        self.weights = None if column_names['weight'] == "None" else galaxy_table[column_names['weight']]
         
         ################################################################################
         # This section is actually doing 2 things:
@@ -171,6 +171,7 @@ class Catalog:
         # 
         # self.coord is a shape (N,3) array of the xyz coordinates
         ################################################################################
+        
         if periodic or xyz:
             
             self.coord = np.array([galaxy_table[column_names['x']],
@@ -540,6 +541,10 @@ class Tesselation:
                                                        )
         
         self.volumes = output_volumes
+
+        if cat.weights is not None:
+            finite_density = self.volumes != 0.
+            self.volumes[finite_density] = self.volumes[finite_density] / cat.weights[finite_density]
         
         print("Cut+Convex Hull time: ", time.time() - volume_time)
         
