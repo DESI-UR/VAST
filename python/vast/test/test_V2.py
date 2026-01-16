@@ -127,11 +127,26 @@ class TestV2(unittest.TestCase):
         self.assertTrue(diff/6897.767791048626 <= .01)
 
         # Test zone links
-        diff = np.abs(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]) - 9.617021276595745)
+        zl0 = []
+        zl1 = []
+        
+        for zone_ID, neighID_vol_dict in self.zones.zone_link_volumes.items():
+            
+            neighbor_IDs = neighID_vol_dict.keys()
+            zl0.append(len(neighbor_IDs))
+            
+            neighbor_volumes = list(neighID_vol_dict.values())
+                                    
+            if len(neighbor_volumes)>0:
+                                    
+                zl1.append(np.mean(neighbor_volumes))
+        
+        diff = np.abs(np.mean(zl0) - 9.617021276595745)
         self.assertTrue(diff/9.617021276595745 <= 0.01)
         
-        diff = np.abs(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][:-1]]) - 3285.6313303024826)
+        diff = np.abs(np.mean(zl1) - 3285.6313303024826)
         self.assertTrue(diff/3285.6313303024826 <= 0.01)
+        
 
     def test_zobov_3_voids(self):
         """Test ZOBOV void creation
