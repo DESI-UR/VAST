@@ -24,7 +24,7 @@ class TestV2(unittest.TestCase):
         TestV2.zones = None
         TestV2.voids = None
         TestV2.zobov = None
-
+    
     def test_cat_coord(self):
         """Check catalog coordinate access
         """
@@ -32,12 +32,12 @@ class TestV2(unittest.TestCase):
         config.read(TestV2.inifile)
         TestV2.zobov = zobov.Zobov(TestV2.inifile, save_intermediate=False)
         TestV2.cat = classes.Catalog(TestV2.catfile, TestV2.nside, 0.03, 0.1, config['Galaxy Column Names'],zobov=TestV2.zobov)
-
+        
         mcoord = np.array([-158.0472400951847,-19.01100010666949,94.40978960900837])
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[0]), mcoord[0]))
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[1]), mcoord[1]))
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[2]), mcoord[2]))
-
+    
     def test_cat_nnls(self):
         """Check catalog nnls
         """
@@ -190,7 +190,7 @@ class TestV2(unittest.TestCase):
         TestV2.zobov.saveZones()
         
         self.assertTrue(os.path.exists('TEST_V2_VIDE_Output.fits'))
-
+    
     def tearDown(self):
         """Delete files produced for the unit tests.
         """
