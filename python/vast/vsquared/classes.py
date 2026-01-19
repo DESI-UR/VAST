@@ -1045,13 +1045,6 @@ class Zones:
                 
                 neigh_idx = curr_neigh_idxs[ndx]
                 
-                # Set both of these to 1, which may be redundant, but the neighbor might not
-                # have valid zone info at the time of the current galaxy, since we iterate 
-                # by sorted volume, so later when the neighbor is the current galaxy we
-                # have to "go back" and add it in
-                #gal_links_zones_flags[gal_idx] = 1
-                #gal_links_zones_flags[neigh_idx] = 1
-                
                 key_lower = min(zone_ID, neigh_zone_ID)
                 key_upper = max(zone_ID, neigh_zone_ID)
                 
