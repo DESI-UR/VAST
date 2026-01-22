@@ -589,7 +589,7 @@ class Zobov:
                         p2 = P(r)
                         p3 = 1.
                         for zid in self.prevoids.voids[i][j+1]:
-                            vhz = np.amax(self.zones.zvols[zid])
+                            vhz = np.amax(self.zones.zone_info[zid]["largest_cell_volume"])
                             vlz = np.amax(self.zones.zlinks[1][zid])
                             rz  = vhz / vlz
                             p3  = p3 * P(rz)
@@ -602,7 +602,7 @@ class Zobov:
         
         elif method == 4: #REVOLVER
             
-            voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
+            voids = np.arange(len(self.zones.zone_info)).reshape(len(self.zones.zone_info),1).tolist()
             
         else:
             print("Choose a valid method")
@@ -613,7 +613,8 @@ class Zobov:
 
         
         #for every void in hierarchy (VIDE) or for every zone (REVOLVER), the cells that compose it
-        vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
+        zcell = np.array([self.zones.zone_info[zone_ID]["galaxy_indices"] for zone_ID in self.zones.zone_info.keys()], dtype=object)
+        vcuts = [list(flatten(zcell[v])) for v in voids]
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
         
@@ -817,7 +818,8 @@ class Zobov:
                             l = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
                             varea_s[i] += self.zones.zarea_s[z1][l]
         else:
-            vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
+            zhzn = np.array([self.zones.zone_info[zone_ID]["edge_cell_count"] for zone_ID in self.zones.zone_info.keys()])
+            vhzn = [np.sum(zhzn[np.array(voi, dtype=int)]) for voi in voids]
 
         # ------------------------------------------------------------------------------------------------------
         # Identify eigenvectors of best-fit ellipsoid for each void.
@@ -892,7 +894,7 @@ class Zobov:
 
         # zvoid holds smallest parent void in void hierarchy and largest parent void in void hierarchy
         # for each zone
-        zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
+        zvoid = [[-1,-1] for _ in range(len(self.zones.zone_info))]
         
         #iterate over voids
         for i in range(len(voids)):
@@ -1059,7 +1061,7 @@ class Zobov:
         #print('Debug: zcell')
         #each element of zcell is a zone, and the zone is a 
         #list of the galaxy indices belonging to that zone
-        zcell = self.zones.zcell
+        zcell = np.array([self.zones.zone_info[zone_ID]["galaxy_indices"] for zone_ID in self.zones.zone_info.keys()], dtype=object)
         # inverted imsk, 1 means galaxy outside survey mask, 0 means galaxy in survey mask
         olist = 1-np.array(self.catalog.imsk,dtype=int)
         if self.num_cpus == 1:
