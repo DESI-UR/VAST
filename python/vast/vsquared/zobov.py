@@ -814,9 +814,16 @@ class Zobov:
                     z1 = voids[i][j]
                     for k in range(j+1,len(voids[i])):
                         z2 = voids[i][k]
-                        if z2 in self.zones.zlinks[0][z1]:
-                            l = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
-                            varea_s[i] += self.zones.zarea_s[z1][l]
+                        if z2 in self.zones.zone_info[z1]["linked_zones"]:
+                            try:
+                                varea_s[i] += self.zones.zarea_s[z1][z2]
+                            except:
+                                print('CRASH TIME')
+                                print(z1, z2)
+                                print(self.zones.zone_info[z1]["linked_zones"])
+                                print('')
+                                print(self.zones.zarea_s[z1])
+                            varea_s[i] += self.zones.zarea_s[z1][z2]
         else:
             zhzn = np.array([self.zones.zone_info[zone_ID]["edge_cell_count"] for zone_ID in self.zones.zone_info.keys()])
             vhzn = [np.sum(zhzn[np.array(voi, dtype=int)]) for voi in voids]
@@ -1067,7 +1074,7 @@ class Zobov:
         if self.num_cpus == 1:
             # list of zone IDs for each galaxy, initalized to -1
             zlist = -1 * np.ones(ngal,dtype=int)
-            elist = np.zeros(ngal,dtype=int)
+            elist = 1 * np.ones(ngal,dtype=int)
             # loop through zone IDs and galaxy IDs in zones
             for i,cl in enumerate(zcell):
                 # loop through galaxy IDs in current zone
@@ -1075,9 +1082,9 @@ class Zobov:
                     # write the zone ID for the current galaxy
                     zlist[glut2[c]] = i
                     # if galaxy is on edge of survey (cell volume=0) and is inside the mask
-                    if self.tessellation.volumes[c]==0. and not olist[glut2[c]].all():
+                    if self.tessellation.volumes[c]!=0. or olist[glut2[c]].all():
                         # mark as edge galaxy
-                        elist[glut2[c]] = 1
+                        elist[glut2[c]] = 0
         else:
             #parallel version
 
