@@ -823,7 +823,7 @@ def galzone_worker(ngal,
             # record the zone ID of the galaxy
             zlist[glut[c]] = curr_index
             # if galaxy is on edge of survey (cell volume=0) and is inside the mask
-            if volumes[c]==0. and not olist[glut[c]].all():
+            if volumes[c]!=0. or olist[glut[c]].all():
                 # mark as edge galaxy
                 elist[glut[c]] = 1
 

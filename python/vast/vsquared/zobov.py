@@ -1124,7 +1124,7 @@ class Zobov:
             
             elist = np.frombuffer(array_buffer, dtype=np.int32)
             
-            elist[:] = 0
+            elist[:] = 1
     
             zlist.shape = (ngal,)
             
