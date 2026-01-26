@@ -805,6 +805,7 @@ class Zones:
                  tess,
                  viz=False,
                  catalog=None,
+                 zones_mode = 'voids',
                  verbose=0):
         """Implementation of zones: see arXiv:0712.3049 for details.
 
@@ -816,6 +817,11 @@ class Zones:
             
         viz : bool
             Compute visualization.
+
+        zones_mode : str
+            A switch between the ZOBOV void and VOBOZ cluster algorithms. zones_mode
+            should be set to etiher 'voids' or 'clusters' to select the appropriate 
+            program
             
         verbose : int
             used to enable (>=1) or disable (0) print messages
@@ -824,6 +830,12 @@ class Zones:
         coords = catalog.coord[catalog.nnls==np.arange(len(catalog.nnls))] 
         
         vol = tess.volumes
+
+        if str.lower(zones_mode) == 'clusters':
+            vol = -1 * tess.volumes
+        elif str.lower(zones_mode) != 'voids':
+            error_string = f'Invalid zones_mode: {zones_mode}'
+            raise ValueError(error_string)
         
         cells = tess.cells
         
@@ -872,7 +884,7 @@ class Zones:
             # cells since we have to check it explicitly anyway
             if vol[srt_i] == 0.:
                 gal_zone_IDs[srt_i] = -1
-                zcell[-1].append(srt_i)
+                #zcell[-1].append(srt_i)
                 continue
 
             #ns = nei2[i] # indexes of galaxies neigboring curent galaxy
@@ -967,7 +979,7 @@ class Zones:
                 
                 #Calculate edge area for cells on survey edges (z2==-1)
                 if z2 == -1:
-
+                    
                     if viz:
         
                         # record the surface area and triangle data of the boundary formed by the vertices
@@ -1023,8 +1035,8 @@ class Zones:
                 zlinks[1][z2][k] = ml
                 
                 
-                if viz and vol[i] > 0:            
-
+                if viz and vol[i] != 0:            
+                    
                     # record the surface area and triangle data of the boundary formed by the vertices
                     if len(face)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
 

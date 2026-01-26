@@ -57,6 +57,7 @@ class Zobov:
                  num_cpus=1,
                  xyz=False,
                  capitalize_colnames=False,
+                 zones_mode='voids',
                  verbose=0):
         """
         Description
@@ -121,6 +122,12 @@ class Zobov:
 
         capitalize_colnames : bool
             If True, column names in ouput file are capitalized. If False, column names are lowercase
+            
+        zones_mode : str
+            A switch between the ZOBOV void and VOBOZ cluster algorithms. zones_mode
+            should be set to etiher 'voids' or 'clusters' to select the appropriate 
+            program
+            
         """
         
         self.verbose = verbose
@@ -145,6 +152,7 @@ class Zobov:
             
         self.periodic = periodic
         self.xyz = False if periodic*xyz or not xyz else True
+        self.zones_mode=zones_mode
 
         ################################################################################
         # Load the config INI file from disk
@@ -350,6 +358,7 @@ class Zobov:
             zones = Zones(self.tessellation, 
                           viz=self.visualize,
                           catalog = self.catalog,
+                          zones_mode = self.zones_mode,
                           verbose=self.verbose)
             
             if self.verbose > 0:
