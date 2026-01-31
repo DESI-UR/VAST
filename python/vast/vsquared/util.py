@@ -825,5 +825,5 @@ def galzone_worker(ngal,
             # if galaxy is on edge of survey (cell volume=0) and is inside the mask
             if volumes[c]!=0. or olist[glut[c]].all():
                 # mark as edge galaxy
-                elist[glut[c]] = 1
+                elist[glut[c]] = 0
 

@@ -1496,15 +1496,19 @@ class Voids:
         link_volumes = np.sort(np.unique(list(zone_link_volumes.values())))[::-1] 
         
         #At each breakpoint, a list of the unique zone IDs which border the breakpoint
-        link_volumes_dict = dict.fromkeys(link_volumes, [])
+        link_volumes_dict = {}
 
         for pair, watershed_break in zone_link_volumes.items():
+        
+            if watershed_break not in link_volumes_dict:
+                link_volumes_dict[watershed_break] = [] #explicitly creates a new list object for each watershed break
+        
             if pair[0] not in link_volumes_dict[watershed_break]:
-                link_volumes_dict[watershed_break] = link_volumes_dict[watershed_break] + [pair[0]]
+                link_volumes_dict[watershed_break].append(pair[0])
         
             if pair[1] not in link_volumes_dict[watershed_break]:
-                link_volumes_dict[watershed_break] = link_volumes_dict[watershed_break] + [pair[1]]
-        
+                link_volumes_dict[watershed_break].append(pair[1])  
+                
         zone_links = list(link_volumes_dict.values())
 
         '''
@@ -1540,9 +1544,13 @@ class Voids:
         # There may be more than two zones at a breakpoint.
         # ---------------------------------------------------------------------------------
 
-        watershed_breakpoints_dict = dict.fromkeys(link_breakpoints, [])
+        watershed_breakpoints_dict = {}
 
         for zone_pair, watershed_break in zone_link_breakpoints.items():
+
+            if watershed_break not in watershed_breakpoints_dict:
+                watershed_breakpoints_dict[watershed_break] = [] #explicitly creates a new list object for each watershed break
+        
             if zone_pair[0] not in watershed_breakpoints_dict[watershed_break]:
                 watershed_breakpoints_dict[watershed_break] = watershed_breakpoints_dict[watershed_break] + [zone_pair[0]]
         
@@ -1557,8 +1565,6 @@ class Voids:
         mvols = []
         ovols = []
         vlut  = np.arange(len(zvols))
-        #mvlut = np.array(zvols)
-        #ovlut = np.array(zvols)
         mvlut = zvols.copy()
         ovlut = zvols.copy()
 

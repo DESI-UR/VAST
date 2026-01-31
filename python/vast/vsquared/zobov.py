@@ -815,14 +815,6 @@ class Zobov:
                     for k in range(j+1,len(voids[i])):
                         z2 = voids[i][k]
                         if z2 in self.zones.zone_info[z1]["linked_zones"]:
-                            try:
-                                varea_s[i] += self.zones.zarea_s[z1][z2]
-                            except:
-                                print('CRASH TIME')
-                                print(z1, z2)
-                                print(self.zones.zone_info[z1]["linked_zones"])
-                                print('')
-                                print(self.zones.zarea_s[z1])
                             varea_s[i] += self.zones.zarea_s[z1][z2]
         else:
             zhzn = np.array([self.zones.zone_info[zone_ID]["edge_cell_count"] for zone_ID in self.zones.zone_info.keys()])
