@@ -529,7 +529,7 @@ class Tesselation:
         # Calculate volumes of cells
         ################################################################################
         
-        output_volumes = self.calculate_region_volumes(self.cells,
+        output_volumes, edge_cells = self.calculate_region_volumes(self.cells,
                                                        r_max,
                                                        r_min,
                                                        mask_uint8,
@@ -541,7 +541,8 @@ class Tesselation:
                                                        )
         
         self.volumes = output_volumes
-
+        self.edge_cells = edge_cells
+        
         if cat.weights is not None:
             finite_density = self.volumes != 0.
             self.volumes[finite_density] = self.volumes[finite_density] / cat.weights[finite_density]
@@ -590,6 +591,7 @@ class Tesselation:
         if self.num_cpus == 1:
             
             output_volumes = np.zeros(self.num_gals, dtype=np.float64)
+            edge_cells = np.zeros(self.num_gals, dtype=np.bool)
 
             for idx, cell in enumerate(cells):
 
@@ -607,6 +609,7 @@ class Tesselation:
                     
                     #using <= and >= since original code inversely checked just > and <
                     if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                        edge_cells[idx] = True
                         continue
         
                     ################################################################################
@@ -625,6 +628,7 @@ class Tesselation:
                     verticies_in_mask = mask_uint8[pix_ids]
             
                     if np.any(verticies_in_mask==0):
+                        edge_cells[idx] = True
                         continue
 
                 ################################################################################
@@ -669,9 +673,23 @@ class Tesselation:
     
             output_volumes.shape = (self.num_gals,)
             
+            edge_file_descriptor, EDGE_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_edge", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
             
+            edge_buffer_length = self.num_gals
             
+            os.ftruncate(edge_file_descriptor, edge_buffer_length)
             
+            edge_buffer = mmap.mmap(edge_file_descriptor, 0)
+            
+            os.unlink(EDGE_BUFFER_PATH)
+            
+            edge_cells = np.frombuffer(edge_buffer, dtype=np.bool)
+
+            edge_cells[:] = False
+            
+            edge_cells.shape = (self.num_gals,)
             
             
             startup_context = multiprocessing.get_context("fork")
@@ -687,6 +705,7 @@ class Tesselation:
                                                   index_coordinator, 
                                                   cells,
                                                   volumes_fd,
+                                                  edge_file_descriptor,
                                                   r_max,
                                                   r_min,
                                                   mask_uint8,
@@ -706,7 +725,7 @@ class Tesselation:
             
                 p.join(None) #block till join
         
-        return output_volumes
+        return output_volumes, edge_cells
         
         
     def volume_calculation_worker(self, 
@@ -714,6 +733,7 @@ class Tesselation:
                                   index_coordinator,
                                   cells,
                                   volumes_fd,
+                                  edge_file_descriptor,
                                   r_max,
                                   r_min,
                                   mask_uint8,
@@ -732,6 +752,14 @@ class Tesselation:
         output_volumes = np.frombuffer(volumes_buffer, dtype=np.float64)
     
         output_volumes.shape = (self.num_gals,)
+
+        edge_buffer_length = max_indicies # bool for 1 byte per element
+
+        edge_buffer = mmap.mmap(edge_file_descriptor, edge_buffer_length)
+
+        edge_cells = np.frombuffer(edge_buffer, dtype=np.float64)
+    
+        edge_cells.shape = (self.num_gals,)
         
         
         curr_index = 0
@@ -766,6 +794,7 @@ class Tesselation:
                 
                 #using <= and >= since original code inversely checked just > and <
                 if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                    edge_cells[curr_index] = True
                     continue
     
                 ################################################################################
@@ -784,6 +813,7 @@ class Tesselation:
                 verticies_in_mask = mask_uint8[pix_ids]
         
                 if np.any(verticies_in_mask==0):
+                    edge_cells[curr_index] = True
                     continue
 
             ################################################################################
@@ -837,6 +867,9 @@ class Zones:
         
         # Array of shape (num_gals,) dtype float volume of that galaxy's voronoi cell
         gal_cell_vols = tess.volumes
+
+        #Array of edge cell flags (unused for now)
+        #edge_cells = tess.edge_cells
         
         # List of length num_gals multivoro cell objects with methods describing the current
         # galaxy's cell
@@ -939,13 +972,6 @@ class Zones:
         '''
 
         if viz:
-            '''
-            zarea_0 = np.zeros(len(zvols)) # zone edge surface areas
-            zarea_t = np.zeros(len(zvols)) # zone total surface areas
-            #zarea_s = [[] for _ in range(len(zvols))] # shared zone surfaces areas for each zone link
-            zarea_s = {zone_ID : {} for zone_ID in gal_zone_IDs}
-            '''
-            
             
             zarea_0 = {}
             zarea_t = {}
@@ -1009,6 +1035,7 @@ class Zones:
         
         for gal_idx in sort_order:
 
+            #if edge_cells[gal_idx]: #alternate version if we want to use edge cell flags
             if gal_cell_vols[gal_idx] == 0.:
                 #gal_zone_IDs[gal_idx] = -1 #already -1 to start
                 #zone_info[-1].append(gal_idx)
@@ -1028,8 +1055,6 @@ class Zones:
             curr_vertices = cells[gal_idx].get_vertices()
             
             curr_faces = partition_face_vertices(cells[gal_idx])
-
-            
             
             ################################################################################
             # if current cell is larger than all it's neighbors (aka the center of a zone)
@@ -1065,7 +1090,10 @@ class Zones:
             # Keep track of zone linkage volume as we build the zones
             ################################################################################
             neigh_zone_IDs = gal_zone_IDs[curr_neigh_idxs]
-            
+            #if gal_idx == 11721: #11721 5098
+            #    print('OUT', gal_idx, zone_ID, gal_cell_vols[gal_idx])
+            #    print(curr_neigh_idxs, neigh_vols, neigh_zone_IDs)
+            #    assert 1==2
             for ndx, (neigh_zone_ID, neigh_face) in enumerate(zip(neigh_zone_IDs, curr_faces)):
                 
                 if neigh_zone_ID == -1:
