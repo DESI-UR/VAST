@@ -1032,7 +1032,6 @@ class Zones:
         
         degenerate_gal_cells = []
         
-        
         for gal_idx in sort_order:
 
             if edge_cells[gal_idx]:
@@ -1095,10 +1094,10 @@ class Zones:
             #    print('OUT', gal_idx, zone_ID, gal_cell_vols[gal_idx])
             #    print(curr_neigh_idxs, neigh_vols, neigh_zone_IDs)
             #    assert 1==2
-            for ndx, (neigh_zone_ID, neigh_face) in enumerate(zip(neigh_zone_IDs, curr_faces)):
+            for ndx, (neigh_zone_ID, neigh_face, neigh_idx) in enumerate(zip(neigh_zone_IDs, curr_faces, curr_neigh_idxs)):
 
                 # Neighbor is outside the survey 
-                if edge_cells[neigh_zone_ID]:
+                if edge_cells[neigh_idx]:
                     
                     if viz:
         
@@ -1214,11 +1213,9 @@ class Zones:
                             triangles_verts.append(triangle)
                             triangle_zones.append(neigh_zone_ID)
                             triangle_zone_links.append(zone_ID)
-                
-                
             
         print("Zone building time: ", time.time() - build_time)
-
+        
         if len(gal_zone_IDs[gal_zone_IDs==-2]) != 0:
             print('WARNING:', len(gal_zone_IDs[gal_zone_IDs==-2]), 'galaxies not processed by zone-building stage')
             
