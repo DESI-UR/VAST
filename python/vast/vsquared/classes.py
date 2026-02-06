@@ -757,7 +757,7 @@ class Tesselation:
 
         edge_buffer = mmap.mmap(edge_file_descriptor, edge_buffer_length)
 
-        edge_cells = np.frombuffer(edge_buffer, dtype=np.float64)
+        edge_cells = np.frombuffer(edge_buffer, dtype=np.bool)
     
         edge_cells.shape = (self.num_gals,)
         
@@ -868,8 +868,8 @@ class Zones:
         # Array of shape (num_gals,) dtype float volume of that galaxy's voronoi cell
         gal_cell_vols = tess.volumes
 
-        #Array of edge cell flags (unused for now)
-        #edge_cells = tess.edge_cells
+        #Array of edge cell flags
+        edge_cells = tess.edge_cells
         
         # List of length num_gals multivoro cell objects with methods describing the current
         # galaxy's cell
@@ -1017,7 +1017,7 @@ class Zones:
 
         
         gal_zone_IDs = np.empty(num_gals, dtype=np.int32) 
-        gal_zone_IDs.fill(-1) #init to -1, not 0
+        gal_zone_IDs.fill(-2) #init to -1, not 0
         
         depth = np.zeros(num_gals, dtype=int) 
         
@@ -1035,10 +1035,11 @@ class Zones:
         
         for gal_idx in sort_order:
 
-            #if edge_cells[gal_idx]: #alternate version if we want to use edge cell flags
-            if gal_cell_vols[gal_idx] == 0.:
-                #gal_zone_IDs[gal_idx] = -1 #already -1 to start
+            if edge_cells[gal_idx]:
+                gal_zone_IDs[gal_idx] = -1 
                 #zone_info[-1].append(gal_idx)
+                continue
+            elif gal_cell_vols[gal_idx] == 0.:
                 degenerate_gal_cells.append(gal_idx)
                 continue
 
@@ -1090,13 +1091,14 @@ class Zones:
             # Keep track of zone linkage volume as we build the zones
             ################################################################################
             neigh_zone_IDs = gal_zone_IDs[curr_neigh_idxs]
-            #if gal_idx == 11721: #11721 5098
+            #if gal_idx == 5098: #11721 5098
             #    print('OUT', gal_idx, zone_ID, gal_cell_vols[gal_idx])
             #    print(curr_neigh_idxs, neigh_vols, neigh_zone_IDs)
             #    assert 1==2
             for ndx, (neigh_zone_ID, neigh_face) in enumerate(zip(neigh_zone_IDs, curr_faces)):
-                
-                if neigh_zone_ID == -1:
+
+                # Neighbor is outside the survey 
+                if edge_cells[neigh_zone_ID]:
                     
                     if viz:
         
@@ -1127,8 +1129,9 @@ class Zones:
                     # Was an edge cell, so continue to the next neighbor
                     
                     continue
-                
-                if neigh_zone_ID == zone_ID:
+
+                # This neighbor hasn't been processed yet or is in the same zone. 
+                if neigh_zone_ID == -2 or neigh_zone_ID == zone_ID:
                     continue
 
                 neigh_idx = curr_neigh_idxs[ndx]
@@ -1144,11 +1147,7 @@ class Zones:
                 zone_info[neigh_zone_ID]["linked_zones"][zone_ID] = 1
                 
                 if viz:
-                    zarea_s.setdefault(zone_ID, {})
-                    zarea_s[zone_ID].setdefault(neigh_zone_ID, 0.)
-                    
-                    zarea_s.setdefault(neigh_zone_ID, {})
-                    zarea_s[neigh_zone_ID].setdefault(zone_ID, 0.)
+                    zarea_s.setdefault((key_lower, key_upper), 0.)
                 
                 # if the chosen cell is less dense than the current least dense cell connecting the two zones
                 # update the least dense cell connecting the two zones
@@ -1156,15 +1155,20 @@ class Zones:
                 neigh_volume = gal_cell_vols[neigh_idx]
                 
                 if gal_volume == neigh_volume:
+                    
                     link_volume = gal_volume
                     link_gal = min(gal_idx, neigh_idx)
+                    
                 elif gal_volume < neigh_volume:
+                    
                     link_volume = gal_volume
                     link_gal = gal_idx
+                    
                 else:
+                    
                     link_volume = neigh_volume
                     link_gal = neigh_idx
-                #link_volume = np.amin([gal_cell_vols[gal_idx], gal_cell_vols[neigh_idx]])
+                
                 
                 if zone_pair not in zone_link_volumes:
                     
@@ -1192,21 +1196,35 @@ class Zones:
                         normal_vector=normal_vector/normal_mag
 
                         zarea_t[zone_ID] = zarea_t.get(zone_ID, 0) + area #add ridge area to total zone surface area
-                        zarea_s[zone_ID][neigh_zone_ID] += area # add ridge area to shared z1 z2 surface area
+                        zarea_t[neigh_zone_ID] = zarea_t.get(neigh_zone_ID, 0) + area #add ridge area to neighbor's total zone surface area
+                        zarea_s[(key_lower, key_upper)] += area # add ridge area to shared z1 z2 surface area
                         
                         # get list of triangles
                         for tri_idx in range(1, len(face_vertices) - 1):
                             triangle = face_vertices[[0,tri_idx,tri_idx+1]]
 
+                            # add triangle for galaxy
                             triangle_norms.append(normal_vector)
                             triangles_verts.append(triangle)
                             triangle_zones.append(zone_ID)
                             triangle_zone_links.append(neigh_zone_ID)
+
+                            # add triangle for neighbor
+                            triangle_norms.append(-normal_vector)
+                            triangles_verts.append(triangle)
+                            triangle_zones.append(neigh_zone_ID)
+                            triangle_zone_links.append(zone_ID)
                 
                 
             
         print("Zone building time: ", time.time() - build_time)
 
+        if len(gal_zone_IDs[gal_zone_IDs==-2]) != 0:
+            print('WARNING:', len(gal_zone_IDs[gal_zone_IDs==-2]), 'galaxies not processed by zone-building stage')
+            
+        if len(degenerate_gal_cells) != 0:
+            print('WARNING:', len(degenerate_gal_cells), 'denerate galaxies detected')
+            
         ################################################################################
         # 
         # info in 'zcell' is now in zone_info[zone_ID]["galaxy_indices"]
@@ -1477,8 +1495,8 @@ class Zones:
         
         
         if viz:
-            self.zarea_0 = np.array(list(zarea_0.values()))
-            self.zarea_t = np.array(list(zarea_t.values()))
+            self.zarea_0 = zarea_0 #np.array(list(zarea_0.values()))
+            self.zarea_t = zarea_t # np.array(list(zarea_t.values()))
             self.zarea_s = zarea_s
             self.triangle_norms = np.array(triangle_norms)
             self.triangles = np.array(triangles_verts)	

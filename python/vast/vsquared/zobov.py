@@ -804,8 +804,8 @@ class Zobov:
             print("Determining edge voids...")
         
         if self.visualize:
-            varea_0 = [np.sum(self.zones.zarea_0[np.array(voi, dtype=int)]) for voi in voids]
-            varea_t = [np.sum(self.zones.zarea_t[np.array(voi, dtype=int)]) for voi in voids]
+            varea_0 = [np.sum([self.zones.zarea_0[zoneID] for zoneID in voi]) for voi in voids]
+            varea_t = [np.sum([self.zones.zarea_t[zoneID] for zoneID in voi]) for voi in voids]
             varea_s = np.zeros(len(voids))
             for i in range(len(voids)):
                 if len(voids[i])==1:
@@ -815,7 +815,9 @@ class Zobov:
                     for k in range(j+1,len(voids[i])):
                         z2 = voids[i][k]
                         if z2 in self.zones.zone_info[z1]["linked_zones"]:
-                            varea_s[i] += self.zones.zarea_s[z1][z2]
+                            key_lower = min(z1, z2)
+                            key_upper = max(z1, z2)
+                            varea_s[i] += self.zones.zarea_s[(key_lower, key_upper)]
         else:
             zhzn = np.array([self.zones.zone_info[zone_ID]["edge_cell_count"] for zone_ID in self.zones.zone_info.keys()])
             vhzn = [np.sum(zhzn[np.array(voi, dtype=int)]) for voi in voids]
