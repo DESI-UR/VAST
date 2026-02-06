@@ -1017,7 +1017,7 @@ class Zones:
 
         
         gal_zone_IDs = np.empty(num_gals, dtype=np.int32) 
-        gal_zone_IDs.fill(-2) #init to -1, not 0
+        gal_zone_IDs.fill(-2) #init to -2, not 0
         
         depth = np.zeros(num_gals, dtype=int) 
         
@@ -1558,6 +1558,11 @@ class Voids:
         # This version of the code would fix a bug where unique saddle points with a common 
         # linking-volume are treated as the same saddle point. However, the change of this
         # situation happening is negligable, so the faster version of the code is left intact
+
+        # Update: When setting two saddle-points to have a common linking volume, the current
+        # version of the code actually produces the correct beavior for ZOBOV, and not the 
+        # "bug fix." Once this is verified to work for VIDE prunning as well, the "bug fix" 
+        # can be discarded
 
         zone_link_breakpoints = zones.zone_link_breakpoints
         
