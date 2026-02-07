@@ -910,6 +910,8 @@ class V2Catalog(VoidCatalog):
             col_names = col_names + self._catalog['ZONEVOID'].data.names
         if 'GALZONE' in hdu_names:
             col_names = col_names + self._catalog['GALZONE'].data.names
+        if 'CELLZONE' in hdu_names:
+            col_names = col_names + self._catalog['CELLZONE'].data.names
         if 'TRIANGLE' in hdu_names:
             col_names = col_names + self._catalog['TRIANGLE'].data.names
         if 'GALVIZ' in hdu_names:
@@ -952,6 +954,12 @@ class V2Catalog(VoidCatalog):
             self.galzone = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)  
             self.tables['GALZONE'] = self.galzone
             self.headers['GALZONE'] = self.galzone_info
+        if 'CELLZONE' in hdu_names:
+            hdu = self._catalog['CELLZONE']
+            self.cellzone_info = hdu.header
+            self.cellzone = Table(hdu.data, names = hdu.columns.names, units=hdu.columns.units, dtype = hdu.columns.dtype)  
+            self.tables['CELLZONE'] = self.cellzone
+            self.headers['CELLZONE'] = self.cellzone_info
         if 'TRIANGLE' in hdu_names:
             hdu = self._catalog['TRIANGLE']
             self.triangle_info = hdu.header

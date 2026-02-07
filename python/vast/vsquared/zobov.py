@@ -456,6 +456,9 @@ class Zobov:
                   apply_median_radius_cut = False
                  ):
         """
+        Description
+        ===========
+        
         Sort voids according to one of several methods.
 
         Parameters
@@ -943,7 +946,10 @@ class Zobov:
 
 
     def saveVoids(self):
-        """Output calculated voids to a FITS file 
+        """
+        Description
+        ===========
+        Output calculated voids to a FITS file 
         [catalogname]_V2_[pruning method]_Output.fits
         """
         
@@ -1027,8 +1033,19 @@ class Zobov:
 
 
     def saveZones(self, record_cell_volumes = False):
-        """Output calculated zones to a FITS file 
+        """
+        Description
+        ===========
+        
+        Output calculated zones to a FITS file 
         [catalogname]_V2_[pruning method]_Output.fits
+
+        Parameters
+        ==========
+        
+        record_cell_volumes : bool
+            If True, the tessellation cell volumes are added to the output.
+            Defaults to False.
         """
 
         if self.verbose > 0:
@@ -1053,7 +1070,7 @@ class Zobov:
             glut2 = glut1
             dlist = self.zones.depth
         else:
-            # Warning: time instensive fo large data sets
+            # Warning: time-instensive for large data sets
             for i,l in enumerate(glut2):
                 # for current cell, add all galaxy IDs of contained galaxies to to glut2
                 l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
@@ -1154,13 +1171,7 @@ class Zobov:
         # format output tables
         names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
         columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
-        units = [,'Mpc/h','Mpc/h','Mpc/h','','','','']
-
-        # Save cell volume information
-        if record_cell_volumes:
-            names.append('volume')
-            columns.append(self.tessellation.volumes)
-            units.append('(Mpc/h)^2')
+        units = ['','Mpc/h','Mpc/h','Mpc/h','','','','']
         
         if hasattr(self.catalog, 'tarids'):
             names.insert(1, 'target')
@@ -1182,6 +1193,20 @@ class Zobov:
         galaxies = hdul['GALZONE']
         galaxies.header['COUNT'] = (len(zT), 'Galaxy Count')
         galaxies.data = fits.BinTableHDU(zT).data
+
+        # Save cell volume information
+        if record_cell_volumes:
+
+            columns = [glut1, self.tessellation.volumes]
+
+            cell_table = Table(columns, names=['gal','volume'], units=['','(Mpc/h)^2'])
+        
+            hdu = fits.BinTableHDU()
+            hdu.name = 'CELLZONE'
+            hdul.append(hdu)
+            cells = hdul['CELLZONE']
+            cells.header['COUNT'] = (len(cell_table), 'Cell Count')
+            cells.data = fits.BinTableHDU(cell_table).data
         
         #save file changes
         hdul.writeto(log_filename, overwrite=True)
@@ -1190,11 +1215,17 @@ class Zobov:
         
         if self.verbose > 0:
             print("SaveZones time: ", time.time() - start_time)
+            
+        
         
 
 
     def preViz(self):
-        """Pre-computations needed for zone and void visualizations. Outputs to
+        """
+        Description
+        ===========
+        
+        Pre-computations needed for zone and void visualizations. Outputs to
         a FITS file [catalogname]_V2_[pruning method]_Output.fits
         """
         

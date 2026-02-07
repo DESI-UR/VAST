@@ -893,84 +893,6 @@ class Zones:
         #vol2  = vol[srt] # cell volumes sorted from largest to smallest (aka least dense to most dense region)
         #nei2  = nei[srt] # coordinates of tetrahedra that include each galaxy, sorted from least dense to most dense region
 
-        '''
-        # OLD VERSION
-        
-        # Build zones from the cells
-        
-        gal_zone_IDs = np.zeros(len(gal_cell_vols), dtype=int) 
-        
-        depth = np.zeros(len(gal_cell_vols), dtype=int) 
-
-        #each element of zcell is a zone, and the zone is a 
-        #list of the galaxy indices belonging to that zone
-        zcell = [[]] 
-        # the volume of the largest cell in each zone?
-        # this is initialized with a 0 and zcell with an empty
-        # list to capture any cells with 0 volume
-        zvols = [0.] 
-        zhzn = [1]
-        
-        
-        
-
-        if verbose > 0:
-            print("Building zones...")
-
-        build_time = time.time()
-        
-        for gal_idx in sort_order:
-
-            # Maybe keep some separate lists for the 0-vol 
-            # cells since we have to check it explicitly anyway
-            if gal_cell_vols[gal_idx] == 0.:
-                gal_zone_IDs[gal_idx] = -1
-                zcell[-1].append(gal_idx)
-                continue
-
-            #ns = nei2[i] # indexes of galaxies neigboring curent galaxy
-            curr_neigh_idxs = cells[gal_idx].get_neighbors()
-            #ns = np.append([srt_i], ns) #inefficient but just for testing
-            
-            neigh_vols = gal_cell_vols[curr_neigh_idxs] # volumes of cells neighboring current cell
-            
-            largest_neigh_vol_idx = curr_neigh_idxs[np.argmax(neigh_vols)] #index of neigboring galaxy with largest volume
-
-            # if current cell is larger than all it's neighbors (aka the center of a zone)
-            if gal_cell_vols[gal_idx] > gal_cell_vols[largest_neigh_vol_idx]:
-                # Current cell has the largest volume of its neighbors
-                gal_zone_IDs[gal_idx] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
-                
-                # create a new zone
-                # using insert(-1,...) instead of append to keep these lists
-                # sorted from largest zone to smallest zone
-                zcell.insert(-1, [gal_idx]) 
-                
-                # note the volume of the largest cell in the zone
-                zvols.insert(-1, gal_cell_vols[gal_idx]) 
-                
-                zhzn.insert(-1, int(hzn[gal_idx])) #note whether the largest cell in the zone is an edge cell
-            
-            else:
-                # This cell is put into its least-dense neighbor's zone
-                gal_zone_IDs[gal_idx] = gal_zone_IDs[largest_neigh_vol_idx] #the galaxy in this cell is given the zone ID of it's least dense neighbor
-                
-                depth[gal_idx] = depth[largest_neigh_vol_idx] + 1 #the galaxy's depth = its least dense neighbor's depth + 1
-                
-                zcell[gal_zone_IDs[largest_neigh_vol_idx]].append(gal_idx) #the galaxy is added to it's least dense neighbor's zone
-                
-                zhzn[gal_zone_IDs[largest_neigh_vol_idx]] += int(hzn[gal_idx]) #increment the zone's edge flag if an edge cell is found (0 = no edge cells)
-
-        
-        print("Zone building time: ", time.time() - build_time)
-
-        self.zcell = np.array(zcell, dtype=object)
-        self.zvols = np.array(zvols)
-        self.zhzn  = np.array(zhzn)
-        self.depth = depth
-        
-        '''
-
         if viz:
             
             zarea_0 = {}
@@ -1239,25 +1161,7 @@ class Zones:
         #self.zone_link_breakpoints = zone_link_breakpoints
         self.depth = depth
 
-        
-        #self.zcell = np.array(zcell, dtype=object)
-        #self.zvols = np.array(zvols)
-        #self.zhzn  = np.array(zhzn)
-        #self.depth = depth
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
 
         # Identify neighboring zones and the least-dense cells linking them
         # shape (2, num_zones, X)
@@ -1268,12 +1172,88 @@ class Zones:
         #zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
             
 
+        
+        '''
+        # OLD VERSION
+        
+        # Build zones from the cells
+        
+        gal_zone_IDs = np.zeros(len(gal_cell_vols), dtype=int) 
+        
+        depth = np.zeros(len(gal_cell_vols), dtype=int) 
+
+        #each element of zcell is a zone, and the zone is a 
+        #list of the galaxy indices belonging to that zone
+        zcell = [[]] 
+        # the volume of the largest cell in each zone?
+        # this is initialized with a 0 and zcell with an empty
+        # list to capture any cells with 0 volume
+        zvols = [0.] 
+        zhzn = [1]
+        
+        
+        
+
+        if verbose > 0:
+            print("Building zones...")
+
+        build_time = time.time()
+        
+        for gal_idx in sort_order:
+
+            # Maybe keep some separate lists for the 0-vol 
+            # cells since we have to check it explicitly anyway
+            if gal_cell_vols[gal_idx] == 0.:
+                gal_zone_IDs[gal_idx] = -1
+                zcell[-1].append(gal_idx)
+                continue
+
+            #ns = nei2[i] # indexes of galaxies neigboring curent galaxy
+            curr_neigh_idxs = cells[gal_idx].get_neighbors()
+            #ns = np.append([srt_i], ns) #inefficient but just for testing
+            
+            neigh_vols = gal_cell_vols[curr_neigh_idxs] # volumes of cells neighboring current cell
+            
+            largest_neigh_vol_idx = curr_neigh_idxs[np.argmax(neigh_vols)] #index of neigboring galaxy with largest volume
+
+            # if current cell is larger than all it's neighbors (aka the center of a zone)
+            if gal_cell_vols[gal_idx] > gal_cell_vols[largest_neigh_vol_idx]:
+                # Current cell has the largest volume of its neighbors
+                gal_zone_IDs[gal_idx] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
+                
+                # create a new zone
+                # using insert(-1,...) instead of append to keep these lists
+                # sorted from largest zone to smallest zone
+                zcell.insert(-1, [gal_idx]) 
+                
+                # note the volume of the largest cell in the zone
+                zvols.insert(-1, gal_cell_vols[gal_idx]) 
+                
+                zhzn.insert(-1, int(hzn[gal_idx])) #note whether the largest cell in the zone is an edge cell
+            
+            else:
+                # This cell is put into its least-dense neighbor's zone
+                gal_zone_IDs[gal_idx] = gal_zone_IDs[largest_neigh_vol_idx] #the galaxy in this cell is given the zone ID of it's least dense neighbor
+                
+                depth[gal_idx] = depth[largest_neigh_vol_idx] + 1 #the galaxy's depth = its least dense neighbor's depth + 1
+                
+                zcell[gal_zone_IDs[largest_neigh_vol_idx]].append(gal_idx) #the galaxy is added to it's least dense neighbor's zone
+                
+                zhzn[gal_zone_IDs[largest_neigh_vol_idx]] += int(hzn[gal_idx]) #increment the zone's edge flag if an edge cell is found (0 = no edge cells)
+
+        
+        print("Zone building time: ", time.time() - build_time)
+
+        self.zcell = np.array(zcell, dtype=object)
+        self.zvols = np.array(zvols)
+        self.zhzn  = np.array(zhzn)
+        self.depth = depth
+
         if verbose > 0:
             print("Linking zones...")
             
         link_time = time.time()
         
-        '''
         
         zlink_start_time = time.time()
         
