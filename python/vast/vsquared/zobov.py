@@ -1026,7 +1026,7 @@ class Zobov:
             print("SaveVoids time: ", time.time() - start_time)
 
 
-    def saveZones(self):
+    def saveZones(self, record_cell_volumes = False):
         """Output calculated zones to a FITS file 
         [catalogname]_V2_[pruning method]_Output.fits
         """
@@ -1154,15 +1154,23 @@ class Zobov:
         # format output tables
         names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
         columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
+        units = [,'Mpc/h','Mpc/h','Mpc/h','','','','']
+
+        # Save cell volume information
+        if record_cell_volumes:
+            names.append('volume')
+            columns.append(self.tessellation.volumes)
+            units.append('(Mpc/h)^2')
         
         if hasattr(self.catalog, 'tarids'):
             names.insert(1, 'target')
             columns.insert(1, self.catalog.tarids)
+            units.insert(1, '')
             
         if self.capitalize:
             names = [name.upper() for name in names]
 
-        zT = Table(columns, names=names)
+        zT = Table(columns, names=names, units=units)
         
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
