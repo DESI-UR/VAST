@@ -1054,7 +1054,7 @@ class Zobov:
         if not hasattr(self,'zones'):
             print("Build zones first")
             return
-        #print('Debug: ngal')
+        
         ngal  = len(self.catalog.coord)
         glist = np.arange(ngal)
         # indices of galaxies that make pre-tessellation cuts
@@ -1063,26 +1063,28 @@ class Zobov:
         glut2 = [[] for _ in glut1]
         dlist = -1 * np.ones(ngal,dtype=int)
         
-        #print('Debug: glut2')
 
         if len(glut1) == ngal:
             # case of no cuts on galaxies
             glut2 = glut1
             dlist = self.zones.depth
         else:
+            print('Warning: Due to redshift and/or magntiude cuts on the galaxy sample, the zone-saving stage may be time-intensive. Rerun with a galaxy input file that that has already applied these cuts for a faster runtime.')
             # Warning: time-instensive for large data sets
+            # Idea: replace with kdtree?
             for i,l in enumerate(glut2):
                 # for current cell, add all galaxy IDs of contained galaxies to to glut2
                 l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
                 dlist[l] = self.zones.depth[i]
-                
-        #print('Debug: zcell')
+         
         #each element of zcell is a zone, and the zone is a 
         #list of the galaxy indices belonging to that zone
         zcell = np.array([self.zones.zone_info[zone_ID]["galaxy_indices"] for zone_ID in self.zones.zone_info.keys()], dtype=object)
         # inverted imsk, 1 means galaxy outside survey mask, 0 means galaxy in survey mask
         olist = 1-np.array(self.catalog.imsk,dtype=int)
+        
         if self.num_cpus == 1:
+            
             # list of zone IDs for each galaxy, initalized to -1
             zlist = -1 * np.ones(ngal,dtype=int)
             elist = 1 * np.ones(ngal,dtype=int)
@@ -1097,6 +1099,7 @@ class Zobov:
                         # mark as edge galaxy
                         elist[glut2[c]] = 0
         else:
+            
             #parallel version
 
             # set up shared memory for parallel processes and then run processes
@@ -1167,7 +1170,6 @@ class Zobov:
                 
         elist[np.array(olist,dtype=bool)] = 0
             
-        #print('Debug: names')
         # format output tables
         names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
         columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
@@ -1185,7 +1187,7 @@ class Zobov:
         
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
-        #print('Debug: write out')
+        
         # write to the output file
         hdu = fits.BinTableHDU()
         hdu.name = 'GALZONE'
