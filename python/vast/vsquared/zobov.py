@@ -456,6 +456,9 @@ class Zobov:
                   apply_median_radius_cut = False
                  ):
         """
+        Description
+        ===========
+        
         Sort voids according to one of several methods.
 
         Parameters
@@ -589,7 +592,7 @@ class Zobov:
                         p2 = P(r)
                         p3 = 1.
                         for zid in self.prevoids.voids[i][j+1]:
-                            vhz = np.amax(self.zones.zvols[zid])
+                            vhz = np.amax(self.zones.zone_info[zid]["largest_cell_volume"])
                             vlz = np.amax(self.zones.zlinks[1][zid])
                             rz  = vhz / vlz
                             p3  = p3 * P(rz)
@@ -602,7 +605,7 @@ class Zobov:
         
         elif method == 4: #REVOLVER
             
-            voids = np.arange(len(self.zones.zvols)).reshape(len(self.zones.zvols),1).tolist()
+            voids = np.arange(len(self.zones.zone_info)).reshape(len(self.zones.zone_info),1).tolist()
             
         else:
             print("Choose a valid method")
@@ -613,7 +616,8 @@ class Zobov:
 
         
         #for every void in hierarchy (VIDE) or for every zone (REVOLVER), the cells that compose it
-        vcuts = [list(flatten(self.zones.zcell[v])) for v in voids]
+        zcell = np.array([self.zones.zone_info[zone_ID]["galaxy_indices"] for zone_ID in self.zones.zone_info.keys()], dtype=object)
+        vcuts = [list(flatten(zcell[v])) for v in voids]
 
         gcut  = np.arange(len(self.catalog.coord))[self.catalog.nnls==np.arange(len(self.catalog.nnls))]
         
@@ -803,8 +807,8 @@ class Zobov:
             print("Determining edge voids...")
         
         if self.visualize:
-            varea_0 = [np.sum(self.zones.zarea_0[np.array(voi, dtype=int)]) for voi in voids]
-            varea_t = [np.sum(self.zones.zarea_t[np.array(voi, dtype=int)]) for voi in voids]
+            varea_0 = [np.sum([self.zones.zarea_0.get(zone_ID, 0) for zone_ID in voi]) for voi in voids]
+            varea_t = [np.sum([self.zones.zarea_t[zone_ID] for zone_ID in voi]) for voi in voids]
             varea_s = np.zeros(len(voids))
             for i in range(len(voids)):
                 if len(voids[i])==1:
@@ -813,11 +817,13 @@ class Zobov:
                     z1 = voids[i][j]
                     for k in range(j+1,len(voids[i])):
                         z2 = voids[i][k]
-                        if z2 in self.zones.zlinks[0][z1]:
-                            l = np.where(np.array(self.zones.zlinks[0][z1]) == z2)[0][0]
-                            varea_s[i] += self.zones.zarea_s[z1][l]
+                        if z2 in self.zones.zone_info[z1]["linked_zones"]:
+                            key_lower = min(z1, z2)
+                            key_upper = max(z1, z2)
+                            varea_s[i] += self.zones.zarea_s[(key_lower, key_upper)]
         else:
-            vhzn = [np.sum(self.zones.zhzn[np.array(voi, dtype=int)]) for voi in voids]
+            zhzn = np.array([self.zones.zone_info[zone_ID]["edge_cell_count"] for zone_ID in self.zones.zone_info.keys()])
+            vhzn = [np.sum(zhzn[np.array(voi, dtype=int)]) for voi in voids]
 
         # ------------------------------------------------------------------------------------------------------
         # Identify eigenvectors of best-fit ellipsoid for each void.
@@ -892,7 +898,7 @@ class Zobov:
 
         # zvoid holds smallest parent void in void hierarchy and largest parent void in void hierarchy
         # for each zone
-        zvoid = [[-1,-1] for _ in range(len(self.zones.zvols))]
+        zvoid = [[-1,-1] for _ in range(len(self.zones.zone_info))]
         
         #iterate over voids
         for i in range(len(voids)):
@@ -940,7 +946,10 @@ class Zobov:
 
 
     def saveVoids(self):
-        """Output calculated voids to a FITS file 
+        """
+        Description
+        ===========
+        Output calculated voids to a FITS file 
         [catalogname]_V2_[pruning method]_Output.fits
         """
         
@@ -1023,9 +1032,20 @@ class Zobov:
             print("SaveVoids time: ", time.time() - start_time)
 
 
-    def saveZones(self):
-        """Output calculated zones to a FITS file 
+    def saveZones(self, record_cell_volumes = False):
+        """
+        Description
+        ===========
+        
+        Output calculated zones to a FITS file 
         [catalogname]_V2_[pruning method]_Output.fits
+
+        Parameters
+        ==========
+        
+        record_cell_volumes : bool
+            If True, the tessellation cell volumes are added to the output.
+            Defaults to False.
         """
 
         if self.verbose > 0:
@@ -1034,7 +1054,7 @@ class Zobov:
         if not hasattr(self,'zones'):
             print("Build zones first")
             return
-        #print('Debug: ngal')
+        
         ngal  = len(self.catalog.coord)
         glist = np.arange(ngal)
         # indices of galaxies that make pre-tessellation cuts
@@ -1043,29 +1063,31 @@ class Zobov:
         glut2 = [[] for _ in glut1]
         dlist = -1 * np.ones(ngal,dtype=int)
         
-        #print('Debug: glut2')
 
         if len(glut1) == ngal:
             # case of no cuts on galaxies
             glut2 = glut1
             dlist = self.zones.depth
         else:
-            # Warning: time instensive fo large data sets
+            print('Warning: Due to redshift and/or magntiude cuts on the galaxy sample, the zone-saving stage may be time-intensive. Rerun with a galaxy input file that that has already applied these cuts for a faster runtime.')
+            # Warning: time-instensive for large data sets
+            # Idea: replace with kdtree?
             for i,l in enumerate(glut2):
                 # for current cell, add all galaxy IDs of contained galaxies to to glut2
                 l.extend((glist[self.catalog.nnls==glut1[i]]).tolist())
                 dlist[l] = self.zones.depth[i]
-                
-        #print('Debug: zcell')
+         
         #each element of zcell is a zone, and the zone is a 
         #list of the galaxy indices belonging to that zone
-        zcell = self.zones.zcell
+        zcell = np.array([self.zones.zone_info[zone_ID]["galaxy_indices"] for zone_ID in self.zones.zone_info.keys()], dtype=object)
         # inverted imsk, 1 means galaxy outside survey mask, 0 means galaxy in survey mask
         olist = 1-np.array(self.catalog.imsk,dtype=int)
+        
         if self.num_cpus == 1:
+            
             # list of zone IDs for each galaxy, initalized to -1
             zlist = -1 * np.ones(ngal,dtype=int)
-            elist = np.zeros(ngal,dtype=int)
+            elist = 1 * np.ones(ngal,dtype=int)
             # loop through zone IDs and galaxy IDs in zones
             for i,cl in enumerate(zcell):
                 # loop through galaxy IDs in current zone
@@ -1073,10 +1095,11 @@ class Zobov:
                     # write the zone ID for the current galaxy
                     zlist[glut2[c]] = i
                     # if galaxy is on edge of survey (cell volume=0) and is inside the mask
-                    if self.tessellation.volumes[c]==0. and not olist[glut2[c]].all():
+                    if self.tessellation.volumes[c]!=0. or olist[glut2[c]].all():
                         # mark as edge galaxy
-                        elist[glut2[c]] = 1
+                        elist[glut2[c]] = 0
         else:
+            
             #parallel version
 
             # set up shared memory for parallel processes and then run processes
@@ -1115,7 +1138,7 @@ class Zobov:
             
             elist = np.frombuffer(array_buffer, dtype=np.int32)
             
-            elist[:] = 0
+            elist[:] = 1
     
             zlist.shape = (ngal,)
             
@@ -1147,23 +1170,24 @@ class Zobov:
                 
         elist[np.array(olist,dtype=bool)] = 0
             
-        #print('Debug: names')
         # format output tables
         names = ['gal', 'x', 'y', 'z', 'zone', 'depth', 'edge', 'out']
         columns = [self.catalog.galids, self.catalog.coord[:,0], self.catalog.coord[:,1], self.catalog.coord[:,2], zlist,dlist,elist,olist]
+        units = ['','Mpc/h','Mpc/h','Mpc/h','','','','']
         
         if hasattr(self.catalog, 'tarids'):
             names.insert(1, 'target')
             columns.insert(1, self.catalog.tarids)
+            units.insert(1, '')
             
         if self.capitalize:
             names = [name.upper() for name in names]
 
-        zT = Table(columns, names=names)
+        zT = Table(columns, names=names, units=units)
         
         # read in the ouptput file
         hdul, log_filename = open_fits_file_V2(None, self.method, self.outdir, self.catname) 
-        #print('Debug: write out')
+        
         # write to the output file
         hdu = fits.BinTableHDU()
         hdu.name = 'GALZONE'
@@ -1171,6 +1195,20 @@ class Zobov:
         galaxies = hdul['GALZONE']
         galaxies.header['COUNT'] = (len(zT), 'Galaxy Count')
         galaxies.data = fits.BinTableHDU(zT).data
+
+        # Save cell volume information
+        if record_cell_volumes:
+
+            columns = [glut1, self.tessellation.volumes]
+
+            cell_table = Table(columns, names=['gal','volume'], units=['','(Mpc/h)^2'])
+        
+            hdu = fits.BinTableHDU()
+            hdu.name = 'CELLZONE'
+            hdul.append(hdu)
+            cells = hdul['CELLZONE']
+            cells.header['COUNT'] = (len(cell_table), 'Cell Count')
+            cells.data = fits.BinTableHDU(cell_table).data
         
         #save file changes
         hdul.writeto(log_filename, overwrite=True)
@@ -1179,11 +1217,17 @@ class Zobov:
         
         if self.verbose > 0:
             print("SaveZones time: ", time.time() - start_time)
+            
+        
         
 
 
     def preViz(self):
-        """Pre-computations needed for zone and void visualizations. Outputs to
+        """
+        Description
+        ===========
+        
+        Pre-computations needed for zone and void visualizations. Outputs to
         a FITS file [catalogname]_V2_[pruning method]_Output.fits
         """
         
