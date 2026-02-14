@@ -471,7 +471,7 @@ class VoidFinderCatalog (VoidCatalog):
 
             if self.edge_buffer <= 0:
 
-                maximals = self.maximals[points_boolean]
+                maximals = self.maximals
 
             else:
             
