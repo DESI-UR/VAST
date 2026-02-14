@@ -2,6 +2,8 @@
 Log of changes for VAST versions.
 
 =======
+### 1.7.8
+- Bug fix for edge buffer in VoidCatalog class.
 ### 1.7.7
 - Parallelized Voronoi tessellation for V2. Bug fix for V2 ellipsoid calculations.
 ### 1.7.6
