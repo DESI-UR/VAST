@@ -468,24 +468,30 @@ class VoidFinderCatalog (VoidCatalog):
         print(len(self.maximals[edge==0]),'interior voids')
         
         if np.prod(np.isin(['r_eff','r_eff_uncert'], self.maximals.colnames)) > 0:
+
+            if self.edge_buffer <= 0:
+
+                maximals = self.maximals
+
+            else:
             
-            points_boolean = np.zeros(len(self.maximals), dtype = bool)
-            
-            mask = self.mask
-            mask_res = self.mask_info['MSKRES']
-            rmin = self.info['DLIML']
-            rmax = self.info['DLIMU']
-
-            #Remove voids near the survey edges
-            for i in range(len(self.maximals)):
-                # The current point
-                curr_pt = self.maximals[i]
-
-                is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
-                                           mask, mask_res, rmin, rmax, self.edge_buffer)
-                points_boolean[i] = not is_edge
-
-            maximals = self.maximals[points_boolean]
+                points_boolean = np.zeros(len(self.maximals), dtype = bool)
+                
+                mask = self.mask
+                mask_res = self.mask_info['MSKRES']
+                rmin = self.info['DLIML']
+                rmax = self.info['DLIMU']
+    
+                #Remove voids near the survey edges
+                for i in range(len(self.maximals)):
+                    # The current point
+                    curr_pt = self.maximals[i]
+    
+                    is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
+                                               mask, mask_res, rmin, rmax, self.edge_buffer)
+                    points_boolean[i] = not is_edge
+    
+                maximals = self.maximals[points_boolean]
             
             edge = maximals['edge']
             print(len(maximals[edge==1]),'edge voids (V. Fid)')
@@ -981,12 +987,10 @@ class V2Catalog(VoidCatalog):
         
     """def add_mask(self, voidfinder_cat):
         #copy over ask info from a voidfinder catalog
-        # This function exists because V2 doen'st save masks. In future work, V2 should
+        # This function exists because V2 doesn't save masks. In future work, V2 should
         # just create a mask when it runs
         self.mask_info = voidfinder_cat.mask_info
         self.mask = voidfinder_cat.mask
-        # This is a workaround for me mistakenly running VF and V2 with different redshift limits
-        # In future work, this should be removed, and the catalogs should have the same redshift limits
         self.mask_info['DLIML'] = voidfinder_cat.info['DLIML']
         self.mask_info['DLIMU'] = voidfinder_cat.info['DLIMU']"""
     
@@ -1064,24 +1068,30 @@ class V2Catalog(VoidCatalog):
             edge = edge_area/tot_area > 0.1
             print(len(self.voids[edge]),'edge voids')
             print(len(self.voids[~edge]),'interior voids')
+
+        if self.edge_buffer <= 0:
+
+            voids = self.voids
+
+        else:
             
-        points_boolean = np.zeros(len(self.voids), dtype = bool)
-
-        mask = self.mask
-        mask_res = self.mask_info['MSKRES']
-        rmin = self.info['DLIML']
-        rmax = self.info['DLIMU']
-
-        #Remove voids near the survey edges
-        for i in range(len(self.voids)):
-            # The current point
-            curr_pt = self.voids[i]
-
-            is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
-                                       mask, mask_res, rmin, rmax, self.edge_buffer)
-            points_boolean[i] = not is_edge
-
-        voids = self.voids[points_boolean]
+            points_boolean = np.zeros(len(self.voids), dtype = bool)
+    
+            mask = self.mask
+            mask_res = self.mask_info['MSKRES']
+            rmin = self.info['DLIML']
+            rmax = self.info['DLIMU']
+    
+            #Remove voids near the survey edges
+            for i in range(len(self.voids)):
+                # The current point
+                curr_pt = self.voids[i]
+    
+                is_edge = vo.is_edge_point(curr_pt['x'], curr_pt['y'], curr_pt['z'],
+                                           mask, mask_res, rmin, rmax, self.edge_buffer)
+                points_boolean[i] = not is_edge
+    
+            voids = self.voids[points_boolean]
         
         if np.prod(np.isin(['tot_area','edge_area'], self.voids.colnames))>0:
             edge_area = voids['edge_area']
@@ -1150,8 +1160,8 @@ class V2Catalog(VoidCatalog):
             #This should never be the case (in current draft of code)
             raise AttributeError('V2 galaxy membership should have a custom mask to accurately exclude edge galaxies')
 
-        
-        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=self.edge_buffer, flag_void_near_edge=True)
+        # We set flag_void_near_edge to True because we only want to select galaxies within self.edge_buffer of the survey boundaries
+        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold = self.edge_buffer, flag_void_near_edge=True)
 
         if return_selector:
             select_void_galaxies = np.isin(self.galaxies['gal'], galaxies['gal'][vflag==1])
@@ -1255,8 +1265,8 @@ class V2Catalog(VoidCatalog):
             rmin = self.info['DLIML']
             rmax = self.info['DLIMU']
 
-        vflag = self._check_coords_in_void(coordinates, mask, mask_res, rmin, rmax, edge_threshold=10)
-        vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
+        # We set edge_threshold to 10 Mpc/h to match the VoidFinder definition (vast.voidfinder.vflag)
+        vflag = self._check_coords_in_void(coordinates, mask, mask_res, rmin, rmax, edge_threshold=10, flag_void_near_edge=False)
         return vflag
 
     def _check_coords_in_void(self, coordinates, mask, mask_res, rmin, rmax, edge_threshold=10, flag_void_near_edge = False):
@@ -1389,8 +1399,8 @@ class V2Catalog(VoidCatalog):
         #mark void galaxies
         self.galaxies['vflag'][selector] = 1"""
 
-        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=10)
-        vflag[vflag==-1]=1 # mark coordinates in voids + near edge as simply being in voids
+        # We set edge_theshold to 10 Mpc/h to match the voidfinder definition (vast.voidfinder.vflag)
+        vflag = self._check_coords_in_void(galaxies, mask, mask_res, rmin, rmax, edge_threshold=10, flag_void_near_edge=False)
         self.galaxies['vflag'] = vflag
             
         # Write output to the catalog object
@@ -1623,7 +1633,8 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
             contruct the void catalog locations if file_names is set to None. Defaults to None.
 
         directory (string): The directories in which the void catalogs are located. Used to contruct 
-            the void catalog locations if file_namse is set to None. Defaults to './'.
+            the void catalog locations if file_names is set to None. Defaults to './'. May also be 
+            set to a list of strings if the void catalogs are stored in different directories.
 
         edge_buffer (float): The distance from the survey boundaries to cut on before performing all
             analysis. This volume cut defines an interior volume V_fid within which void properietes 
@@ -1633,12 +1644,17 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
         super().__init__(edge_buffer)
          
         if file_names is None:
-            file_names = [directory + name + '_VoidFinder_Output.fits' for name in survey_names]
+            # single directory
+            if isinstance(directory, str):
+                file_names = [directory + name + '_VoidFinder_Output.fits' for name in survey_names]
+            # multiple directories
+            else:
+                file_names = [dir_i + name + '_VoidFinder_Output.fits' for dir_i, name in zip(directory, survey_names)]
                     
         self._catalogs = {}
         
         for cat_name, file_name in zip(cat_names, file_names):
-            self._catalogs[cat_name] = VoidFinderCatalog(file_name)
+            self._catalogs[cat_name] = VoidFinderCatalog(file_name, edge_buffer=edge_buffer)
     
             
     def void_stats(self, report_individual=True):
@@ -1654,6 +1670,9 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
         """
         
         def filter_maximals(catalog):
+
+            if self.edge_buffer <= 0:
+                return catalog.maximals
             
             points_boolean = np.zeros(len(catalog.maximals), dtype = bool)
             
@@ -1746,7 +1765,8 @@ class V2CatalogStacked (VoidCatalogStacked):
             contruct the void catalog locations if file_names is set to None. Defaults to 'VIDE'.
 
         directory (string): The directories in which the void catalogs are located. Used to contruct 
-            the void catalog locations if file_namse is set to None. Defaults to './'.
+            the void catalog locations if file_names is set to None. Defaults to './'. May also be 
+            set to a list of strings if the void catalogs are stored in different directories.
 
         edge_buffer (float): The distance from the survey boundaries to cut on before performing all
             analysis. This volume cut defines an interior volume V_fid within which void properietes 
@@ -1757,14 +1777,17 @@ class V2CatalogStacked (VoidCatalogStacked):
         
         #format file names
         if file_names is None:
-            file_names = [directory + name + f'_V2_{pruning}_Output.fits' for name in survey_names]
+            # single directory
+            if isinstance(directory, str):
+                file_names = [directory + name + f'_V2_{pruning}_Output.fits' for name in survey_names]
+            else:
+                file_names = [dir_i + name + f'_V2_{pruning}_Output.fits' for dir_i, name in zip(directory, survey_names)]
              
         self._catalogs = {}
         
         for cat_name, file_name in zip(cat_names, file_names):
-            self._catalogs[cat_name] = V2Catalog(file_name)
-        
-            
+            self._catalogs[cat_name] = V2Catalog(file_name, edge_buffer=edge_buffer)
+    
     """def add_mask(self, voidfinder_cat_stacked):
         
         for cat in self._catalogs:
@@ -1786,6 +1809,9 @@ class V2CatalogStacked (VoidCatalogStacked):
             super().void_stats()
             
         def filter_voids(catalog):
+
+            if self.edge_buffer <= 0:
+                return catalog.voids
             
             points_boolean = np.zeros(len(catalog.voids), dtype = bool)
 

@@ -1,9 +1,11 @@
 # Change Log
 Log of changes for VAST versions.
 
-=======
-### 1.7.8
+### 1.7.9
 - Redesign of the V2 zone link calculation to use Python dictionaries in place of nested lists. Also includes optional galaxy weighting for V2 and a further ellipticity calcualtion bugfix for V2.
+
+### 1.7.8
+- Bug fix for edge buffer in VoidCatalog class.
 
 ### 1.7.7
 - Parallelized Voronoi tessellation for V2. Bug fix for V2 ellipsoid calculations.
