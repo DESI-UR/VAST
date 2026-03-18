@@ -115,6 +115,9 @@ class TestV2(unittest.TestCase):
         diff = np.abs(np.mean([len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()]) - 87.23404255319149)
         
         print('DEBUG 2', diff)
+        print('DEBUG 2.1', np.mean([len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()]))
+        print('DEBUG 2.2', len(zone_info.keys()))
+        print('DEBUG 2.3', [len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()])
         self.assertTrue(diff/87.23404255319149 <= .01)
 
         # Test zone volumes
