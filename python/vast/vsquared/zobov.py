@@ -1087,16 +1087,17 @@ class Zobov:
             
             # list of zone IDs for each galaxy, initalized to -1
             zlist = -1 * np.ones(ngal,dtype=int)
-            elist = 1 * np.ones(ngal,dtype=int)
+            # list of edge flags, initialized to 1 (True, edge void)
+            elist = np.ones(ngal,dtype=int)
             # loop through zone IDs and galaxy IDs in zones
             for i,cl in enumerate(zcell):
                 # loop through galaxy IDs in current zone
                 for c in cl:
                     # write the zone ID for the current galaxy
                     zlist[glut2[c]] = i
-                    # if galaxy is on edge of survey (cell volume=0) and is inside the mask
+                    # if galaxy is interior to survey (cell volume != 0) and is inside the mask
                     if self.tessellation.volumes[c]!=0. or olist[glut2[c]].all():
-                        # mark as edge galaxy
+                        # mark as non-edge galaxy
                         elist[glut2[c]] = 0
         else:
             
