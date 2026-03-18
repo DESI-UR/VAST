@@ -9,7 +9,7 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, flatten, mknumV2, rotate, partition_face_vertices
+from vast.vsquared.util import toCoord, mknumV2, rotate, partition_face_vertices
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 from vast.vsquared.class_utils import calculate_region_volume
@@ -151,7 +151,7 @@ class Catalog:
             print("Read in galaxy data (rows, cols): ", len(galaxy_table), len(galaxy_table.columns))
             print(galaxy_table.columns)
         
-        
+        self.weights = None if column_names['weight'] == "None" else galaxy_table[column_names['weight']]
         
         ################################################################################
         # This section is actually doing 2 things:
@@ -171,6 +171,7 @@ class Catalog:
         # 
         # self.coord is a shape (N,3) array of the xyz coordinates
         ################################################################################
+        
         if periodic or xyz:
             
             self.coord = np.array([galaxy_table[column_names['x']],
@@ -528,7 +529,7 @@ class Tesselation:
         # Calculate volumes of cells
         ################################################################################
         
-        output_volumes = self.calculate_region_volumes(self.cells,
+        output_volumes, edge_cells = self.calculate_region_volumes(self.cells,
                                                        r_max,
                                                        r_min,
                                                        mask_uint8,
@@ -540,6 +541,11 @@ class Tesselation:
                                                        )
         
         self.volumes = output_volumes
+        self.edge_cells = edge_cells
+        
+        if cat.weights is not None:
+            finite_density = self.volumes != 0.
+            self.volumes[finite_density] = self.volumes[finite_density] / cat.weights[finite_density]
         
         print("Cut+Convex Hull time: ", time.time() - volume_time)
         
@@ -585,6 +591,7 @@ class Tesselation:
         if self.num_cpus == 1:
             
             output_volumes = np.zeros(self.num_gals, dtype=np.float64)
+            edge_cells = np.zeros(self.num_gals, dtype=np.bool)
 
             for idx, cell in enumerate(cells):
 
@@ -602,6 +609,7 @@ class Tesselation:
                     
                     #using <= and >= since original code inversely checked just > and <
                     if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                        edge_cells[idx] = True
                         continue
         
                     ################################################################################
@@ -620,6 +628,7 @@ class Tesselation:
                     verticies_in_mask = mask_uint8[pix_ids]
             
                     if np.any(verticies_in_mask==0):
+                        edge_cells[idx] = True
                         continue
 
                 ################################################################################
@@ -664,9 +673,23 @@ class Tesselation:
     
             output_volumes.shape = (self.num_gals,)
             
+            edge_file_descriptor, EDGE_BUFFER_PATH = tempfile.mkstemp(prefix="vsquared_edge", 
+                                                               dir="/dev/shm", 
+                                                               text=False)
             
+            edge_buffer_length = self.num_gals
             
+            os.ftruncate(edge_file_descriptor, edge_buffer_length)
             
+            edge_buffer = mmap.mmap(edge_file_descriptor, 0)
+            
+            os.unlink(EDGE_BUFFER_PATH)
+            
+            edge_cells = np.frombuffer(edge_buffer, dtype=np.bool)
+
+            edge_cells[:] = False
+            
+            edge_cells.shape = (self.num_gals,)
             
             
             startup_context = multiprocessing.get_context("fork")
@@ -682,6 +705,7 @@ class Tesselation:
                                                   index_coordinator, 
                                                   cells,
                                                   volumes_fd,
+                                                  edge_file_descriptor,
                                                   r_max,
                                                   r_min,
                                                   mask_uint8,
@@ -701,7 +725,7 @@ class Tesselation:
             
                 p.join(None) #block till join
         
-        return output_volumes
+        return output_volumes, edge_cells
         
         
     def volume_calculation_worker(self, 
@@ -709,6 +733,7 @@ class Tesselation:
                                   index_coordinator,
                                   cells,
                                   volumes_fd,
+                                  edge_file_descriptor,
                                   r_max,
                                   r_min,
                                   mask_uint8,
@@ -727,6 +752,14 @@ class Tesselation:
         output_volumes = np.frombuffer(volumes_buffer, dtype=np.float64)
     
         output_volumes.shape = (self.num_gals,)
+
+        edge_buffer_length = max_indicies # bool for 1 byte per element
+
+        edge_buffer = mmap.mmap(edge_file_descriptor, edge_buffer_length)
+
+        edge_cells = np.frombuffer(edge_buffer, dtype=np.bool)
+    
+        edge_cells.shape = (self.num_gals,)
         
         
         curr_index = 0
@@ -761,6 +794,7 @@ class Tesselation:
                 
                 #using <= and >= since original code inversely checked just > and <
                 if np.any(vrh <= r_min) or np.any(vrh >= r_max):
+                    edge_cells[curr_index] = True
                     continue
     
                 ################################################################################
@@ -779,6 +813,7 @@ class Tesselation:
                 verticies_in_mask = mask_uint8[pix_ids]
         
                 if np.any(verticies_in_mask==0):
+                    edge_cells[curr_index] = True
                     continue
 
             ################################################################################
@@ -820,161 +855,175 @@ class Zones:
         verbose : int
             used to enable (>=1) or disable (0) print messages
         """
+        
+        ################################################################################
+        # Unpack the results of the previous Catalog and Tesselation stages
+        ################################################################################
+        
+        #Select the coordinates of the galaxies who pass the conditions
+        #captured by the array 'nnls'
+        # Not actually used in Zones, so lets skip the == computation
+        #coords = catalog.coord[catalog.nnls==np.arange(len(catalog.nnls))] 
+        
+        # Array of shape (num_gals,) dtype float volume of that galaxy's voronoi cell
+        gal_cell_vols = tess.volumes
 
-        coords = catalog.coord[catalog.nnls==np.arange(len(catalog.nnls))] 
+        #Array of edge cell flags
+        edge_cells = tess.edge_cells
         
-        vol = tess.volumes
-        
+        # List of length num_gals multivoro cell objects with methods describing the current
+        # galaxy's cell
         cells = tess.cells
         
+        #In Tess this value is filtered by the nnls array
         num_gals = tess.num_gals
         
+        # Array of shape (num_gals,) dtype bool indicating whether that galaxy's cell is
+        # an edge cell
         hzn = tess.hzn
         
-
+        ################################################################################
         # Sort the Voronoi cells by their volume
+        ################################################################################
         if verbose > 0:
             print("Sorting cells...")
 
-        sort_order = np.argsort(vol)[::-1] #largest to smallest volume (aka lease dense to most dense)
+        sort_order = np.argsort(gal_cell_vols)[::-1] #largest to smallest volume (aka lease dense to most dense)
 
         #vol2  = vol[srt] # cell volumes sorted from largest to smallest (aka least dense to most dense region)
         #nei2  = nei[srt] # coordinates of tetrahedra that include each galaxy, sorted from least dense to most dense region
 
-        # Build zones from the cells
-        
-        #for each galaxy, the ID of the zone it belongs to
-        gal_zone_IDs = np.zeros(len(vol), dtype=int) 
-        
-        #for each galaxy, the number of adjacent cells between it and the largest cell in its zone
-        depth = np.zeros(len(vol), dtype=int) 
-
-        
-        
-        #each element of zcell is a zone, and the zone is a 
-        #list of the galaxy indices belonging to that zone
-        zcell = [[]] 
-        # the volume of the largest cell in each zone?
-        # this is initialized with a 0 and zcell with an empty
-        # list to capture any cells with 0 volume
-        zvols = [0.] 
-        zhzn = [1]
-        
-
-        if verbose > 0:
-            print("Building zones...")
-
-        build_time = time.time()
-        
-        for srt_i in sort_order:
-
-            # Maybe keep some separate lists for the 0-vol 
-            # cells since we have to check it explicitly anyway
-            if vol[srt_i] == 0.:
-                gal_zone_IDs[srt_i] = -1
-                zcell[-1].append(srt_i)
-                continue
-
-            #ns = nei2[i] # indexes of galaxies neigboring curent galaxy
-            curr_neigh_idxs = cells[srt_i].get_neighbors()
-            #ns = np.append([srt_i], ns) #inefficient but just for testing
-            
-            neigh_vols = vol[curr_neigh_idxs] # volumes of cells neighboring current cell
-            
-            largest_neigh_vol_idx = curr_neigh_idxs[np.argmax(neigh_vols)] #index of neigboring galaxy with largest volume
-
-            # if current cell is larger than all it's neighbors (aka the center of a zone)
-            if vol[srt_i] > vol[largest_neigh_vol_idx]:
-                # Current cell has the largest volume of its neighbors
-                gal_zone_IDs[srt_i] = len(zvols) - 1 # the galaxy in this cell is given a new zone ID 
-                
-                # create a new zone
-                # using insert(-1,...) instead of append to keep these lists
-                # sorted from largest zone to smallest zone
-                zcell.insert(-1, [srt_i]) 
-                
-                # note the volume of the largest cell in the zone
-                zvols.insert(-1, vol[srt_i]) 
-                
-                zhzn.insert(-1, int(hzn[srt_i])) #note whether the largest cell in the zone is an edge cell
-            
-            else:
-                # This cell is put into its least-dense neighbor's zone
-                gal_zone_IDs[srt_i] = gal_zone_IDs[largest_neigh_vol_idx] #the galaxy in this cell is given the zone ID of it's least dense neighbor
-                
-                depth[srt_i] = depth[largest_neigh_vol_idx]+1 #the galaxy's depth = its least dense neighbor's depth + 1
-                
-                zcell[gal_zone_IDs[largest_neigh_vol_idx]].append(srt_i) #the galaxy is added to it's least dense neighbor's zone
-                
-                zhzn[gal_zone_IDs[largest_neigh_vol_idx]] += int(hzn[srt_i]) #increment the zone's edge flag if an edge cell is found (0 = no edge cells)
-
-        
-        print("Zone building time: ", time.time() - build_time)
-
-        self.zcell = np.array(zcell, dtype=object)
-        self.zvols = np.array(zvols)
-        self.zhzn  = np.array(zhzn)
-        self.depth = depth
-        
-        
-
-        # Identify neighboring zones and the least-dense cells linking them
-        # shape (2, num_zones, X)
-        # neighbor_zone_IDs = zone_links[curr_zone_ID]
-        # zlinks[0,i] is list of zone IDs fo zones bordering current zone i
-        # zlinks[1,i] is linkage volumes - watershed breakpoint for the
-        # boundary between current zone i and neighbor zones
-        zlinks = [[[] for _ in range(len(zvols))] for _ in range(2)] 
-
         if viz:
-            #zverts = [[] for _ in range(len(zvols))]
-            #znorms = [[] for _ in range(len(zvols))]
-            zarea_0 = np.zeros(len(zvols)) # zone edge surface areas
-            zarea_t = np.zeros(len(zvols)) # zone total surface areas
-            zarea_s = [[] for _ in range(len(zvols))] # shared zone surfaces areas for each zone link
+            
+            zarea_0 = {}
+            zarea_t = {}
+            zarea_s = {}
+            
             
             # zone triangle data
             triangle_norms = []
             triangles_verts = []
             triangle_zones = []
             triangle_zone_links = []
-            
-
-        if verbose > 0:
-            print("Linking zones...")
-            
-        link_time = time.time()
         
-    	#loop through cells
-        for i in range(len(vol)):
-            #ns = nei[i]
-            curr_neigh_idxs = cells[i].get_neighbors()
-            
-            z1 = gal_zone_IDs[i]
-            
-            if z1 == -1:
+        
+        
+        ################################################################################
+        # Build zones from the cells - rewrite to use more concise data structure
+        # Hopefully clearer data structures will make the downstream code easier to
+        # modify/parallelize/etc, so for now, updating this and adding a dummy
+        # section to convert the zone_info back into its older-version counterparts
+        # until later
+        #
+        # Galaxies with their cells need to be grouped into Zones based on the volume
+        # of their cell and their neighbor's cells
+        # for each galaxy, track 
+        #  - the ID of the zone it belongs to
+        #  - its depth, the number of adjacent cells between it and the largest cell 
+        #      in its zone
+        #  - the grouping of galaxy indices which form a zone (zone_info[zone_ID]["galaxy_indices"])
+        #  - the volume of the largest cell in the zone (zone_info[zone_ID]["largest_cell_volume"])
+        #  - number of edge cells in the current zone (zone_info[zone_ID]["edge_cell_count"])
+        #
+        # Also repackage the multivoro cell neighbor information into arrays similar
+        # to the scipy output so we can avoid calls to the get_neighbors() methods
+        # and replace them with array accesses later
+        #
+        # Also keep track of the subset of galaxies/cells which actually touch other
+        # zones so we dont have to go through as many later
+        ################################################################################
+        build_time = time.time()
+        
+        if verbose > 0:
+            print("Building zones...")
+
+        
+        gal_zone_IDs = np.empty(num_gals, dtype=np.int32) 
+        gal_zone_IDs.fill(-2) #init to -2, not 0
+        
+        depth = np.zeros(num_gals, dtype=int) 
+        
+        next_zone_ID = 0
+        
+        zone_info = {}
+        
+        zone_linkage_info = {}
+        
+        zone_link_volumes = {}
+        
+        degenerate_gal_cells = []
+        
+        for gal_idx in sort_order:
+
+            if edge_cells[gal_idx]:
+                gal_zone_IDs[gal_idx] = -1 
+                #zone_info[-1].append(gal_idx)
+                continue
+            elif gal_cell_vols[gal_idx] == 0.:
+                degenerate_gal_cells.append(gal_idx)
                 continue
 
-            # get cell info
-            cell = cells[i]
-            vertices = cell.get_vertices()
-            faces = partition_face_vertices(cell)
+            curr_neigh_idxs = cells[gal_idx].get_neighbors()
             
-            #loop though neighbor cells
-            for n, face in zip(curr_neigh_idxs, faces):
-                
-                z2 = gal_zone_IDs[n]
-                
-                #Calculate edge area for cells on survey edges (z2==-1)
-                if z2 == -1:
+            neigh_vols = gal_cell_vols[curr_neigh_idxs] 
+            
+            largest_neigh_vol_idx = curr_neigh_idxs[np.argmax(neigh_vols)] 
 
+            
+            # for void visualization,
+            # get current galaxy's verticies and faces
+            
+            curr_vertices = cells[gal_idx].get_vertices()
+            
+            curr_faces = partition_face_vertices(cells[gal_idx])
+            
+            ################################################################################
+            # if current cell is larger than all it's neighbors (aka the center of a zone)
+            # it starts a new zone
+            # Otherwise put this galaxy/cell into its least-dense neighbor's zone
+            ################################################################################
+            if gal_cell_vols[gal_idx] > gal_cell_vols[largest_neigh_vol_idx]:
+                
+                zone_ID = next_zone_ID
+                next_zone_ID += 1
+                
+                gal_zone_IDs[gal_idx] = zone_ID 
+                
+                zone_info[zone_ID] = {}
+                zone_info[zone_ID]["linked_zones"] = {}
+                zone_info[zone_ID]["galaxy_indices"] = [gal_idx]
+                zone_info[zone_ID]["largest_cell_volume"] = gal_cell_vols[gal_idx]
+                zone_info[zone_ID]["edge_cell_count"] = hzn[gal_idx]
+                
+            else:
+                
+                zone_ID = gal_zone_IDs[largest_neigh_vol_idx] 
+                
+                gal_zone_IDs[gal_idx] = zone_ID
+                
+                depth[gal_idx] = depth[largest_neigh_vol_idx] + 1  #the galaxy's depth = its least dense neighbor's depth + 1
+                
+                zone_info[zone_ID]["galaxy_indices"].append(gal_idx)
+                
+                zone_info[zone_ID]["edge_cell_count"] += int(hzn[gal_idx])
+                
+            ################################################################################
+            # Keep track of zone linkage volume as we build the zones
+            ################################################################################
+            neigh_zone_IDs = gal_zone_IDs[curr_neigh_idxs]
+            
+            for ndx, (neigh_zone_ID, neigh_face, neigh_idx) in enumerate(zip(neigh_zone_IDs, curr_faces, curr_neigh_idxs)):
+
+                # Neighbor is outside the survey 
+                if edge_cells[neigh_idx]:
+                    
                     if viz:
         
                         # record the surface area and triangle data of the boundary formed by the vertices
-                        if len(face)>2: #If there are at least 3 vertices in teh face (>=1 triangles)
+                        if len(neigh_face)>2: #If there are at least 3 vertices in teh face (>=1 triangles)
     
                             # ordered face vertices
-                            face_vertices = vertices[face]
+                            face_vertices = curr_vertices[neigh_face]
     
                             #calculate surfacearea and normal
                             normal_vector = np.sum(np.cross(face_vertices, np.roll(face_vertices, 1, axis=0)), axis=0)
@@ -982,8 +1031,8 @@ class Zones:
                             area = 0.5 * normal_mag
                             normal_vector=normal_vector/normal_mag
     
-                            zarea_0[z1] += area #add area to zone edge area
-                            zarea_t[z1] += area #add area to zone total area
+                            zarea_0[zone_ID] = zarea_0.get(zone_ID, 0) + area #add area to zone edge area
+                            zarea_t[zone_ID] = zarea_t.get(zone_ID, 0) + area #add area to zone total area
     
                             # get list of triangles
                             for tri_idx in range(1, len(face_vertices) - 1):
@@ -991,45 +1040,69 @@ class Zones:
     
                                 triangle_norms.append(normal_vector)
                                 triangles_verts.append(triangle)
-                                triangle_zones.append(z1)
-                                triangle_zone_links.append(z2)
-                            
-                    continue
-                
-                #Ensure neighboring cell is from a different zone
-                if z1 == z2:
-                    continue
-                # if zone 2 is not already in the list of linked zones for zone 1
-                if z2 not in zlinks[0][z1]:
-                    # add zones to each others' lists
-                    zlinks[0][z1].append(z2)
-                    zlinks[0][z2].append(z1)
-                    zlinks[1][z1].append(0.)
-                    zlinks[1][z2].append(0.)
-                    if viz:
-                        zarea_s[z1].append(0.)
-                        zarea_s[z2].append(0.)
+                                triangle_zones.append(zone_ID)
+                                triangle_zone_links.append(neigh_zone_ID)
+                                
+                    # Was an edge cell, so continue to the next neighbor
                     
-                j  = np.where(zlinks[0][z1] == z2)[0][0]
-                k  = np.where(zlinks[0][z2] == z1)[0][0]
+                    continue
+
+                # This neighbor hasn't been processed yet or is in the same zone. 
+                if neigh_zone_ID == -2 or neigh_zone_ID == zone_ID:
+                    continue
+
+                neigh_idx = curr_neigh_idxs[ndx]
+                
+                key_lower = min(zone_ID, neigh_zone_ID)
+                key_upper = max(zone_ID, neigh_zone_ID)
+                
+                zone_pair = (int(key_lower), int(key_upper))
+                
+                zone_linkage_info[zone_pair] = 1
+                
+                zone_info[zone_ID]["linked_zones"][neigh_zone_ID] = 1
+                zone_info[neigh_zone_ID]["linked_zones"][zone_ID] = 1
+                
+                if viz:
+                    zarea_s.setdefault((key_lower, key_upper), 0.)
+                
+                # if the chosen cell is less dense than the current least dense cell connecting the two zones
+                # update the least dense cell connecting the two zones
+                gal_volume = gal_cell_vols[gal_idx]
+                neigh_volume = gal_cell_vols[neigh_idx]
+                
+                if gal_volume == neigh_volume:
+                    
+                    link_volume = gal_volume
+                    link_gal = min(gal_idx, neigh_idx)
+                    
+                elif gal_volume < neigh_volume:
+                    
+                    link_volume = gal_volume
+                    link_gal = gal_idx
+                    
+                else:
+                    
+                    link_volume = neigh_volume
+                    link_gal = neigh_idx
                 
                 
-                # Update maximum link volume if needed
-                nl = np.amin([vol[i], vol[n]])
-                ml = np.amax([zlinks[1][z1][j], nl])
+                if zone_pair not in zone_link_volumes:
+                    
+                    zone_link_volumes[zone_pair] = 0.0
                 
+                if link_volume > zone_link_volumes[zone_pair]:
+                    
+                    zone_link_volumes[zone_pair] = link_volume
+
                 
-                zlinks[1][z1][j] = ml
-                zlinks[1][z2][k] = ml
-                
-                
-                if viz and vol[i] > 0:            
+                if viz and gal_cell_vols[gal_idx] > 0:            
 
                     # record the surface area and triangle data of the boundary formed by the vertices
-                    if len(face)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
+                    if len(neigh_face)>2: #If there are at least 3 vertices shared between the cells (>=1 triangles)
 
                         # ordered face vertices
-                        face_vertices = vertices[face]
+                        face_vertices = curr_vertices[neigh_face]
 
                         #calculate surfacearea and normal
                         normal_vector = np.sum(np.cross(face_vertices, np.roll(face_vertices, 1, axis=0)), axis=0)
@@ -1037,82 +1110,54 @@ class Zones:
                         area = 0.5 * normal_mag
                         normal_vector=normal_vector/normal_mag
 
-                        zarea_t[z1] += area #add ridge area to total zone surface area
-                        zarea_s[z1][j] += area # add ridge area to shared z1 z2 surface area
-
+                        zarea_t[zone_ID] = zarea_t.get(zone_ID, 0) + area #add ridge area to total zone surface area
+                        zarea_t[neigh_zone_ID] = zarea_t.get(neigh_zone_ID, 0) + area #add ridge area to neighbor's total zone surface area
+                        zarea_s[(key_lower, key_upper)] += area # add ridge area to shared z1 z2 surface area
+                        
                         # get list of triangles
                         for tri_idx in range(1, len(face_vertices) - 1):
                             triangle = face_vertices[[0,tri_idx,tri_idx+1]]
 
+                            # add triangle for galaxy
                             triangle_norms.append(normal_vector)
                             triangles_verts.append(triangle)
-                            triangle_zones.append(z1)
-                            triangle_zone_links.append(z2)
-                        
-                        ##########################################
+                            triangle_zones.append(zone_ID)
+                            triangle_zone_links.append(neigh_zone_ID)
 
-        
-        self.zlinks = zlinks
-        
-        print("Zone linking time: ", time.time() - link_time)
-        
-        ################################################################################
-        # New implementation for zlinks
-        ################################################################################
-        '''
-        zone_links = {}
-        
-        zone_link_volumes = np.zeros(len(zvols))
-        
-        for idx in range(num_gals):
+                            # add triangle for neighbor
+                            triangle_norms.append(-normal_vector)
+                            triangles_verts.append(triangle)
+                            triangle_zones.append(neigh_zone_ID)
+                            triangle_zone_links.append(zone_ID)
             
-            curr_neigh_idxs = cells[idx].get_neighbors()
+        print("Zone building time: ", time.time() - build_time)
+        
+        if len(gal_zone_IDs[gal_zone_IDs==-2]) != 0:
+            print('WARNING:', len(gal_zone_IDs[gal_zone_IDs==-2]), 'galaxies not processed by zone-building stage')
             
-            curr_zone_ID = gal_zone_IDs[idx]
+        if len(degenerate_gal_cells) != 0:
+            print('WARNING:', len(degenerate_gal_cells), 'denerate galaxies detected')
             
-            if curr_zone_ID == -1:
-                continue
-            
-            for neigh_idx in curr_neigh_idxs:
-                
-                neigh_zone_ID = gal_zone_IDs[neigh_idx]
-                
-                #Ensure zone2 is valid
-                if neigh_zone_ID == -1:
-                    continue
-                
-                #Ensure neighboring cell is from a different zone
-                if curr_zone_ID == neigh_zone_ID:
-                    continue
+
+        zone_IDs = np.arange(next_zone_ID)
         
-                if curr_zone_ID not in zone_links:
-                    zone_links[curr_zone_ID] = []
-                    
-                if neigh_zone_ID not in zone_links:
-                    zone_links[neigh_zone_ID] = []
-        
-                zone_links[curr_zone_ID].append(neigh_zone_ID)
-                zone_links[neigh_zone_ID].append(curr_zone_ID)
-        
-        
-        '''
-        
-        #print("zlinks: ", len(zlinks), len(zlinks[0]), len(zlinks[1]), len(zlinks[0][0]), len(zlinks[0][1]))
-        #print(zlinks[0][0])
-        #print(zlinks[1][0])
-        
+        self.zone_info = zone_info
+        self.zone_IDs = zone_IDs
+        self.num_zones = next_zone_ID
+        self.zone_link_volumes = zone_link_volumes
+        self.depth = depth  
         
         
         if viz:
-            #self.zverts = zverts
-            #self.znorms = znorms
-            self.zarea_0 = zarea_0
-            self.zarea_t = zarea_t
+            self.zarea_0 = zarea_0 #np.array(list(zarea_0.values()))
+            self.zarea_t = zarea_t # np.array(list(zarea_t.values()))
             self.zarea_s = zarea_s
             self.triangle_norms = np.array(triangle_norms)
             self.triangles = np.array(triangles_verts)	
             self.triangle_zones = np.array(triangle_zones) 
             self.triangle_zone_links = np.array(triangle_zone_links)
+
+
 
 
 class Voids:
@@ -1131,36 +1176,46 @@ class Voids:
         """
         
         
-        zvols  = np.array(zones.zvols) #largest cell volume for each zone
-        zlinks = zones.zlinks
+        zvols  = np.array([zones.zone_info[zone_ID]["largest_cell_volume"] for zone_ID in zones.zone_info.keys()]) #largest cell volume for each zone
         
-        # Sort zone links by volume, identify zones linked at each volume
+        # zone_link_volumes has one entry for each zone link, each entry is a tuple of zones (keys)
+        # and the least dense cell volume connecting them (values)
+        zone_link_volumes = zones.zone_link_volumes
+
+         # Sort zone links by volume, identify zones linked at each volume
         if verbose > 0:
             print("Sorting links...")
 
-        # For each zone i and its neighbors j
-        # zlinks[0,i] is list of zone IDs for zones bordering current zone i
-        # zlinks[1,i] is linkage volumes - watershed breakpoint for the
-        # boundary between current zone i and neighbor zones
-        zl0   = np.array(list(flatten(zlinks[0])))
-        zl1   = np.array(list(flatten(zlinks[1])))
+        # ---------------------------------------------------------------------------------
+        # Construct the zone_links list. Each entry in zone_links is a watershed breakpoint
+        # containing a list of the unique zone IDs which border the breakpoint
+        # There may be more than two zones at a breakpoint.
+        # ---------------------------------------------------------------------------------
 
-        #watershed_breakpoints   = -1.*np.sort(-1.*np.unique(zl1))
-        #largest to smallest zone max link volume
-        #these are essentially the breakpoints for the watershed algorithm
-        #for more dense zones to join into less dense zones
-        watershed_breakpoints = np.sort(np.unique(zl1))[::-1] 
-        #print("watershed breakpoints: ", watershed_breakpoints.shape)
+        #largest to smallest zone linking volume
+        link_volumes = np.sort(np.unique(list(zone_link_volumes.values())))[::-1] 
         
         #At each breakpoint, a list of the unique zone IDs which border the breakpoint
-        zlut  = [ np.unique( zl0[np.where(zl1==link_volume)[0]] ).tolist() for link_volume in watershed_breakpoints ]
+        link_volumes_dict = {}
+
+        for pair, watershed_break in zone_link_volumes.items():
+        
+            if watershed_break not in link_volumes_dict:
+                link_volumes_dict[watershed_break] = [] #explicitly creates a new list object for each watershed break
+        
+            if pair[0] not in link_volumes_dict[watershed_break]:
+                link_volumes_dict[watershed_break].append(pair[0])
+        
+            if pair[1] not in link_volumes_dict[watershed_break]:
+                link_volumes_dict[watershed_break].append(pair[1])  
+                
+        zone_links = list(link_volumes_dict.values())
+        
         #print('lv1',len(zlinks[0]))
         voids = []
         mvols = []
         ovols = []
         vlut  = np.arange(len(zvols))
-        #mvlut = np.array(zvols)
-        #ovlut = np.array(zvols)
         mvlut = zvols.copy()
         ovlut = zvols.copy()
 
@@ -1172,14 +1227,11 @@ class Voids:
             print("Expanding voids...")
 
         # At each watershed breakpoint in order of increasing density
-        for i in range(len(watershed_breakpoints)):
-            
-            #Get the breakpoint volume
-            link_volume  = watershed_breakpoints[i]
+        for i, link_volume in enumerate(link_volumes):
             
             #For each child void which borders this breakpoint, get the 
             # child's core volume
-            mxvls = mvlut[zlut[i]]
+            mxvls = mvlut[zone_links[i]]
             
             #Of the selected children, get the one with the largest
             #core volume
@@ -1188,7 +1240,7 @@ class Voids:
             mxvol = mxvls[mvarg]
             
             #For each child which borders this breakpoint
-            for j in zlut[i]:
+            for j in zone_links[i]:
                 
                 # if the child doesn't have the largest core volume of the children
                 if mvlut[j] < mxvol:
@@ -1217,7 +1269,7 @@ class Voids:
                         
                     ovols[-1].append(link_volume)
                     mvols.append(mvlut[j])
-                    vlut[vcomp]  = vlut[zlut[i]][mvarg]
+                    vlut[vcomp]  = vlut[zone_links[i]][mvarg]
                     mvlut[vcomp] = mxvol
                     ovlut[vcomp] = link_volume
         
@@ -1225,10 +1277,16 @@ class Voids:
         # TODO: there are a few zones (e.g. 5 out of 600) that have no
         # zone links. These zones are discarded by VIDE but are made into 
         # voids by REVOLVER. Do we want to change this behavior at all?
+
+        # Update (3/18/26): The zone-building stage has been redesigned
+        # so it will need to be tested whether this differnece between 
+        # REVOLVER and VIDE pruning persists. The below code for bringing
+        # the two methods into agreement will likely no longer work with 
+        # the new zone design
         
         # isolated voids
-        for i in range(len(zlinks[0])):
-            if len(zlinks[0][i])==0:
+        for i in zone_link_volumes.keys():
+            if len(zone_link_volumes[i])==0:
                 if zvols[i] > 0:
                     pass
         """
@@ -1244,32 +1302,13 @@ class Voids:
         ovols[-1].append(0.)
         mvols.append(mvlut[0])
 
-        '''
+
+
+
+
         ################################################################################
-        # New implementation 
+        # Output
         ################################################################################
-        num_breakpoints = len(watershed_breakpoints)
-        
-        for idx in range(num_breakpoints):
-            
-            breakpoint_vol = watershed_breakpoints[idx]
-
-            flowing_zone_IDs = zlut[idx]
-
-            flowing_zone_core_vols = mvlut[flowing_zone_IDs]
-            
-            largest_core_vol_idx = np.argmax(flowing_zone_core_vols)
-            
-            largest_flowing_core_vol = flowing_zone_core_vols[largest_core_vol_idx]
-
-
-            for flowing_zone_ID in flowing_zone_IDs:
-
-                if mvlut[j] < largest_flowing_core_vol:
-                    pass
-        '''
-
-
 
         self.voids = voids
         self.mvols = mvols

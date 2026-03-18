@@ -24,7 +24,7 @@ class TestV2(unittest.TestCase):
         TestV2.zones = None
         TestV2.voids = None
         TestV2.zobov = None
-
+    
     def test_cat_coord(self):
         """Check catalog coordinate access
         """
@@ -32,12 +32,12 @@ class TestV2(unittest.TestCase):
         config.read(TestV2.inifile)
         TestV2.zobov = zobov.Zobov(TestV2.inifile, save_intermediate=False)
         TestV2.cat = classes.Catalog(TestV2.catfile, TestV2.nside, 0.03, 0.1, config['Galaxy Column Names'],zobov=TestV2.zobov)
-
+        
         mcoord = np.array([-158.0472400951847,-19.01100010666949,94.40978960900837])
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[0]), mcoord[0]))
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[1]), mcoord[1]))
         self.assertTrue(np.isclose(np.mean(TestV2.cat.coord.T[2]), mcoord[2]))
-
+    
     def test_cat_nnls(self):
         """Check catalog nnls
         """
@@ -110,11 +110,9 @@ class TestV2(unittest.TestCase):
         TestV2.zones = classes.Zones(TestV2.tess, catalog=TestV2.cat)
 
         # Test zone cells
+        zone_info = self.zones.zone_info
         
-        diff = np.abs(np.mean([len(zc) for zc in self.zones.zcell]) - 87.23404255319149)
-        
-        print(diff)
-        self.assertTrue(diff/87.23404255319149 <= .01)
+        self.assertTrue(np.isclose(np.mean([len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()]), 69.66666666666667))
 
         # Test zone volumes
         
@@ -122,16 +120,23 @@ class TestV2(unittest.TestCase):
         #Py 3.10 - 6897.755361237265
         #Py 3.11 - 6897.755361237265
         
-        diff = np.abs(np.mean(self.zones.zvols) - 6897.767791048626)
-        
-        self.assertTrue(diff/6897.767791048626 <= .01)
+        self.assertTrue(np.isclose(np.mean([zone_info[zone_ID]["largest_cell_volume"] for zone_ID in zone_info.keys()]), 6971.9247737236865))
 
         # Test zone links
-        diff = np.abs(np.mean([len(zl0) for zl0 in self.zones.zlinks[0]]) - 9.617021276595745)
-        self.assertTrue(diff/9.617021276595745 <= 0.01)
+        zone_pairs = []
+        zone_link_volumes = []
         
-        diff = np.abs(np.mean([np.mean(zl1) for zl1 in self.zones.zlinks[1][:-1]]) - 3285.6313303024826)
-        self.assertTrue(diff/3285.6313303024826 <= 0.01)
+        for zone_pair, link_volume in self.zones.zone_link_volumes.items():
+            
+            zone_pairs.append(zone_pair[0])
+            zone_pairs.append(zone_pair[1])
+            
+            zone_link_volumes.append(link_volume)
+        
+        self.assertTrue(np.isclose(np.mean(zone_pairs), 35.48233995584989))
+        
+        self.assertTrue(np.isclose(np.mean(zone_link_volumes), 3448.43532670593376))
+        
 
     def test_zobov_3_voids(self):
         """Test ZOBOV void creation
@@ -139,14 +144,16 @@ class TestV2(unittest.TestCase):
         TestV2.voids = classes.Voids(TestV2.zones)
 
         # Test voids
-        self.assertTrue(np.isclose(np.mean([len(v) for v in self.voids.voids]), 1.978494623655914))
-        self.assertTrue(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]), 1.060548559599793))
+        
+        self.assertTrue(np.isclose(np.mean([len(v) for v in self.voids.voids]), 1.967741935483871))
+        
+        self.assertTrue(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]), 1.0607298794395568))
 
         # Test mvols
-        self.assertTrue(np.isclose(np.mean(self.voids.mvols), 6971.937337188934))
+        self.assertTrue(np.isclose(np.mean(self.voids.mvols), 6971.924773723685))
 
         # Test ovols
-        self.assertTrue(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]), 5875.14756763797))
+        self.assertTrue(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]), 5875.987737406277))
 
     def test_zobov_4_zobov(self):
         """Test full ZOBOV algorithm
@@ -190,7 +197,7 @@ class TestV2(unittest.TestCase):
         TestV2.zobov.saveZones()
         
         self.assertTrue(os.path.exists('TEST_V2_VIDE_Output.fits'))
-
+    
     def tearDown(self):
         """Delete files produced for the unit tests.
         """

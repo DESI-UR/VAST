@@ -83,6 +83,7 @@ def toSky(cs,H0,Om_m,zstep):
     #z = H0*r/c
     return z,ra,dec
 
+
 def dcut_worker(num_voids,
                 index_coordinator,
                 file_descriptor,
@@ -315,6 +316,8 @@ def getBuff(cin, idsin, cmin, cmax, buff, n):
                 
     return cout, np.array(idsout)
 '''
+
+
 def wCen_worker(num_voids,
                 index_coordinator,
                 file_descriptor,
@@ -423,6 +426,7 @@ def wCen(vols,coords, periodic, cmin, cmax):
 
     return center
 
+
 def getSMA_worker(num_voids,
                 index_coordinator,
                 file_descriptor,
@@ -491,6 +495,7 @@ def getSMA_worker(num_voids,
     
         eigenvalue = getSMA(vrad, vcen, coords[vcut], periodic, cmin, cmax)
         ellipses[curr_index] = eigenvalue
+        
         
 def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
     """Convert tracers and void effective radius to ellipsoid semi-major axes.
@@ -593,6 +598,7 @@ def flatten(l):
         else:
             yield el
 
+
 def open_fits_file_V2(
         log_filename,
         method=None,
@@ -672,6 +678,7 @@ def open_fits_file_V2(
     
     return hdul
 
+
 # (Make Number) Format floats for headers
 def mknumV2 (flt):
     """Formats a float for fits headers
@@ -694,6 +701,7 @@ def mknumV2 (flt):
     else:
         return float(f"{flt:.2f}")
     
+
 def rotate(p):
     """Rotates polygon into its plane.
     Parameters
@@ -715,6 +723,7 @@ def rotate(p):
     m = np.linalg.inv(np.array([n1,n2,n3]).T)
     r = np.matmul(m,p.T)[0:2].T
     return r
+
 
 def partition_face_vertices(cell):
     """Obtains faces form a multivoro Cell object
@@ -739,15 +748,16 @@ def partition_face_vertices(cell):
         start_index = end_index
     return faces
 
+
 def galzone_worker(ngal,
-                index_coordinator,
-                zlist_file_descriptor,
-                elist_file_descriptor,
-                zcell,
-                glut,
-                volumes,
-                olist 
-            ):
+                   index_coordinator,
+                   zlist_file_descriptor,
+                   elist_file_descriptor,
+                   zcell,
+                   glut,
+                   volumes,
+                   olist 
+                   ):
 
     """Records zone IDs for the catalog galaxies in parallel.
 
@@ -812,8 +822,8 @@ def galzone_worker(ngal,
         for c in cl:
             # record the zone ID of the galaxy
             zlist[glut[c]] = curr_index
-            # if galaxy is on edge of survey (cell volume=0) and is inside the mask
-            if volumes[c]==0. and not olist[glut[c]].all():
-                # mark as edge galaxy
-                elist[glut[c]] = 1
+            # if galaxy is interior to survey (cell volume != 0) and is inside the mask
+            if volumes[c]!=0. or olist[glut[c]].all():
+                # mark as non-edge galaxy
+                elist[glut[c]] = 0
 
