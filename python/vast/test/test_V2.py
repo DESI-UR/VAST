@@ -112,13 +112,7 @@ class TestV2(unittest.TestCase):
         # Test zone cells
         zone_info = self.zones.zone_info
         
-        diff = np.abs(np.mean([len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()]) - 87.23404255319149)
-        
-        print('DEBUG 2', diff)
-        print('DEBUG 2.1', np.mean([len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()]))
-        print('DEBUG 2.2', len(zone_info.keys()))
-        print('DEBUG 2.3', [len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()])
-        self.assertTrue(diff/87.23404255319149 <= .01)
+        self.assertTrue(np.isclose(np.mean([len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()]), 69.66666666666667))
 
         # Test zone volumes
         
@@ -126,30 +120,22 @@ class TestV2(unittest.TestCase):
         #Py 3.10 - 6897.755361237265
         #Py 3.11 - 6897.755361237265
         
-        diff = np.abs(np.mean(self.zones.zvols) - 6897.767791048626)
-        
-        self.assertTrue(diff/6897.767791048626 <= .01)
+        self.assertTrue(np.isclose(np.mean([zone_info[zone_ID]["largest_cell_volume"] for zone_ID in zone_info.keys()]), 6971.9247737236865))
 
         # Test zone links
-        zl0 = []
-        zl1 = []
+        zone_pairs = []
+        zone_link_volumes = []
         
-        for zone_ID, neighID_vol_dict in self.zones.zone_link_volumes.items():
+        for zone_pair, link_volume in self.zones.zone_link_volumes.items():
             
-            neighbor_IDs = neighID_vol_dict.keys()
-            zl0.append(len(neighbor_IDs))
+            zone_pairs.append(zone_pair[0])
+            zone_pairs.append(zone_pair[1])
             
-            neighbor_volumes = list(neighID_vol_dict.values())
-                                    
-            if len(neighbor_volumes)>0:
-                                    
-                zl1.append(np.mean(neighbor_volumes))
+            zone_link_volumes.append(link_volume)
         
-        diff = np.abs(np.mean(zl0) - 9.617021276595745)
-        self.assertTrue(diff/9.617021276595745 <= 0.01)
+        self.assertTrue(np.isclose(np.mean(zone_pairs), 35.48233995584989))
         
-        diff = np.abs(np.mean(zl1) - 3285.6313303024826)
-        self.assertTrue(diff/3285.6313303024826 <= 0.01)
+        self.assertTrue(np.isclose(np.mean(zone_link_volumes), 3448.43532670593376))
         
 
     def test_zobov_3_voids(self):
@@ -164,11 +150,10 @@ class TestV2(unittest.TestCase):
         self.assertTrue(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]), 1.0607298794395568))
 
         # Test mvols
-        print('DEBUG 3', np.isclose(np.mean(self.voids.mvols)))
-        self.assertTrue(np.isclose(np.mean(self.voids.mvols), 6971.937337188934))
+        self.assertTrue(np.isclose(np.mean(self.voids.mvols), 6971.924773723685))
 
         # Test ovols
-        self.assertTrue(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]), 5875.14756763797))
+        self.assertTrue(np.isclose(np.mean([np.mean(ov) for ov in self.voids.ovols]), 5875.987737406277))
 
     def test_zobov_4_zobov(self):
         """Test full ZOBOV algorithm
