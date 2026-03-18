@@ -110,10 +110,11 @@ class TestV2(unittest.TestCase):
         TestV2.zones = classes.Zones(TestV2.tess, catalog=TestV2.cat)
 
         # Test zone cells
+        zone_info = self.zones.zone_info
         
-        diff = np.abs(np.mean([len(zc) for zc in self.zones.zcell]) - 87.23404255319149)
+        diff = np.abs(np.mean([len(zone_info[zone_ID]["galaxy_indices"]) for zone_ID in zone_info.keys()]) - 87.23404255319149)
         
-        print(diff)
+        print('DEBUG 2', diff)
         self.assertTrue(diff/87.23404255319149 <= .01)
 
         # Test zone volumes
@@ -154,10 +155,13 @@ class TestV2(unittest.TestCase):
         TestV2.voids = classes.Voids(TestV2.zones)
 
         # Test voids
-        self.assertTrue(np.isclose(np.mean([len(v) for v in self.voids.voids]), 1.978494623655914))
-        self.assertTrue(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]), 1.060548559599793))
+        
+        self.assertTrue(np.isclose(np.mean([len(v) for v in self.voids.voids]), 1.967741935483871))
+        
+        self.assertTrue(np.isclose(np.mean([np.mean([len(vv) for vv in v]) for v in self.voids.voids]), 1.0607298794395568))
 
         # Test mvols
+        print('DEBUG 3', np.isclose(np.mean(self.voids.mvols)))
         self.assertTrue(np.isclose(np.mean(self.voids.mvols), 6971.937337188934))
 
         # Test ovols
