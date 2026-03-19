@@ -9,6 +9,7 @@ import vast.catalog.void_volume as vol
 import vast.catalog.void_overlap as vo
 
 import os
+import multiprocessing as mp
 import numpy as np
 import copy
 from astropy.table import Table, vstack
@@ -506,7 +507,7 @@ class VoidFinderCatalog (VoidCatalog):
             print('Median Reff (V. Fid):', mknum(np.median(reff)), '+/-',mknum(uncert_median),'Mpc/h')
             print('Maximum Reff (V. Fid):', mknum(np.max(reff)),'Mpc/h')
             
-    def calculate_r_eff(self, overwrite = False, save_every = None):
+    def calculate_r_eff(self, overwrite = False, save_every = None, num_cpus = 1):
         """
         Calculates the effective radii of voids in a VoidFinder catalog.
         
@@ -518,7 +519,9 @@ class VoidFinderCatalog (VoidCatalog):
     
         save_every (int): Integer that determines how fequently to save the calcualted output, 
             corresponding to the number of voids per save. If None, all void radii are calculated 
-            with no intermediate saving.
+            with no intermediate saving. Only usable in single-threaded mode.
+
+        num_cpus (int): the number of cpus utilized for the calculation 
         """
 
         print('Calculating effective radii')
@@ -535,6 +538,25 @@ class VoidFinderCatalog (VoidCatalog):
 
             if self.capitalize_colnames:
                 self.lower_col_names()
+
+
+        def calculate_r_eff_worker(flags):
+            # ned to make top level function and pass 
+            # holes_copy and hole_flag_bounds (make shared readable memory?)
+            r_eff_list = []
+            r_eff_uncert_list = []
+            for flag in flags:
+                lower_idx = hole_flag_bounds[flag]
+                upper_idx = hole_flag_bounds[flag+1]
+                holes = holes_copy[lower_idx : upper_idx]
+                positions = np.array([holes['x'], holes['y'], holes['z']]).T
+                radius = holes['radius'].data
+                vol_info = vol.volume_of_spheres(positions, radius)
+                r_eff = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
+                r_eff_uncert = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
+                r_eff_list.append(r_eff)
+                r_eff_uncert_list.append(r_eff_uncert)
+            return np.array([r_eff_list, r_eff_uncert_list])
         
         save_every_applied = save_every is not None
         
@@ -556,18 +578,41 @@ class VoidFinderCatalog (VoidCatalog):
                 self.maximals['r_eff'].unit='Mpc/h'
                 self.maximals['r_eff_uncert'] = -1.
                 self.maximals['r_eff_uncert'].unit='Mpc/h'
-                    
-        # calculate reff
-        flags = self.maximals['void'][self.maximals['r_eff']==-1]
-        for i, flag in enumerate(flags):
-            holes = self.holes[self.holes['void']==flag]
-            positions = np.array([holes['x'], holes['y'],holes['z']]).T
-            radius = holes['radius'].data
-            vol_info = vol.volume_of_spheres(positions, radius)
-            self.maximals['r_eff'][flag] = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
-            self.maximals['r_eff_uncert'][flag] = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
-            if save_every_applied and i%save_every == 0:
-                save_r_eff()
+
+        if num_cpus == 1:
+            # calculate reff
+            flags = self.maximals['void'][self.maximals['r_eff']==-1]
+            for i, flag in enumerate(flags):
+                holes = self.holes[self.holes['void']==flag]
+                positions = np.array([holes['x'], holes['y'],holes['z']]).T
+                radius = holes['radius'].data
+                vol_info = vol.volume_of_spheres(positions, radius)
+                self.maximals['r_eff'][flag] = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
+                self.maximals['r_eff_uncert'][flag] = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
+                if save_every_applied and i%save_every == 0:
+                    save_r_eff()
+
+        else:
+            # determine which voids to calcualte r_eff for
+            select_unprocessed = self.maximals['r_eff'] == -1
+            # select holes to process
+            # important that we make a copy of the holes table (with mask) so that we can modify it w/o altering the original
+            holes_copy = self.holes[np.isin(self.holes['void'], self.maximals[select_unprocessed]['void'])]
+            # sort holes by void index
+            holes_copy.sort('void')
+            # indexes used to select holes corresponding to a specific void
+            hole_flag_bounds = np.concatenate([[0], np.where(np.diff(holes_copy['void'])!=0)[0] + 1, [len(holes_copy)]])
+
+            # Split the  void flags into groups to be processed in parallel
+            split_flags = np.array_split(self.maximals['void'], num_cpus)
+
+            with mp.Pool(processes=num_cpus) as pool:
+                
+                results = pool.map(calculate_r_eff_worker, split_flags)
+                results = np.array(results)
+                self.maximals['r_eff'][select_unprocessed] = np.concatenate( [x[0] for x in results] )
+                self.maximals['r_eff_uncert'][select_unprocessed] = np.concatenate( [x[1] for x in results] )
+            
         
         save_r_eff()
 
