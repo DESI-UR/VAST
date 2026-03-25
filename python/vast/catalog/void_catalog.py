@@ -9,7 +9,12 @@ import vast.catalog.void_volume as vol
 import vast.catalog.void_overlap as vo
 
 import os
-import multiprocessing as mp
+import mmap
+import tempfile
+import multiprocessing
+from multiprocessing import Value, Process
+from ctypes import c_int64
+
 import numpy as np
 import copy
 from astropy.table import Table, vstack
@@ -507,7 +512,7 @@ class VoidFinderCatalog (VoidCatalog):
             print('Median Reff (V. Fid):', mknum(np.median(reff)), '+/-',mknum(uncert_median),'Mpc/h')
             print('Maximum Reff (V. Fid):', mknum(np.max(reff)),'Mpc/h')
             
-    def calculate_r_eff(self, overwrite = False, save_every = None, num_cpus = 1):
+    def calculate_r_eff(self, overwrite = False, save_every = None, num_cpus = 1, calculate_ellipsoid=False):
         """
         Calculates the effective radii of voids in a VoidFinder catalog.
         
@@ -522,6 +527,9 @@ class VoidFinderCatalog (VoidCatalog):
             with no intermediate saving. Only usable in single-threaded mode.
 
         num_cpus (int): the number of cpus utilized for the calculation 
+
+        calculate_ellipsoid (bool): Whether or not to calcualte the best fit ellipsoid from the 
+            Monte Carlo samples. Defaults to False.
         """
 
         print('Calculating effective radii')
@@ -538,61 +546,61 @@ class VoidFinderCatalog (VoidCatalog):
 
             if self.capitalize_colnames:
                 self.lower_col_names()
-
-
-        def calculate_r_eff_worker(flags):
-            # ned to make top level function and pass 
-            # holes_copy and hole_flag_bounds (make shared readable memory?)
-            r_eff_list = []
-            r_eff_uncert_list = []
-            for flag in flags:
-                lower_idx = hole_flag_bounds[flag]
-                upper_idx = hole_flag_bounds[flag+1]
-                holes = holes_copy[lower_idx : upper_idx]
-                positions = np.array([holes['x'], holes['y'], holes['z']]).T
-                radius = holes['radius'].data
-                vol_info = vol.volume_of_spheres(positions, radius)
-                r_eff = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
-                r_eff_uncert = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
-                r_eff_list.append(r_eff)
-                r_eff_uncert_list.append(r_eff_uncert)
-            return np.array([r_eff_list, r_eff_uncert_list])
+    
         
-        save_every_applied = save_every is not None
-        
-        
-        if not save_every_applied:
-            #ensure that reff wasn't previously calculated
-            if not overwrite and np.sum(np.isin(['r_eff','r_eff_uncert'],self.maximals.colnames))>0:
+        if not overwrite and np.sum(np.isin(['r_eff','r_eff_uncert'],self.maximals.colnames))>0:
+            if not np.isin(-1, self.maximals['r_eff']):
                 print ('R_eff already calculated. Run with overwrite=True to overwrite effective radii')
                 return
-            self.maximals['r_eff'] = -1.
-            self.maximals['r_eff'].unit='Mpc/h'
-            self.maximals['r_eff_uncert'] = -1.
-            self.maximals['r_eff_uncert'].unit='Mpc/h'
-                    
-            
-        else:
-            if not np.sum(np.isin(['r_eff','r_eff_uncert'],self.maximals.colnames))>0:
-                self.maximals['r_eff'] = -1.
-                self.maximals['r_eff'].unit='Mpc/h'
-                self.maximals['r_eff_uncert'] = -1.
-                self.maximals['r_eff_uncert'].unit='Mpc/h'
 
+        # default values
+        
+        self.maximals['r_eff'] = -1.
+        self.maximals['r_eff'].unit='Mpc/h'
+        self.maximals['r_eff_uncert'] = -1.
+        self.maximals['r_eff_uncert'].unit='Mpc/h'
+        
+        if calculate_ellipsoid:
+            for column in ('x1','y1','z1','x2','y2','z2','x3','y3','z3'):
+                self.maximals[column] = -1.
+                self.maximals[column].unit='Mpc/h'
+
+        # calcuate reff
+        
         if num_cpus == 1:
+            # single-threaded
+            save_every_applied = save_every is not None
+            
             # calculate reff
             flags = self.maximals['void'][self.maximals['r_eff']==-1]
+            
             for i, flag in enumerate(flags):
+                
                 holes = self.holes[self.holes['void']==flag]
                 positions = np.array([holes['x'], holes['y'],holes['z']]).T
                 radius = holes['radius'].data
-                vol_info = vol.volume_of_spheres(positions, radius)
+                vol_info = vol.volume_of_spheres(positions, radius, calculate_ellipsoid=calculate_ellipsoid)
                 self.maximals['r_eff'][flag] = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
                 self.maximals['r_eff_uncert'][flag] = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
+                
+                if calculate_ellipsoid:
+                    
+                    self.maximals['x1'] = vol_info[4][0,0]
+                    self.maximals['y1'] = vol_info[4][0,1]
+                    self.maximals['z1'] = vol_info[4][0,2]
+                    self.maximals['x2'] = vol_info[4][1,0]
+                    self.maximals['y2'] = vol_info[4][1,1]
+                    self.maximals['z2'] = vol_info[4][1,2]
+                    self.maximals['x3'] = vol_info[4][2,0]
+                    self.maximals['y3'] = vol_info[4][2,1]
+                    self.maximals['z3'] = vol_info[4][2,2]
+                
                 if save_every_applied and i%save_every == 0:
                     save_r_eff()
 
         else:
+            #multi-threaded
+            
             # determine which voids to calcualte r_eff for
             select_unprocessed = self.maximals['r_eff'] == -1
             # select holes to process
@@ -603,17 +611,70 @@ class VoidFinderCatalog (VoidCatalog):
             # indexes used to select holes corresponding to a specific void
             hole_flag_bounds = np.concatenate([[0], np.where(np.diff(holes_copy['void'])!=0)[0] + 1, [len(holes_copy)]])
 
-            # Split the  void flags into groups to be processed in parallel
-            split_flags = np.array_split(self.maximals['void'], num_cpus)
 
-            with mp.Pool(processes=num_cpus) as pool:
+            num_voids = np.sum(select_unprocessed)
                 
-                results = pool.map(calculate_r_eff_worker, split_flags)
-                results = np.array(results)
-                self.maximals['r_eff'][select_unprocessed] = np.concatenate( [x[0] for x in results] )
-                self.maximals['r_eff_uncert'][select_unprocessed] = np.concatenate( [x[1] for x in results] )
+            index_coordinator = Value(c_int64, 0, lock=True)
+    
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="catalog_reff", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+
+            num_columns = 11 if calculate_ellipsoid else 2
+                
+            buffer_length = num_voids*8*num_columns # 8 byte float64
+                
+            os.ftruncate(file_descriptor, buffer_length)
+                
+            array_buffer = mmap.mmap(file_descriptor, 0)
             
-        
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            effective_radii = np.frombuffer(array_buffer, dtype=np.float64)
+            
+            effective_radii[:] = 0.
+    
+            effective_radii.shape = (num_voids, num_columns)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+
+            for proc_idx in range(num_cpus):
+
+                p = startup_context.Process(target=r_eff_worker, 
+                                            args=(num_voids, 
+                                                  index_coordinator, 
+                                                  file_descriptor,
+                                                  holes_copy, 
+                                                  hole_flag_bounds,
+                                                  calculate_ellipsoid
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+
+            self.maximals['r_eff'][select_unprocessed] = effective_radii[:,0]
+            self.maximals['r_eff_uncert'][select_unprocessed] = effective_radii[:,1]
+            
+            if calculate_ellipsoid:
+                
+                self.maximals['x1'] = effective_radii[:,2]
+                self.maximals['y1'] = effective_radii[:,3]
+                self.maximals['z1'] = effective_radii[:,4]
+                self.maximals['x2'] = effective_radii[:,5]
+                self.maximals['y2'] = effective_radii[:,6]
+                self.maximals['z2'] = effective_radii[:,7]
+                self.maximals['x3'] = effective_radii[:,8]
+                self.maximals['y3'] = effective_radii[:,9]
+                self.maximals['z3'] = effective_radii[:,10]
+            
         save_r_eff()
 
     def check_coords_in_void(self, ra=None, dec=None, redshift=None, 
@@ -2042,4 +2103,75 @@ def combine_overlaps(overlaps, do_print=True, do_return=True):
     
     if do_return:
         return (n_V1_V2/n_points, (n_V1_V2+n_V1_not_V2)/n_points, (n_V1_V2+n_V2_not_V1)/n_points, n_points )
-   
+
+
+
+def r_eff_worker(num_voids,
+                index_coordinator,
+                file_descriptor,
+                holes_copy, 
+                hole_flag_bounds,
+                calculate_ellipsoid,
+               ):
+    """Apply central density cuts to the void catalog in parallel.
+
+    Parameters
+    ----------
+    num_voids : int
+        The total number of voids in the catalog
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes
+    holes_copy : astropy table
+        The coordinates of the holes sorted by their void flag
+    hole_flag_bounds : ndarray
+        Indexes for selecting each void in the holes table
+    calculate_ellipsoid (bool): Whether or not to calcualte the best fit ellipsoid from the 
+        Monte Carlo samples. Defaults to False.
+        
+    """
+    num_cols = 11 if calculate_ellipsoid else 2
+    buffer_length = num_voids*8*num_cols #bool so 1 bytes per element
+
+    buffer = mmap.mmap(file_descriptor, buffer_length)
+    
+    effective_radii = np.frombuffer(buffer, dtype=np.float64)
+
+    effective_radii.shape = (num_voids,num_cols)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= num_voids:
+            break
+
+
+        lower_idx = hole_flag_bounds[curr_index]
+        upper_idx = hole_flag_bounds[curr_index+1]
+        holes = holes_copy[lower_idx : upper_idx]
+        positions = np.array([holes['x'], holes['y'], holes['z']]).T
+        radius = holes['radius'].data
+        vol_info = vol.volume_of_spheres(positions, radius, calculate_ellipsoid=calculate_ellipsoid)
+        r_eff = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
+        r_eff_uncert = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
+
+        effective_radii[curr_index,0] = r_eff
+        effective_radii[curr_index,1] = r_eff_uncert
+        
+        if calculate_ellipsoid:
+            
+            ellipsoid = vol_info[4]
+            effective_radii[curr_index, 2:5] = ellipsoid[0]
+            effective_radii[curr_index, 5:8] = ellipsoid[1]
+            effective_radii[curr_index, 8:11] = ellipsoid[2]
+        

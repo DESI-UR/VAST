@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 
+from vast.vsquared.util import getSMA
+
 """
 This code has been adopted from the following individuals: Kelly Douglass
 
@@ -41,7 +43,7 @@ def bounding_volume(x, R):
     
     return vol, xmin, xmax
 
-def volume_of_spheres(x, R, nsamples=10000):
+def volume_of_spheres(x, R, nsamples=10000, calculate_ellipsoid=False):
     """
     
     Obtains the volume, with uncertainties, of the intersection and union of
@@ -55,6 +57,9 @@ def volume_of_spheres(x, R, nsamples=10000):
     R (numpy array of floats of shape N): Radii of N input spheres.
     
     nsamples (int): Number of Monte Carlo samples to generate.
+
+    calculate_ellipsoid (bool): Whether or not to calcualte the bast fit ellipsoid from the 
+        Monte Carlo samples. Defaults to False.
     
     returns:
     ---------------------------------------------------------------------------------------------
@@ -80,8 +85,9 @@ def volume_of_spheres(x, R, nsamples=10000):
     # not pairs of spheres.
     
     n_inter = np.count_nonzero(np.all(points_in_holes, axis=1))
-    
-    n_union = np.count_nonzero(np.any(points_in_holes, axis=1))
+
+    union_points = np.any(points_in_holes, axis=1)
+    n_union = np.count_nonzero(union_points)
 
 
     # Calculate intersecting volume and accuracy.
@@ -102,5 +108,20 @@ def volume_of_spheres(x, R, nsamples=10000):
     usigma = np.sqrt(uzp * uzq / nsamples)
     udv = vol * usigma
 
-    return ivol, idv, uvol, udv
+    if calculate_ellipsoid:
+        # uniformly spread points througout void
+        uniform_points = obsd[union_points]
+        # center of void
+        center = np.mean(uniform_points, axis=0)
+        # radius of void
+        r_eff= np.power(3/4 * uvol / np.pi, 1/3)
+        
+        ellipsoid = getSMA(r_eff, center, uniform_points, False, None, None)
+        if np.sum(ellipsoid) == 0.:
+            print(f'{len(x)}, {len(uniform_points)}, {r_eff}, {center}')
+            assert 1==2
+    else: 
+        ellipsoid = None
+
+    return ivol, idv, uvol, udv, ellipsoid
 
