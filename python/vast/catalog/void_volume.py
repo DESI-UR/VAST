@@ -117,9 +117,6 @@ def volume_of_spheres(x, R, nsamples=10000, calculate_ellipsoid=False):
         r_eff= np.power(3/4 * uvol / np.pi, 1/3)
         
         ellipsoid = getSMA(r_eff, center, uniform_points, False, None, None)
-        if np.sum(ellipsoid) == 0.:
-            print(f'{len(x)}, {len(uniform_points)}, {r_eff}, {center}')
-            assert 1==2
     else: 
         ellipsoid = None
 

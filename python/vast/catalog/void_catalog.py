@@ -458,6 +458,53 @@ class VoidFinderCatalog (VoidCatalog):
         
         """
         self._catalog = open_fits_file(file_name)
+
+    def calculate_ellipticity(self, save_to_catalog = True):
+        """
+        Calculates voronoi void ellipticity following the definiton used in 
+        https://arxiv.org/abs/1406.1191
+
+        ellipticity = 1 - A_1/A_3
+
+        where A_1 is the minor axis of the best fit ellipsoid, and A_3 is the major axis of the best 
+        fit ellipsoid
+
+        params:
+        ---------------------------------------------------------------------------------------------
+        save_to_catalog (bool): If True (default value), the ellipticity values are saved to the 
+            catalog file.
+
+        """
+
+        def save_ellipticity():
+            #format and save output
+            if self.capitalize_colnames:
+                self.upper_col_names()
+                
+            self.read_catalog(self.file_name)
+            self._catalog['MAXIMALS'].data = fits.BinTableHDU(self.maximals).data
+            self._catalog.writeto(self.file_name, overwrite=True)
+            self.clear_catalog()
+
+            if self.capitalize_colnames:
+                self.lower_col_names()
+        
+        # Get the square magnitude of each ellipsoid component
+        axis_mag_squared = np.array([self.maximals['x1']**2 + self.maximals['y1']**2 + self.maximals['z1']**2,
+                                     self.maximals['x2']**2 + self.maximals['y2']**2 + self.maximals['z2']**2,
+                                     self.maximals['x3']**2 + self.maximals['y3']**2 + self.maximals['z3']**2])
+        
+        # calculate the A_1 and A_3 terms
+        axis_a1_square = np.min(axis_mag_squared, axis=0)
+        axis_a3_square = np.max(axis_mag_squared, axis=0)
+
+        #calculate the ellipticity
+        ellipticity = 1 - np.sqrt(axis_a1_square/axis_a3_square)
+
+        self.maximals['ellip'] = ellipticity
+        
+        if save_to_catalog: 
+            save_ellipticity()
      
     def void_stats(self):
         """
@@ -1716,6 +1763,26 @@ class VoidCatalogStacked ():
             res.append(self._catalogs[cat].galaxy_membership(custom_mask_hdu, return_selector, rmin, rmax, mag_lim))
             
         return res
+
+    def calculate_ellipticity(self, save_to_catalog = True):
+        """
+        Calculates voronoi void ellipticity following the definiton used in 
+        https://arxiv.org/abs/1406.1191
+
+        ellipticity = 1 - (J_1/J_3)^(1/4)
+
+        where J_1 is the minor axis of the best fit ellipsoid, and J_3 is the major axis of the best 
+        fit ellipsoid
+
+        params:
+        ---------------------------------------------------------------------------------------------
+        save_to_catalog (bool): If True (default value), the ellipticity values are saved to the 
+            catalog file.
+
+        """
+
+        for cat in self._catalogs:
+            self._catalogs[cat].calculate_ellipticity(save_to_catalog)
     
 class VoidFinderCatalogStacked (VoidCatalogStacked):
     
@@ -1957,26 +2024,6 @@ class V2CatalogStacked (VoidCatalogStacked):
         print('Mean Reff (V. Fid):', mknum(np.mean(reff)), '+/-',mknum(uncert_mean),'Mpc/h')
         print('Median Reff (V. Fid):', mknum(np.median(reff)), '+/-',mknum(uncert_median),'Mpc/h')
         print('Maximum Reff (V. Fid):', mknum(np.max(reff)),'Mpc/h')
-
-    def calculate_ellipticity(self, save_to_catalog = True):
-        """
-        Calculates voronoi void ellipticity following the definiton used in 
-        https://arxiv.org/abs/1406.1191
-
-        ellipticity = 1 - (J_1/J_3)^(1/4)
-
-        where J_1 is the minor axis of the best fit ellipsoid, and J_3 is the major axis of the best 
-        fit ellipsoid
-
-        params:
-        ---------------------------------------------------------------------------------------------
-        save_to_catalog (bool): If True (default value), the ellipticity values are saved to the 
-            catalog file.
-
-        """
-
-        for cat in self._catalogs:
-            self._catalogs[cat].calculate_ellipticity(save_to_catalog)
                 
         
 def mknum (flt):
