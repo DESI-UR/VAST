@@ -979,7 +979,7 @@ class VoidFinderCatalog (VoidCatalog):
             
         else:
             
-            num_flags = len(x_pos)
+            num_flags = len(galaxies_x)
                 
             index_coordinator = Value(c_int64, 0, lock=True)
     
