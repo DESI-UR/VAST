@@ -1032,7 +1032,7 @@ class VoidFinderCatalog (VoidCatalog):
                 
             # Write output to the catalog object
 
-            galaxies['vflag'] = vflag
+            galaxies['vflag'] = vflags
             
             self.vflag = self.galaxies['gal','vflag']
 
