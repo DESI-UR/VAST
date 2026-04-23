@@ -693,6 +693,7 @@ class VoidFinderCatalog (VoidCatalog):
                                             args=(num_voids, 
                                                   index_coordinator, 
                                                   file_descriptor,
+                                                  num_columns,
                                                   holes_copy, 
                                                   hole_flag_bounds,
                                                   calculate_ellipsoid
@@ -2278,6 +2279,7 @@ def combine_overlaps(overlaps, do_print=True, do_return=True):
 def r_eff_worker(num_voids,
                 index_coordinator,
                 file_descriptor,
+                num_columns,
                 holes_copy, 
                 hole_flag_bounds,
                 calculate_ellipsoid,
@@ -2292,6 +2294,8 @@ def r_eff_worker(num_voids,
         Index for coordinating void selection between parallel processes
     file_descriptor : int
         The file descriptor integer used to reference the shared memory for the parallel processes
+    num_columns: int
+        The number of columsn in the output
     holes_copy : astropy table
         The coordinates of the holes sorted by their void flag
     hole_flag_bounds : ndarray
@@ -2301,13 +2305,13 @@ def r_eff_worker(num_voids,
         
     """
     
-    buffer_length = num_voids*4  #4 byte int32
+    buffer_length = num_voids*8*num_columns  #8 byte float64
 
     buffer = mmap.mmap(file_descriptor, buffer_length)
     
     effective_radii = np.frombuffer(buffer, dtype=np.float64)
 
-    effective_radii.shape = (num_voids,num_cols)
+    effective_radii.shape = (num_voids, num_columns)
     
     curr_index = 0
     
