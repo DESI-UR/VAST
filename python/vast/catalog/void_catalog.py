@@ -569,7 +569,7 @@ class VoidFinderCatalog (VoidCatalog):
             previously been calculated. When set to True, this behavior is disabled. Defaults to 
             False.
     
-        save_every (int): Integer that determines how fequently to save the calcualted output, 
+        save_every (int): Integer that determines how frequently to save the calcualted output, 
             corresponding to the number of voids per save. If None, all void radii are calculated 
             with no intermediate saving. Only usable in single-threaded mode.
 
@@ -726,7 +726,7 @@ class VoidFinderCatalog (VoidCatalog):
 
     def check_coords_in_void(self, ra=None, dec=None, redshift=None, 
                              x_pos=None, y_pos=None, z_pos=None, 
-                             cartesian = False):
+                             cartesian = False, num_cpus = 1):
         """
         Calculates whether given coordiantes are located inside or outside of voids (vflags). 
         Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
@@ -757,7 +757,8 @@ class VoidFinderCatalog (VoidCatalog):
         cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
             survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
 
-
+        num_cpus (int): The number of cpus to use for the calculation. Defaults to 1.
+        
         returns:
         ---------------------------------------------------------------------------------------------
         vflag (array of ints): The environment flags for the coordinates. The possible values are
@@ -813,27 +814,85 @@ class VoidFinderCatalog (VoidCatalog):
 
         #calculate vflags
         voids = Table(self.holes)
-        vflag = []
 
-        for i in range(len(x_pos)):
+        if num_cpus == 1:
+            
+            vflag = np.zeros(len(x_pos), dtype=int)
+    
+            for i in range(len(x_pos)):
+    
+                #vflag : integer
+                #0 = wall galaxy
+                #1 = void galaxy
+                #2 = edge galaxy (too close to survey boundary to determine)
+                #9 = outside survey footprint
+    
+                vflag[i] = determine_vflag(x_pos[i], 
+                                           y_pos[i], 
+                                           z_pos[i], 
+                                           voids, 
+                                           mask, 
+                                           mask_res, 
+                                           rmin,
+                                           rmax)
+            return vflag
 
-            #vflag : integer
-            #0 = wall galaxy
-            #1 = void galaxy
-            #2 = edge galaxy (too close to survey boundary to determine)
-            #9 = outside survey footprint
+        else:
+            
+            num_flags = len(x_pos)
+                
+            index_coordinator = Value(c_int64, 0, lock=True)
+    
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="catalog_check", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+                
+            buffer_length = num_flags*4 # 4 byte int32
+                
+            os.ftruncate(file_descriptor, buffer_length)
+                
+            array_buffer = mmap.mmap(file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vflags = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            vflags[:] = 0.
+    
+            vflags.shape = (num_flags,)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
 
-            vflag.append(          determine_vflag(x_pos[i], 
-                                                   y_pos[i], 
-                                                   z_pos[i], 
-                                                   voids, 
-                                                   mask, 
-                                                   mask_res, 
-                                                   rmin,
-                                                   rmax))
-        return vflag
+            for proc_idx in range(num_cpus):
+
+                p = startup_context.Process(target=determine_vflag_worker, 
+                                            args=(num_flags, 
+                                                  index_coordinator, 
+                                                  file_descriptor,
+                                                  x_pos, # i
+                                                  y_pos, # i
+                                                  z_pos, # i
+                                                  voids, 
+                                                  mask, 
+                                                  mask_res, 
+                                                  rmin,
+                                                  rmax
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+
+            return vflags
  
-    def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False):
+    def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False, num_cpus=1):
         """
         Calculates which galaxies are located inside or outside of voids (vflags). The possible values are
             0 = wall galaxy
@@ -858,6 +917,8 @@ class VoidFinderCatalog (VoidCatalog):
 
         cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
             survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
+
+        num_cpus (int): The number of cpus to use for the calculation. Defaults to 1.
         
         """
         # warning: no mask feature is used for cubic box simulations (cartesian = True). 
@@ -893,31 +954,87 @@ class VoidFinderCatalog (VoidCatalog):
         
         print('Identifying environment')
 
-        galaxies['vflag'] = -9
-        
         voids = Table(self.holes)
 
-        for i in range(len(galaxies)):
+        if num_cpus == 1:
 
-            #vflag : integer
-            #0 = wall galaxy
-            #1 = void galaxy
-            #2 = edge galaxy (too close to survey boundary to determine)
-            #9 = outside survey footprint
+            galaxies['vflag'] = -9
+    
+            for i in range(len(galaxies)):
+    
+                #vflag : integer
+                #0 = wall galaxy
+                #1 = void galaxy
+                #2 = edge galaxy (too close to survey boundary to determine)
+                #9 = outside survey footprint
+    
+                galaxies['vflag'][i] = determine_vflag(galaxies_x[i], 
+                                                       galaxies_y[i], 
+                                                       galaxies_z[i], 
+                                                       voids, 
+                                                       mask, 
+                                                       mask_res, 
+                                                       rmin,
+                                                       rmax)
+            
+        else:
+            
+            num_flags = len(x_pos)
+                
+            index_coordinator = Value(c_int64, 0, lock=True)
+    
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="catalog_vflag", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+                
+            buffer_length = num_flags*4 # 4 byte int32
+                
+            os.ftruncate(file_descriptor, buffer_length)
+                
+            array_buffer = mmap.mmap(file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vflags = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            vflags[:] = 0.
+    
+            vflags.shape = (num_flags,)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
 
-            galaxies['vflag'][i] = determine_vflag(galaxies_x[i], 
-                                                   galaxies_y[i], 
-                                                   galaxies_z[i], 
-                                                   voids, 
-                                                   mask, 
-                                                   mask_res, 
-                                                   rmin,
-                                                   rmax)
+            for proc_idx in range(num_cpus):
+
+                p = startup_context.Process(target=determine_vflag_worker, 
+                                            args=(num_flags, 
+                                                  index_coordinator, 
+                                                  file_descriptor,
+                                                  galaxies_x, # i
+                                                  galaxies_y, # i
+                                                  galaxies_z, # i
+                                                  voids, 
+                                                  mask, 
+                                                  mask_res, 
+                                                  rmin,
+                                                  rmax
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
             
+            for p in processes:
             
-        # Write output to the catalog object
-        
-        self.vflag = self.galaxies['gal','vflag']
+                p.join(None) #block till join
+                
+            # Write output to the catalog object
+
+            galaxies['vflag'] = vflag
+            
+            self.vflag = self.galaxies['gal','vflag']
 
         # If user desires to output vflags to the galaxy file
         if os.path.realpath(vflag_path) == os.path.realpath(self.galaxies_path):
@@ -1895,7 +2012,7 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
             print('Median Reff (V. Fid):', mknum(np.median(reff)), '+/-',mknum(uncert_median),'Mpc/h')
             print('Maximum Reff (V. Fid):', mknum(np.max(reff)),'Mpc/h')
         
-    def calculate_r_eff(self, overwrite = False):
+    def calculate_r_eff(self, overwrite = False, save_every = None, num_cpus = 1, calculate_ellipsoid=False):
         """
         Calculates the effective radii of voids in a VoidFinder catalog.
         
@@ -1905,13 +2022,18 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
             previously been calculated. When set to True, this behavior is disabled. Defaults to 
             False.
     
-        save_every (int): Integer that determines how fequently to save the calcualted output, 
+        save_every (int): Integer that determines how frequently to save the calcualted output, 
             corresponding to the number of voids per save. If None, all void radii are calculated 
-            with no intermediate saving.
+            with no intermediate saving. Only usable in single-threaded mode.
+
+        num_cpus (int): the number of cpus utilized for the calculation 
+
+        calculate_ellipsoid (bool): Whether or not to calcualte the best fit ellipsoid from the 
+            Monte Carlo samples. Defaults to False.
         """
         
         for cat in self._catalogs:
-            self._catalogs[cat].calculate_r_eff(overwrite)
+            self._catalogs[cat].calculate_r_eff(overwrite, save_every, num_cpus, calculate_ellipsoid)
             
         
 class V2CatalogStacked (VoidCatalogStacked):
@@ -2178,8 +2300,8 @@ def r_eff_worker(num_voids,
         Monte Carlo samples. Defaults to False.
         
     """
-    num_cols = 11 if calculate_ellipsoid else 2
-    buffer_length = num_voids*8*num_cols #bool so 1 bytes per element
+    
+    buffer_length = num_voids*4  #4 byte int32
 
     buffer = mmap.mmap(file_descriptor, buffer_length)
     
@@ -2221,4 +2343,84 @@ def r_eff_worker(num_voids,
             effective_radii[curr_index, 2:5] = ellipsoid[0]
             effective_radii[curr_index, 5:8] = ellipsoid[1]
             effective_radii[curr_index, 8:11] = ellipsoid[2]
+
+def determine_vflag_worker (num_flags, 
+                            index_coordinator,
+                            file_descriptor,
+                            x_positions, # i
+                            y_positions, # i
+                            z_positions, # i
+                            voids, 
+                            mask, 
+                            mask_res, 
+                            rmin,
+                            rmax
+                           ):
+    
+    """Determines galaxy vflags in parallel.
+
+    params:
+    ---------------------------------------------------------------------------------------------
+    num_flags : int
+        The total number of galaxy flags to calculate
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes
+    x_pos : ndarray
+        Galaxy x positions
+    y_pos : ndarray
+        Galaxy y positions
+    z_pos : ndarray
+        Galaxy z positions
+    voids : astropy table
+        The void hole positions and radii
+    mask (ndarray): The Cartesian mask
+    mask_res (int): The mask resolution
+    rmin (float): The minimum comoving distnace limit of the catalog
+    rmax (float): The maximum comoving distnace limit of the catalog
+
+    returns:
+    ---------------------------------------------------------------------------------------------
         
+    """
+   
+                                 
+    
+    buffer_length = num_flags*4 #np.int32 so 4 bytes per element
+
+    buffer = mmap.mmap(file_descriptor, buffer_length)
+    
+    vflags = np.frombuffer(buffer, dtype=np.int32)
+
+    vflags.shape = (num_flags,)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= num_flags:
+            break
+
+        x_position = x_positions[curr_index]
+        y_position = y_positions[curr_index]
+        z_position = z_positions[curr_index]
+
+        vflag = determine_vflag(x_position, 
+                                y_position, 
+                                z_position, 
+                                voids, 
+                                mask, 
+                                mask_res, 
+                                rmin,
+                                rmax)
+
+        vflags[curr_index] = vflag
