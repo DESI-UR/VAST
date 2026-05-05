@@ -307,7 +307,7 @@ class Catalog:
                 mask[pix_idxs] = True 
                 
             else:
-                #read in exisitng mask
+                #read in existing mask
                 mask = (hp.read_map(maskfile)).astype(bool)
                 
             self.mask = mask #mask of all galaxies in scut, where scut might be zcut or mcut depending on if magnitude cut is used

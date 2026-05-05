@@ -166,6 +166,9 @@ class Zobov:
         self.outdir  = config['Paths']['Output Directory']
         
         self.intloc  = self.outdir +"/intermediate/" + self.catname
+
+        self.maskfile  = config['Paths']['Mask File']
+        if self.maskfile == "None": self.maskfile = None
         
         self.H0   = float(config['Cosmology']['H_0'])
         
@@ -278,6 +281,7 @@ class Zobov:
                            cmin=self.cmin,
                            cmax=self.cmax, 
                            zobov=self,
+                           maskfile = self.maskfile,
                            verbose=self.verbose)
             
             if self.verbose > 0:
