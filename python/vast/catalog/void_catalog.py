@@ -494,12 +494,16 @@ class VoidFinderCatalog (VoidCatalog):
                                      self.maximals['x2']**2 + self.maximals['y2']**2 + self.maximals['z2']**2,
                                      self.maximals['x3']**2 + self.maximals['y3']**2 + self.maximals['z3']**2])
         
-        # calculate the A_1 and A_3 terms
-        axis_a1_square = np.min(axis_mag_squared, axis=0)
-        axis_a3_square = np.max(axis_mag_squared, axis=0)
+        # calculate MOI tensor eigenvalues
+        eigen_0 = (axis_mag_squared[1] + axis_mag_squared[2])/5
+        eigen_1 = (axis_mag_squared[0] + axis_mag_squared[2])/5
+        eigen_2 = (axis_mag_squared[0] + axis_mag_squared[1])/5
+
+        eig_min = np.min(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
+        eig_max = np.max(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
 
         #calculate the ellipticity
-        ellipticity = 1 - np.sqrt(axis_a1_square/axis_a3_square)
+        ellipticity = 1 - np.power(eig_min/eig_max, 0.25)
 
         self.maximals['ellip'] = ellipticity
         
@@ -1312,12 +1316,16 @@ class V2Catalog(VoidCatalog):
                                      self.voids['x2']**2 + self.voids['y2']**2 + self.voids['z2']**2,
                                      self.voids['x3']**2 + self.voids['y3']**2 + self.voids['z3']**2])
         
-        # calculate the A_1 and A_3 terms
-        axis_a1_square = np.min(axis_mag_squared, axis=0)
-        axis_a3_square = np.max(axis_mag_squared, axis=0)
+        # calculate MOI tensor eigenvalues
+        eigen_0 = (axis_mag_squared[1] + axis_mag_squared[2])/5
+        eigen_1 = (axis_mag_squared[0] + axis_mag_squared[2])/5
+        eigen_2 = (axis_mag_squared[0] + axis_mag_squared[1])/5
+
+        eig_min = np.min(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
+        eig_max = np.max(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
 
         #calculate the ellipticity
-        ellipticity = 1 - np.sqrt(axis_a1_square/axis_a3_square)
+        ellipticity = 1 - np.power(eig_min/eig_max, 0.25)
 
         self.voids['ellip'] = ellipticity
         
