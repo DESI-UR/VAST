@@ -558,10 +558,20 @@ def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
 
     # eigenvalues
     eival,eivec = np.linalg.eig(tensor_I)
-    eival = eival**.25
-    rfac = vrad/(np.prod(eival)**(1./3))
-    eival = eival*rfac
-        
+
+    # principal axes of ellipsod
+    a = np.sqrt(5/2 * ( - eival[0] + eival[1] + eival[2] ))
+    b = np.sqrt(5/2 * (   eival[0] - eival[1] + eival[2] ))
+    c = np.sqrt(5/2 * (   eival[0] + eival[1] - eival[2] ))
+
+    eival[0] = a
+    eival[1] = b
+    eival[2] = c
+
+    # normalize principal axes to unit ellipse and then scale to void size (factors of (4/3 pi)^(1/3) cancel out)
+    eival =  vrad * eival/((np.prod(eival))**(1./3))
+
+    # scale axes components (eigenvectors) by axes lengths
     return eival.reshape(3,1)*eivec.T
 
 
