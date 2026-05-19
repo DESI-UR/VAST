@@ -457,7 +457,10 @@ class VoidFinderCatalog (VoidCatalog):
         file_name (string): The location of the void catalog file.
         
         """
-        self._catalog = open_fits_file(file_name)
+        if os.path.exists(file_name):
+            self._catalog = open_fits_file(file_name)
+        else:
+            raise FileNotFoundError(file_name)
 
     def calculate_ellipticity(self, save_to_catalog = True):
         """
@@ -1278,7 +1281,10 @@ class V2Catalog(VoidCatalog):
         file_name (string): The location of the void catalog file.
         
         """
-        self._catalog = open_fits_file_V2(file_name,None)  
+        if os.path.exists(file_name):
+            self._catalog = open_fits_file_V2(file_name,None)  
+        else:
+            raise FileNotFoundError(file_name)
 
 
     def calculate_ellipticity(self, save_to_catalog = True):
