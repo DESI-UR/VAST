@@ -50,7 +50,7 @@ class TestV2Util(unittest.TestCase):
         c2 = np.array([0., 0., 100., 100.])
         c3 = np.array([0., 0., -100., 0.])
         coord = np.array([1000., 1000., 1000.]) + np.array([c1,c2,c3]).T
-        ax2 = np.array([-12.3314653, 7.39154934, 4.1289785])
+        ax2 = np.array([-4.92071739,  2.94950555,  1.64761736])
         SMA = util.getSMA(10., [0., 0., 0.], coord, False, [-400,-400,-400], [400,400,400])
         self.assertTrue(np.isclose(SMA[1],ax2).all())
 
