@@ -639,15 +639,15 @@ class VoidFinderCatalog (VoidCatalog):
                 
                 if calculate_ellipsoid:
                     
-                    self.maximals['x1'] = vol_info[4][0,0]
-                    self.maximals['y1'] = vol_info[4][0,1]
-                    self.maximals['z1'] = vol_info[4][0,2]
-                    self.maximals['x2'] = vol_info[4][1,0]
-                    self.maximals['y2'] = vol_info[4][1,1]
-                    self.maximals['z2'] = vol_info[4][1,2]
-                    self.maximals['x3'] = vol_info[4][2,0]
-                    self.maximals['y3'] = vol_info[4][2,1]
-                    self.maximals['z3'] = vol_info[4][2,2]
+                    self.maximals['x1'][flag] = vol_info[4][0,0]
+                    self.maximals['y1'][flag] = vol_info[4][0,1]
+                    self.maximals['z1'][flag] = vol_info[4][0,2]
+                    self.maximals['x2'][flag] = vol_info[4][1,0]
+                    self.maximals['y2'][flag] = vol_info[4][1,1]
+                    self.maximals['z2'][flag] = vol_info[4][1,2]
+                    self.maximals['x3'][flag] = vol_info[4][2,0]
+                    self.maximals['y3'][flag] = vol_info[4][2,1]
+                    self.maximals['z3'][flag] = vol_info[4][2,2]
                 
                 if save_every_applied and i%save_every == 0:
                     save_r_eff()
