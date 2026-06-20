@@ -44,6 +44,19 @@ docs = ["numpydoc", "sphinx-argparse", "sphinx_rtd_theme"]
 "Homepage" = "https://github.com/DESI-UR/VAST"
 "Bug Tracker" = "https://github.com/DESI-UR/VAST/issues"
 
+[tools.setuptools]
+ext-modules = [
+    { name="vast.voidfinder.distance", sources=["python/vast/voidfinder/distance.pyx"] },
+    { name="vast.voidfinder._vol_cut_cython", sources=["python/vast/voidfinder/_vol_cut_cython.pyx"] },
+    { name="vast.voidfinder._voidfinder_cython_find_next", sources=["python/vast/voidfinder/_voidfinder_cython_find_next.pyx"] },
+    { name="vast.voidfinder._voidfinder_cython", sources=["python/vast/voidfinder/_voidfinder_cython.pyx"] },
+    { name="vast.voidfinder._hole_combine_cython", sources=["python/vast/voidfinder/_hole_combine_cython.pyx"] },
+    { name="vast.voidfinder.viz.neighborize", sources=["python/vast/voidfinder/viz/neighborize.pyx"] },
+    { name="vast.voidfinder.viz.unionize", sources=["python/vast/voidfinder/viz/unionize.pyx"] },
+    { name="vast.voidfinder.volume.void_volume", sources=["python/vast/voidfinder/volume/void_volume.pyx"] },
+    { name="vast.vsquared.class_utils", sources=["python/vast/vsquared/class_utils.pyx"] }
+]
+
 [tools.setuptools.dynamic]
 version = {attr = "vast.__version__"}
 
