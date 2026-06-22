@@ -162,6 +162,9 @@ class Catalog:
             if verbose > 0:
                 print("Read in randoms (rows, cols): ", len(randoms_table), len(randoms_table.columns))
                 print(randoms_table.columns)
+
+            if column_names['weight'] != "None" and column_names['weight'] in randoms_table:
+                self.weights_rand = randoms_table[column_names['weight']]
         
         ################################################################################
         # This section is actually doing 2 things:
@@ -338,6 +341,8 @@ class Catalog:
 
         if randfile is not None:
             self.rand = self.rand[scut_rand]
+            if hasattr(self, 'weights_rand'):
+                self.weights_rand = self.weights_rand[scut_rand]
         
         #print("SCUT==nnls?: ", np.all((self.nnls > -1) == scut)) #True lol...
 
@@ -443,9 +448,6 @@ class Catalog:
         galaxy_ID_name = column_names['ID']
         if galaxy_ID_name != 'None':
             self.tarids = galaxy_table[galaxy_ID_name]
-
-        # save survey volume for future use 
-        self.total_volume = vol
         
         
         
@@ -462,6 +464,7 @@ class Tesselation:
                  xyz=False,
                  num_cpus=1,
                  buff=5.0,
+                 randoms_grid_size = 1.
                  verbose=0):
         """Initialize tesselation.
 
@@ -479,6 +482,9 @@ class Tesselation:
             
         buff : float
             Width of incremental buffer shells for periodic computation.
+
+        randoms_grid_size : float
+            The grid cell length for binning randoms in Mpc/h. Defaults to 1.
             
         num_cpus : int
             number of CPUs to use for computation
@@ -525,15 +531,19 @@ class Tesselation:
             # periodic mode
             periodic_boundaries = (True, True, True)
             limits = np.array([cat.cmin, cat.cmax])
+            cmin = cat.cmin
+            cmax = cat.cmax
 
         else:
             # survey and xyz mode
             # multivoro needs xyz limits for tessellation, so draw a box around the survey
             periodic_boundaries = (False, False, False)
-        
-            lower_min = coords.min(axis=0) - 100.0
-            
-            upper_max = coords.max(axis=0) + 100.0
+
+            cmin = coords.min(axis=0)
+            lower_min = cmin - 100.0
+
+            cmax = coords.max(axis=0)
+            upper_max = cmax + 100.0
             
             print("Lower min of bounding box: ", lower_min)
             print("Upper max of bounding box: ", upper_max)
@@ -592,53 +602,47 @@ class Tesselation:
         # Calculate volumes of cells
         ################################################################################
 
-        if hasattr(cat, "rand"):
-            
-            tree = KDTree(coords)
-            
-            _, indices = tree.query(cat.rand, k=1, workers=self.num_cpus)
-            
-            num_randoms_in_cell = np.bincount(indices, minlength=len(coords))
-
-            if np.any(num_randoms_in_cell==0):
-                raise ValueError ('Provided randoms do not fill all tracer voronoi cells')
-
-            # scale randoms to same number density as tracers to calculate volumes
-            output_volumes = num_randoms_in_cell * cat.total_volume / len(cat.rand)
-
-            _, edge_cells = self.calculate_region_volumes(self.cells,
-                                                           r_max,
-                                                           r_min,
-                                                           mask_uint8,
-                                                           xyz,
-                                                           periodic,
-                                                           cat.cmin,
-                                                           cat.cmax,
-                                                           nside,
-                                                           calculate_edge_cells_only = True
-                                                           )
-            
-            output_volumes[edge_cells] = 0
-            
-
-        else:
-            output_volumes, edge_cells = self.calculate_region_volumes(self.cells,
-                                                           r_max,
-                                                           r_min,
-                                                           mask_uint8,
-                                                           xyz,
-                                                           periodic,
-                                                           cat.cmin,
-                                                           cat.cmax,
-                                                           nside
-                                                           )
+        output_volumes, edge_cells = self.calculate_region_volumes(self.cells,
+                                                       r_max,
+                                                       r_min,
+                                                       mask_uint8,
+                                                       xyz,
+                                                       periodic,
+                                                       cat.cmin,
+                                                       cat.cmax,
+                                                       nside
+                                                       )
         
         self.volumes = output_volumes
         self.edge_cells = edge_cells
         
         if cat.weights is not None:
+            weights = cat.weights[cat.nnls==np.arange(len(cat.nnls))]
             finite_density = self.volumes != 0.
-            self.volumes[finite_density] = self.volumes[finite_density] / cat.weights[finite_density]
+            self.volumes[finite_density] = self.volumes[finite_density] / weights[finite_density]
+
+        
+        if hasattr(cat, "rand"):
+            
+            weights_rand = cat.weights_rand if hasattr(cat, 'weights_rand') else None
+
+            # place randoms on grid
+            grid_randoms, _ = np.histogramdd(cat.rand, 
+                                   bins=(int(np.ceil((cmax[0]-cmin[0])/randoms_grid_size)),
+                                         int(np.ceil((cmax[1]-cmin[1])/randoms_grid_size)),
+                                         int(np.ceil((cmax[2]-cmin[2])/randoms_grid_size))),
+                                   weights = weights_rand,
+                                     )
+            
+            grid_randoms = grid_randoms / np.max(grid_randoms) # setup for upweighting Voronoi cell volumes
+            galaxy_grid_indices = np.floor((coords - cmin)/randoms_grid_size).astype(int) # indices of galaxies on grid
+            randoms_multiplier = grid_randoms[galaxy_grid_indices[:,0], galaxy_grid_indices[:,1], galaxy_grid_indices[:,2]] #weights for each galaxy from randoms
+                
+            finite_density = self.volumes != 0.
+            if np.any(randoms_multiplier[finite_density]l==0.):
+                raise ValueError ('Provided randoms do not fill all grid cells')
+            self.volumes[finite_density] = self.volumes[finite_density] / randoms_multiplier[finite_density]
+            
         
         print("Cut+Convex Hull time: ", time.time() - volume_time)
         
@@ -673,8 +677,7 @@ class Tesselation:
                                  periodic_mode,
                                  cmin,
                                  cmax,
-                                 nside,
-                                 calculate_edge_cells_only = False,
+                                 nside
                                  ):
         """
         This function essentially serves as a switch between single process
@@ -729,15 +732,14 @@ class Tesselation:
                 # Calculate the region volume
                 ################################################################################
 
-                if not calculate_edge_cells_only:
-                    calculate_region_volume(idx,
-                                            vertices,
-                                            output_volumes,
-                                            r_max,
-                                            r_min,
-                                            xyz_mode,
-                                            cmin,
-                                            cmax)
+                calculate_region_volume(idx,
+                                        vertices,
+                                        output_volumes,
+                                        r_max,
+                                        r_min,
+                                        xyz_mode,
+                                        cmin,
+                                        cmax)
                 
             
         elif self.num_cpus > 1:
@@ -808,8 +810,7 @@ class Tesselation:
                                                   periodic_mode,
                                                   cmin,
                                                   cmax,
-                                                  nside,
-                                                  calculate_edge_cells_only
+                                                  nside
                                                   ))
                 
                 p.start()
@@ -837,9 +838,8 @@ class Tesselation:
                                   periodic_mode,
                                   cmin,
                                   cmax,
-                                  nside,
-                                  calculate_edge_cells_only
-                                  ):
+                                  nside
+                                 ):
         
         #max_indices and num_gals are the same thing
         volumes_buffer_length = max_indicies*8 #float64 so 8 bytes per element
@@ -916,15 +916,14 @@ class Tesselation:
             ################################################################################
             # Calculate the region volume
             ################################################################################
-            if not calculate_edge_cells_only:
-                calculate_region_volume(curr_index,
-                                        vertices,
-                                        output_volumes,
-                                        r_max,
-                                        r_min,
-                                        xyz_mode,
-                                        cmin,
-                                        cmax)
+            calculate_region_volume(curr_index,
+                                    vertices,
+                                    output_volumes,
+                                    r_max,
+                                    r_min,
+                                    xyz_mode,
+                                    cmin,
+                                    cmax)
         
         return None
         

@@ -57,6 +57,7 @@ class Zobov:
                  num_cpus=1,
                  xyz=False,
                  capitalize_colnames=False,
+                 randoms_grid_size = 1.
                  verbose=0):
         """
         Description
@@ -121,6 +122,9 @@ class Zobov:
 
         capitalize_colnames : bool
             If True, column names in ouput file are capitalized. If False, column names are lowercase
+
+        randoms_grid_size : float
+            The grid cell length for binning randoms in Mpc/h. Defaults to 1.
         """
         
         self.verbose = verbose
@@ -200,7 +204,7 @@ class Zobov:
         
         self.column_names = config['Galaxy Column Names']
         
-        
+        self.randoms_grid_size = randoms_grid_size
         
         ################################################################################
         # Some additional sanity checks
@@ -324,6 +328,7 @@ class Zobov:
                                xyz=self.xyz,
                                num_cpus=self.num_cpus, 
                                buff=self.buff,
+                               randoms_grid_size = self.randoms_grid_size,
                                verbose=self.verbose)
             
             if self.verbose > 0:
