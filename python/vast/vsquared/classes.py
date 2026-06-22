@@ -640,7 +640,7 @@ class Tesselation:
                 
             finite_density = self.volumes != 0.
             if np.any(randoms_multiplier[finite_density]==0.):
-                raise ValueError ('Provided randoms do not fill all grid cells')
+                raise ValueError ('Provided randoms do not fill all grid cells. Try a larger randoms_grid_size value')
             self.volumes[finite_density] = self.volumes[finite_density] / randoms_multiplier[finite_density]
             
         
