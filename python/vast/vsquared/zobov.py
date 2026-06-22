@@ -57,7 +57,7 @@ class Zobov:
                  num_cpus=1,
                  xyz=False,
                  capitalize_colnames=False,
-                 randoms_grid_size = 1.
+                 randoms_grid_size = 1.,
                  verbose=0):
         """
         Description

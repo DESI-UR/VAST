@@ -464,7 +464,7 @@ class Tesselation:
                  xyz=False,
                  num_cpus=1,
                  buff=5.0,
-                 randoms_grid_size = 1.
+                 randoms_grid_size = 1.,
                  verbose=0):
         """Initialize tesselation.
 
@@ -639,7 +639,7 @@ class Tesselation:
             randoms_multiplier = grid_randoms[galaxy_grid_indices[:,0], galaxy_grid_indices[:,1], galaxy_grid_indices[:,2]] #weights for each galaxy from randoms
                 
             finite_density = self.volumes != 0.
-            if np.any(randoms_multiplier[finite_density]l==0.):
+            if np.any(randoms_multiplier[finite_density]==0.):
                 raise ValueError ('Provided randoms do not fill all grid cells')
             self.volumes[finite_density] = self.volumes[finite_density] / randoms_multiplier[finite_density]
             
