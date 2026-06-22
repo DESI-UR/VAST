@@ -640,6 +640,14 @@ class Tesselation:
                 
             finite_density = self.volumes != 0.
             if np.any(randoms_multiplier[finite_density]==0.):
+                print('WARNING: Galaxies detected without randoms in their grid cell. V^2 will momentarily exit.')
+                print('rand_grid_size:', randoms_grid_size)
+                no_rand = coords[np.where(randoms_multiplier[finite_density]==0.)]
+                print('number of galaxies without randoms in grid cell', len(no_rand))
+                print('fraction of galaxies without randoms in grid cell', len(no_rand)/len(coords))
+                no_rand_dist = np.sqrt(no_rand[:,0]*no_rand[:,0] + no_rand[:,1]*no_rand[:,1] + no_rand[:,2]*no_rand[:,2])
+                print('min distance without randoms in grid cell (Mpc/h):',np.min(no_rand_dist))
+                print('max distance without randdoms in grid cell (Mpc/h):',np.max(no_rand_dist))
                 raise ValueError ('Provided randoms do not fill all grid cells. Try a larger randoms_grid_size value')
             self.volumes[finite_density] = self.volumes[finite_density] / randoms_multiplier[finite_density]
             
