@@ -161,6 +161,9 @@ class Zobov:
         ################################################################################
         self.infile  = config['Paths']['Input Catalog'] if custom_cat_name is None else 'None'
 
+        self.randfile  = config['Paths']['Input Randoms']
+        if self.randfile == "None": self.randfile = None
+
         self.catname = config['Paths']['Survey Name'] if custom_cat_name is None else custom_cat_name
         
         self.outdir  = config['Paths']['Output Directory']
@@ -268,6 +271,7 @@ class Zobov:
                 start_time = time.time()
             
             ctlg = Catalog(catfile=self.infile,
+                           randfile = self.randfile,
                            nside=self.nside,
                            zmin=self.zmin,
                            zmax=self.zmax,
@@ -414,6 +418,12 @@ class Zobov:
         
         
         hduh['INFILE'] = (self.infile.split('/')[-1], 'Input Galaxy Table') #split directories by '/' and take the filename at the end
+
+        if self.randfile is not None:
+            hduh['RANDFILE'] = (self.randfile.split('/')[-1], 'Input Randoms Catalog')
+
+        if self.maskfile is not None:
+            hduh['MASKFILE'] = (self.maskfile.split('/')[-1], 'Input Angular Mask')
         
         hduh['HP'] = (self.H0/100, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
         

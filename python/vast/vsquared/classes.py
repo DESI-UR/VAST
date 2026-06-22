@@ -36,6 +36,7 @@ class Catalog:
 
     def __init__(self,
                  catfile,
+                 randfile,
                  nside,
                  zmin,
                  zmax,
@@ -66,6 +67,9 @@ class Catalog:
         
         catfile: str
             Object catalog file (FITS format).
+
+        randfile: str
+            Randoms catalog file (FITS format).
             
         nside : int
             HEALPix map `nside` parameter (2,4,8,16,...,2^k).  This value represents
@@ -152,6 +156,12 @@ class Catalog:
             print(galaxy_table.columns)
         
         self.weights = None if column_names['weight'] == "None" else galaxy_table[column_names['weight']]
+
+        if randfile is not None:
+            randoms_table = load_data_to_Table(randfile)
+            if verbose > 0:
+                print("Read in randoms (rows, cols): ", len(randoms_table), len(randoms_table.columns))
+                print(randoms_table.columns)
         
         ################################################################################
         # This section is actually doing 2 things:
@@ -173,7 +183,8 @@ class Catalog:
         ################################################################################
         
         if periodic or xyz:
-            
+
+            # create array of galaxies
             self.coord = np.array([galaxy_table[column_names['x']],
                                    galaxy_table[column_names['y']],
                                    galaxy_table[column_names['z']]]).T
@@ -181,11 +192,16 @@ class Catalog:
             self.cmin = cmin
             
             self.cmax = cmax
+
+            # create array of randoms
+            if randfile is not None:
+                self.rand = np.array([randoms_table[column_names['x']],
+                                      randoms_table[column_names['y']],
+                                      randoms_table[column_names['z']]]).T
             
         else:
-            
-            
-            
+
+            # convert sky coordinates of galaxies to cartesian cooridnates
             z    = galaxy_table[column_names['redshift']]
             
             ra   = galaxy_table[column_names['ra']]
@@ -205,6 +221,31 @@ class Catalog:
             c1, c2, c3 = toCoord(z, ra, dec, H0, Om_m)
             
             self.coord = np.array([c1, c2, c3]).T
+
+            # convert sky coordinates of randoms to cartesian cooridnates
+            if randfile is not None:
+
+                z_rand    = randoms_table[column_names['redshift']]
+            
+                ra_rand   = randoms_table[column_names['ra']]
+                
+                dec_rand  = randoms_table[column_names['dec']]
+                
+                zcut_rand = np.logical_and(z_rand > zmin, z_rand < zmax) # 1 if gal is in the zlims 0 if not
+                
+                if not zcut_rand.any():
+                    print("Choose valid redshift limits for randoms", z_rand.min(), z_rand.max())
+                    return
+                
+                #alias for zcut, unless magnitude limit is used, in which case scut will be later set to mcut
+                # `scut` a boolean array to identify desired galaxies
+                scut_rand = zcut_rand
+                
+                c1, c2, c3 = toCoord(z_rand, ra_rand, dec_rand, H0, Om_m)
+                
+                self.rand = np.array([c1, c2, c3]).T
+    
+                    
             
             
         
@@ -251,7 +292,23 @@ class Catalog:
             scut = mcut 
             
             ncut = np.arange(num_gals, dtype=int)[zcut][mcut[zcut]<1]  # indexes of galaxies in zcut but not in mcut
+
+            if randfile is not None:
+                
+                mag = randoms_table[column_names['rabsmag']]
             
+                mcut_rand = np.logical_and(mag < maglim, zcut_rand) # mcut is a subsample of zcut that removes galaxies outside the magnitude limit
+                
+                if not mcut_rand.any():
+                    print("Choose valid magnitude limit for randoms")
+                    return
+                
+                # scut is made into an alias for mcut, unless no magnitude limit 
+                # is used, in which case it remains an alias for zcut
+                # `scut` a boolean array to identify desired galaxies
+                scut_rand = mcut_rand
+                                
+                
             # These neighbor indices do not appear to be used anywhere so
             # for now, offsetting this code block to not run by default since
             # a KDTree is computationally expensive
@@ -278,6 +335,9 @@ class Catalog:
 
         
         self.nnls = nnls
+
+        if randfile is not None:
+            self.rand = self.rand[scut_rand]
         
         #print("SCUT==nnls?: ", np.all((self.nnls > -1) == scut)) #True lol...
 
@@ -528,17 +588,47 @@ class Tesselation:
         ################################################################################
         # Calculate volumes of cells
         ################################################################################
-        
-        output_volumes, edge_cells = self.calculate_region_volumes(self.cells,
-                                                       r_max,
-                                                       r_min,
-                                                       mask_uint8,
-                                                       xyz,
-                                                       periodic,
-                                                       cat.cmin,
-                                                       cat.cmax,
-                                                       nside
-                                                       )
+
+        if hasattr(cat, "rand"):
+            
+            tree = KDTree(coords)
+            
+            _, indices = tree.query(cat.rand, k=1, workers=self.num_cpus)
+            
+            num_randoms_in_cell = np.bincount(indices, minlength=len(coords))
+
+            if np.any(num_randoms_in_cell==0):
+                raise ValueError ('Provided randoms do not fill all tracer voronoi cells')
+
+            # scale randoms to same number density as tracers to calculate volumes
+            output_volumes = num_randoms_in_cell * self.num_gals/len(cat.rand)
+
+            _, edge_cells = self.calculate_region_volumes(self.cells,
+                                                           r_max,
+                                                           r_min,
+                                                           mask_uint8,
+                                                           xyz,
+                                                           periodic,
+                                                           cat.cmin,
+                                                           cat.cmax,
+                                                           nside,
+                                                           calculate_edge_cells_only = True
+                                                           )
+            
+            output_volumes[edge_cells] = 0
+            
+
+        else:
+            output_volumes, edge_cells = self.calculate_region_volumes(self.cells,
+                                                           r_max,
+                                                           r_min,
+                                                           mask_uint8,
+                                                           xyz,
+                                                           periodic,
+                                                           cat.cmin,
+                                                           cat.cmax,
+                                                           nside
+                                                           )
         
         self.volumes = output_volumes
         self.edge_cells = edge_cells
@@ -581,6 +671,7 @@ class Tesselation:
                                  cmin,
                                  cmax,
                                  nside,
+                                 calculate_edge_cells_only = False,
                                  ):
         """
         This function essentially serves as a switch between single process
@@ -634,15 +725,16 @@ class Tesselation:
                 ################################################################################
                 # Calculate the region volume
                 ################################################################################
-                                    
-                calculate_region_volume(idx,
-                                        vertices,
-                                        output_volumes,
-                                        r_max,
-                                        r_min,
-                                        xyz_mode,
-                                        cmin,
-                                        cmax)
+
+                if not calculate_edge_cells_only:
+                    calculate_region_volume(idx,
+                                            vertices,
+                                            output_volumes,
+                                            r_max,
+                                            r_min,
+                                            xyz_mode,
+                                            cmin,
+                                            cmax)
                 
             
         elif self.num_cpus > 1:
@@ -713,7 +805,8 @@ class Tesselation:
                                                   periodic_mode,
                                                   cmin,
                                                   cmax,
-                                                  nside
+                                                  nside,
+                                                  calculate_edge_cells_only
                                                   ))
                 
                 p.start()
@@ -741,7 +834,8 @@ class Tesselation:
                                   periodic_mode,
                                   cmin,
                                   cmax,
-                                  nside
+                                  nside,
+                                  calculate_edge_cells_only
                                   ):
         
         #max_indices and num_gals are the same thing
@@ -819,15 +913,15 @@ class Tesselation:
             ################################################################################
             # Calculate the region volume
             ################################################################################
-            
-            calculate_region_volume(curr_index,
-                                    vertices,
-                                    output_volumes,
-                                    r_max,
-                                    r_min,
-                                    xyz_mode,
-                                    cmin,
-                                    cmax)
+            if not calculate_edge_cells_only:
+                calculate_region_volume(curr_index,
+                                        vertices,
+                                        output_volumes,
+                                        r_max,
+                                        r_min,
+                                        xyz_mode,
+                                        cmin,
+                                        cmax)
         
         return None
         
