@@ -443,6 +443,9 @@ class Catalog:
         galaxy_ID_name = column_names['ID']
         if galaxy_ID_name != 'None':
             self.tarids = galaxy_table[galaxy_ID_name]
+
+        # save survey volume for future use 
+        self.total_volume = vol
         
         
         
@@ -601,7 +604,7 @@ class Tesselation:
                 raise ValueError ('Provided randoms do not fill all tracer voronoi cells')
 
             # scale randoms to same number density as tracers to calculate volumes
-            output_volumes = num_randoms_in_cell * self.num_gals/len(cat.rand)
+            output_volumes = num_randoms_in_cell * cat.total_volume / len(cat.rand)
 
             _, edge_cells = self.calculate_region_volumes(self.cells,
                                                            r_max,
