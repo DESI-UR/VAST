@@ -9,7 +9,7 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, mknumV2, rotate, partition_face_vertices
+from vast.vsquared.util import toCoord, mknumV2, rotate, partition_face_vertices, scale_volumes_by_randoms
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 from vast.vsquared.class_utils import calculate_region_volume
@@ -163,7 +163,7 @@ class Catalog:
                 print("Read in randoms (rows, cols): ", len(randoms_table), len(randoms_table.columns))
                 print(randoms_table.columns)
 
-            if column_names['weight'] != "None" and column_names['weight'] in randoms_table:
+            if column_names['weight'] != "None" and column_names['weight'] in randoms_table.colnames:
                 self.weights_rand = randoms_table[column_names['weight']]
         
         ################################################################################
@@ -449,7 +449,7 @@ class Catalog:
         if galaxy_ID_name != 'None':
             self.tarids = galaxy_table[galaxy_ID_name]
         
-        
+        self.total_volume = vol
         
 
 class Tesselation:
@@ -464,7 +464,6 @@ class Tesselation:
                  xyz=False,
                  num_cpus=1,
                  buff=5.0,
-                 randoms_grid_size = 1.,
                  verbose=0):
         """Initialize tesselation.
 
@@ -483,9 +482,6 @@ class Tesselation:
         buff : float
             Width of incremental buffer shells for periodic computation.
 
-        randoms_grid_size : float
-            The grid cell length for binning randoms in Mpc/h. Defaults to 1.
-            
         num_cpus : int
             number of CPUs to use for computation
             
@@ -623,35 +619,9 @@ class Tesselation:
 
         
         if hasattr(cat, "rand"):
-            
-            weights_rand = cat.weights_rand if hasattr(cat, 'weights_rand') else None
 
-            # place randoms on grid
-            grid_randoms, _ = np.histogramdd(cat.rand, 
-                                   bins=(int(np.ceil((cmax[0]-cmin[0])/randoms_grid_size)),
-                                         int(np.ceil((cmax[1]-cmin[1])/randoms_grid_size)),
-                                         int(np.ceil((cmax[2]-cmin[2])/randoms_grid_size))),
-                                   weights = weights_rand,
-                                     )
-            
-            grid_randoms = grid_randoms / np.max(grid_randoms) # setup for upweighting Voronoi cell volumes
-            galaxy_grid_indices = np.floor((coords - cmin)/randoms_grid_size).astype(int) # indices of galaxies on grid
-            randoms_multiplier = grid_randoms[galaxy_grid_indices[:,0], galaxy_grid_indices[:,1], galaxy_grid_indices[:,2]] #weights for each galaxy from randoms
-                
-            finite_density = self.volumes != 0.
-            if np.any(randoms_multiplier[finite_density]==0.):
-                print('WARNING: Galaxies detected without randoms in their grid cell. V^2 will momentarily exit.')
-                print('rand_grid_size:', randoms_grid_size)
-                no_rand = coords[np.where(randoms_multiplier[finite_density]==0.)]
-                print('number of galaxies without randoms in grid cell', len(no_rand))
-                print('fraction of galaxies without randoms in grid cell', len(no_rand)/len(coords))
-                no_rand_dist = np.sqrt(no_rand[:,0]*no_rand[:,0] + no_rand[:,1]*no_rand[:,1] + no_rand[:,2]*no_rand[:,2])
-                print('min distance without randoms in grid cell (Mpc/h):',np.min(no_rand_dist))
-                print('max distance without randdoms in grid cell (Mpc/h):',np.max(no_rand_dist))
-                raise ValueError ('Provided randoms do not fill all grid cells. Try a larger randoms_grid_size value')
-            self.volumes[finite_density] = self.volumes[finite_density] / randoms_multiplier[finite_density]
-            
-        
+            scale_volumes_by_randoms(self, cat, periodic, xyz, cmin, cmax)
+
         print("Cut+Convex Hull time: ", time.time() - volume_time)
         
 
