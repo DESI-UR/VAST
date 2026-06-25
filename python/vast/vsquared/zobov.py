@@ -749,6 +749,7 @@ class Zobov:
             if self.num_cpus == 1:
                 # number of galaxies within 1/4th of the void radius divided by volume 4/3*pi*(R/4)^3
                 # should be less than the user specified fraction of the mean density
+                # TODO: implment weights and randoms into central dnesity calculation
                 dcut = np.array([64.*num_coords_in_sphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)/vvols[i] for i in range(len(vrads))])<1./minvol_scaled
             else:
                 #parallel version

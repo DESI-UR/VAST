@@ -611,15 +611,15 @@ class Tesselation:
         
         self.volumes = output_volumes
         self.edge_cells = edge_cells
+
+        self.weights = np.ones_like(self.volumes)
         
         if cat.weights is not None:
-            weights = cat.weights[cat.nnls==np.arange(len(cat.nnls))]
+            cat_weights = cat.weights[cat.nnls==np.arange(len(cat.nnls))]
             finite_density = self.volumes != 0.
-            self.volumes[finite_density] = self.volumes[finite_density] / weights[finite_density]
-
+            self.weights[finite_density] = cat_weights[finite_density]
         
         if hasattr(cat, "rand"):
-
             scale_volumes_by_randoms(self, cat, periodic, xyz, cmin, cmax)
 
         print("Cut+Convex Hull time: ", time.time() - volume_time)
@@ -940,7 +940,7 @@ class Zones:
         #coords = catalog.coord[catalog.nnls==np.arange(len(catalog.nnls))] 
         
         # Array of shape (num_gals,) dtype float volume of that galaxy's voronoi cell
-        gal_cell_vols = tess.volumes
+        gal_cell_vols = tess.volumes / tess.weights
 
         #Array of edge cell flags
         edge_cells = tess.edge_cells

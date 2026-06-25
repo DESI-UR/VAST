@@ -941,6 +941,7 @@ def scale_volumes_by_randoms(tessellation, catalog, periodic, xyz, cmin, cmax):
 
     print (np.min(randoms_multiplier), np.max(randoms_multiplier), np.average(randoms_multiplier)) # Debugging
     print (np.min(randoms_multiplier[finite_density]), np.max(randoms_multiplier[finite_density]), np.average(randoms_multiplier[finite_density])) # Debugging
-    
-    tessellation.volumes[finite_density] = tessellation.volumes[finite_density] * randoms_multiplier[finite_density]
+
+    tessellation.weights[finite_density] = tessellation.weights[finite_density] / randoms_multiplier[finite_density]
+    #tessellation.volumes[finite_density] = tessellation.volumes[finite_density] * randoms_multiplier[finite_density]
         
