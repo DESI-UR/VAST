@@ -844,30 +844,7 @@ def scale_volumes_by_randoms(tessellation, catalog, periodic, xyz, cmin, cmax):
     if periodic or xyz:
 
         raise ValueError('Randoms are note supported for periodic or xyz mode.')
-
-        """
-        # untested code
-        
-        num_randoms = len(catalog.rand)
-        sim_volume = np.prod(cmax - cmin)
-        volume_per_random =  sim_volume / num_randoms
-        randoms_grid_size = (1000*volume_per_random)
-
-        weights_rand = catalog.weights_rand if hasattr(catalog, 'weights_rand') else None
-
-        # place randoms on grid
-        grid_randoms, _ = np.histogramdd(catalog.rand, 
-                               bins=(int(np.ceil((cmax[0]-cmin[0])/randoms_grid_size)),
-                                     int(np.ceil((cmax[1]-cmin[1])/randoms_grid_size)),
-                                     int(np.ceil((cmax[2]-cmin[2])/randoms_grid_size))),
-                               weights = weights_rand,
-                                 )
-    
-        grid_norm = np.max(grid_randoms)
-        grid_randoms = grid_randoms / grid_norm # setup for downweighting Voronoi cell volumes
-        galaxy_grid_indices = np.floor((coords - cmin)/randoms_grid_size).astype(int) # indices of galaxies on grid
-        randoms_multiplier = grid_randoms[galaxy_grid_indices[:,0], galaxy_grid_indices[:,1], galaxy_grid_indices[:,2]] #weights for each galaxy from randoms
-        """            
+         
     else: 
 
         num_gals = coords.shape[0]
@@ -937,11 +914,5 @@ def scale_volumes_by_randoms(tessellation, catalog, periodic, xyz, cmin, cmax):
 
         randoms_multiplier[randoms_multiplier==0.] = 1.
         
-        #np.save('/global/homes/h/hrincon/BeyondDESIVAST/DESI_Project_543/VAST/empty_cells.npy', coords[finite_density][empty_randoms_cells])
-
-    print (np.min(randoms_multiplier), np.max(randoms_multiplier), np.average(randoms_multiplier)) # Debugging
-    print (np.min(randoms_multiplier[finite_density]), np.max(randoms_multiplier[finite_density]), np.average(randoms_multiplier[finite_density])) # Debugging
-
     tessellation.weights[finite_density] = tessellation.weights[finite_density] / randoms_multiplier[finite_density]
-    #tessellation.volumes[finite_density] = tessellation.volumes[finite_density] * randoms_multiplier[finite_density]
         
