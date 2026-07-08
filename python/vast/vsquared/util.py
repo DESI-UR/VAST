@@ -872,7 +872,6 @@ def scale_volumes_by_randoms(tessellation, catalog, periodic, xyz, cmin, cmax):
                 if np.any(zero_rand):
                     print(f'WARNING: {np.sum(zero_rand)} out of {len(zero_rand)} randoms have a weight of 0. Reassigning weights to 1.')
                     weights_rand[zero_rand] = 1.
-                weights_rand = 1 / weights_rand
 
         grid_norm = 0
         randoms_multiplier = np.zeros(num_gals)
