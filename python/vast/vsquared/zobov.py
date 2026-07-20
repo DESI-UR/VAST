@@ -162,8 +162,11 @@ class Zobov:
         ################################################################################
         self.infile  = config['Paths']['Input Catalog'] if custom_cat_name is None else 'None'
 
-        self.randfile  = config['Paths']['Input Randoms']
-        if self.randfile == "None": self.randfile = None
+        try:
+            self.randfile  = config['Paths']['Input Randoms']
+            if self.randfile == "None": self.randfile = None
+        except KeyError:
+            self.randfile = None
 
         self.catname = config['Paths']['Survey Name'] if custom_cat_name is None else custom_cat_name
         
