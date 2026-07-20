@@ -351,7 +351,8 @@ class VoidMapVF():
     def plot_survey(self,dec,wdth,npc,chkdpth, 
              ra0, ra1, cz0, cz1, title, graph = None, zlimits = True, rot = 0, 
              colors = ["blue","blue","blue"], gal_colors = ["black","red"], include_gals=True, include_voids=True, alpha=0.2, border_alpha = 1,
-             horiz_legend_offset=.8, plot_sdss = True, sdss_lim=332.38626, sdss_color='magenta', 
+             include_legend = True, horiz_legend_offset=.8, vert_legend_offset = 1, linewidth=1.5,
+                    plot_sdss = True, sdss_lim=332.38626, sdss_color='magenta', 
              mag_limit = None, galaxy_point_size = 1, return_plot_data=False):
         '''
         Plot VoidFinder voids within a survey volume.
@@ -416,8 +417,16 @@ class VoidMapVF():
         border_alpha: the alpha value for the borders of the
             plotted voids
             
+        include_legend (bool): Whether to include a legend or not.
+            Defaults to True.
+            
         horiz_legend_offset (float): the horizontal positioning of 
             the graph legend.
+
+        vert_legend_offset (float): the vertical positioning of the 
+            graph legend
+
+        linewidth (float): linewidth of void edges
             
         plot_sdss (bool): Determines if the SDSS DR7 void catalog
             distance limit is plotted
@@ -473,7 +482,7 @@ class VoidMapVF():
 
                     #vcolor = 'blue'
 
-                    aux_ax3.plot(Cra2, Cr2, color=vcolor, alpha = border_alpha)
+                    aux_ax3.plot(Cra2, Cr2, color=vcolor, alpha = border_alpha, linewidth = linewidth)
                     aux_ax3.fill(Cra2, Cr2, color=vcolor, alpha=alpha)
                     
                     if return_plot_data:
@@ -549,8 +558,9 @@ class VoidMapVF():
             void_legend_handles.append(
                 Line2D([0], [0], label='SDSS limit', color=sdss_color, linewidth=5)
             )
-            
-        aux_ax3.legend(handles=void_legend_handles, loc="upper left", bbox_to_anchor=(horiz_legend_offset,1))
+
+        if include_legend:
+            aux_ax3.legend(handles=void_legend_handles, loc="upper left", bbox_to_anchor=(horiz_legend_offset, vert_legend_offset))
         
         self.graph = [fig, ax3, aux_ax3]
         
@@ -562,6 +572,7 @@ class VoidMapVF():
     # Plot VoidFinder Voids from a Cubic Simulation (Version 2)
     def plot_xyz(self,plane_height,wdth,npc,chkdpth, 
                 title, h="x",v="y",n="z", h_range = (0,50), v_range = (0,50), graph = None, 
+                linewidth = 1.5,
                 colors = ["blue","blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1,
                 return_plot_data = False):
             '''
@@ -594,6 +605,8 @@ class VoidMapVF():
                 and axis (graph[2]).
                 Used for plotting voids over an already existing plot.
                 Defaults to none.
+
+            linewidth (float): line width of void edges
                 
             colors (list): a three element list of strings specifying 
                 matplotlib colors for plotting edge voids (colors[0]), 
@@ -657,6 +670,7 @@ class VoidMapVF():
 
                     Cr2, Cra2 = self.gcp2(vfh4[i], vfv4[i], Cr[i], npc, chkdpth, ra_dec_z=False)
 
+                    # TODO: add optional plotting for edge voids in VF and documentatio for the feature in V2
                     if self.vfedge[i] == 1:
                         vcolor = colors[0]#'gold'
                     elif self.vfedge[i] == 2:
@@ -666,7 +680,7 @@ class VoidMapVF():
 
                     #vcolor = 'blue'
 
-                    ax.plot(Cr2, Cra2, color=vcolor, alpha = border_alpha)
+                    ax.plot(Cr2, Cra2, color=vcolor, alpha = border_alpha, linewidth=linewidth)
                     ax.fill(Cr2, Cra2, color=vcolor, alpha=alpha)
 
                     if return_plot_data:
@@ -1095,8 +1109,10 @@ class VoidMapV2():
 
     def plot_survey(self,dec,wdth,
              ra0, ra1, cz0, cz1, title, graph = None, zlimits = True, rot = 0, 
-             colors = ["blue","blue"],include_gals=True,alpha=0.2, border_alpha = 1,
-             horiz_legend_offset=.8, plot_sdss = True, sdss_lim=332.38626, sdss_color='magenta', 
+             colors = ["blue","blue"],include_gals=True,alpha=0.2, border_alpha = 1, include_legend = True,
+             horiz_legend_offset=.8, vert_legend_offset=1, plot_sdss = True, linewidth = 1.5,
+                    plot_edge_voids=True, title_pad=6.0, #TODO add title_pad to VF
+                    sdss_lim=332.38626, sdss_color='magenta', 
              mag_limit = None, galaxy_point_size=1, return_plot_data=False):
         '''
         Plot Vsquared voids within a survey volume
@@ -1160,9 +1176,17 @@ class VoidMapV2():
             
         border_alpha: the alpha value for the borders of the
             plotted voids
+
+        include_legend (bool): Whether to include a legend or not.
+            Defaults to True.
             
         horiz_legend_offset (float): the horizontal positioning of 
             the graph legend.
+
+        vert_legend_offset (float): the vertical positioning of the 
+            graph legend
+
+        linewidth (float): line width of void edges
             
         plot_sdss (bool): Determines if the SDSS DR7 void catalog
             distance limit is plotted
@@ -1195,7 +1219,7 @@ class VoidMapV2():
 
             #aux_ax3.set_aspect(1) #Not included in original V2 code?
 
-            plt.title(f"{title} $\delta$ = {dec}$^\circ$", loc='left')
+            plt.title(f"{title} $\delta$ = {dec}$^\circ$", loc='left', pad=title_pad)
         else:
             fig, ax3, aux_ax3 = graph[0], graph[1], graph[2]
         
@@ -1217,9 +1241,12 @@ class VoidMapV2():
                 for j in range(len(Intr2)):
                     #if Icut[j]:
                     #    continue
+
+                    if self.edge[i]==1 and not plot_edge_voids:
+                        continue
                     
                     color = colors[0] if self.edge[i]==1 else colors[1]
-                    aux_ax3.plot(Intra2[j],Intr2[j],alpha=border_alpha,color=color)
+                    aux_ax3.plot(Intra2[j],Intr2[j],alpha=border_alpha,color=color, linewidth=linewidth)
                     aux_ax3.fill(Intra2[j],Intr2[j],alpha=alpha,color=color)
                     
                     if return_plot_data:
@@ -1281,7 +1308,8 @@ class VoidMapV2():
                 Line2D([0], [0], label='SDSS limit', color=sdss_color, linewidth=5)
             )
             
-        aux_ax3.legend(handles=void_legend_handles, loc="upper left", bbox_to_anchor=(horiz_legend_offset,1))
+        if include_legend:
+            aux_ax3.legend(handles=void_legend_handles, loc="upper left", bbox_to_anchor=(horiz_legend_offset, vert_legend_offset))
         
         
         self.graph = [fig, ax3, aux_ax3]
@@ -1293,7 +1321,9 @@ class VoidMapV2():
 
     def plot_xyz(self,plane_height,wdth,
                 title, h="x",v="y",n="z", h_range = (0,50), v_range = (0,50), graph = None, 
+                linewidth = 1.5,
                 colors = ["blue","blue"],gal_colors = ["black","red"],include_gals=True,alpha=0.2, border_alpha = 1,scale=1,
+                 plot_edge_voids=True,
                 return_plot_data = False):
             '''
             Plot Vsquared voids within a cubic simulation volume
@@ -1321,6 +1351,8 @@ class VoidMapV2():
                 and axis (graph[2]).
                 Used for plotting voids over an already existing plot.
                 Defaults to none.
+
+            linewidth (float): line width of void edges
                 
             colors (list): a two element list of strings specifying 
                 matplotlib colors for plotting edge voids (colors[0]), 
@@ -1393,9 +1425,12 @@ class VoidMapV2():
                     for j in range(len(Int_h2)):
                         #if Icut[j]:
                         #    continue
+
+                        if self.edge[i]==1 and not plot_edge_voids:
+                            continue
                         
                         color = colors[0] if self.edge[i]==1 else colors[1]
-                        ax.plot(Int_h2[j],Int_v2[j],alpha=border_alpha,color=color)
+                        ax.plot(Int_h2[j],Int_v2[j],alpha=border_alpha,color=color, linewidth=linewidth)
                         ax.fill(Int_h2[j],Int_v2[j],alpha=alpha,color=color)
 
                         if return_plot_data:

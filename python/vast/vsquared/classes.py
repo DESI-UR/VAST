@@ -9,7 +9,7 @@ from astropy.io import fits
 from astropy.table import Table
 from scipy.spatial import ConvexHull, Voronoi, Delaunay, KDTree
 
-from vast.vsquared.util import toCoord, mknumV2, rotate, partition_face_vertices
+from vast.vsquared.util import toCoord, mknumV2, rotate, partition_face_vertices, scale_volumes_by_randoms
 from vast.voidfinder.preprocessing import load_data_to_Table
 
 from vast.vsquared.class_utils import calculate_region_volume
@@ -36,6 +36,7 @@ class Catalog:
 
     def __init__(self,
                  catfile,
+                 randfile,
                  nside,
                  zmin,
                  zmax,
@@ -66,6 +67,9 @@ class Catalog:
         
         catfile: str
             Object catalog file (FITS format).
+
+        randfile: str
+            Randoms catalog file (FITS format).
             
         nside : int
             HEALPix map `nside` parameter (2,4,8,16,...,2^k).  This value represents
@@ -152,6 +156,15 @@ class Catalog:
             print(galaxy_table.columns)
         
         self.weights = None if column_names['weight'] == "None" else galaxy_table[column_names['weight']]
+
+        if randfile is not None:
+            randoms_table = load_data_to_Table(randfile)
+            if verbose > 0:
+                print("Read in randoms (rows, cols): ", len(randoms_table), len(randoms_table.columns))
+                print(randoms_table.columns)
+
+            if column_names['weight'] != "None" and column_names['weight'] in randoms_table.colnames:
+                self.weights_rand = randoms_table[column_names['weight']]
         
         ################################################################################
         # This section is actually doing 2 things:
@@ -173,7 +186,8 @@ class Catalog:
         ################################################################################
         
         if periodic or xyz:
-            
+
+            # create array of galaxies
             self.coord = np.array([galaxy_table[column_names['x']],
                                    galaxy_table[column_names['y']],
                                    galaxy_table[column_names['z']]]).T
@@ -181,11 +195,16 @@ class Catalog:
             self.cmin = cmin
             
             self.cmax = cmax
+
+            # create array of randoms
+            if randfile is not None:
+                self.rand = np.array([randoms_table[column_names['x']],
+                                      randoms_table[column_names['y']],
+                                      randoms_table[column_names['z']]]).T
             
         else:
-            
-            
-            
+
+            # convert sky coordinates of galaxies to cartesian cooridnates
             z    = galaxy_table[column_names['redshift']]
             
             ra   = galaxy_table[column_names['ra']]
@@ -205,6 +224,31 @@ class Catalog:
             c1, c2, c3 = toCoord(z, ra, dec, H0, Om_m)
             
             self.coord = np.array([c1, c2, c3]).T
+
+            # convert sky coordinates of randoms to cartesian cooridnates
+            if randfile is not None:
+
+                z_rand    = randoms_table[column_names['redshift']]
+            
+                ra_rand   = randoms_table[column_names['ra']]
+                
+                dec_rand  = randoms_table[column_names['dec']]
+                
+                zcut_rand = np.logical_and(z_rand > zmin, z_rand < zmax) # 1 if gal is in the zlims 0 if not
+                
+                if not zcut_rand.any():
+                    print("Choose valid redshift limits for randoms", z_rand.min(), z_rand.max())
+                    return
+                
+                #alias for zcut, unless magnitude limit is used, in which case scut will be later set to mcut
+                # `scut` a boolean array to identify desired galaxies
+                scut_rand = zcut_rand
+                
+                c1, c2, c3 = toCoord(z_rand, ra_rand, dec_rand, H0, Om_m)
+                
+                self.rand = np.array([c1, c2, c3]).T
+    
+                    
             
             
         
@@ -251,7 +295,23 @@ class Catalog:
             scut = mcut 
             
             ncut = np.arange(num_gals, dtype=int)[zcut][mcut[zcut]<1]  # indexes of galaxies in zcut but not in mcut
+
+            if randfile is not None:
+                
+                mag = randoms_table[column_names['rabsmag']]
             
+                mcut_rand = np.logical_and(mag < maglim, zcut_rand) # mcut is a subsample of zcut that removes galaxies outside the magnitude limit
+                
+                if not mcut_rand.any():
+                    print("Choose valid magnitude limit for randoms")
+                    return
+                
+                # scut is made into an alias for mcut, unless no magnitude limit 
+                # is used, in which case it remains an alias for zcut
+                # `scut` a boolean array to identify desired galaxies
+                scut_rand = mcut_rand
+                                
+                
             # These neighbor indices do not appear to be used anywhere so
             # for now, offsetting this code block to not run by default since
             # a KDTree is computationally expensive
@@ -278,6 +338,11 @@ class Catalog:
 
         
         self.nnls = nnls
+
+        if randfile is not None:
+            self.rand = self.rand[scut_rand]
+            if hasattr(self, 'weights_rand'):
+                self.weights_rand = self.weights_rand[scut_rand]
         
         #print("SCUT==nnls?: ", np.all((self.nnls > -1) == scut)) #True lol...
 
@@ -307,7 +372,7 @@ class Catalog:
                 mask[pix_idxs] = True 
                 
             else:
-                #read in exisitng mask
+                #read in existing mask
                 mask = (hp.read_map(maskfile)).astype(bool)
                 
             self.mask = mask #mask of all galaxies in scut, where scut might be zcut or mcut depending on if magnitude cut is used
@@ -384,7 +449,7 @@ class Catalog:
         if galaxy_ID_name != 'None':
             self.tarids = galaxy_table[galaxy_ID_name]
         
-        
+        self.total_volume = vol
         
 
 class Tesselation:
@@ -416,7 +481,7 @@ class Tesselation:
             
         buff : float
             Width of incremental buffer shells for periodic computation.
-            
+
         num_cpus : int
             number of CPUs to use for computation
             
@@ -462,15 +527,19 @@ class Tesselation:
             # periodic mode
             periodic_boundaries = (True, True, True)
             limits = np.array([cat.cmin, cat.cmax])
+            cmin = cat.cmin
+            cmax = cat.cmax
 
         else:
             # survey and xyz mode
             # multivoro needs xyz limits for tessellation, so draw a box around the survey
             periodic_boundaries = (False, False, False)
-        
-            lower_min = coords.min(axis=0) - 100.0
-            
-            upper_max = coords.max(axis=0) + 100.0
+
+            cmin = coords.min(axis=0)
+            lower_min = cmin - 100.0
+
+            cmax = coords.max(axis=0)
+            upper_max = cmax + 100.0
             
             print("Lower min of bounding box: ", lower_min)
             print("Upper max of bounding box: ", upper_max)
@@ -528,7 +597,7 @@ class Tesselation:
         ################################################################################
         # Calculate volumes of cells
         ################################################################################
-        
+
         output_volumes, edge_cells = self.calculate_region_volumes(self.cells,
                                                        r_max,
                                                        r_min,
@@ -542,11 +611,17 @@ class Tesselation:
         
         self.volumes = output_volumes
         self.edge_cells = edge_cells
+
+        self.weights = np.ones_like(self.volumes)
         
         if cat.weights is not None:
+            cat_weights = cat.weights[cat.nnls==np.arange(len(cat.nnls))]
             finite_density = self.volumes != 0.
-            self.volumes[finite_density] = self.volumes[finite_density] / cat.weights[finite_density]
+            self.weights[finite_density] = cat_weights[finite_density]
         
+        if hasattr(cat, "rand"):
+            scale_volumes_by_randoms(self, cat, periodic, xyz, cmin, cmax)
+
         print("Cut+Convex Hull time: ", time.time() - volume_time)
         
 
@@ -580,7 +655,7 @@ class Tesselation:
                                  periodic_mode,
                                  cmin,
                                  cmax,
-                                 nside,
+                                 nside
                                  ):
         """
         This function essentially serves as a switch between single process
@@ -634,7 +709,7 @@ class Tesselation:
                 ################################################################################
                 # Calculate the region volume
                 ################################################################################
-                                    
+
                 calculate_region_volume(idx,
                                         vertices,
                                         output_volumes,
@@ -742,7 +817,7 @@ class Tesselation:
                                   cmin,
                                   cmax,
                                   nside
-                                  ):
+                                 ):
         
         #max_indices and num_gals are the same thing
         volumes_buffer_length = max_indicies*8 #float64 so 8 bytes per element
@@ -819,7 +894,6 @@ class Tesselation:
             ################################################################################
             # Calculate the region volume
             ################################################################################
-            
             calculate_region_volume(curr_index,
                                     vertices,
                                     output_volumes,
@@ -866,7 +940,7 @@ class Zones:
         #coords = catalog.coord[catalog.nnls==np.arange(len(catalog.nnls))] 
         
         # Array of shape (num_gals,) dtype float volume of that galaxy's voronoi cell
-        gal_cell_vols = tess.volumes
+        gal_cell_vols = tess.volumes / tess.weights
 
         #Array of edge cell flags
         edge_cells = tess.edge_cells
