@@ -455,7 +455,7 @@ class VoidMapVF():
 
             ax3, aux_ax3 = setup_axes3(fig, 111, ra0, ra1, cz0, cz1, rot, set_bottom_invisible)
 
-            #aux_ax3.set_aspect(1) #This is causing errors
+            aux_ax3.set_aspect(1) #Should be needed for equal aspect ratio but has also caused errors in past
 
             plt.title(f"{title} $\delta$ = {dec}$^\circ$", loc='left',)
         else:
@@ -1217,7 +1217,7 @@ class VoidMapV2():
 
             ax3, aux_ax3 = setup_axes3(fig, 111, ra0, ra1, cz0, cz1, rot, set_bottom_invisible)
 
-            #aux_ax3.set_aspect(1) #Not included in original V2 code?
+            aux_ax3.set_aspect(1) #Not included in original V2 code?
 
             plt.title(f"{title} $\delta$ = {dec}$^\circ$", loc='left', pad=title_pad)
         else:
