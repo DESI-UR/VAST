@@ -9,6 +9,12 @@ import vast.catalog.void_volume as vol
 import vast.catalog.void_overlap as vo
 
 import os
+import mmap
+import tempfile
+import multiprocessing
+from multiprocessing import Value, Process
+from ctypes import c_int64
+
 import numpy as np
 import copy
 from astropy.table import Table, vstack
@@ -451,7 +457,61 @@ class VoidFinderCatalog (VoidCatalog):
         file_name (string): The location of the void catalog file.
         
         """
-        self._catalog = open_fits_file(file_name)
+        if os.path.exists(file_name):
+            self._catalog = open_fits_file(file_name)
+        else:
+            raise FileNotFoundError(file_name)
+
+    def calculate_ellipticity(self, save_to_catalog = True):
+        """
+        Calculates voronoi void ellipticity following the definiton used in 
+        https://arxiv.org/abs/1406.1191
+
+        ellipticity = 1 - A_1/A_3
+
+        where A_1 is the minor axis of the best fit ellipsoid, and A_3 is the major axis of the best 
+        fit ellipsoid
+
+        params:
+        ---------------------------------------------------------------------------------------------
+        save_to_catalog (bool): If True (default value), the ellipticity values are saved to the 
+            catalog file.
+
+        """
+
+        def save_ellipticity():
+            #format and save output
+            if self.capitalize_colnames:
+                self.upper_col_names()
+                
+            self.read_catalog(self.file_name)
+            self._catalog['MAXIMALS'].data = fits.BinTableHDU(self.maximals).data
+            self._catalog.writeto(self.file_name, overwrite=True)
+            self.clear_catalog()
+
+            if self.capitalize_colnames:
+                self.lower_col_names()
+        
+        # Get the square magnitude of each ellipsoid component
+        axis_mag_squared = np.array([self.maximals['x1']**2 + self.maximals['y1']**2 + self.maximals['z1']**2,
+                                     self.maximals['x2']**2 + self.maximals['y2']**2 + self.maximals['z2']**2,
+                                     self.maximals['x3']**2 + self.maximals['y3']**2 + self.maximals['z3']**2])
+        
+        # calculate MOI tensor eigenvalues
+        eigen_0 = (axis_mag_squared[1] + axis_mag_squared[2])/5
+        eigen_1 = (axis_mag_squared[0] + axis_mag_squared[2])/5
+        eigen_2 = (axis_mag_squared[0] + axis_mag_squared[1])/5
+
+        eig_min = np.min(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
+        eig_max = np.max(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
+
+        #calculate the ellipticity
+        ellipticity = 1 - np.power(eig_min/eig_max, 0.25)
+
+        self.maximals['ellip'] = ellipticity
+        
+        if save_to_catalog: 
+            save_ellipticity()
      
     def void_stats(self):
         """
@@ -506,7 +566,7 @@ class VoidFinderCatalog (VoidCatalog):
             print('Median Reff (V. Fid):', mknum(np.median(reff)), '+/-',mknum(uncert_median),'Mpc/h')
             print('Maximum Reff (V. Fid):', mknum(np.max(reff)),'Mpc/h')
             
-    def calculate_r_eff(self, overwrite = False, save_every = None):
+    def calculate_r_eff(self, overwrite = False, save_every = None, num_cpus = 1, calculate_ellipsoid=False):
         """
         Calculates the effective radii of voids in a VoidFinder catalog.
         
@@ -516,9 +576,14 @@ class VoidFinderCatalog (VoidCatalog):
             previously been calculated. When set to True, this behavior is disabled. Defaults to 
             False.
     
-        save_every (int): Integer that determines how fequently to save the calcualted output, 
+        save_every (int): Integer that determines how frequently to save the calcualted output, 
             corresponding to the number of voids per save. If None, all void radii are calculated 
-            with no intermediate saving.
+            with no intermediate saving. Only usable in single-threaded mode.
+
+        num_cpus (int): the number of cpus utilized for the calculation 
+
+        calculate_ellipsoid (bool): Whether or not to calcualte the best fit ellipsoid from the 
+            Monte Carlo samples. Defaults to False.
         """
 
         print('Calculating effective radii')
@@ -535,45 +600,141 @@ class VoidFinderCatalog (VoidCatalog):
 
             if self.capitalize_colnames:
                 self.lower_col_names()
+    
         
-        save_every_applied = save_every is not None
-        
-        
-        if not save_every_applied:
-            #ensure that reff wasn't previously calculated
-            if not overwrite and np.sum(np.isin(['r_eff','r_eff_uncert'],self.maximals.colnames))>0:
+        if not overwrite and np.sum(np.isin(['r_eff','r_eff_uncert'],self.maximals.colnames))>0:
+            if not np.isin(-1, self.maximals['r_eff']):
                 print ('R_eff already calculated. Run with overwrite=True to overwrite effective radii')
                 return
-            self.maximals['r_eff'] = -1.
-            self.maximals['r_eff'].unit='Mpc/h'
-            self.maximals['r_eff_uncert'] = -1.
-            self.maximals['r_eff_uncert'].unit='Mpc/h'
-                    
-            
-        else:
-            if not np.sum(np.isin(['r_eff','r_eff_uncert'],self.maximals.colnames))>0:
-                self.maximals['r_eff'] = -1.
-                self.maximals['r_eff'].unit='Mpc/h'
-                self.maximals['r_eff_uncert'] = -1.
-                self.maximals['r_eff_uncert'].unit='Mpc/h'
-                    
-        # calculate reff
-        flags = self.maximals['void'][self.maximals['r_eff']==-1]
-        for i, flag in enumerate(flags):
-            holes = self.holes[self.holes['void']==flag]
-            positions = np.array([holes['x'], holes['y'],holes['z']]).T
-            radius = holes['radius'].data
-            vol_info = vol.volume_of_spheres(positions, radius)
-            self.maximals['r_eff'][flag] = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
-            self.maximals['r_eff_uncert'][flag] = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
-            if save_every_applied and i%save_every == 0:
-                save_r_eff()
+
+        # default values
         
+        self.maximals['r_eff'] = -1.
+        self.maximals['r_eff'].unit='Mpc/h'
+        self.maximals['r_eff_uncert'] = -1.
+        self.maximals['r_eff_uncert'].unit='Mpc/h'
+        
+        if calculate_ellipsoid:
+            for column in ('x1','y1','z1','x2','y2','z2','x3','y3','z3'):
+                self.maximals[column] = -1.
+                self.maximals[column].unit='Mpc/h'
+
+        # calcuate reff
+        
+        if num_cpus == 1:
+            # single-threaded
+            save_every_applied = save_every is not None
+            
+            # calculate reff
+            flags = self.maximals['void'][self.maximals['r_eff']==-1]
+            
+            for i, flag in enumerate(flags):
+                
+                holes = self.holes[self.holes['void']==flag]
+                positions = np.array([holes['x'], holes['y'],holes['z']]).T
+                radius = holes['radius'].data
+                vol_info = vol.volume_of_spheres(positions, radius, calculate_ellipsoid=calculate_ellipsoid)
+                self.maximals['r_eff'][flag] = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
+                self.maximals['r_eff_uncert'][flag] = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
+                
+                if calculate_ellipsoid:
+                    
+                    self.maximals['x1'][flag] = vol_info[4][0,0]
+                    self.maximals['y1'][flag] = vol_info[4][0,1]
+                    self.maximals['z1'][flag] = vol_info[4][0,2]
+                    self.maximals['x2'][flag] = vol_info[4][1,0]
+                    self.maximals['y2'][flag] = vol_info[4][1,1]
+                    self.maximals['z2'][flag] = vol_info[4][1,2]
+                    self.maximals['x3'][flag] = vol_info[4][2,0]
+                    self.maximals['y3'][flag] = vol_info[4][2,1]
+                    self.maximals['z3'][flag] = vol_info[4][2,2]
+                
+                if save_every_applied and i%save_every == 0:
+                    save_r_eff()
+
+        else:
+            #multi-threaded
+            
+            # determine which voids to calcualte r_eff for
+            select_unprocessed = self.maximals['r_eff'] == -1
+            # select holes to process
+            # important that we make a copy of the holes table (with mask) so that we can modify it w/o altering the original
+            holes_copy = self.holes[np.isin(self.holes['void'], self.maximals[select_unprocessed]['void'])]
+            # sort holes by void index
+            holes_copy.sort('void')
+            # indexes used to select holes corresponding to a specific void
+            hole_flag_bounds = np.concatenate([[0], np.where(np.diff(holes_copy['void'])!=0)[0] + 1, [len(holes_copy)]])
+
+
+            num_voids = np.sum(select_unprocessed)
+                
+            index_coordinator = Value(c_int64, 0, lock=True)
+    
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="catalog_reff", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+
+            num_columns = 11 if calculate_ellipsoid else 2
+                
+            buffer_length = num_voids*8*num_columns # 8 byte float64
+                
+            os.ftruncate(file_descriptor, buffer_length)
+                
+            array_buffer = mmap.mmap(file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            effective_radii = np.frombuffer(array_buffer, dtype=np.float64)
+            
+            effective_radii[:] = 0.
+    
+            effective_radii.shape = (num_voids, num_columns)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
+
+            for proc_idx in range(num_cpus):
+
+                p = startup_context.Process(target=r_eff_worker, 
+                                            args=(num_voids, 
+                                                  index_coordinator, 
+                                                  file_descriptor,
+                                                  num_columns,
+                                                  holes_copy, 
+                                                  hole_flag_bounds,
+                                                  calculate_ellipsoid
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+
+            self.maximals['r_eff'][select_unprocessed] = effective_radii[:,0]
+            self.maximals['r_eff_uncert'][select_unprocessed] = effective_radii[:,1]
+            
+            if calculate_ellipsoid:
+                
+                self.maximals['x1'] = effective_radii[:,2]
+                self.maximals['y1'] = effective_radii[:,3]
+                self.maximals['z1'] = effective_radii[:,4]
+                self.maximals['x2'] = effective_radii[:,5]
+                self.maximals['y2'] = effective_radii[:,6]
+                self.maximals['z2'] = effective_radii[:,7]
+                self.maximals['x3'] = effective_radii[:,8]
+                self.maximals['y3'] = effective_radii[:,9]
+                self.maximals['z3'] = effective_radii[:,10]
+            
         save_r_eff()
 
     def check_coords_in_void(self, ra=None, dec=None, redshift=None, 
                              x_pos=None, y_pos=None, z_pos=None, 
-                             cartesian = False):
+                             cartesian = False, num_cpus = 1):
         """
         Calculates whether given coordiantes are located inside or outside of voids (vflags). 
         Equivalent to calculate_vflag, but for user specified coordinates, rather than for 
@@ -604,7 +765,8 @@ class VoidFinderCatalog (VoidCatalog):
         cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
             survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
 
-
+        num_cpus (int): The number of cpus to use for the calculation. Defaults to 1.
+        
         returns:
         ---------------------------------------------------------------------------------------------
         vflag (array of ints): The environment flags for the coordinates. The possible values are
@@ -660,27 +822,85 @@ class VoidFinderCatalog (VoidCatalog):
 
         #calculate vflags
         voids = Table(self.holes)
-        vflag = []
 
-        for i in range(len(x_pos)):
+        if num_cpus == 1:
+            
+            vflag = np.zeros(len(x_pos), dtype=int)
+    
+            for i in range(len(x_pos)):
+    
+                #vflag : integer
+                #0 = wall galaxy
+                #1 = void galaxy
+                #2 = edge galaxy (too close to survey boundary to determine)
+                #9 = outside survey footprint
+    
+                vflag[i] = determine_vflag(x_pos[i], 
+                                           y_pos[i], 
+                                           z_pos[i], 
+                                           voids, 
+                                           mask, 
+                                           mask_res, 
+                                           rmin,
+                                           rmax)
+            return vflag
 
-            #vflag : integer
-            #0 = wall galaxy
-            #1 = void galaxy
-            #2 = edge galaxy (too close to survey boundary to determine)
-            #9 = outside survey footprint
+        else:
+            
+            num_flags = len(x_pos)
+                
+            index_coordinator = Value(c_int64, 0, lock=True)
+    
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="catalog_check", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+                
+            buffer_length = num_flags*4 # 4 byte int32
+                
+            os.ftruncate(file_descriptor, buffer_length)
+                
+            array_buffer = mmap.mmap(file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vflags = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            vflags[:] = 0.
+    
+            vflags.shape = (num_flags,)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
 
-            vflag.append(          determine_vflag(x_pos[i], 
-                                                   y_pos[i], 
-                                                   z_pos[i], 
-                                                   voids, 
-                                                   mask, 
-                                                   mask_res, 
-                                                   rmin,
-                                                   rmax))
-        return vflag
+            for proc_idx in range(num_cpus):
+
+                p = startup_context.Process(target=determine_vflag_worker, 
+                                            args=(num_flags, 
+                                                  index_coordinator, 
+                                                  file_descriptor,
+                                                  x_pos, # i
+                                                  y_pos, # i
+                                                  z_pos, # i
+                                                  voids, 
+                                                  mask, 
+                                                  mask_res, 
+                                                  rmin,
+                                                  rmax
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
+            
+            for p in processes:
+            
+                p.join(None) #block till join
+
+            return vflags
  
-    def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False):
+    def calculate_vflag(self, vflag_path, astropy_file_format='fits', overwrite = False, cartesian = False, num_cpus=1):
         """
         Calculates which galaxies are located inside or outside of voids (vflags). The possible values are
             0 = wall galaxy
@@ -705,6 +925,8 @@ class VoidFinderCatalog (VoidCatalog):
 
         cartesian (bool): Boolean that when True, denotes a cubic box simulaion and applies no 
             survey mask to the galaxies. Defaults to False, in which case the survey mask is applied.
+
+        num_cpus (int): The number of cpus to use for the calculation. Defaults to 1.
         
         """
         # warning: no mask feature is used for cubic box simulations (cartesian = True). 
@@ -740,31 +962,87 @@ class VoidFinderCatalog (VoidCatalog):
         
         print('Identifying environment')
 
-        galaxies['vflag'] = -9
-        
         voids = Table(self.holes)
 
-        for i in range(len(galaxies)):
+        if num_cpus == 1:
 
-            #vflag : integer
-            #0 = wall galaxy
-            #1 = void galaxy
-            #2 = edge galaxy (too close to survey boundary to determine)
-            #9 = outside survey footprint
+            galaxies['vflag'] = -9
+    
+            for i in range(len(galaxies)):
+    
+                #vflag : integer
+                #0 = wall galaxy
+                #1 = void galaxy
+                #2 = edge galaxy (too close to survey boundary to determine)
+                #9 = outside survey footprint
+    
+                galaxies['vflag'][i] = determine_vflag(galaxies_x[i], 
+                                                       galaxies_y[i], 
+                                                       galaxies_z[i], 
+                                                       voids, 
+                                                       mask, 
+                                                       mask_res, 
+                                                       rmin,
+                                                       rmax)
+            
+        else:
+            
+            num_flags = len(galaxies_x)
+                
+            index_coordinator = Value(c_int64, 0, lock=True)
+    
+            file_descriptor, ARRAY_BUFFER_PATH = tempfile.mkstemp(prefix="catalog_vflag", 
+                                                                   dir="/dev/shm", 
+                                                                   text=False)
+                
+            buffer_length = num_flags*4 # 4 byte int32
+                
+            os.ftruncate(file_descriptor, buffer_length)
+                
+            array_buffer = mmap.mmap(file_descriptor, 0)
+            
+            os.unlink(ARRAY_BUFFER_PATH)
+            
+            vflags = np.frombuffer(array_buffer, dtype=np.int32)
+            
+            vflags[:] = 0.
+    
+            vflags.shape = (num_flags,)
+            
+            startup_context = multiprocessing.get_context("fork")
+                
+            processes = []
 
-            galaxies['vflag'][i] = determine_vflag(galaxies_x[i], 
-                                                   galaxies_y[i], 
-                                                   galaxies_z[i], 
-                                                   voids, 
-                                                   mask, 
-                                                   mask_res, 
-                                                   rmin,
-                                                   rmax)
+            for proc_idx in range(num_cpus):
+
+                p = startup_context.Process(target=determine_vflag_worker, 
+                                            args=(num_flags, 
+                                                  index_coordinator, 
+                                                  file_descriptor,
+                                                  galaxies_x, # i
+                                                  galaxies_y, # i
+                                                  galaxies_z, # i
+                                                  voids, 
+                                                  mask, 
+                                                  mask_res, 
+                                                  rmin,
+                                                  rmax
+                                                  ))
+                
+                p.start()
+                
+                processes.append(p)
+                
             
+            for p in processes:
             
-        # Write output to the catalog object
-        
-        self.vflag = self.galaxies['gal','vflag']
+                p.join(None) #block till join
+                
+            # Write output to the catalog object
+
+            galaxies['vflag'] = vflags
+            
+            self.vflag = self.galaxies['gal','vflag']
 
         # If user desires to output vflags to the galaxy file
         if os.path.realpath(vflag_path) == os.path.realpath(self.galaxies_path):
@@ -1003,7 +1281,10 @@ class V2Catalog(VoidCatalog):
         file_name (string): The location of the void catalog file.
         
         """
-        self._catalog = open_fits_file_V2(file_name,None)  
+        if os.path.exists(file_name):
+            self._catalog = open_fits_file_V2(file_name,None)  
+        else:
+            raise FileNotFoundError(file_name)
 
 
     def calculate_ellipticity(self, save_to_catalog = True):
@@ -1041,12 +1322,16 @@ class V2Catalog(VoidCatalog):
                                      self.voids['x2']**2 + self.voids['y2']**2 + self.voids['z2']**2,
                                      self.voids['x3']**2 + self.voids['y3']**2 + self.voids['z3']**2])
         
-        # calculate the A_1 and A_3 terms
-        axis_a1_square = np.min(axis_mag_squared, axis=0)
-        axis_a3_square = np.max(axis_mag_squared, axis=0)
+        # calculate MOI tensor eigenvalues
+        eigen_0 = (axis_mag_squared[1] + axis_mag_squared[2])/5
+        eigen_1 = (axis_mag_squared[0] + axis_mag_squared[2])/5
+        eigen_2 = (axis_mag_squared[0] + axis_mag_squared[1])/5
+
+        eig_min = np.min(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
+        eig_max = np.max(np.array([eigen_0, eigen_1, eigen_2]), axis=0)
 
         #calculate the ellipticity
-        ellipticity = 1 - np.sqrt(axis_a1_square/axis_a3_square)
+        ellipticity = 1 - np.power(eig_min/eig_max, 0.25)
 
         self.voids['ellip'] = ellipticity
         
@@ -1610,6 +1895,26 @@ class VoidCatalogStacked ():
             res.append(self._catalogs[cat].galaxy_membership(custom_mask_hdu, return_selector, rmin, rmax, mag_lim))
             
         return res
+
+    def calculate_ellipticity(self, save_to_catalog = True):
+        """
+        Calculates voronoi void ellipticity following the definiton used in 
+        https://arxiv.org/abs/1406.1191
+
+        ellipticity = 1 - (J_1/J_3)^(1/4)
+
+        where J_1 is the minor axis of the best fit ellipsoid, and J_3 is the major axis of the best 
+        fit ellipsoid
+
+        params:
+        ---------------------------------------------------------------------------------------------
+        save_to_catalog (bool): If True (default value), the ellipticity values are saved to the 
+            catalog file.
+
+        """
+
+        for cat in self._catalogs:
+            self._catalogs[cat].calculate_ellipticity(save_to_catalog)
     
 class VoidFinderCatalogStacked (VoidCatalogStacked):
     
@@ -1722,7 +2027,7 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
             print('Median Reff (V. Fid):', mknum(np.median(reff)), '+/-',mknum(uncert_median),'Mpc/h')
             print('Maximum Reff (V. Fid):', mknum(np.max(reff)),'Mpc/h')
         
-    def calculate_r_eff(self, overwrite = False):
+    def calculate_r_eff(self, overwrite = False, save_every = None, num_cpus = 1, calculate_ellipsoid=False):
         """
         Calculates the effective radii of voids in a VoidFinder catalog.
         
@@ -1732,13 +2037,18 @@ class VoidFinderCatalogStacked (VoidCatalogStacked):
             previously been calculated. When set to True, this behavior is disabled. Defaults to 
             False.
     
-        save_every (int): Integer that determines how fequently to save the calcualted output, 
+        save_every (int): Integer that determines how frequently to save the calcualted output, 
             corresponding to the number of voids per save. If None, all void radii are calculated 
-            with no intermediate saving.
+            with no intermediate saving. Only usable in single-threaded mode.
+
+        num_cpus (int): the number of cpus utilized for the calculation 
+
+        calculate_ellipsoid (bool): Whether or not to calcualte the best fit ellipsoid from the 
+            Monte Carlo samples. Defaults to False.
         """
         
         for cat in self._catalogs:
-            self._catalogs[cat].calculate_r_eff(overwrite)
+            self._catalogs[cat].calculate_r_eff(overwrite, save_every, num_cpus, calculate_ellipsoid)
             
         
 class V2CatalogStacked (VoidCatalogStacked):
@@ -1851,26 +2161,6 @@ class V2CatalogStacked (VoidCatalogStacked):
         print('Mean Reff (V. Fid):', mknum(np.mean(reff)), '+/-',mknum(uncert_mean),'Mpc/h')
         print('Median Reff (V. Fid):', mknum(np.median(reff)), '+/-',mknum(uncert_median),'Mpc/h')
         print('Maximum Reff (V. Fid):', mknum(np.max(reff)),'Mpc/h')
-
-    def calculate_ellipticity(self, save_to_catalog = True):
-        """
-        Calculates voronoi void ellipticity following the definiton used in 
-        https://arxiv.org/abs/1406.1191
-
-        ellipticity = 1 - (J_1/J_3)^(1/4)
-
-        where J_1 is the minor axis of the best fit ellipsoid, and J_3 is the major axis of the best 
-        fit ellipsoid
-
-        params:
-        ---------------------------------------------------------------------------------------------
-        save_to_catalog (bool): If True (default value), the ellipticity values are saved to the 
-            catalog file.
-
-        """
-
-        for cat in self._catalogs:
-            self._catalogs[cat].calculate_ellipticity(save_to_catalog)
                 
         
 def mknum (flt):
@@ -1997,4 +2287,158 @@ def combine_overlaps(overlaps, do_print=True, do_return=True):
     
     if do_return:
         return (n_V1_V2/n_points, (n_V1_V2+n_V1_not_V2)/n_points, (n_V1_V2+n_V2_not_V1)/n_points, n_points )
+
+
+
+def r_eff_worker(num_voids,
+                index_coordinator,
+                file_descriptor,
+                num_columns,
+                holes_copy, 
+                hole_flag_bounds,
+                calculate_ellipsoid,
+               ):
+    """Apply central density cuts to the void catalog in parallel.
+
+    Parameters
+    ----------
+    num_voids : int
+        The total number of voids in the catalog
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes
+    num_columns: int
+        The number of columsn in the output
+    holes_copy : astropy table
+        The coordinates of the holes sorted by their void flag
+    hole_flag_bounds : ndarray
+        Indexes for selecting each void in the holes table
+    calculate_ellipsoid (bool): Whether or not to calcualte the best fit ellipsoid from the 
+        Monte Carlo samples. Defaults to False.
+        
+    """
+    
+    buffer_length = num_voids*8*num_columns  #8 byte float64
+
+    buffer = mmap.mmap(file_descriptor, buffer_length)
+    
+    effective_radii = np.frombuffer(buffer, dtype=np.float64)
+
+    effective_radii.shape = (num_voids, num_columns)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= num_voids:
+            break
+
+
+        lower_idx = hole_flag_bounds[curr_index]
+        upper_idx = hole_flag_bounds[curr_index+1]
+        holes = holes_copy[lower_idx : upper_idx]
+        positions = np.array([holes['x'], holes['y'], holes['z']]).T
+        radius = holes['radius'].data
+        vol_info = vol.volume_of_spheres(positions, radius, calculate_ellipsoid=calculate_ellipsoid)
+        r_eff = ((3/4) * vol_info[2] / np.pi) ** (1/3) 
+        r_eff_uncert = vol_info[3] * ((3 * vol_info[2]) ** -2 / (4 * np.pi)) ** (1/3) 
+
+        effective_radii[curr_index,0] = r_eff
+        effective_radii[curr_index,1] = r_eff_uncert
+        
+        if calculate_ellipsoid:
+            
+            ellipsoid = vol_info[4]
+            effective_radii[curr_index, 2:5] = ellipsoid[0]
+            effective_radii[curr_index, 5:8] = ellipsoid[1]
+            effective_radii[curr_index, 8:11] = ellipsoid[2]
+
+def determine_vflag_worker (num_flags, 
+                            index_coordinator,
+                            file_descriptor,
+                            x_positions, # i
+                            y_positions, # i
+                            z_positions, # i
+                            voids, 
+                            mask, 
+                            mask_res, 
+                            rmin,
+                            rmax
+                           ):
+    
+    """Determines galaxy vflags in parallel.
+
+    params:
+    ---------------------------------------------------------------------------------------------
+    num_flags : int
+        The total number of galaxy flags to calculate
+    index_coordinator : multiprocessing.Value
+        Index for coordinating void selection between parallel processes
+    file_descriptor : int
+        The file descriptor integer used to reference the shared memory for the parallel processes
+    x_pos : ndarray
+        Galaxy x positions
+    y_pos : ndarray
+        Galaxy y positions
+    z_pos : ndarray
+        Galaxy z positions
+    voids : astropy table
+        The void hole positions and radii
+    mask (ndarray): The Cartesian mask
+    mask_res (int): The mask resolution
+    rmin (float): The minimum comoving distnace limit of the catalog
+    rmax (float): The maximum comoving distnace limit of the catalog
+
+    returns:
+    ---------------------------------------------------------------------------------------------
+        
+    """
    
+                                 
+    
+    buffer_length = num_flags*4 #np.int32 so 4 bytes per element
+
+    buffer = mmap.mmap(file_descriptor, buffer_length)
+    
+    vflags = np.frombuffer(buffer, dtype=np.int32)
+
+    vflags.shape = (num_flags,)
+    
+    curr_index = 0
+    
+    while True:
+        
+        index_coordinator.acquire()
+        
+        curr_index = index_coordinator.value
+        
+        index_coordinator.value += 1
+        
+        index_coordinator.release()
+    
+        if curr_index >= num_flags:
+            break
+
+        x_position = x_positions[curr_index]
+        y_position = y_positions[curr_index]
+        z_position = z_positions[curr_index]
+
+        vflag = determine_vflag(x_position, 
+                                y_position, 
+                                z_position, 
+                                voids, 
+                                mask, 
+                                mask_res, 
+                                rmin,
+                                rmax)
+
+        vflags[curr_index] = vflag

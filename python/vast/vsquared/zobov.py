@@ -121,6 +121,7 @@ class Zobov:
 
         capitalize_colnames : bool
             If True, column names in ouput file are capitalized. If False, column names are lowercase
+
         """
         
         self.verbose = verbose
@@ -161,11 +162,20 @@ class Zobov:
         ################################################################################
         self.infile  = config['Paths']['Input Catalog'] if custom_cat_name is None else 'None'
 
+        try:
+            self.randfile  = config['Paths']['Input Randoms']
+            if self.randfile == "None": self.randfile = None
+        except KeyError:
+            self.randfile = None
+
         self.catname = config['Paths']['Survey Name'] if custom_cat_name is None else custom_cat_name
         
         self.outdir  = config['Paths']['Output Directory']
         
         self.intloc  = self.outdir +"/intermediate/" + self.catname
+
+        self.maskfile  = config['Paths']['Mask File']
+        if self.maskfile == "None": self.maskfile = None
         
         self.H0   = float(config['Cosmology']['H_0'])
         
@@ -193,9 +203,7 @@ class Zobov:
         self.buff = float(config['Settings']['buffer'])
         
         self.column_names = config['Galaxy Column Names']
-        
-        
-        
+                
         ################################################################################
         # Some additional sanity checks
         ################################################################################
@@ -265,6 +273,7 @@ class Zobov:
                 start_time = time.time()
             
             ctlg = Catalog(catfile=self.infile,
+                           randfile = self.randfile,
                            nside=self.nside,
                            zmin=self.zmin,
                            zmax=self.zmax,
@@ -278,6 +287,7 @@ class Zobov:
                            cmin=self.cmin,
                            cmax=self.cmax, 
                            zobov=self,
+                           maskfile = self.maskfile,
                            verbose=self.verbose)
             
             if self.verbose > 0:
@@ -410,6 +420,12 @@ class Zobov:
         
         
         hduh['INFILE'] = (self.infile.split('/')[-1], 'Input Galaxy Table') #split directories by '/' and take the filename at the end
+
+        if self.randfile is not None:
+            hduh['RANDFILE'] = (self.randfile.split('/')[-1], 'Input Randoms Catalog')
+
+        if self.maskfile is not None:
+            hduh['MASKFILE'] = (self.maskfile.split('/')[-1], 'Input Angular Mask')
         
         hduh['HP'] = (self.H0/100, 'Reduced Hubble Parameter h (((km/s)/Mpc)/100)')
         
@@ -736,6 +752,7 @@ class Zobov:
             if self.num_cpus == 1:
                 # number of galaxies within 1/4th of the void radius divided by volume 4/3*pi*(R/4)^3
                 # should be less than the user specified fraction of the mean density
+                # TODO: implment weights and randoms into central dnesity calculation
                 dcut = np.array([64.*num_coords_in_sphere(vcens[i], vrads[i]/4., cutco, self.periodic, self.cmin, self.cmax)/vvols[i] for i in range(len(vrads))])<1./minvol_scaled
             else:
                 #parallel version

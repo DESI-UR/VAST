@@ -558,10 +558,20 @@ def getSMA(vrad, void_center, coords, periodic, cmin, cmax):
 
     # eigenvalues
     eival,eivec = np.linalg.eig(tensor_I)
-    eival = eival**.25
-    rfac = vrad/(np.prod(eival)**(1./3))
-    eival = eival*rfac
-        
+
+    # principal axes of ellipsod
+    a = np.sqrt(5/2 * ( - eival[0] + eival[1] + eival[2] ))
+    b = np.sqrt(5/2 * (   eival[0] - eival[1] + eival[2] ))
+    c = np.sqrt(5/2 * (   eival[0] + eival[1] - eival[2] ))
+
+    eival[0] = a
+    eival[1] = b
+    eival[2] = c
+
+    # normalize principal axes to unit ellipse and then scale to void size (factors of (4/3 pi)^(1/3) cancel out)
+    eival =  vrad * eival/((np.prod(eival))**(1./3))
+
+    # scale axes components (eigenvectors) by axes lengths
     return eival.reshape(3,1)*eivec.T
 
 
@@ -827,3 +837,81 @@ def galzone_worker(ngal,
                 # mark as non-edge galaxy
                 elist[glut[c]] = 0
 
+def scale_volumes_by_randoms(tessellation, catalog, periodic, xyz, cmin, cmax):
+
+    coords = catalog.coord[catalog.nnls==np.arange(len(catalog.nnls))] 
+
+    if periodic or xyz:
+
+        raise ValueError('Randoms are note supported for periodic or xyz mode.')
+         
+    else: 
+
+        num_gals = coords.shape[0]
+        survey_volume = catalog.total_volume
+        mean_galaxy_separation = (survey_volume / num_gals)**(1/3)
+        
+        dist = np.sqrt(coords[:,0]*coords[:,0] + coords[:,1]*coords[:,1] + coords[:,2]*coords[:,2])
+    
+        min_r = np.min(dist)
+        max_r = np.max(dist)
+        num_r_bins = int((max_r - min_r) / mean_galaxy_separation)
+        r_bins = np.linspace(min_r, max_r, num_r_bins)
+        print(f'Randoms: {num_r_bins} number density bins between {mknumV2(min_r)} and {mknumV2(max_r)} Mpc/h')
+        
+        weights_rand = None
+            
+        if hasattr(catalog, 'weights_rand'):
+
+            weights_rand = catalog.weights_rand 
+    
+            inverse_weights = True # TODO: make user input (True for DESI LSS catalogs)
+            
+            if inverse_weights:
+                zero_rand = weights_rand==0.
+                if np.any(zero_rand):
+                    print(f'WARNING: {np.sum(zero_rand)} out of {len(zero_rand)} randoms have a weight of 0. Reassigning weights to 1.')
+                    weights_rand[zero_rand] = 1.
+
+        grid_norm = 0
+        randoms_multiplier = np.zeros(num_gals)
+
+        for r_bin_low, r_bin_high in zip(r_bins[:-1], r_bins[1:]):
+            
+            select_shell = (r_bin_low<=dist)*(r_bin_high>=dist)
+
+            shell_volume = survey_volume * (r_bin_high**3 - r_bin_low**3) / (r_bins[-1]**3 - r_bins[0]**3)
+
+            shell_number_density = np.sum(select_shell) / shell_volume
+
+            randoms_grid_size = shell_number_density**(-1/3)
+
+            print(f'Randoms grid size of cell length {mknumV2(randoms_grid_size)} from {mknumV2(r_bin_low)} to {mknumV2(r_bin_high)} Mpc/h')
+
+            # place randoms on grid
+            grid_randoms, _ = np.histogramdd(catalog.rand, 
+                                   bins=(int(np.ceil((cmax[0]-cmin[0])/randoms_grid_size)),
+                                         int(np.ceil((cmax[1]-cmin[1])/randoms_grid_size)),
+                                         int(np.ceil((cmax[2]-cmin[2])/randoms_grid_size))),
+                                   weights = weights_rand,
+                                     )
+        
+            grid_norm = max(grid_norm, np.max(grid_randoms)/(randoms_grid_size**3)) #used for final normalization
+            grid_randoms = grid_randoms / (randoms_grid_size**3) # setup for downweighting Voronoi cell volumes
+            galaxy_grid_indices = np.floor((coords[select_shell] - cmin)/randoms_grid_size).astype(int) # indices of galaxies on grid
+            randoms_multiplier[select_shell] = grid_randoms[galaxy_grid_indices[:,0], galaxy_grid_indices[:,1], galaxy_grid_indices[:,2]] #weights for each galaxy from randoms
+
+        randoms_multiplier = randoms_multiplier / grid_norm # downweight Voronoi cell volumes
+
+    finite_density = tessellation.volumes != 0.
+        
+    empty_randoms_cells = randoms_multiplier[finite_density]==0.
+        
+    if np.any(empty_randoms_cells):
+
+        print(f'WARNING: {np.sum(empty_randoms_cells)} of {len(empty_randoms_cells)} galaxies detected without randoms in their grid cells. Their weights will be set to 1.')
+
+        randoms_multiplier[randoms_multiplier==0.] = 1.
+        
+    tessellation.weights[finite_density] = tessellation.weights[finite_density] / randoms_multiplier[finite_density]
+        

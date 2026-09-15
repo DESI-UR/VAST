@@ -127,6 +127,8 @@ def generate_mask(gal_data,
     ang = np.concatenate((ra.reshape(num_galaxies, 1), 
                           dec.reshape(num_galaxies,1)), 
                          axis=1)
+    # offset galaxies at poles to prevent indexing error
+    ang[:,1][ang[:,1]==90.] = 89.999
     ############################################################################
 
 
@@ -164,7 +166,6 @@ def generate_mask(gal_data,
     # we only need to set that integer bucket to "True" once.
     #---------------------------------------------------------------------------
     scaled_converted_ang = (mask_resolution*ang).astype(int)
-    
     pre_mask = np.unique(scaled_converted_ang, axis=0)
     ############################################################################
 

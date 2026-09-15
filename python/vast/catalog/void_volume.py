@@ -1,4 +1,7 @@
 import numpy as np
+from scipy.spatial.distance import cdist
+
+from vast.vsquared.util import getSMA
 
 """
 This code has been adopted from the following individuals: Kelly Douglass
@@ -28,21 +31,19 @@ def bounding_volume(x, R):
     
     xmax (numpy array of floats of shape 3): Upper corner of volume.
     """  
-    n, d = x.shape
     
     # Compute the corners of the bounding parallelpiped containing
     # the group of spheres. Then store the volume.
-    xmin = np.copy(x[-1])
-    xmax = np.copy(xmin)
 
-    for i in range(n):
-        xmin = np.minimum(xmin, x[i] - R[i])
-        xmax = np.maximum(xmax, x[i] + R[i])
+    xmax = np.max(x.T + R, axis=1)
+
+    xmin = np.min(x.T - R, axis=1)
+    
     vol = np.prod(xmax - xmin)
     
     return vol, xmin, xmax
 
-def volume_of_spheres(x, R, nsamples=10000):
+def volume_of_spheres(x, R, nsamples=10000, calculate_ellipsoid=False):
     """
     
     Obtains the volume, with uncertainties, of the intersection and union of
@@ -56,6 +57,9 @@ def volume_of_spheres(x, R, nsamples=10000):
     R (numpy array of floats of shape N): Radii of N input spheres.
     
     nsamples (int): Number of Monte Carlo samples to generate.
+
+    calculate_ellipsoid (bool): Whether or not to calcualte the bast fit ellipsoid from the 
+        Monte Carlo samples. Defaults to False.
     
     returns:
     ---------------------------------------------------------------------------------------------
@@ -67,34 +71,24 @@ def volume_of_spheres(x, R, nsamples=10000):
     
     udv (float): Uncertainty in union volume.
     """
-    n, d = x.shape
-    R2 = R**2
-    
     vol, xmin, xmax = bounding_volume(x, R)
 
-    # Track unions and joint intersections per spherical volume.
-    n_inter, n_union = 0, 0
+
+    obsd = np.random.uniform(low=xmin, high=xmax, size=(nsamples, 3))
+
+    dist = cdist(obsd, x, metric='euclidean')
+
+    points_in_holes = dist <= R
+
+    # Track union and intersection. Note that intersection
+    # looks for the intersecting regions of *all n* spheres,
+    # not pairs of spheres.
     
-    for iobs in range(nsamples):
-        obsd = np.random.uniform(low=xmin, high=xmax)
+    n_inter = np.count_nonzero(np.all(points_in_holes, axis=1))
 
-        ioint = True
-        uoint = False
+    union_points = np.any(points_in_holes, axis=1)
+    n_union = np.count_nonzero(union_points)
 
-        for i in range(n):
-            z2 = np.sum((obsd - x[i])**2)
-            internal = z2 <= R2[i]
-            
-            # Track union and intersection. Note that intersection
-            # looks for the intersecting regions of *all n* spheres,
-            # not pairs of spheres.
-            uoint = uoint or internal
-            ioint = ioint and internal
-
-        if ioint:
-            n_inter += 1
-        if uoint:
-            n_union += 1
 
     # Calculate intersecting volume and accuracy.
     # Based on binomial probability of point inside intersection.
@@ -114,5 +108,17 @@ def volume_of_spheres(x, R, nsamples=10000):
     usigma = np.sqrt(uzp * uzq / nsamples)
     udv = vol * usigma
 
-    return ivol, idv, uvol, udv
+    if calculate_ellipsoid:
+        # uniformly spread points througout void
+        uniform_points = obsd[union_points]
+        # center of void
+        center = np.mean(uniform_points, axis=0)
+        # radius of void
+        r_eff= np.power(3/4 * uvol / np.pi, 1/3)
+        
+        ellipsoid = getSMA(r_eff, center, uniform_points, False, None, None)
+    else: 
+        ellipsoid = None
+
+    return ivol, idv, uvol, udv, ellipsoid
 
